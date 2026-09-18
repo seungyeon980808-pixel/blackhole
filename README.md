@@ -9,6 +9,7 @@
 - 명시적으로 선택한 Calendar에만 파생 일정 생성
 - Google Sheets/Drive 동기화와 Apps Script 웹 승인함
 - Windows Tauri 읽기 전용 승인 문서함과 로컬 fixture/cache 계약
+- Windows Desktop 왼쪽의 빠른 기록을 로컬 Google Drive 동기화 Inbox로 저장하는 raw Markdown 캡처
 - package: `com.malhaedwo.pttprobe` (기존 업데이트 호환을 위해 유지)
 
 기존 코드의 화면·내부 명칭에는 이전 이름 “말해둬”가 남아 있습니다. 저장소/제품 이름은 Ya이며, 이번 공개용 복사본은 기능 전체의 이름 변경 작업과 구분합니다.
@@ -95,7 +96,17 @@ npm run acceptance
 cargo test --locked --manifest-path src-tauri/Cargo.toml
 ```
 
-실제 Google OAuth와 운영 데이터 연결은 아직 구현하지 않았습니다. 화면은 fixture/cache 상태를 명확히 표시하며, 운영 데이터에 쓰지 않습니다. Windows 설치본은 CI artifact로만 생성하고 Git에는 커밋하지 않습니다.
+승인 문서함의 실제 Google OAuth와 운영 데이터 연결은 아직 구현하지 않았습니다. 화면은 fixture/cache 상태를 명확히 표시하며, 운영 승인 데이터에 쓰지 않습니다. Windows 설치본은 CI artifact로만 생성하고 Git에는 커밋하지 않습니다.
+
+Ya Desktop의 왼쪽 **빠른 기록**은 Google Drive for desktop이 로컬에 동기화한 `내 드라이브/1. 개인작업/Inbox` 폴더에 Markdown 원본을 저장합니다. 앱은 Wiki를 직접 수정하거나 Drive 파일을 정리·삭제하지 않습니다. Drive for desktop이 실행 중이고 해당 폴더를 오프라인에서 사용할 수 있어야 합니다. 경로를 자동으로 찾지 못하면 `YA_INBOX_PATH` 환경 변수로 Inbox의 실제 로컬 경로를 지정하세요. 브라우저 미리보기에서는 이 기능이 비활성화되고, `npm run tauri dev`로 실행한 네이티브 앱에서 사용합니다.
+
+사용 순서는 다음과 같습니다.
+
+1. Google Drive for desktop을 실행하고 Inbox 동기화 폴더를 준비합니다.
+2. Ya Desktop의 빠른 기록에 메모를 입력하고 **인박스에 저장**을 누릅니다.
+3. Codex에서 Google Drive 인박스 정리를 지시합니다. SecondBrain이 원본을 보존한 채 Markdown Wiki 문서를 만들고, 처리가 끝난 원본은 `처리완료/<주제>`로 이동하는 정책을 따릅니다.
+
+Android 앱의 음성 기록은 아직 이 Inbox로 직접 보내지 않습니다. 실제 모바일 연결에는 Google OAuth 설정, 대상 Drive 폴더 식별자, 필요한 읽기·쓰기 범위를 별도로 확정해야 합니다.
 
 ## LLM Wiki 읽기 전용 기반
 

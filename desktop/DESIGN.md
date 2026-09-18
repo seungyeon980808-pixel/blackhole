@@ -37,3 +37,7 @@ narrow:  top nav
 ```
 
 The queue remains persistent on desktop widths. Below 800px, regions reflow vertically instead of clipping.
+
+## Quick capture
+
+The navigation rail may include a compact **빠른 기록** section. It is a capture surface for short raw notes, not a second approval queue or Wiki editor. The section shows whether the local Google Drive sync Inbox is connected, disables capture when it is unavailable, and confirms the generated filename after a successful save. It must remain visually subordinate to the approval queue and preserve the existing navigation, queue, and inspection hierarchy.

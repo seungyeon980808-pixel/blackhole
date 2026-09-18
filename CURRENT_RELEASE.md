@@ -1,6 +1,6 @@
 # Current release baseline
 
-Updated: 2026-09-15 KST
+Updated: 2026-09-19 KST
 
 ## Android 0.9.0 / code 25
 
@@ -41,6 +41,7 @@ Implemented:
 - 23-column Items contract
 - Approval-document workspace with fixed navigation, review queue, and detail surface
 - Explicit non-live data state
+- Quick capture panel that writes raw Markdown to the local Google Drive sync Inbox
 
 Verified locally:
 
@@ -48,6 +49,8 @@ Verified locally:
 - TypeScript/Vite build
 - Acceptance checks
 - Major text/background contrast at least 5.26:1
+- Quick capture connected/unavailable states and bounded message capture tests
+- Native Tauri build with `YA_INBOX_PATH` override and Inbox write command tests
 
 Verified in GitHub Actions:
 
@@ -66,6 +69,12 @@ Blocked:
 - Actual Windows install, launch, remove, WebView2, SmartScreen, and 100/125/150% scaling checks
 - Live Google read-only OAuth/cache validation
 - Wiki provider selection and integration
+- Android-to-Inbox capture: real OAuth configuration, Drive folder ID, and scope have not been supplied
+
+Quick capture boundary:
+
+- Desktop writes only raw Markdown files to the local Drive sync folder. It does not call the Google Drive API, write Wiki pages, move Inbox files, or delete processed originals.
+- The default macOS discovery is `~/Library/CloudStorage/GoogleDrive-*/내 드라이브/1. 개인작업/Inbox`; set `YA_INBOX_PATH` when the local sync layout differs.
 
 ## Branch map
 

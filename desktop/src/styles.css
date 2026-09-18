@@ -44,6 +44,16 @@ button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: no
 .nav-button.is-active { background: #fff; color: var(--nav); font-weight: 600; }
 .nav-button.is-active span { border-color: var(--blue); background: var(--blue); }
 .nav-button:disabled { opacity: .55; }
+.quick-capture { margin: 0 12px 16px; padding: 14px; border: 1px solid #ffffff2b; background: var(--nav); }
+.quick-capture h2 { margin: 0; color: #fff; font-size: 14px; line-height: 20px; }
+.quick-capture__detail { margin: 6px 0 0; color: #b8c4d6; font-size: 12px; line-height: 16px; }
+.quick-capture small { display: block; margin-top: 5px; overflow: hidden; color: #8f9db2; font-size: 12px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.quick-capture form { display: grid; gap: 7px; margin-top: 10px; }
+.quick-capture textarea { width: 100%; min-height: 78px; padding: 8px; resize: vertical; border: 1px solid #506078; border-radius: 4px; background: var(--nav); color: #fff; font-size: 12px; line-height: 17px; }
+.quick-capture textarea::placeholder { color: #9eabc0; }
+.quick-capture button { min-height: 32px; border: 1px solid #9bbce9; border-radius: 4px; background: var(--blue-soft); color: var(--nav); font-size: 12px; font-weight: 650; }
+.quick-capture__feedback { min-height: 16px; margin: 0; color: #d9e7fb; font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
+.quick-capture button:disabled, .quick-capture textarea:disabled { opacity: .55; }
 .sidebar__version { margin-top: auto; padding: 18px 22px 22px; border-top: 1px solid #ffffff1f; color: #aeb9ca; font-size: 12px; line-height: 1.55; }
 
 main { min-width: 0; height: 100vh; display: grid; grid-template-rows: 76px 42px minmax(0, 1fr); overflow: hidden; }

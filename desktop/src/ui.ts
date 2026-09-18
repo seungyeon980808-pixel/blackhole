@@ -2,6 +2,8 @@ import type { ConnectionStatus, Item, ItemStatus } from "./domain";
 import { WRITE_DISABLED_REASON } from "./domain";
 import { defaultWikiPanel, mountWikiPanel } from "./wiki/panel";
 import type { WikiPanelDependencies } from "./wiki/panel";
+import { mountInboxCapture, unavailableInboxCapture } from "./inbox";
+import type { InboxCaptureDependencies } from "./inbox";
 
 type Filter = "ALL" | "PENDING" | "APPROVED";
 
@@ -138,7 +140,13 @@ function detailPane(item: Item | undefined): string {
   </section>`;
 }
 
-export function createApp(root: HTMLElement, items: Item[], connection: ConnectionStatus, wiki: WikiPanelDependencies = defaultWikiPanel()): void {
+export function createApp(
+  root: HTMLElement,
+  items: Item[],
+  connection: ConnectionStatus,
+  wiki: WikiPanelDependencies = defaultWikiPanel(),
+  inbox: InboxCaptureDependencies = unavailableInboxCapture
+): void {
   let filter: Filter = "ALL";
   let selectedId = items.find((item) => item.status !== "DELETED")?.itemId ?? "";
 
@@ -162,6 +170,7 @@ export function createApp(root: HTMLElement, items: Item[], connection: Connecti
           <button class="nav-button" type="button" disabled title="후속 버전에서 제공됩니다."><span aria-hidden="true"></span>알림 기록</button>
           <button class="nav-button" type="button" disabled title="후속 버전에서 제공됩니다."><span aria-hidden="true"></span>설정</button>
         </nav>
+        <section class="quick-capture" data-testid="inbox-capture" aria-label="빠른 기록"></section>
         <div class="sidebar__version">개인용 미리보기<br>버전 0.1.1</div>
       </aside>
 
@@ -201,6 +210,8 @@ export function createApp(root: HTMLElement, items: Item[], connection: Connecti
 
     const wikiHost = root.querySelector<HTMLElement>('[data-testid="wiki-panel"]');
     if (wikiHost) mountWikiPanel(wikiHost, wiki);
+    const inboxHost = root.querySelector<HTMLElement>('[data-testid="inbox-capture"]');
+    if (inboxHost) mountInboxCapture(inboxHost, inbox);
     root.querySelectorAll<HTMLButtonElement>("[data-filter]").forEach((button) => {
       button.addEventListener("click", () => {
         filter = button.dataset.filter as Filter;

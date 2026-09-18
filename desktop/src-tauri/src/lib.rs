@@ -1,6 +1,7 @@
 mod cache;
 mod commands;
 mod fixtures;
+mod inbox;
 mod models;
 mod wiki;
 
@@ -12,6 +13,8 @@ pub fn run() {
             commands::bootstrap_fixture,
             commands::load_local_cache,
             commands::store_local_cache,
+            inbox::get_inbox_status,
+            inbox::capture_inbox_message,
             wiki::load_wiki_cache,
             wiki::store_wiki_cache
         ])
