@@ -11,10 +11,11 @@ Implemented:
 - Explicit stop disables restoration even when the service instance is absent
 - System-bar inset handling for native scrolling screens
 - Existing reminder, Calendar, sync, DB, WAV, and approval boundaries retained
+- 승인된 일정 알림을 Android 잠금화면에 표시하되 제목·예약 시각·짧은 알림 문구만 노출하고 전사 원문은 제외
 
 Verified:
 
-- Android host wiring: 45 cases / 376 assertions
+- Android host wiring: 46 cases / 381 assertions
 - PTT lifecycle harness: 39 assertions
 - System-bar inset harness: 28 assertions
 - Manual Java/D8/APK pipeline and same-signature update were previously exercised with the private toolchain
@@ -28,6 +29,7 @@ Not guaranteed or still separate:
 - Natural long-duration Doze and OEM process reclaim
 - Actual sound, vibration, and heads-up observation
 - Posted-notification cleanup through a currently reachable UI path
+- Android 제조사별 잠금화면 표시 방식과 실제 소리·진동·헤드업 동작
 - Network-failure recovery regression
 
 No APK, signing material, user DB, WAV, OAuth token, or private device evidence is committed.

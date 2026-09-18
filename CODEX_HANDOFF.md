@@ -49,7 +49,7 @@ Relevant files:
 
 ## Implemented milestone: LLM Wiki read-only foundation
 
-작업 브랜치: `feat/desktop-wiki-readonly-foundation`. 기준선은 `handoff/codex-20260915`의 Desktop 0.1.1이며 Android와 기존 Items 계약·승인·Calendar·알림·Google 동기화 코드는 변경하지 않았습니다.
+작업 브랜치: `feat/desktop-wiki-readonly-foundation`. 기준선은 `handoff/codex-20260915`의 Desktop 0.1.1이며 Android의 승인·Calendar·Google 동기화 계약은 유지하고, 승인된 일정의 잠금화면 알림 표시만 보강했습니다.
 
 - `desktop/src/wiki/source.ts`: provider-neutral 검색·조회와 결과/cache 계약, HTTPS 원문 링크 검증.
 - `fixture.ts`, `service.ts`: 비민감 인공 자료, offline cache 검색, 24시간 freshness, empty/provider/cache 오류.
@@ -58,7 +58,7 @@ Relevant files:
 - `inbox.ts`, `bridge.ts`, `main.ts`, `src-tauri/src/inbox.rs`: 기존 왼쪽 navigation에 채팅형 빠른 기록 대기열을 추가했습니다. 기록 추가는 Drive에 쓰지 않고, 사용자가 동기화를 누를 때 대기 중인 각 기억을 로컬 Google Drive 동기화 Inbox에 raw Markdown으로 저장합니다. 실패한 기록은 재시도할 수 있습니다. `YA_INBOX_PATH`로 경로를 명시할 수 있고, 기본 macOS 탐색은 `GoogleDrive-*/내 드라이브/1. 개인작업/Inbox`만 사용합니다. 브라우저 미리보기에서는 저장을 비활성화합니다.
 - `tests/wiki.test.ts`, `tests/wiki-panel.test.ts`, `tests/wiki-cache.test.ts`: offline/empty/stale/provider/cache 오류, 상세 화면 통합, 직접 검색어 경계와 안전한 링크 검사. Tauri의 문자열 오류는 typed cache 오류로 정규화하며 저장 실패 시 읽을 수 있는 fixture 결과를 유지합니다.
 
-검증 결과: 기존 UI 5개 포함 TypeScript 20개, Rust 8개 통과. TypeScript/Vite 빌드와 acceptance 통과. Android host wiring 45 cases/376 assertions, insets 28 assertions, PTT 39 assertions도 통과했습니다. 브라우저에서 인공 자료 검색·빈 결과·키보드 포커스를 직접 조작하고 1180px/700px 화면을 확인했습니다. cache 문자열 오류 회귀는 정규화를 제거하면 2개 실패하고 복원하면 통과하는 것을 확인했습니다. 이는 실제 Windows 설치나 운영 Wiki 연결 검증이 아닙니다.
+검증 결과: 기존 UI 5개 포함 TypeScript 20개, Rust 8개 통과. TypeScript/Vite 빌드와 acceptance 통과. Android host wiring 46 cases/381 assertions, insets 28 assertions, PTT 39 assertions도 통과했습니다. 잠금화면 알림 회귀는 승인 일정의 제목·예약 시각만 포함하고 전사 원문을 제외하는지 확인합니다. 브라우저에서 인공 자료 검색·빈 결과·키보드 포커스를 직접 조작하고 1180px/700px 화면을 확인했습니다. cache 문자열 오류 회귀는 정규화를 제거하면 2개 실패하고 복원하면 통과하는 것을 확인했습니다. 이는 실제 Windows 설치나 운영 Wiki 연결 검증이 아닙니다.
 
 실행: `cd desktop`, `npm ci`, `npm test`, `npm run build`, `npm run acceptance`, `cargo test --locked --manifest-path src-tauri/Cargo.toml`. 개발 미리보기는 `npm run dev`, 네이티브 앱은 `npm run tauri dev`입니다. 두 개발 서버를 동시에 시작하지 마세요.
 

@@ -44,11 +44,13 @@ public final class ReminderReceiver extends BroadcastReceiver {
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle(title)
                 .setContentText(text)
-                .setStyle(new Notification.BigTextStyle().bigText(text + (item.transcript == null ? "" : "\n" + item.transcript)))
+                .setStyle(new Notification.BigTextStyle().bigText(text))
                 .setContentIntent(content)
                 .setAutoCancel(true)
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .setPriority(Notification.PRIORITY_HIGH)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setWhen(item.startAt > 0 ? item.startAt : item.reminderAt)
                 .build();
         manager.notify(ReminderScheduler.notificationId(id), notification);
     }

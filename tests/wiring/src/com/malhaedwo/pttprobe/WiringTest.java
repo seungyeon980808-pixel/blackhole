@@ -17,6 +17,7 @@ public final class WiringTest {
   run("PendingIntent identity replacement and cancellation",WiringTest::pendingIntentIdentity);
   run("exact, inexact, and exact-permission denial",WiringTest::exactInexactDenied);
   run("notification app/channel/vibration diagnostics",WiringTest::notificationDiagnostics);
+  run("lock-screen reminder content is safe and timestamped",WiringTest::lockScreenReminderContent);
   run("Calendar marker retry recovers inserted event",WiringTest::markerRetryRecovery);
   run("Calendar update failure state and retry",WiringTest::updateFailureRetry);
   run("Calendar delete failure state and retry",WiringTest::deleteFailureRetry);
@@ -78,6 +79,18 @@ public final class WiringTest {
   TestEnvironment.ContextImpl app=fresh();app.notifications.enabled=false;ReminderScheduler.Result ar=ReminderScheduler.schedule(app,item(92,soon(40),1));eq("BLOCKED",ar.state,"app-wide block");contains(ar.message,"앱 알림", "app setting diagnosed");
   TestEnvironment.ContextImpl channel=fresh();NotificationChannel off=new NotificationChannel(ReminderScheduler.CHANNEL_ID,"x",NotificationManager.IMPORTANCE_NONE);off.enableVibration(true);channel.notifications.setChannel(off);ReminderScheduler.Result cr=ReminderScheduler.schedule(channel,item(93,soon(40),1));eq("BLOCKED",cr.state,"disabled channel blocks");contains(cr.message,"채널", "channel diagnosed");
   TestEnvironment.ContextImpl vibration=fresh();NotificationChannel quiet=new NotificationChannel(ReminderScheduler.CHANNEL_ID,"x",NotificationManager.IMPORTANCE_HIGH);quiet.enableVibration(false);vibration.notifications.setChannel(quiet);ReminderScheduler.Result vr=ReminderScheduler.schedule(vibration,item(94,soon(40),1));eq("EXACT",vr.state,"vibration warning does not conflate delivery/exactness");contains(vr.message,"진동", "vibration setting diagnosed");eq(1,vibration.alarms.alarms.size(),"delivery still scheduled");
+ }
+ private static void lockScreenReminderContent() throws Exception {
+  TestEnvironment.ContextImpl c=fresh(); CaptureDatabase db=CaptureDatabase.get(c); long at=soon(40);
+  long id=seed(db,"lock-screen","APPROVED","SCHEDULE","Lock screen schedule",at,at,1,"NONE",0,null,0,null);
+  CaptureItem stored=db.getItem(id);
+  new ReminderReceiver().onReceive(c,reminderIntent(id,stored.reminderAt,stored.reminderGeneration));
+  Notification posted=c.notifications.notifications.get((int)(10_000+id));
+  notNull(posted,"approved schedule posts a notification");
+  eq(Notification.VISIBILITY_PUBLIC,posted.visibility,"schedule notification is eligible for lock-screen display");
+  eq(at,posted.when,"lock-screen notification carries the scheduled time");
+  no(posted.bigText.contains(stored.transcript),"lock-screen detail excludes the transcript");
+  eq("예약한 알림 시각입니다",posted.text,"lock-screen detail uses a concise schedule message");
  }
  private static void markerRetryRecovery() throws Exception {
   TestEnvironment.ContextImpl c=fresh();CaptureItem x=item(101,soon(60),1);x.uuid="marker-u";x.calendarIdempotencyKey="stable-k";x.calendarSelectedId=7;x.title="First";x.transcript="one";long id=CalendarSync.upsert(c,x);eq(1,c.resolver.events.size(),"first call inserts");eq(1,c.resolver.insertCount,"one insert");

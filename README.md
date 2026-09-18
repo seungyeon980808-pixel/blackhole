@@ -20,7 +20,7 @@
 
 - Android `0.9.0` / versionCode `25`: 지속 PTT opt-in, sticky service recreation, 시스템 바 inset 수정
 - Windows Desktop `0.1.1`: Tauri 기반 읽기 전용 승인 문서함, 로컬 fixture/cache, 23열 Items 계약
-- Android wiring 45 cases / 376 assertions, PTT 39 assertions, system inset 28 assertions
+- Android wiring 46 cases / 381 assertions, PTT 39 assertions, system inset 28 assertions
 - Desktop UI test 5개, TypeScript/Vite build, acceptance 검사
 - Windows Rust/NSIS/MSI는 GitHub Actions에서 통과했지만 실제 Windows 설치·제거·배율 검증은 별도 게이트
 
@@ -122,6 +122,7 @@ Android 앱의 음성 기록은 아직 이 Inbox로 직접 보내지 않습니�
 ## 데이터 안전 원칙
 
 - 승인 전 알림/Calendar 생성 금지
+- 승인된 일정 잠금화면 알림에는 제목·예약 시각·짧은 문구만 표시하고 전사 원문을 포함하지 않음
 - 음성인식·동기화 실패 시 WAV 원본 보존
 - 기존 앱 제거/데이터 초기화 없이 동일 서명 업데이트
 - Calendar 삭제 실패 시 연결 정보와 재시도 상태 보존
