@@ -48,10 +48,20 @@ button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: no
 .quick-capture h2 { margin: 0; color: #fff; font-size: 14px; line-height: 20px; }
 .quick-capture__detail { margin: 6px 0 0; color: #b8c4d6; font-size: 12px; line-height: 16px; }
 .quick-capture small { display: block; margin-top: 5px; overflow: hidden; color: #8f9db2; font-size: 12px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
-.quick-capture form { display: grid; gap: 7px; margin-top: 10px; }
-.quick-capture textarea { width: 100%; min-height: 78px; padding: 8px; resize: vertical; border: 1px solid #506078; border-radius: 4px; background: var(--nav); color: #fff; font-size: 12px; line-height: 17px; }
+.quick-capture__thread { max-height: 144px; margin: 10px 0 0; padding: 0 2px 0 0; display: grid; gap: 6px; overflow: auto; list-style: none; }
+.quick-capture__message { padding: 7px 8px; border: 1px solid #ffffff2b; border-radius: 4px; background: var(--nav-hover); }
+.quick-capture__message p { margin: 0; color: #fff; font-size: 12px; line-height: 17px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.quick-capture__message small { margin-top: 3px; color: #b8c4d6; font-size: 12px; line-height: 16px; }
+.quick-capture__message[data-message-status="synced"] { border-color: #5f9474; }
+.quick-capture__message[data-message-status="error"] { border-color: #b36a6a; }
+.quick-capture__empty { padding: 9px 8px; border: 1px dashed #506078; color: #b8c4d6; font-size: 12px; line-height: 16px; }
+.quick-capture__form { display: grid; gap: 7px; margin-top: 10px; }
+.quick-capture textarea { width: 100%; min-height: 62px; padding: 8px; resize: vertical; border: 1px solid #506078; border-radius: 4px; background: var(--nav); color: #fff; font-size: 12px; line-height: 17px; }
 .quick-capture textarea::placeholder { color: #9eabc0; }
-.quick-capture button { min-height: 32px; border: 1px solid #9bbce9; border-radius: 4px; background: var(--blue-soft); color: var(--nav); font-size: 12px; font-weight: 650; }
+.quick-capture__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.quick-capture button { min-height: 32px; border: 1px solid #9bbce9; border-radius: 4px; color: var(--nav); font-size: 12px; font-weight: 650; }
+.quick-capture button[data-action="add"] { border-color: #506078; background: var(--nav-hover); color: #fff; }
+.quick-capture button[data-action="sync"] { background: var(--blue-soft); }
 .quick-capture__feedback { min-height: 16px; margin: 0; color: #d9e7fb; font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
 .quick-capture button:disabled, .quick-capture textarea:disabled { opacity: .55; }
 .sidebar__version { margin-top: auto; padding: 18px 22px 22px; border-top: 1px solid #ffffff1f; color: #aeb9ca; font-size: 12px; line-height: 1.55; }

@@ -98,13 +98,14 @@ cargo test --locked --manifest-path src-tauri/Cargo.toml
 
 승인 문서함의 실제 Google OAuth와 운영 데이터 연결은 아직 구현하지 않았습니다. 화면은 fixture/cache 상태를 명확히 표시하며, 운영 승인 데이터에 쓰지 않습니다. Windows 설치본은 CI artifact로만 생성하고 Git에는 커밋하지 않습니다.
 
-Ya Desktop의 왼쪽 **빠른 기록**은 Google Drive for desktop이 로컬에 동기화한 `내 드라이브/1. 개인작업/Inbox` 폴더에 Markdown 원본을 저장합니다. 앱은 Wiki를 직접 수정하거나 Drive 파일을 정리·삭제하지 않습니다. Drive for desktop이 실행 중이고 해당 폴더를 오프라인에서 사용할 수 있어야 합니다. 경로를 자동으로 찾지 못하면 `YA_INBOX_PATH` 환경 변수로 Inbox의 실제 로컬 경로를 지정하세요. 브라우저 미리보기에서는 이 기능이 비활성화되고, `npm run tauri dev`로 실행한 네이티브 앱에서 사용합니다.
+Ya Desktop의 왼쪽 **빠른 기록**은 채팅처럼 기억을 여러 개 쌓아두었다가 **동기화**할 때 Google Drive for desktop이 로컬에 동기화한 `내 드라이브/1. 개인작업/Inbox` 폴더에 각각 Markdown 원본으로 저장합니다. 앱은 Wiki를 직접 수정하거나 Drive 파일을 정리·삭제하지 않습니다. Drive for desktop이 실행 중이고 해당 폴더를 오프라인에서 사용할 수 있어야 합니다. 경로를 자동으로 찾지 못하면 `YA_INBOX_PATH` 환경 변수로 Inbox의 실제 로컬 경로를 지정하세요. 브라우저 미리보기에서는 이 기능이 비활성화되고, `npm run tauri dev`로 실행한 네이티브 앱에서 사용합니다.
 
 사용 순서는 다음과 같습니다.
 
 1. Google Drive for desktop을 실행하고 Inbox 동기화 폴더를 준비합니다.
-2. Ya Desktop의 빠른 기록에 메모를 입력하고 **인박스에 저장**을 누릅니다.
-3. Codex에서 Google Drive 인박스 정리를 지시합니다. SecondBrain이 원본을 보존한 채 Markdown Wiki 문서를 만들고, 처리가 끝난 원본은 `처리완료/<주제>`로 이동하는 정책을 따릅니다.
+2. Ya Desktop의 빠른 기록에 기억을 입력하고 **기록 추가**를 누릅니다. 이 단계에서는 아직 Drive에 쓰지 않습니다.
+3. 기억을 모두 추가한 뒤 **동기화**를 누릅니다. 대기 중인 각 기록이 Inbox에 별도 원본 파일로 저장됩니다. 실패한 기록은 화면에 남아 다시 동기화할 수 있습니다.
+4. Codex에서 Google Drive 인박스 정리를 지시합니다. SecondBrain이 원본을 보존한 채 Markdown Wiki 문서를 만들고, 처리가 끝난 원본은 `처리완료/<주제>`로 이동하는 정책을 따릅니다.
 
 Android 앱의 음성 기록은 아직 이 Inbox로 직접 보내지 않습니다. 실제 모바일 연결에는 Google OAuth 설정, 대상 Drive 폴더 식별자, 필요한 읽기·쓰기 범위를 별도로 확정해야 합니다.
 

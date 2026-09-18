@@ -40,4 +40,4 @@ The queue remains persistent on desktop widths. Below 800px, regions reflow vert
 
 ## Quick capture
 
-The navigation rail may include a compact **빠른 기록** section. It is a capture surface for short raw notes, not a second approval queue or Wiki editor. The section shows whether the local Google Drive sync Inbox is connected, disables capture when it is unavailable, and confirms the generated filename after a successful save. It must remain visually subordinate to the approval queue and preserve the existing navigation, queue, and inspection hierarchy.
+The navigation rail may include a compact **빠른 기록** section. It is a chat-like draft queue for short raw memories, not a second approval queue or Wiki editor. Each added memory remains visible with a pending, synced, or retryable error state. The explicit **동기화** action writes one raw Markdown file per pending memory to the local Google Drive sync Inbox and confirms the generated filename. The section shows whether the Inbox is connected and disables both controls when it is unavailable. It must remain visually subordinate to the approval queue and preserve the existing navigation, queue, and inspection hierarchy.

@@ -41,7 +41,7 @@ Implemented:
 - 23-column Items contract
 - Approval-document workspace with fixed navigation, review queue, and detail surface
 - Explicit non-live data state
-- Quick capture panel that writes raw Markdown to the local Google Drive sync Inbox
+- Chat-like quick capture queue with explicit sync to the local Google Drive sync Inbox
 
 Verified locally:
 
@@ -73,7 +73,7 @@ Blocked:
 
 Quick capture boundary:
 
-- Desktop writes only raw Markdown files to the local Drive sync folder. It does not call the Google Drive API, write Wiki pages, move Inbox files, or delete processed originals.
+- Desktop holds draft memories in the panel until the user presses sync, then writes one raw Markdown file per memory to the local Drive sync folder. It does not call the Google Drive API, write Wiki pages, move Inbox files, or delete processed originals. Failed drafts remain available for retry.
 - The default macOS discovery is `~/Library/CloudStorage/GoogleDrive-*/내 드라이브/1. 개인작업/Inbox`; set `YA_INBOX_PATH` when the local sync layout differs.
 
 ## Branch map
