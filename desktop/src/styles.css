@@ -152,7 +152,7 @@ main { min-width: 0; height: 100vh; display: grid; grid-template-rows: 76px 42px
   .connection { width: 100%; margin: 8px 0 0; padding: 7px 0 0; border: 0; border-top: 1px solid var(--line); }
   .workspace { display: block; }
   .inbox { max-height: 410px; border-right: 0; border-bottom: 1px solid var(--line-strong); }
-  .detail { display: flex; overflow: visible; }
+  .detail { display: flex; flex-direction: column; overflow: visible; }
   .record-body { overflow: visible; }
   .action-area { position: static; }
 }
@@ -160,3 +160,10 @@ main { min-width: 0; height: 100vh; display: grid; grid-template-rows: 76px 42px
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+.wiki-context { grid-column: 1 / -1; min-width: 0; }
+.wiki-search { display: flex; gap: 8px; flex-wrap: wrap; margin-block: 12px; }
+.wiki-search input { flex: 1; min-width: 120px; padding: 8px; font: inherit; color: inherit; }
+.wiki-result { border-top: 1px solid var(--line); padding-block: 12px; overflow-wrap: anywhere; }
+.wiki-result h4 { margin-block: 0 8px; }
+.wiki-context p { line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
+.wiki-context a { color: var(--blue); }

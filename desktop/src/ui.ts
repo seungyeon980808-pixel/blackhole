@@ -1,5 +1,7 @@
 import type { ConnectionStatus, Item, ItemStatus } from "./domain";
 import { WRITE_DISABLED_REASON } from "./domain";
+import { defaultWikiPanel, mountWikiPanel } from "./wiki/panel";
+import type { WikiPanelDependencies } from "./wiki/panel";
 
 type Filter = "ALL" | "PENDING" | "APPROVED";
 
@@ -119,6 +121,7 @@ function detailPane(item: Item | undefined): string {
           <div><dt>버전</dt><dd>${item.version}</dd></div>
         </dl>
       </section>
+      <section class="record-section wiki-context" aria-label="관련 Wiki 문서" data-testid="wiki-panel"></section>
     </div>
 
     <div class="action-area">
@@ -135,7 +138,7 @@ function detailPane(item: Item | undefined): string {
   </section>`;
 }
 
-export function createApp(root: HTMLElement, items: Item[], connection: ConnectionStatus): void {
+export function createApp(root: HTMLElement, items: Item[], connection: ConnectionStatus, wiki: WikiPanelDependencies = defaultWikiPanel()): void {
   let filter: Filter = "ALL";
   let selectedId = items.find((item) => item.status !== "DELETED")?.itemId ?? "";
 
@@ -196,6 +199,8 @@ export function createApp(root: HTMLElement, items: Item[], connection: Connecti
       </main>
     </div>`;
 
+    const wikiHost = root.querySelector<HTMLElement>('[data-testid="wiki-panel"]');
+    if (wikiHost) mountWikiPanel(wikiHost, wiki);
     root.querySelectorAll<HTMLButtonElement>("[data-filter]").forEach((button) => {
       button.addEventListener("click", () => {
         filter = button.dataset.filter as Filter;

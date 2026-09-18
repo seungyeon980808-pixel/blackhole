@@ -97,9 +97,15 @@ cargo test --locked --manifest-path src-tauri/Cargo.toml
 
 실제 Google OAuth와 운영 데이터 연결은 아직 구현하지 않았습니다. 화면은 fixture/cache 상태를 명확히 표시하며, 운영 데이터에 쓰지 않습니다. Windows 설치본은 CI artifact로만 생성하고 Git에는 커밋하지 않습니다.
 
-## 예정: LLM Wiki 연동
+## LLM Wiki 읽기 전용 기반
 
-아직 특정 Wiki 서비스나 API를 선택하지 않았습니다. 첫 구현은 Desktop의 읽기 전용 adapter, 로컬 cache, fixture fallback으로 제한합니다. 승인된 문서만 검색 대상으로 삼고 DB·WAV·OAuth token·개인 로그는 전송하지 않습니다. 자세한 경계는 `CODEX_HANDOFF.md`에 기록했습니다.
+`desktop/src/wiki/`에 provider-neutral `WikiSource`(검색·문서 조회), 인공 자료만 사용하는 `FixtureWikiSource`, 로컬 cache adapter를 구현했습니다. 기존 상세 점검면 아래의 **관련 Wiki 문서**에서 직접 검색할 수 있습니다. 선택한 기록의 제목·전사문·DB는 검색어로 자동 전달하지 않습니다. 새 패키지나 Wiki 쓰기·게시 기능은 없습니다.
+
+위 Desktop 검증 명령을 실행한 뒤 `npm run dev`로 브라우저 미리보기를, `npm run tauri dev`로 네이티브 개발 앱을 실행합니다. 브라우저에서는 cache가 메모리에만 유지되며 새로고침하면 사라집니다. Tauri에서는 앱 데이터 디렉터리의 `wiki-cache-v1.json`을 사용합니다. 기존 승인 cache 파일은 변경하지 않습니다. Windows 설치·배율 검증은 여전히 별도입니다.
+
+화면의 각 결과에는 제목·요약·원문 링크·provider·연결 상태·cache 최신성을 표시합니다. `fixture`는 인공 예시, `cached`는 저장된 결과이며 원출처도 함께 표시합니다. 24시간이 넘거나 저장 시각이 미래이면 stale로 표시합니다. offline은 cache 범위에서만 검색하며 cache가 없으면 `error`입니다. provider 오류와 cache 오류도 별도로 표시합니다. fixture 원문 링크는 `example.invalid` 예시로서 실제 문서가 없고 클릭해도 외부로 이동하지 않습니다.
+
+`connected-read-only`는 향후 provider와 테스트를 위한 계약이며 기본 앱에서는 활성화되지 않습니다. 실제 Wiki URL/API가 제공되지 않아 네트워크 adapter, 인증, OAuth와 실제 문서 연결은 구현하지 않았습니다. 연결하려면 서비스 URL, 읽기 전용 검색·문서 조회 API와 응답 스키마, 문서 ID·원문 URL 규칙, 인증과 권한 범위, 명시적으로 승인된 문서 범위가 필요합니다. cache 검색은 마지막으로 저장한 결과에 한정되며 전체 Wiki 검색을 의미하지 않습니다.
 
 ## 데이터 안전 원칙
 
