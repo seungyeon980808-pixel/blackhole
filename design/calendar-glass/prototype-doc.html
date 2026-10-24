@@ -171,6 +171,48 @@ table.cal{width:100%;height:100%;border-collapse:collapse;table-layout:fixed;bor
   .sheet{box-shadow:none;width:auto;min-height:auto}
 }
 @media (max-width:1250px){.win{zoom:.8}}
+
+/* composer: pull-up handle, icon buttons, chat sheet */
+.grab{display:flex;justify-content:center;padding:0 0 5px;cursor:grab;touch-action:none}
+.grab i{width:44px;height:4px;background:#999}
+.last{font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 2px 5px;min-height:16px}
+.last b{font-family:var(--sans);color:var(--ink)}
+.last a{font-family:var(--sans);font-size:11px;border:1px solid #777;padding:0 4px;margin-left:4px;cursor:pointer;color:var(--ink)}
+.form button.ic{display:grid;place-items:center;padding:0 11px}
+.chatsheet{position:absolute;left:0;right:0;bottom:0;height:76%;z-index:30;transform:translateY(105%);transition:transform .34s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;background:#fff;border-top:2px solid var(--rule);box-shadow:0 -10px 30px rgba(0,0,0,.25)}
+.chatsheet.open{transform:none}
+.chatsheet .grab{padding:8px 0 3px}
+.sheethead{text-align:center;font-family:var(--sans);font-size:13px;font-weight:800;border-bottom:1.5px solid var(--rule);margin:0 18px;padding-bottom:4px}
+.thread{flex:1;overflow:auto;padding:8px 18px;display:flex;flex-direction:column;gap:7px;min-height:0}
+.bub{max-width:76%;padding:6px 10px;font-size:13.5px;line-height:1.5}
+.bub.me{align-self:flex-end;border:1px solid var(--rule);background:#fff}
+.bub.ai{align-self:flex-start;background:var(--shade);border:1px solid var(--hair)}
+.bsrc{font-family:var(--sans);font-size:10.5px;color:var(--ink3);margin-top:-4px}
+.bsrc.me{align-self:flex-end}.bsrc.ai{align-self:flex-start}
+.daysep{align-self:center;font-family:var(--sans);font-size:11px;color:var(--ink3)}
+.rc{margin-top:5px;padding:5px 8px;background:#fff;border:1px solid var(--hair);font-size:12.5px}
+.rc.gone{color:var(--ink3);text-decoration:line-through}
+.rc .rm2{font-family:var(--sans);font-size:11px;color:var(--ink2)}
+.rc .ra{display:flex;gap:4px;margin-top:4px}
+.bub .photo{border:1px solid var(--hair);padding:6px;font-size:11px;background:#fff}
+.chatsheet .composer,.chatsheet .form{margin:6px 14px 14px}
+.phone .chatsheet{height:88%}
+/* alarm */
+.alarm{position:absolute;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
+.alarm.on{display:flex}
+.al-in{width:300px;background:#fff;border:2px solid var(--rule);box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.al-head{background:var(--red);color:#fff;font-family:var(--sans);font-weight:800;font-size:13px;padding:5px 10px;display:flex;justify-content:space-between;animation:blink 1s infinite}
+@keyframes blink{50%{background:var(--navy)}}
+.al-pad{padding:14px 16px 16px}
+.al-kind{font-family:var(--sans);font-size:12px;color:var(--ink2)}
+.al-title{font-family:var(--sans);font-size:24px;font-weight:800;margin:4px 0}
+.al-body{font-size:13px;color:var(--ink2)}
+.al-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.al-b{height:52px;border:1.5px solid var(--rule);background:#fff;font-family:var(--sans);font-weight:800;font-size:15px}
+.al-b.ok{background:var(--ink);color:#fff}
+.al-hint{font-size:11px;color:var(--ink3);margin-top:10px}
+.buzz{animation:buzz 1.1s infinite}
+@keyframes buzz{0%,45%,100%{transform:translate(0,0)}4%,12%,20%,28%,36%{transform:translate(-3px,0) rotate(-.5deg)}8%,16%,24%,32%,40%{transform:translate(3px,0) rotate(.5deg)}}
 </style>
 </head>
 <body>
@@ -187,9 +229,9 @@ table.cal{width:100%;height:100%;border-collapse:collapse;table-layout:fixed;bor
     <div class="tool"><button class="btn" data-nav="-1">‹ 이전</button><button class="btn" data-nav="1">다음 ›</button><button class="btn" data-nav="0">오늘</button><span class="sp"></span><span class="seg" id="dView"><button class="btn" data-v="month">월</button><button class="btn" data-v="week">주</button><button class="btn" data-v="day">일</button></span><button class="btn" id="printBtn" style="margin-left:6px">출력</button></div>
     <div class="head"><div class="dtitle" id="dTitle"></div><div class="summary" id="dSum"></div></div>
     <div class="content" id="dMain"></div>
-    <div class="composer"><div class="log" id="dLog"></div>
-      <div class="form"><span class="lab">입력</span><input id="dIn" placeholder="예: 금요일 6시까지 보고서 제출: 자료 정리, 초안, 결재, 목요일 9시에 알려줘"><button data-demo="photo">파일</button><button data-demo="voice">음성</button><button class="go" id="dGo">넣기</button></div></div>
-    <div class="nstack" id="dNoti"></div>
+    <div class="composer" id="dComp"></div>
+    <div class="chatsheet" id="dChat"></div>
+    <div class="alarm" id="dAlarm"></div>
   </div>
 
   <div class="phone" id="phone">
@@ -197,7 +239,7 @@ table.cal{width:100%;height:100%;border-collapse:collapse;table-layout:fixed;bor
       <div class="isl"></div>
       <div class="sb"><span id="pClock"></span><span>100%</span></div>
       <div class="ph" id="pMain"></div>
-      <div class="nstack" id="pNoti"></div>
+      <div class="chatsheet" id="pChat"></div><div class="alarm" id="pAlarm"></div>
     </div>
   </div>
 </div>
@@ -257,6 +299,15 @@ per("2026-10-12","2026-11-08","운동 4주 챌린지","personal");
 per("2026-11-03","2026-11-06","학부모 상담 주간","school");
 let LOG=[{t:"넣음",msg:"10. 27.(화) 14:00 학년 협의회",src:"휴대폰 사진",ref:7},{t:"할 일",msg:"연수 결과 보고서 제출 · 10. 30. 18:00까지 · 하위 3개",src:"디스코드"},{t:"넣음",msg:"10. 25.(일) 15:30 안과 진료 · 알림 15:00",src:"잠금화면 음성",ref:3}];
 let INBOX=[{time:"08:12",t:"가정통신문 사진",src:"휴대폰",st:"완료",out:"할 일 1, 하위 4"},{time:"09:40",t:"음성 메모(0:06)",src:"잠금화면",st:"완료",out:"일정 1"},{time:"11:05",t:"2학기 평가계획.hwp",src:"데스크톱",st:"분석 중",out:"-"},{time:"13:30",t:"단톡방 캡처",src:"디스코드",st:"검토 필요",out:"날짜 없음"}];
+const ICON={
+ cam:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></svg>',
+ mic:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>',
+ send:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>',
+ snooze:'<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 4 2.5 6.5M19 4l2.5 2.5"/></svg>',
+ check:'<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>'};
+function bar(id,lastId,inSheet){return `${inSheet?"":`<div class="grab" data-drag="${id[0]}" title="끌어 올리면 대화 기록"><i></i></div><div class="last" id="${lastId}"></div>`}<div class="form"><span class="lab">입력</span><input id="${id}" autocomplete="off"><button class="ic" data-demo="photo" title="사진">${ICON.cam}</button><button class="ic" data-demo="voice" title="말하기">${ICON.mic}</button><button class="ic go" data-go="${id}" title="넣기">${ICON.send}</button></div>`}
+const THEME_ALARM=r=>`<div class="al-in"><div class="al-head"><span>블랙홀 알람</span><span>${r.time}</span></div><div class="al-pad"><div class="al-kind">□ ${r.kind==="ev"?"일정":"할 일"}</div><div class="al-title">${r.title}</div><div class="al-body">- ${r.body}</div><div class="al-btns"><button class="al-b" data-alarm="snooze">10분 뒤</button><button class="al-b ok" data-alarm="done">${r.kind==="task"?"완료":"확인"}</button></div><div class="al-hint">※ 누를 때까지 소리·진동이 계속됩니다</div></div></div>`;
+
 const byId=id=>EV.find(e=>e.id===id)||TASK.find(e=>e.id===id)||PER.find(e=>e.id===id);
 const evOn=k=>EV.filter(e=>e.date===k&&!e.gone).sort((a,b)=>a.s.localeCompare(b.s));
 const dueOn=k=>TASK.filter(t=>t.due===k&&!t.gone);
@@ -341,8 +392,10 @@ function renderDesk(){
       </div></div>`}
 }
 function renderLog(){
-  const html=LOG.slice(-3).map((l,i,a)=>{const e=l.ref&&byId(l.ref);return `<div class="lg ${i===a.length-1&&l.fresh?"new":""}">※ <b>${l.t}</b> ${l.msg} <span class="muted" style="color:var(--ink3)">(${l.src||"-"})</span>${e&&!e.gone&&e.p?`<a data-ok="${e.id}">확정</a><a data-no="${e.id}">취소</a>`:e&&!e.gone?`<a data-no="${e.id}">되돌리기</a>`:""}</div>`}).join("");
-  for(const id of ["dLog","pLog"]){const el=document.getElementById(id);if(el)el.innerHTML=html}
+  const l=LOG[LOG.length-1];let html="";
+  if(l){const e=l.ref&&byId(l.ref);html=`<b>${l.t}</b> ${l.msg}${e&&!e.gone&&e.p?`<a data-ok="${e.id}">확정</a><a data-no="${e.id}">취소</a>`:e&&!e.gone?`<a data-no="${e.id}">되돌리기</a>`:""}`}
+  for(const id of ["dLast","pLast"]){const el=document.getElementById(id);if(el)el.innerHTML=html}
+  for(const h of ["d","p"]){const el=document.getElementById(h+"Thread");if(el){el.innerHTML=CHAT.map(bubble).join("");el.scrollTop=el.scrollHeight}}
 }
 
 /* ===== demo parser (real app: local worker) ===== */
@@ -370,34 +423,74 @@ function parse(text){
   const s=tw?tw.t:"09:00",d=dw?dw.d:(mins(s)<nowM?add(base,1):base);
   return{kind:"ev",t:title,a:area,date:ymd(d),s,e:hm(Math.min(mins(s)+60,1439)),rem:rem?rem.time:hm(Math.max(0,mins(s)-30))};
 }
-function ingest(src,results){
+function ingest(src,results,msg,kind){const before=uid;
   for(const r of results){
     if(r.kind==="missing"){LOG.push({t:"확인 필요",msg:`「${r.t}」 날짜를 찾지 못함`,src});continue}
     if(r.kind==="per"){per(r.from,r.to,r.t,r.a);LOG.push({t:"기간",msg:`${r.t} ${fd(r.from)} ~ ${fd(r.to)}`,src,ref:PER[PER.length-1].id});continue}
     if(r.kind==="task"){task(r.due,r.dueT,r.t,r.a,{rem:r.rem,subs:r.subs});const x=TASK[TASK.length-1];LOG.push({t:"할 일",msg:`${x.t} · ${fd(x.due)}${x.dueT?" "+x.dueT:""}까지${x.subs.length?` · 하위 ${x.subs.length}개`:""}${x.rem.length?` · 알림 ${x.rem.map(z=>(z.date===TODAY?"":fd(z.date)+" ")+z.time).join(", ")}`:""}`,src,ref:x.id});continue}
     ev(r.date,r.s,r.e,r.t,r.a,{p:true,src,rem:r.rem});const e=EV[EV.length-1];LOG.push({t:"넣음",msg:`${fd(e.date)} ${e.s} ${e.t} · 알림 ${e.rem}`,src,ref:e.id});
   }
-  LOG[LOG.length-1].fresh=true;INBOX.push({time:hm(nowM),t:src.includes("사진")?"사진":src.includes("음성")?"음성 메모":"문장 입력",src,st:"완료",out:`${results.length}건`});
+  LOG[LOG.length-1].fresh=true;chatPush(src,results,msg,kind,before);INBOX.push({time:hm(nowM),t:src.includes("사진")?"사진":src.includes("음성")?"음성 메모":"문장 입력",src,st:"완료",out:`${results.length}건`});
   renderAll();
 }
 function demo(k){
-  if(k==="photo")ingest("휴대폰 사진",[{kind:"ev",t:"현장체험학습 출발",a:"school",date:"2026-11-07",s:"08:40",e:"09:00",rem:"08:00"},{kind:"task",t:"체험학습 준비물 안내",a:"school",due:"2026-11-05",dueT:null,rem:[{date:"2026-11-05",time:"08:30"}],subs:[{t:"도시락",done:false},{t:"물",done:false},{t:"우비",done:false}]}]);
-  if(k==="voice")ingest("음성",[parse("내일 오후 4시 반에 학부모 전화 상담")]);
-  if(k==="sub")ingest("데스크톱",[parse("목요일 5시까지 학년 협의록 작성: 안건 정리, 발언 요약, 공유 폴더 업로드, 내일 9시에 알려줘")]);
-  if(k==="period")ingest("휴대폰",[parse("11월 16일부터 20일까지 기말고사 출제")]);
+  if(k==="photo")ingest("휴대폰 사진",[{kind:"ev",t:"현장체험학습 출발",a:"school",date:"2026-11-07",s:"08:40",e:"09:00",rem:"08:00"},{kind:"task",t:"체험학습 준비물 안내",a:"school",due:"2026-11-05",dueT:null,rem:[{date:"2026-11-05",time:"08:30"}],subs:[{t:"도시락",done:false},{t:"물",done:false},{t:"우비",done:false}]}],"","photo");
+  if(k==="voice"){const v="내일 오후 4시 반에 학부모 전화 상담";ingest("음성",[parse(v)],v,"voice")}
+  if(k==="sub"){const v="목요일 5시까지 학년 협의록 작성: 안건 정리, 발언 요약, 공유 폴더 업로드, 내일 9시에 알려줘";ingest("데스크톱",[parse(v)],v)}
+  if(k==="period"){const v="11월 16일부터 20일까지 기말고사 출제";ingest("휴대폰",[parse(v)],v)}
 }
-function submit(id,src){const el=document.getElementById(id);const v=el.value.trim();if(!v)return;el.value="";ingest(src,(v.includes(":")?[v]:v.split(/\s*(?:그리고)\s*/)).filter(Boolean).map(parse))}
+function submit(id,src){const el=document.getElementById(id);const v=el.value.trim();if(!v)return;el.value="";ingest(src,(v.includes(":")?[v]:v.split(/\s*(?:그리고)\s*/)).filter(Boolean).map(parse),v)}
 
 /* ===== notifications ===== */
-function fire(r){
-  const card=`<div class="nt" data-nref="${r.ref}"><div class="nh"><span>블랙홀 알림</span><span>${r.time}</span></div><div class="nbd"><b>${r.kind==="ev"?"□ 일정: ":"□ 할 일: "}${r.title}</b><div style="font-size:12px;color:var(--ink2)">- ${r.body}</div><div class="na">${r.kind==="task"?`<button class="mini" data-tdone="${r.ref}" data-close="1">완료</button>`:`<button class="mini" data-close="1">확인</button>`}<button class="mini" data-snooze="${r.ref}" data-close="1">10분 뒤</button></div></div></div>`;
-  for(const id of ["dNoti","pNoti"]){const el=document.getElementById(id);el.insertAdjacentHTML("afterbegin",card);while(el.children.length>3)el.lastChild.remove()}
-}
 function advance(to){const from=nowM;nowM=Math.min(to,23*60+59);for(const r of remsOn(TODAY)){const m=mins(r.time);if(m>from&&m<=nowM)fire(r)}renderAll()}
+
+
+/* ===== chat thread (opened by pulling the input bar up) ===== */
+const idOf=t=>[...EV,...TASK,...PER].find(x=>x.t===t).id;
+let CHAT=[{day:"10. 23.(금)"},{who:"me",kind:"voice",text:"모레 오후 3시 반에 안과 진료",src:"잠금화면"},{who:"ai",text:"1건 넣었어요.",refs:[idOf("안과 진료")]},
+ {day:"10. 24.(토)"},{who:"me",kind:"photo",src:"휴대폰 사진"},{who:"ai",text:"사진에서 1건 찾았어요.",refs:[idOf("학년 협의회")]},
+ {who:"me",text:"금요일 6시까지 연수 결과 보고서 제출: 연수 자료 정리, 소감 작성, 결재 올리기",src:"디스코드"},{who:"ai",text:"할 일 1건과 하위 3개를 넣었어요.",refs:[idOf("연수 결과 보고서 제출")]},{day:"오늘"}];
+function refCard(id){const x=byId(id);if(!x)return "";
+  const kind=x.s?"일정":x.due?"할 일":"기간";
+  const when=x.s?`${fd(x.date)} ${x.s}`:x.due?`${fd(x.due)}${x.dueT?" "+x.dueT:""}까지${x.subs&&x.subs.length?` · 하위 ${x.subs.length}`:""}`:`${fd(x.from)} ~ ${fd(x.to)}`;
+  return `<div class="rc ${x.gone?"gone":""}"><b>${x.t}</b><div class="rm2">${kind} · ${when}</div>${x.gone?'<div class="rm2">취소됨</div>':x.p?`<div class="ra"><button class="mini" data-ok="${x.id}">확정</button><button class="mini" data-no="${x.id}">취소</button></div>`:`<div class="ra"><button class="mini" data-no="${x.id}">되돌리기</button></div>`}</div>`}
+function bubble(m){if(m.day)return `<div class="daysep">${m.day}</div>`;
+  const body=m.kind==="photo"?`<div class="photo">가정통신문(가상)<br>1. 11. 7.(토) 08:40 현장체험학습 출발<br>2. 준비물: 도시락, 물, 우비</div>`:m.kind==="voice"?`<div class="voice">▶ 음성 메모</div><div>${m.text||""}</div>`:(m.text||"");
+  return `<div class="bub ${m.who}">${body}${(m.refs||[]).map(refCard).join("")}</div>${m.src?`<div class="bsrc ${m.who}">${m.src}</div>`:""}`}
+function chatPush(src,results,msg,kind,before){
+  CHAT.push({who:"me",text:msg,kind,src});
+  const refs=[...EV,...TASK,...PER].filter(x=>x.id>=before).map(x=>x.id),miss=results.filter(r=>r.kind==="missing").length;
+  CHAT.push({who:"ai",text:refs.length?`${refs.length}건 넣었어요.${miss?` ${miss}건은 날짜를 못 찾았어요.`:""}`:"날짜를 찾지 못했어요. 언제인지 같이 보내 주세요.",refs});
+}
+function sheetHTML(h){return `<div class="grab" data-drag="${h}" data-insheet="1"><i></i></div><div class="sheethead">대화 기록</div><div class="thread" id="${h}Thread"></div>${bar(h+"ChatIn",null,true)}`}
+function sheet(h,open){const el=document.getElementById(h+"Chat");el.classList.toggle("open",open);if(open){const t=document.getElementById(h+"Thread");t.scrollTop=t.scrollHeight}}
+let DRAG=null;
+document.addEventListener("pointerdown",e=>{const g=e.target.closest("[data-drag]");if(!g)return;DRAG={y:e.clientY,h:g.dataset.drag,inSheet:!!g.dataset.insheet};e.preventDefault()});
+document.addEventListener("pointermove",e=>{if(!DRAG)return;const dy=e.clientY-DRAG.y,el=document.getElementById(DRAG.h+"Chat");el.style.transition="none";
+  if(!DRAG.inSheet&&dy<0)el.style.transform=`translateY(calc(105% + ${dy}px))`;else if(DRAG.inSheet&&dy>0)el.style.transform=`translateY(${dy}px)`});
+document.addEventListener("pointerup",e=>{if(!DRAG)return;const dy=e.clientY-DRAG.y,el=document.getElementById(DRAG.h+"Chat");el.style.transition="";el.style.transform="";
+  if(Math.abs(dy)<6)sheet(DRAG.h,!DRAG.inSheet);else if(!DRAG.inSheet&&dy<-40)sheet(DRAG.h,true);else if(DRAG.inSheet&&dy>40)sheet(DRAG.h,false);DRAG=null});
+const srcOf=id=>id[0]==="d"?"데스크톱":id==="lockIn"?"잠금화면":id==="wIn"?"홈 위젯":"휴대폰";
+
+/* ===== alarm: full screen, sound + vibration until answered ===== */
+let ALQ=[],ALON=null,ACTX=null,RING=null;
+function fire(r){ALQ.push(r);if(!ALON)nextAlarm()}
+function nextAlarm(){ALON=ALQ.shift()||null;const on=!!ALON;
+  for(const id of ["dAlarm","pAlarm"]){const el=document.getElementById(id);el.classList.toggle("on",on);el.innerHTML=on?THEME_ALARM(ALON):""}
+  document.getElementById("phone").classList.toggle("buzz",on);document.getElementById("win").classList.toggle("buzz",on);
+  if(on){startRing();try{navigator.vibrate&&navigator.vibrate([900,300,900,300,900,300,900,300,900])}catch(e){}}else{stopRing();try{navigator.vibrate&&navigator.vibrate(0)}catch(e){}}}
+function startRing(){try{ACTX=ACTX||new(window.AudioContext||window.webkitAudioContext)();ACTX.resume&&ACTX.resume()}catch(e){return}
+  const beep=()=>{const t0=ACTX.currentTime;[[0,880],[.16,1320],[.32,880],[.48,1320]].forEach(([t,f])=>{const o=ACTX.createOscillator(),g=ACTX.createGain();o.type="triangle";o.frequency.value=f;g.gain.setValueAtTime(.0001,t0+t);g.gain.exponentialRampToValueAtTime(.3,t0+t+.02);g.gain.exponentialRampToValueAtTime(.0001,t0+t+.14);o.connect(g);g.connect(ACTX.destination);o.start(t0+t);o.stop(t0+t+.15)})};
+  beep();clearInterval(RING);RING=setInterval(beep,1300)}
+function stopRing(){clearInterval(RING);RING=null}
+function alarmAct(a){const r=ALON;if(!r)return;const x=byId(r.ref);
+  if(a==="done"&&x&&r.kind==="task"){x.done=true;x.subs.forEach(s=>s.done=true)}
+  if(a==="snooze"&&x){const at=hm(nowM+10);if(Array.isArray(x.rem))x.rem.push({date:TODAY,time:at});else x.rem=at;LOG.push({t:"다시 알람",msg:`${at} ${x.t}`,src:"알람"})}
+  nextAlarm();renderAll()}
 
 /* ===== phone ===== */
 const P={tab:"today",cur:new Date(DAY0)};
-function composer(){return `<div class="composer"><div class="log" id="pLog" style="max-height:36px;font-size:11px"></div><div class="form"><span class="lab">입력</span><input id="pIn" placeholder="던져 넣기"><button data-demo="photo">사진</button><button data-demo="voice">음성</button><button class="go" data-go="pIn">넣기</button></div></div>`}
+function composer(){return `<div class="composer">${bar("pIn","pLast")}</div>`}
 function tabs(){return `<div class="tabs">${[["today","오늘"],["cal","달력"],["lock","잠금화면"],["home","홈 위젯"]].map(([k,l])=>`<button data-tab="${k}" class="${P.tab===k?"on":""}">${l}</button>`).join("")}</div>`}
 const clockTxt=()=>`${Math.floor(nowM/60)%12||12}:${pad(nowM%60)}`;
 function renderPhone(){
@@ -416,7 +509,7 @@ function renderPhone(){
       <div class="card"><div class="ch">오늘 일정<small>${next?`다음 알림 ${next.time} ${next.title}`:""}</small></div><table class="tb" style="border:0">${evOn(TODAY).map(e=>`<tr class="${mins(e.e)<=nowM?"past":""}"><td class="c" style="width:48px">${e.s}</td><td>${e.t}${e.p?'<span class="ga">가</span>':""}</td></tr>`).join("")}</table></div>
       <div class="card"><div class="ch">할 일<small>마감 순</small></div>${[...G.today,...G.week].map(t=>`<div class="li ${t.done?"done":""}" style="font-size:13px"><span class="mk">${t.done?"■":"□"}</span><span class="tx">${t.t}${t.subs.length?` <span style="color:var(--ink3);font-size:11px">${t.subs.filter(s=>s.done).length}/${t.subs.length}</span>`:""}</span>${dday(t)}</div>`).join("")}</div>
       ${ps.length?`<div class="card" style="padding:4px 10px;font-size:11.5px">${ps.map(p=>`${p.t} ${diffDays(p.from,TODAY)+1}/${diffDays(p.from,p.to)+1}일`).join(" · ")}</div>`:""}
-      <div style="margin-top:auto" class="card"><div class="form" style="border-width:1px"><span class="lab">입력</span><input id="lockIn" placeholder="잠금 상태에서 던지기"><button data-demo="voice">말하기</button><button data-demo="photo">사진</button><button class="go" data-go="lockIn">넣기</button></div></div>
+      <div style="margin-top:auto" class="card"><div class="form" style="border-width:1px"><span class="lab">입력</span><input id="lockIn" autocomplete="off"><button class="ic" data-demo="voice" title="말하기">${ICON.mic}</button><button class="ic" data-demo="photo" title="사진">${ICON.cam}</button><button class="ic go" data-go="lockIn" title="넣기">${ICON.send}</button></div></div>
       <div class="cap">잠금화면 = 자동으로 바뀌는 배경화면 + 항상 떠 있는 입력 알림</div></div>${tabs()}`}
   if(P.tab==="home"){const G=taskGroups(TODAY),w=wk(DAY0);
     const rows=ws=>ws.map(x=>{const evs=evOn(x),ts=dueOn(x);return `<tr class="${x===TODAY?"today":""}"><td class="c" style="width:52px;font-weight:700;${x===TODAY?"background:var(--shade2)":""}">${fd(x).replace(/^\d+\. /,"")}</td><td style="${x===TODAY?"background:var(--shade2)":""}">${[...evs.map(e=>`<span style="font-family:var(--sans);color:var(--ink2)">${e.s}</span> ${e.t}`),...ts.map(t=>`${t.done?"■":"□"} ${t.t}`)].join(", ")||'<span class="muted">-</span>'}</td></tr>`}).join("");
@@ -427,7 +520,7 @@ function renderPhone(){
         ${[...G.today,...G.week].slice(0,5).map(t=>`<div class="li ${t.done?"done":""}" style="font-size:12.5px"><span class="mk">${t.done?"■":"□"}</span><span class="tx">${t.t}</span>${dday(t)}</div>`).join("")}</div>
       <div class="card"><div class="ch">이번 주</div>${perLine(w)}<table class="tb" style="font-size:11.5px">${rows(w)}</table></div>
       <div class="card"><div class="ch">다음 주</div>${perLine(wk(add(DAY0,7)))}<table class="tb" style="font-size:11.5px">${rows(wk(add(DAY0,7)))}</table></div>
-      <div class="card"><div class="form" style="border-width:1px"><span class="lab">입력</span><input id="wIn" placeholder="블랙홀에 던지기"><button data-demo="voice">말하기</button><button class="go" data-go="wIn">넣기</button></div></div>
+      <div class="card"><div class="form" style="border-width:1px"><span class="lab">입력</span><input id="wIn" autocomplete="off"><button class="ic" data-demo="voice" title="말하기">${ICON.mic}</button><button class="ic" data-demo="photo" title="사진">${ICON.cam}</button><button class="ic go" data-go="wIn" title="넣기">${ICON.send}</button></div></div>
      </div>${tabs()}`}
   renderLog();
 }
@@ -450,6 +543,8 @@ function printSheet(){
 /* ===== glue ===== */
 function renderAll(){renderDesk();renderPhone();renderLog();document.getElementById("clockLbl").textContent=`10. 25.(일) ${hm(nowM)}`}
 document.addEventListener("click",ev=>{const t=ev.target,q=s=>t.closest(s);
+  if(q("[data-alarm]")){alarmAct(q("[data-alarm]").dataset.alarm);return}
+  if(q("[data-drag]"))return;
   if(q("[data-close]")){const card=q(".nt"),ref=card&&card.dataset.nref;
     if(q("[data-tdone]"))byId(+q("[data-tdone]").dataset.tdone).done=true;
     if(q("[data-snooze]")){const x=byId(+q("[data-snooze]").dataset.snooze),at=hm(nowM+10);if(Array.isArray(x.rem))x.rem.push({date:TODAY,time:at});else x.rem=at}
@@ -460,7 +555,7 @@ document.addEventListener("click",ev=>{const t=ev.target,q=s=>t.closest(s);
   if(q("[data-tdone]")){const x=byId(+q("[data-tdone]").dataset.tdone);x.done=!x.done;if(x.done)x.subs.forEach(s=>s.done=true);renderAll();return}
   if(q("[data-sub]")){const[id,i]=q("[data-sub]").dataset.sub.split(":");const x=byId(+id);x.subs[+i].done=!x.subs[+i].done;x.done=x.subs.every(s=>s.done);renderAll();return}
   if(q("[data-demo]")){demo(q("[data-demo]").dataset.demo);return}
-  if(q("[data-go]")){const id=q("[data-go]").dataset.go;submit(id,id==="lockIn"?"잠금화면":id==="wIn"?"홈 위젯":"휴대폰");return}
+  if(q("[data-go]")){const id=q("[data-go]").dataset.go;submit(id,srcOf(id));return}
   if(q("[data-tab]")){P.tab=q("[data-tab]").dataset.tab;renderPhone();return}
   if(q("#printBtn")){printSheet();return}
   if(q("#closePrint")){document.getElementById("printModal").classList.remove("on");return}
@@ -479,9 +574,9 @@ document.addEventListener("click",ev=>{const t=ev.target,q=s=>t.closest(s);
 });
 document.addEventListener("keydown",e=>{if(e.key!=="Enter"||e.isComposing)return;const el=e.target;
   if(el.dataset&&el.dataset.subadd){const v=el.value.trim();if(!v)return;const x=byId(+el.dataset.subadd);x.subs.push({t:v,done:false});x.done=false;renderAll();const again=document.querySelector(`[data-subadd="${x.id}"]`);if(again)again.focus();return}
-  const id=el.id;if(id==="dIn")submit("dIn","데스크톱");if(id==="pIn")submit("pIn","휴대폰");if(id==="lockIn")submit("lockIn","잠금화면");if(id==="wIn")submit("wIn","홈 위젯")});
-document.getElementById("dGo").onclick=()=>submit("dIn","데스크톱");
+  const id=el.id;if(id==="dChatIn"||id==="pChatIn"){submit(id,srcOf(id));return}if(id==="dIn")submit("dIn","데스크톱");if(id==="pIn")submit("pIn","휴대폰");if(id==="lockIn")submit("lockIn","잠금화면");if(id==="wIn")submit("wIn","홈 위젯")});
 document.getElementById("devSeg").onclick=e=>{const b=e.target.closest("button");if(!b)return;document.querySelectorAll("#devSeg .btn").forEach(x=>x.classList.toggle("on",x===b));document.getElementById("win").style.display=b.dataset.dev==="phone"?"none":"";document.getElementById("phone").style.display=b.dataset.dev==="desk"?"none":""};
+document.getElementById("dComp").innerHTML=bar("dIn","dLast");document.getElementById("dChat").innerHTML=sheetHTML("d");document.getElementById("pChat").innerHTML=sheetHTML("p");
 renderAll();
 </script>
 </body>
