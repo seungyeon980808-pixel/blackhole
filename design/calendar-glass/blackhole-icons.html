@@ -3,154 +3,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>블랙홀 아이콘 구상</title>
+<title>블랙홀 아이콘</title>
 <style>
-:root{--bg:#f3f4f9;--paper:#fff;--ink:#1d1f33;--ink2:#5b6074;--line:#e3e5ee;--font:"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1120;--paper:#181b2b;--ink:#eef0f8;--ink2:#a5aac0;--line:#2a2e44}}
+:root{--bg:#f3f4f9;--ink:#1d1f33;--ink2:#5b6074;--font:"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1120;--ink:#eef0f8;--ink2:#a5aac0}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:var(--font);background:var(--bg);color:var(--ink);line-height:1.6}
-main{max-width:1100px;margin:0 auto;padding:30px 16px 60px}
-h1{font-size:24px}
-.sub{color:var(--ink2);margin:4px 0 22px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
-.card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:18px}
-.card h2{font-size:17px}
-.card p{font-size:13.5px;color:var(--ink2);margin:4px 0 14px}
-.sizes{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
-.sizes figure{text-align:center;font-size:11px;color:var(--ink2)}
-.sizes svg{display:block;margin:0 auto 4px}
-.tray{display:flex;gap:14px;margin-top:16px;padding:14px;border-radius:16px;align-items:center}
-.tray.dark{background:linear-gradient(135deg,#2a1d6b,#0d4f66 60%,#5a1b47)}
-.tray.light{background:linear-gradient(135deg,#d9d0ff,#c6f1f7 60%,#ffd6ec)}
-.tray span{font-size:11px}
-.tray .lbl{color:#fff}.tray.light .lbl{color:#1d1f33}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);padding:32px 16px}
+main{max-width:860px;margin:0 auto}
+h1{font-size:22px}p{color:var(--ink2);margin:6px 0 22px;line-height:1.6}
+.row{display:flex;gap:26px;align-items:flex-end;flex-wrap:wrap;margin-bottom:22px}
+figure{text-align:center;font-size:11px;color:var(--ink2)}
+figure svg{display:block;margin:0 auto 6px}
+.wall{display:flex;gap:18px;padding:18px;border-radius:18px;align-items:center}
+.wall span{font-size:12px}
 </style>
 </head>
 <body>
 <main>
-<h1>블랙홀 아이콘 구상 3가지</h1>
-<p class="sub">이름 뜻: 모든 것을 빨아들인다. 앱 아이콘(1024에서 줄인 크기), 작은 크기(알림·탭), 밝은·어두운 배경화면 위 모습을 함께 봅니다.</p>
-<div class="grid">
-
-<div class="card">
-  <h2>A · 사건의 지평선</h2>
-  <p>검은 구멍 둘레를 빛나는 고리가 감싸는 정통 블랙홀. 고리 색이 학교(파랑)·개인(분홍)·할 일 색과 이어짐. 작아도 「고리 + 점」으로 읽힘.</p>
-  <div class="sizes">
-    <figure><svg width="120" height="120" viewBox="0 0 100 100"><use href="#iconA"/></svg>앱 아이콘</figure>
-    <figure><svg width="60" height="60" viewBox="0 0 100 100"><use href="#iconA"/></svg>60</figure>
-    <figure><svg width="32" height="32" viewBox="0 0 100 100"><use href="#iconA"/></svg>32</figure>
-    <figure><svg width="20" height="20" viewBox="0 0 100 100"><use href="#glyphA"/></svg>알림 글리프</figure>
-  </div>
-  <div class="tray dark"><svg width="54" height="54" viewBox="0 0 100 100"><use href="#iconA"/></svg><span class="lbl">블랙홀</span></div>
-  <div class="tray light"><svg width="54" height="54" viewBox="0 0 100 100"><use href="#iconA"/></svg><span class="lbl">블랙홀</span></div>
+<h1>블랙홀 아이콘 (단순형)</h1>
+<p>검은 판 위의 검은 구멍, 아래쪽 가장자리에만 빛이 걸린 일식 모양 하나. 글자·색 장식 없음. 아주 작아도 「빛나는 초승달 + 검은 원」으로 읽힙니다.</p>
+<div class="row">
+  <figure><svg width="160" height="160" viewBox="0 0 100 100"><use href="#logo"/></svg>앱 아이콘</figure>
+  <figure><svg width="64" height="64" viewBox="0 0 100 100"><use href="#logo"/></svg>64</figure>
+  <figure><svg width="32" height="32" viewBox="0 0 100 100"><use href="#logo"/></svg>32</figure>
+  <figure><svg width="20" height="20" viewBox="0 0 100 100" style="color:var(--ink)"><use href="#glyph"/></svg>알림(한 색)</figure>
 </div>
-
-<div class="card">
-  <h2>B · 소용돌이</h2>
-  <p>세 갈래 빛줄기가 가운데로 휘말려 들어가는 모양. 「던지면 빨려 들어간다」는 동작이 가장 잘 보임. 움직이는 로고(빙글 돌며 빨아들임)로 만들기 좋음.</p>
-  <div class="sizes">
-    <figure><svg width="120" height="120" viewBox="0 0 100 100"><use href="#iconB"/></svg>앱 아이콘</figure>
-    <figure><svg width="60" height="60" viewBox="0 0 100 100"><use href="#iconB"/></svg>60</figure>
-    <figure><svg width="32" height="32" viewBox="0 0 100 100"><use href="#iconB"/></svg>32</figure>
-    <figure><svg width="20" height="20" viewBox="0 0 100 100"><use href="#glyphB"/></svg>알림 글리프</figure>
-  </div>
-  <div class="tray dark"><svg width="54" height="54" viewBox="0 0 100 100"><use href="#iconB"/></svg><span class="lbl">블랙홀</span></div>
-  <div class="tray light"><svg width="54" height="54" viewBox="0 0 100 100"><use href="#iconB"/></svg><span class="lbl">블랙홀</span></div>
-</div>
-
-<div class="card">
-  <h2>C · 달력이 빨려 드는 구멍</h2>
-  <p>달력 한 장의 칸들이 가운데 검은 구멍으로 작아지며 빨려 듦. 캘린더 앱이라는 게 한눈에 보임. 대신 아주 작은 크기에서는 칸이 뭉개짐.</p>
-  <div class="sizes">
-    <figure><svg width="120" height="120" viewBox="0 0 100 100"><use href="#iconC"/></svg>앱 아이콘</figure>
-    <figure><svg width="60" height="60" viewBox="0 0 100 100"><use href="#iconC"/></svg>60</figure>
-    <figure><svg width="32" height="32" viewBox="0 0 100 100"><use href="#iconC"/></svg>32</figure>
-    <figure><svg width="20" height="20" viewBox="0 0 100 100"><use href="#glyphA"/></svg>알림 글리프</figure>
-  </div>
-  <div class="tray dark"><svg width="54" height="54" viewBox="0 0 100 100"><use href="#iconC"/></svg><span class="lbl">블랙홀</span></div>
-  <div class="tray light"><svg width="54" height="54" viewBox="0 0 100 100"><use href="#iconC"/></svg><span class="lbl">블랙홀</span></div>
-</div>
-
-</div>
-<p class="sub" style="margin-top:20px">알림 글리프: 안드로이드 상태 표시줄 아이콘은 한 가지 색 실루엣만 쓸 수 있어서 따로 단순하게 만듭니다.</p>
+<div class="wall" style="background:linear-gradient(135deg,#2a1d6b,#0d4f66 60%,#5a1b47);color:#fff"><svg width="58" height="58" viewBox="0 0 100 100"><use href="#logo"/></svg><span>어두운 배경화면</span></div>
+<div class="wall" style="background:linear-gradient(135deg,#e9e4ff,#d6f3f8 60%,#ffe2f1);margin-top:12px"><svg width="58" height="58" viewBox="0 0 100 100"><use href="#logo"/></svg><span>밝은 배경화면</span></div>
 </main>
-
-<svg width="0" height="0" style="position:absolute">
-  <defs>
-    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#5ee1ff"/><stop offset=".5" stop-color="#9b7bff"/><stop offset="1" stop-color="#ff7ccf"/>
-    </linearGradient>
-    <radialGradient id="halo" cx=".5" cy=".5" r=".5">
-      <stop offset=".45" stop-color="#9b7bff" stop-opacity=".55"/><stop offset="1" stop-color="#9b7bff" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="bgA" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1b1640"/><stop offset="1" stop-color="#05050c"/>
-    </linearGradient>
-    <linearGradient id="bgC" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f6f3ff"/><stop offset="1" stop-color="#dfe6ff"/>
-    </linearGradient>
-    <clipPath id="sq"><rect width="100" height="100" rx="23"/></clipPath>
-
-    <!-- A: event horizon -->
-    <g id="iconA">
-      <rect width="100" height="100" rx="23" fill="url(#bgA)"/>
-      <g clip-path="url(#sq)">
-        <circle cx="50" cy="52" r="30" fill="url(#halo)"/>
-        <ellipse cx="50" cy="54" rx="38" ry="10" fill="none" stroke="url(#ring)" stroke-width="5" opacity=".9"/>
-        <path d="M28 49 A22 22 0 0 1 72 49" fill="none" stroke="url(#ring)" stroke-width="3.2" opacity=".85"/>
-        <circle cx="50" cy="52" r="17" fill="#000"/>
-        <circle cx="50" cy="52" r="17.5" fill="none" stroke="#e9e3ff" stroke-width="1.4" opacity=".9"/>
-        <path d="M12 54 A38 10 0 0 0 88 54" fill="none" stroke="url(#ring)" stroke-width="5.5"/>
-      </g>
-    </g>
-    <g id="glyphA">
-      <ellipse cx="50" cy="54" rx="42" ry="13" fill="none" stroke="currentColor" stroke-width="9"/>
-      <circle cx="50" cy="50" r="21" fill="currentColor"/>
-    </g>
-
-    <!-- B: vortex -->
-    <g id="iconB">
-      <rect width="100" height="100" rx="23" fill="url(#bgA)"/>
-      <g clip-path="url(#sq)"><g transform="translate(50 50)">
-        <circle r="30" fill="url(#halo)"/>
-        <g fill="none" stroke-linecap="round">
-          <path d="M0 -40 C 28 -40, 40 -14, 26 2 C 16 13, 2 12, 0 6" stroke="#5ee1ff" stroke-width="5"/>
-          <path d="M0 -40 C 28 -40, 40 -14, 26 2 C 16 13, 2 12, 0 6" stroke="#ff7ccf" stroke-width="5" transform="rotate(120)"/>
-          <path d="M0 -40 C 28 -40, 40 -14, 26 2 C 16 13, 2 12, 0 6" stroke="#ffd36e" stroke-width="5" transform="rotate(240)"/>
-        </g>
-        <circle r="10" fill="#000"/>
-        <circle r="10.5" fill="none" stroke="#e9e3ff" stroke-width="1.3"/>
-      </g></g>
-    </g>
-    <g id="glyphB" transform="translate(50 50)">
-      <g fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round">
-        <path d="M0 -40 C 28 -40, 40 -14, 26 2"/><path d="M0 -40 C 28 -40, 40 -14, 26 2" transform="rotate(120)"/><path d="M0 -40 C 28 -40, 40 -14, 26 2" transform="rotate(240)"/>
-      </g>
-      <circle r="13" fill="currentColor"/>
-    </g>
-
-    <!-- C: calendar sucked in -->
-    <g id="iconC">
-      <rect width="100" height="100" rx="23" fill="url(#bgC)"/>
-      <rect x="0" y="0" width="100" height="24" fill="#7c5cff" clip-path="url(#sq)"/>
-      <rect x="28" y="9" width="6" height="10" rx="3" fill="#fff"/><rect x="66" y="9" width="6" height="10" rx="3" fill="#fff"/>
-      <g fill="#7c5cff">
-        <rect x="12" y="32" width="14" height="12" rx="3" opacity=".9"/>
-        <rect x="74" y="32" width="14" height="12" rx="3" fill="#ff7ccf"/>
-        <rect x="12" y="76" width="14" height="12" rx="3" fill="#5ee1ff"/>
-        <rect x="74" y="76" width="14" height="12" rx="3" opacity=".9"/>
-        <rect x="35" y="35" width="10" height="8" rx="2.5" transform="rotate(18 40 39)" fill="#5ee1ff"/>
-        <rect x="56" y="35" width="10" height="8" rx="2.5" transform="rotate(-18 61 39)" opacity=".8"/>
-        <rect x="14" y="55" width="11" height="9" rx="2.5" transform="rotate(-12 19 59)" fill="#ffd36e"/>
-        <rect x="75" y="55" width="11" height="9" rx="2.5" transform="rotate(12 80 59)" fill="#5ee1ff"/>
-        <rect x="35" y="76" width="10" height="8" rx="2.5" transform="rotate(-18 40 80)" fill="#ff7ccf"/>
-        <rect x="56" y="76" width="10" height="8" rx="2.5" transform="rotate(18 61 80)" opacity=".8"/>
-      </g>
-      <circle cx="50" cy="60" r="15" fill="#9b7bff" opacity=".25"/>
-      <circle cx="50" cy="60" r="10" fill="#0b0b18"/>
-      <ellipse cx="50" cy="61" rx="17" ry="4.5" fill="none" stroke="url(#ring)" stroke-width="2.4"/>
-    </g>
-  </defs>
-</svg>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.2"/></filter>
+  <g id="logo"><rect width="100" height="100" rx="24" fill="#0a0a0d"/><circle cx="50" cy="53" r="27" fill="#fff" opacity=".55" filter="url(#glow)"/><circle cx="50" cy="53" r="27" fill="#fff"/><circle cx="50" cy="49" r="25" fill="#0a0a0d"/></g>
+  <g id="glyph"><circle cx="50" cy="54" r="40" fill="currentColor"/><circle cx="50" cy="46" r="36" fill="var(--bg)"/></g>
+</defs></svg>
 </body>
 </html>
