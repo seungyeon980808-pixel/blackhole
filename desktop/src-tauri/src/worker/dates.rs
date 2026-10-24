@@ -36,6 +36,23 @@ fn absolute_date() -> &'static Regex {
     re(&R, r"(?:(\d{4})년\s*)?(\d{1,2})월\s*(\d{1,2})일")
 }
 
+/// Korean official-document style "2026. 11. 12." (year required, so decimals never match).
+fn dotted_date() -> &'static Regex {
+    static R: OnceLock<Regex> = OnceLock::new();
+    re(&R, r"(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?")
+}
+
+/// 24-hour clock "15:00", "9:30".
+fn colon_time() -> &'static Regex {
+    static R: OnceLock<Regex> = OnceLock::new();
+    re(&R, r"(\d{1,2}):(\d{2})")
+}
+
+fn weekday_phrase() -> &'static Regex {
+    static R: OnceLock<Regex> = OnceLock::new();
+    re(&R, r"(?:(?:다음|이번)\s*주\s*)?[월화수목금토일]요일")
+}
+
 fn slash_date() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
     // Rust regex has no look-around; boundaries are checked by hand in `find_slash_date`.
@@ -119,6 +136,13 @@ fn parse_date(text: &str, today: NaiveDate) -> DateOutcome {
             None => DateOutcome::Invalid,
         };
     }
+    if let Some(caps) = dotted_date().captures(text) {
+        let parsed = (caps[1].parse::<i32>(), caps[2].parse::<u32>(), caps[3].parse::<u32>());
+        return match parsed {
+            (Ok(y), Ok(m), Ok(d)) => NaiveDate::from_ymd_opt(y, m, d).map_or(DateOutcome::Invalid, DateOutcome::Valid),
+            _ => DateOutcome::Invalid,
+        };
+    }
     if let Some((month, day)) = find_slash_date(text) {
         return match NaiveDate::from_ymd_opt(today.year(), month, day) {
             Some(date) if date < today => NaiveDate::from_ymd_opt(today.year() + 1, month, day)
@@ -160,17 +184,49 @@ fn parse_date(text: &str, today: NaiveDate) -> DateOutcome {
     DateOutcome::Unrecognised
 }
 
-/// Returns `(time, rolls_to_next_day)`; `None` when no valid time phrase is present.
-fn parse_time(text: &str) -> Option<(NaiveTime, bool)> {
-    let caps = time_pattern().captures(text)?;
-    let mut hour: u32 = caps[2].parse().ok()?;
-    let minute: u32 = match (caps.get(3), caps.get(4)) {
-        (Some(m), _) => m.as_str().parse().ok()?,
-        (None, Some(_)) => 30,
-        _ => 0,
-    };
-    let rolls = hour == 24 && !text[..caps.get(2)?.start()].ends_with(|c: char| c.is_ascii_digit());
-    match caps.get(1).map(|p| p.as_str()) {
+/// One time phrase found in text: spoken ("오후 3시 반") or 24-hour ("15:30").
+struct TimeMatch {
+    start: usize,
+    end: usize,
+    hour: u32,
+    minute: u32,
+    period: Option<String>,
+    rolls: bool,
+}
+
+fn time_matches(text: &str) -> Vec<TimeMatch> {
+    let mut found: Vec<TimeMatch> = time_pattern()
+        .captures_iter(text)
+        .filter_map(|caps| {
+            let whole = caps.get(0)?;
+            let hour: u32 = caps[2].parse().ok()?;
+            let minute = match (caps.get(3), caps.get(4)) {
+                (Some(m), _) => m.as_str().parse().ok()?,
+                (None, Some(_)) => 30,
+                _ => 0,
+            };
+            let rolls = hour == 24 && !text[..caps.get(2)?.start()].ends_with(|c: char| c.is_ascii_digit());
+            Some(TimeMatch { start: whole.start(), end: whole.end(), hour, minute, period: caps.get(1).map(|p| p.as_str().to_string()), rolls })
+        })
+        .collect();
+    for caps in colon_time().captures_iter(text) {
+        let whole = caps.get(0).expect("match");
+        let digit_before = text[..whole.start()].ends_with(|c: char| c.is_ascii_digit());
+        let digit_after = text[whole.end()..].starts_with(|c: char| c.is_ascii_digit());
+        if digit_before || digit_after || found.iter().any(|m| m.start < whole.end() && whole.start() < m.end) {
+            continue;
+        }
+        if let (Ok(hour), Ok(minute)) = (caps[1].parse(), caps[2].parse()) {
+            found.push(TimeMatch { start: whole.start(), end: whole.end(), hour, minute, period: None, rolls: hour == 24 });
+        }
+    }
+    found.sort_by_key(|m| m.start);
+    found
+}
+
+fn to_time(m: &TimeMatch) -> Option<NaiveTime> {
+    let mut hour = m.hour;
+    match m.period.as_deref() {
         Some("오후" | "낮" | "저녁" | "밤") if hour < 12 => hour += 12,
         Some("오전" | "아침" | "새벽") if hour == 12 => hour = 0,
         _ => {}
@@ -178,20 +234,59 @@ fn parse_time(text: &str) -> Option<(NaiveTime, bool)> {
     if hour == 24 {
         hour = 0;
     }
-    NaiveTime::from_hms_opt(hour, minute, 0).map(|time| (time, rolls))
+    NaiveTime::from_hms_opt(hour, m.minute, 0)
 }
 
-/// End of a spoken range such as "오후 3시 ~ 5시" or "2시부터 4시까지". An end
-/// without its own 오전/오후 inherits the afternoon shift of the start.
+/// Returns `(time, rolls_to_next_day)`; `None` when no valid time phrase is present.
+fn parse_time(text: &str) -> Option<(NaiveTime, bool)> {
+    let first = time_matches(text).into_iter().next()?;
+    to_time(&first).map(|time| (time, first.rolls))
+}
+
+/// End of a spoken range such as "오후 3시 ~ 5시", "2시부터 4시까지" or "15:00~17:00".
+/// An end without its own 오전/오후 inherits the afternoon shift of the start.
 fn parse_range_end(text: &str, start: NaiveTime) -> Option<NaiveTime> {
-    let mut matches = time_pattern().captures_iter(text);
-    let first = matches.next()?;
-    let second = matches.next()?;
-    let (mut end, _) = parse_time(second.get(0)?.as_str())?;
-    if second.get(1).is_none() && first.get(1).is_some() && end < start && end.hour() < 12 {
+    let matches = time_matches(text);
+    let (first, second) = (matches.first()?, matches.get(1)?);
+    let mut end = to_time(second)?;
+    if second.period.is_none() && first.period.is_some() && end < start && end.hour() < 12 {
         end = end + Duration::hours(12);
     }
     (end > start).then_some(end)
+}
+
+/// The first date phrase the resolver recognises in `text`, as written (after `normalize`).
+/// Used to fill a phrase the model skipped; the caller marks the item for review.
+pub fn find_date_phrase(text: &str) -> Option<String> {
+    let text = normalize(text);
+    if let Some(m) = absolute_date().find(&text).or_else(|| dotted_date().find(&text)) {
+        return Some(m.as_str().to_string());
+    }
+    if let Some(m) = slash_date().find_iter(&text).find(|m| {
+        !text[..m.start()].ends_with(|c: char| c.is_ascii_digit()) && !text[m.end()..].starts_with(|c: char| c.is_ascii_digit())
+    }) {
+        return Some(m.as_str().to_string());
+    }
+    for word in ["글피", "모레", "내일", "오늘", "그저께", "그제", "어제"] {
+        if text.contains(word) {
+            return Some(word.to_string());
+        }
+    }
+    weekday_phrase().find(&text).map(|m| m.as_str().to_string())
+}
+
+/// The first time phrase (with a following range, if any) the resolver recognises in `text`.
+pub fn find_time_phrase(text: &str) -> Option<String> {
+    let text = normalize(text);
+    let matches = time_matches(&text);
+    let first = matches.first()?;
+    // Keep "오후 3시 ~ 5시" / "15:00~17:00" together so the end time survives.
+    let end = match matches.get(1) {
+        Some(next) if text[first.end..next.start].trim().trim_start_matches(['~', '-', '∼']).trim().is_empty()
+            || text[first.end..next.start].contains("부터") => next.end,
+        _ => first.end,
+    };
+    Some(text[first.start..end].to_string())
 }
 
 /// Resolves quoted phrases against `reference`. `kind` is "SCHEDULE" or "TODO".
@@ -201,9 +296,19 @@ pub fn resolve(date_text: &str, time_text: &str, kind: &str, reference: DateTime
     let date_text = normalize(date_text);
     let time_text = normalize(time_text);
 
+    // Flags that keep the resolved date (unlike `reasons`, which stop resolution).
+    let mut soft_reasons = Vec::new();
     let date = match parse_date(&date_text, today) {
         DateOutcome::Absent => None,
-        DateOutcome::Valid(date) => Some(date),
+        DateOutcome::Valid(date) => {
+            // A month/day just behind us is rolled to next year by the Android rule. That is
+            // right for "3월 2일" said in October, but a document's own past date ("회의록
+            // 10월 20일") would silently become an event a year away, so it is flagged.
+            if (date - today).num_days() > 300 && !date_text.contains(&date.year().to_string()) {
+                soft_reasons.push(format!("지난 날짜로 보여 내년({})으로 해석함: 「{date_text}」", date.year()));
+            }
+            Some(date)
+        }
         DateOutcome::Invalid => {
             reasons.push(format!("날짜가 달력에 없음: 「{date_text}」"));
             None
@@ -247,6 +352,7 @@ pub fn resolve(date_text: &str, time_text: &str, kind: &str, reference: DateTime
         (None, None) => None,
     };
 
+    reasons.extend(soft_reasons);
     let start = local.and_then(|naive| reference.offset().from_local_datetime(&naive).single());
     let range_end = time.and_then(|(t, _)| parse_range_end(&time_text, t));
     ResolvedSchedule {
@@ -364,6 +470,41 @@ mod tests {
         assert_eq!(end("2시부터 4시 30분까지"), "2026-10-22T04:30:00+09:00");
         // An end before the start is ignored, keeping the one-hour default.
         assert_eq!(end("오후 5시 ~ 오후 3시"), "2026-10-22T18:00:00+09:00");
+    }
+
+    #[test]
+    fn recently_past_dates_rolled_to_next_year_are_flagged() {
+        let r = resolve("10월 20일", "오후 4시", "SCHEDULE", reference());
+        assert_eq!(r.start_at.unwrap().to_rfc3339(), "2027-10-20T16:00:00+09:00");
+        assert!(r.review_reasons[0].contains("내년"));
+        // Far-ahead next-year dates and explicit years are not flagged.
+        assert!(resolve("3월 2일", "오전 9시", "SCHEDULE", reference()).review_reasons.is_empty());
+        assert!(resolve("2027년 10월 20일", "오후 4시", "SCHEDULE", reference()).review_reasons.is_empty());
+    }
+
+    #[test]
+    fn official_document_formats() {
+        assert_eq!(start("2026. 11. 12.(목)", "15:00~17:00", "SCHEDULE"), "2026-11-12T15:00:00+09:00");
+        let r = resolve("2026. 11. 12.", "15:00~17:00", "SCHEDULE", reference());
+        assert_eq!(r.end_at.unwrap().to_rfc3339(), "2026-11-12T17:00:00+09:00");
+        assert_eq!(start("11/27(금)", "16:00", "SCHEDULE"), "2026-11-27T16:00:00+09:00");
+        assert_eq!(start("", "9:30", "SCHEDULE"), "2026-10-21T09:30:00+09:00");
+        assert!(resolve("2026. 2. 30.", "", "SCHEDULE", reference()).start_at.is_none());
+        // Money and scores are not times.
+        assert!(!mentions_time("320,000원 3.5점"));
+    }
+
+    #[test]
+    fn phrases_are_found_as_written() {
+        assert_eq!(find_date_phrase("글피 오후 1시에 미용실 예약").as_deref(), Some("글피"));
+        assert_eq!(find_date_phrase("다음 주 화요일 오후 2시에 협의회").as_deref(), Some("다음 주 화요일"));
+        assert_eq!(find_date_phrase("일시: 2026. 11. 12.(목) 15:00").as_deref(), Some("2026. 11. 12."));
+        assert_eq!(find_date_phrase("11월 3일 15:00 김가상").as_deref(), Some("11월 3일"));
+        assert_eq!(find_date_phrase("자료 정리"), None);
+        assert_eq!(find_time_phrase("내일 아침 8시 반에 조회").as_deref(), Some("아침 8시 반"));
+        assert_eq!(find_time_phrase("오후 세 시 ~ 5시 상담").as_deref(), Some("오후 3시 ~ 5시"));
+        assert_eq!(find_time_phrase("15:00~17:00 연수").as_deref(), Some("15:00~17:00"));
+        assert_eq!(find_time_phrase("보고서 내기"), None);
     }
 
     #[test]

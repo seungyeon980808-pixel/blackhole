@@ -14,8 +14,8 @@ use std::{path::PathBuf, process::ExitCode};
 use ya_desktop_lib::worker::{
     config::WorkerConfig,
     error::{ErrorCode, WorkerError},
-    pipeline::{analyze, Engines, Input},
-    proposal::EngineId,
+    pipeline::{analyze_with, source_type_for, Engines, Input},
+    proposal::{EngineId, SourceType},
     queue::{Enqueued, Queue},
 };
 
@@ -25,7 +25,8 @@ const USAGE: &str = "사용법:
   ya-worker run     --queue 폴더 [--now ISO8601]
   ya-worker retry   --queue 폴더 작업ID
   ya-worker list    --queue 폴더
-환경 변수: YA_OLLAMA_URL, YA_TEXT_MODEL, YA_DIRECT_MODEL, YA_WHISPER_BIN, YA_WHISPER_MODEL, YA_KORDOC_BIN, YA_MODELS_DIR";
+환경 변수: YA_OLLAMA_URL, YA_TEXT_MODEL, YA_DIRECT_MODEL, YA_WHISPER_BIN, YA_WHISPER_MODEL, YA_KORDOC_BIN, YA_MODELS_DIR,
+  YA_WORKER_CONFIG(설정 파일, off), YA_DOCUMENT_MODEL, YA_FILL_MISSING, YA_RECHECK_BELOW, YA_IMAGE_OCR_HINT, YA_WHISPER_PROMPT, YA_WORD_LISTS=off";
 
 #[derive(Default)]
 struct Args {
@@ -89,12 +90,21 @@ fn queue_dir(args: &Args) -> Result<&PathBuf, WorkerError> {
 
 fn run() -> Result<serde_json::Value, WorkerError> {
     let args = parse_args()?;
-    let config = WorkerConfig::from_env();
-    let (whisper, kordoc, text_chat, direct_chat) = (config.whisper(), config.kordoc(), config.text_chat(), config.direct_chat());
-    let engines = Engines { transcriber: &whisper, reader: &kordoc, text_model: &text_chat, direct_model: &direct_chat };
+    let config = WorkerConfig::from_env()?;
+    let (whisper, kordoc) = (config.whisper(), config.kordoc());
+    // Per input, so a larger document model (YA_DOCUMENT_MODEL) is used only where it applies.
+    let analyze_one = |input: &Input, engine: EngineId, reference: DateTime<FixedOffset>| {
+        let source = match input {
+            Input::File(path) => source_type_for(path)?.0,
+            Input::Text(_) => SourceType::Text,
+        };
+        let (text_chat, direct_chat) = (config.chat_for(source, false), config.chat_for(source, true));
+        let engines = Engines { transcriber: &whisper, reader: &kordoc, text_model: &text_chat, direct_model: &direct_chat };
+        analyze_with(input, engine, reference, &engines, &config.options)
+    };
 
     match args.command.as_str() {
-        "analyze" => Ok(to_json(&analyze(&input(&args)?, engine(&args)?, reference(&args)?, &engines)?)),
+        "analyze" => Ok(to_json(&analyze_one(&input(&args)?, engine(&args)?, reference(&args)?)?)),
         "enqueue" => {
             let mut queue = Queue::open(queue_dir(&args)?)?;
             Ok(match queue.enqueue(&input(&args)?, engine(&args)?)? {
@@ -105,7 +115,7 @@ fn run() -> Result<serde_json::Value, WorkerError> {
         "run" => {
             let reference = reference(&args)?;
             let mut queue = Queue::open(queue_dir(&args)?)?;
-            let done = queue.run_pending(|input, engine| analyze(input, engine, reference, &engines))?;
+            let done = queue.run_pending(|input, engine| analyze_one(input, engine, reference))?;
             Ok(to_json(&done))
         }
         "retry" => {

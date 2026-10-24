@@ -1,7 +1,7 @@
 //! Prompt, output schema and strict validation of Gemma extraction results.
 
 use super::{
-    dates::{mentions_date, mentions_time, quoted_in, resolve},
+    dates::{find_date_phrase, find_time_phrase, mentions_date, mentions_time, quoted_in, resolve},
     error::{ErrorCode, WorkerError},
     proposal::{Evidence, ProposalItem},
 };
@@ -97,8 +97,36 @@ fn few_shot() -> Vec<Value> {
     messages
 }
 
+/// Switches for the accuracy experiments in tools/worker-eval. All off by default.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ExtractOptions {
+    /// Fill a date/time phrase the model skipped when the code resolver finds one in the
+    /// item's context. The item is still marked for review.
+    pub fill_missing: bool,
+    /// The user's own vocabulary: an item mentioning only school words is SCHOOL, only
+    /// personal words PERSONAL. Also shown to the model as a hint.
+    pub school_words: Vec<String>,
+    pub personal_words: Vec<String>,
+}
+
+fn system_prompt(options: &ExtractOptions) -> String {
+    let mut prompt = SYSTEM_PROMPT.to_string();
+    if !options.school_words.is_empty() || !options.personal_words.is_empty() {
+        prompt.push_str(&format!(
+            "\n- 이 사용자에게 학교 일인 말: {}. 개인 일인 말: {}.",
+            options.school_words.join(", "),
+            options.personal_words.join(", ")
+        ));
+    }
+    prompt
+}
+
 pub fn text_messages(source_text: &str) -> Vec<Value> {
-    let mut messages = vec![json!({"role": "system", "content": SYSTEM_PROMPT})];
+    text_messages_with(source_text, &ExtractOptions::default())
+}
+
+pub fn text_messages_with(source_text: &str, options: &ExtractOptions) -> Vec<Value> {
+    let mut messages = vec![json!({"role": "system", "content": system_prompt(options)})];
     messages.extend(few_shot());
     messages.push(json!({"role": "user", "content": source_text}));
     messages
@@ -106,9 +134,29 @@ pub fn text_messages(source_text: &str) -> Vec<Value> {
 
 /// `media` is "음성" or "이미지". Ollama carries Gemma 4 audio and images in `images`.
 pub fn direct_messages(media: &str, base64: String) -> Vec<Value> {
-    let mut messages = vec![json!({"role": "system", "content": format!("{SYSTEM_PROMPT}\n- transcript: 들은 말이나 읽은 글 전체.")})];
+    direct_messages_with(media, base64, None, &ExtractOptions::default())
+}
+
+/// `ocr_hint`: text a separate OCR pass read from the same image, offered as a hint.
+pub fn direct_messages_with(media: &str, base64: String, ocr_hint: Option<&str>, options: &ExtractOptions) -> Vec<Value> {
+    let mut messages = vec![json!({"role": "system", "content": format!("{}\n- transcript: 들은 말이나 읽은 글 전체.", system_prompt(options))})];
     messages.extend(few_shot());
-    messages.push(json!({"role": "user", "content": direct_instruction(media), "images": [base64]}));
+    let mut instruction = direct_instruction(media);
+    if let Some(hint) = ocr_hint.filter(|h| !h.trim().is_empty()) {
+        instruction.push_str(&format!(
+            "\n참고로 글자 인식기가 같은 그림에서 읽은 글은 아래와 같다. 틀린 글자가 있을 수 있으니 그림을 보고 바로잡아 transcript에 적어라.\n---\n{hint}\n---"
+        ));
+    }
+    messages.push(json!({"role": "user", "content": instruction, "images": [base64]}));
+    messages
+}
+
+const RECHECK_INSTRUCTION: &str = "위 답을 원문과 한 줄씩 다시 대조해 고친 JSON 하나로만 답하라. 확인할 것: 원문에 있는데 빠진 일, 빠진 날짜·시간 표현(글자 그대로), 종류(SCHEDULE/TODO/NOTE), 영역(SCHOOL/PERSONAL), 원문에 없는 말.";
+
+/// Follow-up turn asking the model to check its own first answer.
+pub fn recheck_messages(mut messages: Vec<Value>, first_answer: &str) -> Vec<Value> {
+    messages.push(json!({"role": "assistant", "content": first_answer}));
+    messages.push(json!({"role": "user", "content": RECHECK_INSTRUCTION}));
     messages
 }
 
@@ -160,14 +208,14 @@ fn string_field<'a>(object: &'a Map<String, Value>, key: &str, at: &str) -> Resu
     }
 }
 
-fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bool, reference: DateTime<FixedOffset>) -> Result<ProposalItem, WorkerError> {
+fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bool, reference: DateTime<FixedOffset>, options: &ExtractOptions) -> Result<ProposalItem, WorkerError> {
     let at = format!("items[{index}].");
     let object = value.as_object().ok_or_else(|| invalid(format!("{at} 객체가 아닙니다.")))?;
     let kind = string_field(object, "kind", &at)?;
     if !matches!(kind, "SCHEDULE" | "TODO" | "NOTE") {
         return Err(invalid(format!("{at}kind 값이 잘못되었습니다: {kind}")));
     }
-    let area = string_field(object, "area", &at)?;
+    let mut area = string_field(object, "area", &at)?;
     if !matches!(area, "PERSONAL" | "SCHOOL") {
         return Err(invalid(format!("{at}area 값이 잘못되었습니다: {area}")));
     }
@@ -192,13 +240,13 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         title = title.chars().take(80).collect::<String>().trim().to_string();
         reasons.push("제목이 길어 80자로 줄임".to_string());
     }
-    let date_text = if quoted_in(source_text, &date_text) {
+    let mut date_text = if quoted_in(source_text, &date_text) {
         date_text
     } else {
         reasons.push(format!("원문에 없는 날짜 표현을 버림: 「{date_text}」"));
         String::new()
     };
-    let time_text = if quoted_in(source_text, &time_text) {
+    let mut time_text = if quoted_in(source_text, &time_text) {
         time_text
     } else {
         reasons.push(format!("원문에 없는 시간 표현을 버림: 「{time_text}」"));
@@ -208,16 +256,37 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         reasons.push("근거 문장이 원문과 달라 버림".to_string());
         sentence.clear();
     }
-    // A phrase the model skipped is flagged, never filled in. With a single item the
-    // whole source is its context; otherwise only its own evidence sentence.
+    // A phrase the model skipped is always flagged. With `fill_missing` the code
+    // resolver's own phrase from the context is used, still under review. With a single
+    // item the whole source is its context; otherwise only its own evidence sentence.
     if kind != "NOTE" {
         let context = if single_item { source_text } else { sentence.as_str() };
         if date_text.is_empty() && mentions_date(context, reference.date_naive()) {
-            reasons.push("원문에 날짜가 있는데 추출되지 않음".to_string());
+            match find_date_phrase(context).filter(|_| options.fill_missing) {
+                Some(phrase) => {
+                    reasons.push(format!("모델이 빠뜨린 날짜를 원문에서 채움: 「{phrase}」"));
+                    date_text = phrase;
+                }
+                None => reasons.push("원문에 날짜가 있는데 추출되지 않음".to_string()),
+            }
         }
         if time_text.is_empty() && mentions_time(context) {
-            reasons.push("원문에 시간이 있는데 추출되지 않음".to_string());
+            match find_time_phrase(context).filter(|_| options.fill_missing) {
+                Some(phrase) => {
+                    reasons.push(format!("모델이 빠뜨린 시간을 원문에서 채움: 「{phrase}」"));
+                    time_text = phrase;
+                }
+                None => reasons.push("원문에 시간이 있는데 추출되지 않음".to_string()),
+            }
         }
+    }
+    // The user's vocabulary outranks the model when it points one way only.
+    let haystack = format!("{title} {details} {sentence}");
+    let has = |words: &[String]| words.iter().any(|w| !w.is_empty() && haystack.contains(w.as_str()));
+    match (has(&options.school_words), has(&options.personal_words)) {
+        (true, false) => area = "SCHOOL",
+        (false, true) => area = "PERSONAL",
+        _ => {}
     }
 
     let resolved = resolve(&date_text, &time_text, kind, reference);
@@ -242,6 +311,10 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
 /// Parses raw model output. Shape errors fail the job; nothing is filled in by guessing.
 /// `source_text` is `None` for engine B, where the text comes from the model's `transcript`.
 pub fn validate(raw: &str, source_text: Option<&str>, reference: DateTime<FixedOffset>) -> Result<Extraction, WorkerError> {
+    validate_with(raw, source_text, reference, &ExtractOptions::default())
+}
+
+pub fn validate_with(raw: &str, source_text: Option<&str>, reference: DateTime<FixedOffset>, options: &ExtractOptions) -> Result<Extraction, WorkerError> {
     let value: Value = serde_json::from_str(raw.trim()).map_err(|e| invalid(format!("JSON이 아닙니다: {e}")))?;
     let object = value.as_object().ok_or_else(|| invalid("JSON 객체가 아닙니다."))?;
 
@@ -267,7 +340,7 @@ pub fn validate(raw: &str, source_text: Option<&str>, reference: DateTime<FixedO
     let items = items
         .iter()
         .enumerate()
-        .map(|(index, item)| validate_item(item, index, &text, items.len() == 1, reference))
+        .map(|(index, item)| validate_item(item, index, &text, items.len() == 1, reference, options))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Extraction { transcript, summary, items })
 }
@@ -367,6 +440,49 @@ mod tests {
         assert_eq!(e.items[0].start_at, "");
         assert!(e.items[0].review_reasons.iter().any(|r| r.contains("날짜가 있는데")));
         assert!(e.items[0].review_reasons.iter().any(|r| r.contains("시간이 있는데")));
+    }
+
+    #[test]
+    fn fill_missing_uses_code_phrase_and_keeps_review() {
+        let text = "글피 오후 1시에 미용실 예약";
+        let v = json!({"kind":"SCHEDULE","area":"PERSONAL","title":"미용실 예약","details":"","dateText":"","timeText":"","evidence":"미용실 예약","confidence":0.9});
+        let on = ExtractOptions { fill_missing: true, ..Default::default() };
+        let e = validate_with(&answer(vec![v.clone()]).to_string(), Some(text), reference(), &on).unwrap();
+        let item = &e.items[0];
+        assert_eq!(item.start_at, "2026-10-24T13:00:00+09:00");
+        assert_eq!(item.evidence.date_text, "글피");
+        assert!(item.needs_review && item.confidence <= 0.5);
+        assert!(item.review_reasons.iter().any(|r| r.contains("날짜를 원문에서 채움")));
+        // Off: same answer stays empty and flagged.
+        let off = validate(&answer(vec![v]).to_string(), Some(text), reference()).unwrap();
+        assert_eq!(off.items[0].start_at, "");
+        // NOTE items are never given a date.
+        let note = json!({"kind":"NOTE","area":"PERSONAL","title":"메모","details":"","dateText":"","timeText":"","evidence":"","confidence":0.9});
+        assert_eq!(validate_with(&answer(vec![note]).to_string(), Some(text), reference(), &on).unwrap().items[0].start_at, "");
+    }
+
+    #[test]
+    fn word_lists_override_area_only_when_unambiguous() {
+        let opts = ExtractOptions { school_words: vec!["세특".into(), "학년".into()], personal_words: vec!["헬스".into()], ..Default::default() };
+        let item = |title: &str, area: &str| json!({"kind":"TODO","area":area,"title":title,"details":"","dateText":"","timeText":"","evidence":"","confidence":0.9});
+        let area_of = |title: &str, area: &str| {
+            validate_with(&answer(vec![item(title, area)]).to_string(), Some(title), reference(), &opts).unwrap().items[0].area.clone()
+        };
+        assert_eq!(area_of("세특 입력", "PERSONAL"), "SCHOOL");
+        assert_eq!(area_of("헬스 등록", "SCHOOL"), "PERSONAL");
+        assert_eq!(area_of("학년 헬스 모임", "PERSONAL"), "PERSONAL");
+        assert_eq!(area_of("장보기", "SCHOOL"), "SCHOOL");
+        assert!(system_prompt(&opts).contains("세특"));
+        assert!(!system_prompt(&ExtractOptions::default()).contains("이 사용자에게"));
+    }
+
+    #[test]
+    fn ocr_hint_and_recheck_messages() {
+        let m = direct_messages_with("이미지", "AAAA".into(), Some("11월 3일 회의"), &ExtractOptions::default());
+        assert!(m.last().unwrap()["content"].as_str().unwrap().contains("11월 3일 회의"));
+        let r = recheck_messages(text_messages("내일 회의"), "{}");
+        assert_eq!(r[r.len() - 2]["role"], "assistant");
+        assert_eq!(r.last().unwrap()["role"], "user");
     }
 
     #[test]

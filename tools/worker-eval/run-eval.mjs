@@ -12,6 +12,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { cer, maxRss, score } from "./scoring.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "../..");
@@ -53,46 +54,6 @@ for (const c of cases) {
   if (!existsSync(wav)) run("say", ["-v", c.voice, "-r", String(c.rate), "-o", wav, "--data-format=LEI16@16000", c.text]);
 }
 
-const squash = (s) => (s ?? "").replace(/[\s.,!?~·'"「」()\-]/g, "");
-function cer(ref, hyp) {
-  const a = [...squash(ref)], b = [...squash(hyp)];
-  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
-  for (let i = 1; i <= a.length; i++) {
-    const cur = [i];
-    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    prev = cur;
-  }
-  return a.length ? prev[b.length] / a.length : 0;
-}
-
-/** Scores predicted items against gold items; each gold item is matched to its best unused prediction. */
-function score(gold, predicted) {
-  const used = new Set();
-  const rows = gold.map((g) => {
-    let best = -1, bestHits = 0;
-    predicted.forEach((p, i) => {
-      if (used.has(i)) return;
-      const hits = g.titleKeywords.filter((k) => squash(p.title).includes(squash(k))).length;
-      if (hits > bestHits) { best = i; bestHits = hits; }
-    });
-    if (best < 0) return { kind: false, area: false, title: false, startAt: false, flagged: true };
-    used.add(best);
-    const p = predicted[best];
-    return {
-      kind: p.kind === g.kind,
-      area: p.area === g.area,
-      title: bestHits === g.titleKeywords.length,
-      startAt: (p.startAt ?? "") === g.startAt,
-      flagged: Boolean(p.needsReview),
-    };
-  });
-  return { rows, countOk: predicted.length === gold.length };
-}
-
-function maxRss(stderr) {
-  const m = /(\d+)\s+maximum resident set size/.exec(stderr ?? "");
-  return m ? Number(m[1]) : 0;
-}
 
 /** Resident memory of Ollama's model runner processes (Ollama's own /api/ps size under-reports on Metal). */
 function runnerRss() {
@@ -249,4 +210,10 @@ for (const [id, byConfig] of Object.entries(results.documents)) {
 }
 const md = lines.join("\n") + "\n";
 console.log(md);
-if (report) writeFileSync(resolve(report), md);
+if (report) {
+  // Keep the experiment section (run-experiments.mjs results) below the marker.
+  const marker = "<!-- experiments -->";
+  const previous = existsSync(resolve(report)) ? readFileSync(resolve(report), "utf8") : "";
+  const tail = previous.includes(marker) ? previous.slice(previous.indexOf(marker)) : "";
+  writeFileSync(resolve(report), md + (tail ? "\n" + tail : ""));
+}

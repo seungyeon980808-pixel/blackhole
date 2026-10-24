@@ -2,7 +2,7 @@
 
 use super::{
     error::{ErrorCode, WorkerError},
-    extract::{chunk_text, direct_messages, looks_invented, output_schema, text_messages, validate},
+    extract::{chunk_text, direct_messages_with, looks_invented, output_schema, recheck_messages, text_messages_with, validate_with, ExtractOptions, Extraction},
     proposal::{EngineId, EngineInfo, Proposal, ProposalSource, SourceType, Timings, PROMPT_VERSION, PROPOSAL_SCHEMA_VERSION, WORKER_VERSION},
     runners::{ChatModel, DocumentReader, Transcriber},
     source::{ensure_speech, inspect_wav, read_original, sha256_hex},
@@ -25,6 +25,45 @@ pub struct Engines<'a> {
     pub text_model: &'a dyn ChatModel,
     /// Multimodal Gemma (audio + image) for engine B.
     pub direct_model: &'a dyn ChatModel,
+}
+
+/// Accuracy switches (see docs/worker-eval-results.md). `Default` = stage-1 behaviour.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct AnalyzeOptions {
+    pub extract: ExtractOptions,
+    /// Ask the model once more when an item's confidence is below this, an item needs
+    /// review, or nothing was found. The answer with fewer review reasons wins.
+    pub recheck_below: Option<f64>,
+    /// Engine B for images: also run OCR and give its text to the model as a hint.
+    pub image_ocr_hint: bool,
+}
+
+fn review_count(extraction: &Extraction) -> usize {
+    extraction.items.iter().map(|i| i.review_reasons.len()).sum::<usize>() + usize::from(extraction.items.is_empty())
+}
+
+/// One structured call, plus an optional self-check turn.
+fn extract_once(
+    model: &dyn ChatModel,
+    messages: Vec<serde_json::Value>,
+    with_transcript: bool,
+    source_text: Option<&str>,
+    reference: DateTime<FixedOffset>,
+    options: &AnalyzeOptions,
+) -> Result<Extraction, WorkerError> {
+    let schema = output_schema(with_transcript);
+    let raw = model.chat_json(messages.clone(), &schema)?;
+    let first = validate_with(&raw, source_text, reference, &options.extract)?;
+    let Some(threshold) = options.recheck_below else { return Ok(first) };
+    let doubtful = first.items.is_empty() || first.items.iter().any(|i| i.needs_review || i.confidence < threshold);
+    if !doubtful {
+        return Ok(first);
+    }
+    // A failed second answer never replaces a valid first one.
+    match model.chat_json(recheck_messages(messages, &raw), &schema).and_then(|raw2| validate_with(&raw2, source_text, reference, &options.extract)) {
+        Ok(second) if review_count(&second) <= review_count(&first) => Ok(second),
+        _ => Ok(first),
+    }
 }
 
 pub fn source_type_for(path: &Path) -> Result<(SourceType, String), WorkerError> {
@@ -72,6 +111,10 @@ pub fn input_hash(input: &Input) -> Result<(String, u64), WorkerError> {
 }
 
 pub fn analyze(input: &Input, engine: EngineId, reference: DateTime<FixedOffset>, engines: &Engines) -> Result<Proposal, WorkerError> {
+    analyze_with(input, engine, reference, engines, &AnalyzeOptions::default())
+}
+
+pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOffset>, engines: &Engines, options: &AnalyzeOptions) -> Result<Proposal, WorkerError> {
     let started = Instant::now();
     let (source_type, format, bytes) = match input {
         Input::File(path) => {
@@ -85,15 +128,17 @@ pub fn analyze(input: &Input, engine: EngineId, reference: DateTime<FixedOffset>
     if source_type == SourceType::Audio {
         ensure_speech(&inspect_wav(&bytes)?)?;
     }
-    // Text and documents have nothing to read directly; they always use engine A.
+    // Text and documents have nothing to read directly; they always use engine A. With the
+    // OCR hint on, images always go to the model directly (the hint only exists there).
     let engine = match source_type {
+        SourceType::Image if options.image_ocr_hint => EngineId::Direct,
         SourceType::Audio | SourceType::Image => engine,
         SourceType::Text | SourceType::Document => EngineId::TextFirst,
     };
 
     let mut timings = Timings::default();
     let read_started = Instant::now();
-    let (source_text, reader) = match (engine, source_type, input) {
+    let (source_text, mut reader) = match (engine, source_type, input) {
         (EngineId::Direct, _, _) => (None, String::new()),
         (_, SourceType::Audio, Input::File(path)) => (Some(engines.transcriber.transcribe(path)?), engines.transcriber.model_name()),
         (_, SourceType::Document | SourceType::Image, Input::File(path)) => (Some(engines.reader.read(path)?), engines.reader.reader_name()),
@@ -121,8 +166,8 @@ pub fn analyze(input: &Input, engine: EngineId, reference: DateTime<FixedOffset>
             let mut summaries = Vec::new();
             let mut items = Vec::new();
             for chunk in chunk_text(&text, CHUNK_CHARS) {
-                let raw = engines.text_model.chat_json(text_messages(&chunk), &output_schema(false))?;
-                let extraction = validate(&raw, Some(&chunk), reference)?;
+                let messages = text_messages_with(&chunk, &options.extract);
+                let extraction = extract_once(engines.text_model, messages, false, Some(&chunk), reference, options)?;
                 if !extraction.summary.is_empty() {
                     summaries.push(extraction.summary);
                 }
@@ -132,8 +177,16 @@ pub fn analyze(input: &Input, engine: EngineId, reference: DateTime<FixedOffset>
         }
         None => {
             let media = if source_type == SourceType::Audio { "음성" } else { "이미지" };
-            let raw = engines.direct_model.chat_json(direct_messages(media, base64(&bytes)), &output_schema(true))?;
-            let extraction = validate(&raw, None, reference)?;
+            // An OCR failure only removes the hint; the model still reads the image.
+            let hint = match input {
+                Input::File(path) if options.image_ocr_hint && source_type == SourceType::Image => engines.reader.read(path).ok(),
+                _ => None,
+            };
+            if hint.is_some() {
+                reader = engines.reader.reader_name();
+            }
+            let messages = direct_messages_with(media, base64(&bytes), hint.as_deref(), &options.extract);
+            let extraction = extract_once(engines.direct_model, messages, true, None, reference, options)?;
             (extraction.transcript.unwrap_or_default(), extraction.summary, extraction.items, engines.direct_model.model_name())
         }
     };
@@ -352,6 +405,51 @@ mod tests {
         })
         .unwrap();
         assert!(p.items.is_empty() && p.needs_review);
+    }
+
+    #[test]
+    fn recheck_runs_only_when_doubtful_and_keeps_the_better_answer() {
+        let opts = AnalyzeOptions { recheck_below: Some(0.7), ..Default::default() };
+        let run = |chat: &FakeChat| {
+            analyze_with(&Input::Text("내일 오후 3시에 학부모 상담"), EngineId::TextFirst, reference(), &Engines {
+                transcriber: &FakeStt(Ok(String::new())),
+                reader: &FakeReader(Ok(String::new())),
+                text_model: chat,
+                direct_model: chat,
+            }, &opts)
+        };
+        // Confident first answer: one call.
+        let sure = FakeChat::new(vec![Ok(answer())]);
+        run(&sure).unwrap();
+        assert_eq!(*sure.calls.borrow(), 1);
+        // Doubtful first answer (missed date), corrected second answer wins.
+        let missed = json!({"summary":"","items":[{"kind":"SCHEDULE","area":"SCHOOL","title":"학부모 상담","details":"","dateText":"","timeText":"","evidence":"학부모 상담","confidence":0.4}]}).to_string();
+        let fixed = FakeChat::new(vec![Ok(missed.clone()), Ok(answer())]);
+        let p = run(&fixed).unwrap();
+        assert_eq!(*fixed.calls.borrow(), 2);
+        assert_eq!(p.items[0].start_at, "2026-10-22T15:00:00+09:00");
+        // A broken second answer keeps the first.
+        let broken = FakeChat::new(vec![Ok(missed), Ok("not json".into())]);
+        let p = run(&broken).unwrap();
+        assert_eq!(p.items[0].start_at, "");
+    }
+
+    #[test]
+    fn image_hint_reads_ocr_but_survives_its_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let png = dir.path().join("notice.png");
+        std::fs::write(&png, b"fake png").unwrap();
+        let mut b = serde_json::from_str::<serde_json::Value>(&answer()).unwrap();
+        b["transcript"] = json!("내일 오후 3시에 학부모 상담");
+        let opts = AnalyzeOptions { image_ocr_hint: true, ..Default::default() };
+        for reader in [FakeReader(Ok("내일 오후 3시 학부모 상담".into())), FakeReader(Err(WorkerError::new(ErrorCode::ReaderFailed, "x")))] {
+            let direct = FakeChat::new(vec![Ok(b.to_string())]);
+            let engines = Engines { transcriber: &FakeStt(Ok(String::new())), reader: &reader, text_model: &direct, direct_model: &direct };
+            // Engine A was asked for; the hint switches images to the direct path.
+            let p = analyze_with(&Input::File(&png), EngineId::TextFirst, reference(), &engines, &opts).unwrap();
+            assert_eq!(p.items.len(), 1);
+            assert_eq!(p.engine.id, EngineId::Direct);
+        }
     }
 
     #[test]

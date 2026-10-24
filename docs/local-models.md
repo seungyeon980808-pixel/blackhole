@@ -29,6 +29,7 @@ Ollama 서버는 `ollama serve`를 백그라운드로 띄워 `127.0.0.1:11434`�
 | 비교용(평가에서만 사용) | Ollama `gemma3:4b` | Q4_K_M | ID `68ceab7e468a`, 모델 층 `sha256:f06e91e18fc7…`, 그림 층 `sha256:7a50f9607a47…` | 3.4GB | `~/.ollama/models` |
 | 비교용(평가에서만 사용) | Ollama `gemma3:1b` | Q4_K_M | ID `97558784bdc9`, 모델 층 `sha256:2f8c3d137f24…` | 806MB | `~/.ollama/models` |
 | **기본**: 글 정리(엔진 A)와 음성·이미지 직접(엔진 B) | Ollama `gemma4:e2b-it-q4_K_M` | Q4_K_M | ID `b37049369adf`, 모델 층 `sha256:6dd7ac24fe13…`, 음성·그림 층 `sha256:7ba3bbacdf1b…` | 4.6GB | `~/.ollama/models` |
+| 비교용(정확도 실험 (d)) | Ollama `gemma4:e4b-it-q4_K_M` | Q4_K_M | ID `dc35e8d9c606`, 모델 층 `sha256:370c2879f176…`, 음성·그림 층 `sha256:4cb21b935cd7…` | 6.6GB | `~/.ollama/models` |
 | 이미지 글자 읽기(OCR) | kordoc 내장 PP-OCRv5 korean | ONNX | kordoc이 SHA-256 검증 | 18MB | `~/.cache/kordoc/models` |
 
 ### Gemma 3n 대신 Gemma 4 E2B를 쓴 이유
@@ -61,6 +62,7 @@ t1.wav는 macOS `say -v Yuna`로 합성한 가짜 음성입니다.
 ```sh
 # Gemma 모델 (Ollama). 평가용 Gemma 3만 지우려면 앞의 두 개만
 ollama rm gemma3:1b gemma3:4b
+ollama rm gemma4:e4b-it-q4_K_M        # 실험 (d) 비교용
 ollama rm gemma4:e2b-it-q4_K_M
 
 # whisper 모델, kordoc, 평가용 합성 파일
@@ -74,6 +76,13 @@ brew autoremove
 # Ollama 설정·키 폴더 (모델 삭제 후)
 rm -r ~/.ollama
 ```
+
+## 평가용 가짜 문서 도구 (2026-10-24 추가)
+
+- 손글씨체 글꼴 Nanum Pen Script (OFL, Google Fonts 저장소): `~/.local/share/ya-models/eval-gen/fonts/` 3MB. 가짜 손글씨 메모를 만들 때만 씁니다.
+- 가짜 문서·이미지와 실험 원자료: `~/.local/share/ya-models/eval/` (`docs2/`, `experiments-*.json`, 1단계 실행 파일 사본 `ya-worker-c3788e7`).
+- 문서 생성에 쓰는 Pillow·openpyxl은 `uv run --with`로 그때그때 받아 쓰고 시스템에 설치하지 않았습니다.
+- 받은 용량 합계(1단계 포함): 약 17GB, 한도 20GB 안.
 
 ## Windows
 

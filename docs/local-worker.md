@@ -81,6 +81,21 @@ $W retry   --queue ~/ya-queue job-0123456789abcdef
 
 `INPUT_MISSING`, `INPUT_CHANGED`, `EMPTY_AUDIO`, `UNSUPPORTED_AUDIO`, `UNSUPPORTED_INPUT`, `EMPTY_DOCUMENT`, `STT_UNAVAILABLE`, `STT_MODEL_MISSING`, `STT_FAILED`, `READER_UNAVAILABLE`, `READER_FAILED`, `RUNNER_UNAVAILABLE`, `MODEL_MISSING`, `RUNNER_FAILED`, `INVALID_MODEL_OUTPUT`, `INTERRUPTED`, `IO`.
 
+## 정확도 설정 (2026-10-24 추가)
+
+모두 기본은 꺼져 있습니다. `~/.local/share/ya-models/worker-config.json`(또는 `YA_WORKER_CONFIG`가 가리키는 파일)에 적거나 환경 변수로 켭니다. 예시는 `tools/worker-config.example.json`이며, 실제 개인 단어 목록은 저장소에 넣지 않습니다. 설정 파일에 모르는 칸이 있으면 작업기가 시작하지 않습니다.
+
+| 설정 파일 칸 | 환경 변수 | 하는 일 |
+|---|---|---|
+| `fillMissing` | `YA_FILL_MISSING=1` | 모델이 빠뜨린 날짜·시간을 코드가 원문(한 항목이면 전체, 여러 항목이면 그 항목의 근거 문장)에서 찾아 채웁니다. 채운 항목은 늘 검토 표시가 붙습니다. 기억(NOTE)에는 채우지 않습니다. |
+| `whisperPrompt` | `YA_WHISPER_PROMPT` | whisper에 용어 힌트(`--prompt`)를 줍니다. |
+| `schoolWords`, `personalWords` | `YA_WORD_LISTS=off`로 끔 | 지시문에 단어 목록을 보여 주고, 항목이 한쪽 목록의 말만 담고 있으면 영역을 그쪽으로 정합니다(양쪽 다 있으면 모델 판단 유지). |
+| `recheckBelow` | `YA_RECHECK_BELOW=0.7` | 확신이 이 값보다 낮거나 검토할 항목이 있으면 모델에게 한 번 더 대조시키고, 검토 사유가 적은 답을 고릅니다. 두 번째 답이 깨지면 첫 답을 씁니다. |
+| `imageOcrHint` | `YA_IMAGE_OCR_HINT=1` | 이미지를 엔진 B로 읽을 때 kordoc 글자 인식 결과를 힌트로 함께 줍니다. 글자 인식이 실패해도 그림 읽기는 계속합니다. |
+| `documentModel` | `YA_DOCUMENT_MODEL` | 문서·이미지에만 쓸 더 큰 모델(예: `gemma4:e4b-it-q4_K_M`). 음성·글은 기본 모델 그대로. |
+
+날짜 해석은 이번에 `2026. 11. 12.` 같은 공문 날짜, `15:00`·`15:00~17:00` 같은 24시간 표기, `11/27(금)`을 더 읽습니다(설정 없이 항상 켜짐).
+
 ## 평가
 
 ```sh
@@ -100,3 +115,19 @@ node tools/worker-eval/run-eval.mjs --report docs/worker-eval-results.md
 - **문서·이미지는 kordoc + Gemma 4 E2B(A)**가 가상 공문 HWPX·PDF·PNG 3건의 항목 5개를 모두 맞혔습니다. 이미지를 Gemma가 직접 읽는 B는 2개 중 1개만 맞혔습니다.
 
 평가의 한계: 음성은 macOS의 한국어 목소리 중 실제로 말하는 Yuna 하나뿐입니다. 사람 목소리, 잡음, 사투리, 긴 녹음은 재지 않았습니다. 사례 39개는 작은 표본이라 몇 %p 차이는 의미가 크지 않습니다. 문서·이미지는 3건뿐입니다.
+
+### 2차 실험 뒤 추천 설정 (2026-10-24)
+
+`tools/worker-config.example.json`을 `~/.local/share/ya-models/worker-config.json`으로 복사하고 단어 목록을 자기 것으로 바꿉니다. 문서·이미지용 `gemma4:e4b-it-q4_K_M`은 `bash tools/setup-local-models.sh --with-document-model`로 받습니다.
+
+- 켬: `fillMissing`, `whisperPrompt`, 단어 목록, `imageOcrHint`, `documentModel` = e4b
+- 끔: `recheckBelow`
+
+평가용 결과는 아래와 같습니다(`docs/worker-eval-results.md` 2차 절).
+
+| 대상 | 1단계 | 추천 설정 |
+|---|---|---|
+| 음성 항목 완전 정답 | 88% | 90% |
+| 문서·이미지 항목 완전 정답 | 70% | 89% |
+
+e4b를 쓰지 않으면 이미지 힌트(`imageOcrHint`)도 끄는 편이 낫습니다. 작은 모델이 그림을 직접 읽으면 정확도가 떨어집니다.

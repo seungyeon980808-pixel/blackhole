@@ -70,6 +70,8 @@ pub struct WhisperCli {
     pub binary: PathBuf,
     pub model: PathBuf,
     pub language: String,
+    /// Vocabulary hint passed as whisper's initial prompt (`--prompt`).
+    pub prompt: Option<String>,
 }
 
 impl Transcriber for WhisperCli {
@@ -85,11 +87,12 @@ impl Transcriber for WhisperCli {
                 format!("음성 인식 모델 파일이 없습니다: {}", self.model.display()),
             ));
         }
-        let output = Command::new(&self.binary)
-            .args(["-l", &self.language, "-nt", "-np", "-m"])
-            .arg(&self.model)
-            .arg("-f")
-            .arg(wav)
+        let mut command = Command::new(&self.binary);
+        command.args(["-l", &self.language, "-nt", "-np", "-m"]).arg(&self.model).arg("-f").arg(wav);
+        if let Some(prompt) = self.prompt.as_deref().filter(|p| !p.trim().is_empty()) {
+            command.arg("--prompt").arg(prompt);
+        }
+        let output = command
             .output()
             .map_err(|error| match error.kind() {
                 ErrorKind::NotFound => WorkerError::new(
@@ -202,12 +205,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let wav = dir.path().join("a.wav");
         std::fs::write(&wav, b"x").unwrap();
-        let no_model = WhisperCli { binary: "whisper-cli".into(), model: dir.path().join("none.bin"), language: "ko".into() };
+        let no_model = WhisperCli { binary: "whisper-cli".into(), model: dir.path().join("none.bin"), language: "ko".into(), prompt: None };
         assert_eq!(no_model.transcribe(&wav).unwrap_err().code, ErrorCode::SttModelMissing);
 
         let model = dir.path().join("model.bin");
         std::fs::write(&model, b"x").unwrap();
-        let no_binary = WhisperCli { binary: dir.path().join("no-such-whisper"), model, language: "ko".into() };
+        let no_binary = WhisperCli { binary: dir.path().join("no-such-whisper"), model, language: "ko".into(), prompt: None };
         assert_eq!(no_binary.transcribe(&wav).unwrap_err().code, ErrorCode::SttUnavailable);
     }
 

@@ -6,12 +6,13 @@
 # Ollama and Node.js come from winget; whisper.cpp from its official GitHub release
 # (ggml-org/whisper.cpp, b5454 = v1.9.5, whisper-bin-x64.zip). Models go to
 # %LOCALAPPDATA%\ya-models (override with YA_MODELS_DIR) and %USERPROFILE%\.ollama\models.
-param([switch]$Check, [switch]$WithComparison)
+param([switch]$Check, [switch]$WithComparison, [switch]$WithDocumentModel)
 $ErrorActionPreference = "Stop"
 
 $ModelsDir = if ($env:YA_MODELS_DIR) { $env:YA_MODELS_DIR } else { Join-Path $env:LOCALAPPDATA "ya-models" }
 $OllamaUrl = if ($env:YA_OLLAMA_URL) { $env:YA_OLLAMA_URL } else { "http://127.0.0.1:11434" }
 $OllamaModels = @(@{ Name = "gemma4:e2b-it-q4_K_M"; Mb = 4600 })
+if ($WithDocumentModel) { $OllamaModels += @{ Name = "gemma4:e4b-it-q4_K_M"; Mb = 6600 } }
 if ($WithComparison) { $OllamaModels += @{ Name = "gemma3:1b"; Mb = 806 }, @{ Name = "gemma3:4b"; Mb = 3400 } }
 $WhisperFile = "ggml-large-v3-turbo-q5_0.bin"
 $WhisperUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$WhisperFile"

@@ -4,6 +4,7 @@
 #
 #   bash tools/setup-local-models.sh                     # install what is missing
 #   bash tools/setup-local-models.sh --with-comparison   # also gemma3:1b and gemma3:4b (evaluation only)
+#   bash tools/setup-local-models.sh --with-document-model  # also gemma4:e4b for documents and images (6.6GB)
 #   bash tools/setup-local-models.sh --check             # only report what is installed, then run a Korean smoke test
 #
 # Everything lives outside the repository:
@@ -30,6 +31,7 @@ for arg in "$@"; do
   case "$arg" in
     --check) CHECK_ONLY=1 ;;
     --with-comparison) OLLAMA_MODELS+=(gemma3:1b gemma3:4b); SIZE_MB_OLLAMA+=(806 3400) ;;
+    --with-document-model) OLLAMA_MODELS+=(gemma4:e4b-it-q4_K_M); SIZE_MB_OLLAMA+=(6600) ;;
     *) echo "모르는 옵션: $arg" >&2; exit 2 ;;
   esac
 done
