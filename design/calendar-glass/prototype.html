@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ya 캘린더 시안</title>
+<title>블랙홀 시안</title>
 <style>
 :root{
   --font:"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif;
@@ -85,7 +85,7 @@ button,input{font:inherit;color:inherit}
 /* chat */
 .chat{display:flex;flex-direction:column;height:100%;min-height:0}
 .chat .hd{padding:14px 16px 8px;display:flex;align-items:center;gap:10px}
-.avatar{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;font-weight:900;background:linear-gradient(135deg,#7c5cff,#18c7d9);color:#fff;flex:none}
+.avatar{width:34px;height:34px;border-radius:10px;overflow:hidden;flex:none;display:block}
 .thread{flex:1;overflow:auto;padding:6px 14px 10px;display:flex;flex-direction:column;gap:8px;min-height:0}
 .daysep{text-align:center;font-size:11px;color:var(--ink3);margin:6px 0}
 .bub{max-width:86%;padding:9px 12px;border-radius:16px;font-size:13.5px;line-height:1.45;word-break:keep-all}
@@ -117,14 +117,15 @@ button,input{font:inherit;color:inherit}
 .inbar input::placeholder{color:var(--ink3)}
 .ib{width:32px;height:32px;border-radius:11px;border:0;background:var(--glass-strong);cursor:pointer;font-size:15px;flex:none}
 .ib.send{background:#7c5cff;color:#fff}
+.ib.tx{width:auto;padding:0 9px;font-size:12px;font-weight:700}
 /* day board */
 .board2{display:flex;flex-direction:column;gap:10px;height:100%;overflow:auto;padding-right:4px}
-.rows{display:flex;flex-direction:column;gap:6px}
+.rows{display:flex;flex-direction:column;gap:4px}
 .lower{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:12px;align-items:start}
 .sumrow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
 .sumrow span{font-size:12px;padding:4px 9px;border-radius:9px;background:var(--glass);border:1px solid var(--line)}
 .trow{display:grid;grid-template-columns:50px minmax(0,1fr);gap:8px}
-.trow .lbl{font-size:12px;color:var(--ink2);padding-top:22px;text-align:right}
+.trow .lbl{font-size:12px;color:var(--ink2);padding-top:14px;text-align:right}
 .trow.past{opacity:.45}
 .track{position:relative;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--hair);padding-top:18px}
 .track .tick{position:absolute;top:0;bottom:0;border-left:1px dashed var(--hair)}
@@ -160,8 +161,8 @@ button,input{font:inherit;color:inherit}
 .status{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:700;flex:none}
 .island{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:112px;height:30px;border-radius:20px;background:#000;z-index:5}
 .pv{flex:1;min-height:0;display:flex;flex-direction:column}
-.tabbar{display:flex;justify-content:space-around;padding:8px 10px 22px;margin:0 10px 8px;border-radius:26px;flex:none}
-.tabbar button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;color:var(--ink3);cursor:pointer;width:72px}
+.tabbar{display:flex;justify-content:space-around;padding:6px 10px 18px;margin:0 10px 8px;border-radius:26px;flex:none}
+.tabbar button{background:none;border:0;font-size:13px;font-weight:700;color:var(--ink3);cursor:pointer;padding:8px 6px}
 .tabbar button b{font-size:19px;line-height:1}
 .tabbar button.on{color:var(--ink)}
 .ph-head{display:flex;align-items:center;gap:8px;padding:6px 16px 8px}
@@ -204,7 +205,7 @@ button,input{font:inherit;color:inherit}
 .lockpanel{width:100%;border-radius:22px;padding:12px 14px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
 .noti{width:100%;border-radius:20px;padding:11px 13px;background:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.4);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);font-size:12.5px}
 .noti .nh{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink2);margin-bottom:3px}
-.noti .nh .avatar{width:18px;height:18px;border-radius:6px;font-size:10px}
+.noti .nh .avatar{width:18px;height:18px;border-radius:5px}
 .cap{font-size:11px;color:var(--ink2);text-align:center;padding:4px 10px 8px;line-height:1.5}
 .toast{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);background:rgba(20,20,40,.85);color:#fff;font-size:12.5px;padding:9px 14px;border-radius:14px;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;z-index:9}
 .toast.show{opacity:1}
@@ -215,7 +216,7 @@ button,input{font:inherit;color:inherit}
 <body>
 <div class="top">
   <div style="flex:1;min-width:280px">
-    <h1>Ya 캘린더 · 눌러 볼 수 있는 시안</h1>
+    <h1>블랙홀 · 눌러 볼 수 있는 시안</h1>
     <p>모든 일정은 가짜입니다. 오늘 = 2026년 10월 25일(일) 오후 2:10. 오른쪽 채팅에 아무 문장이나 쳐 보세요(예: 「목요일 오후 3시 학부모 상담」). 실제 앱에서는 이 Mac의 로컬 AI가 분석합니다.</p>
   </div>
   <div class="seg glass" id="devSeg"><button data-dev="both" class="on">둘 다</button><button data-dev="desk">데스크톱</button><button data-dev="phone">휴대폰</button></div>
@@ -225,7 +226,7 @@ button,input{font:inherit;color:inherit}
 <div class="stage">
   <div id="deskWrap">
     <div class="win" id="win">
-      <div class="chrome"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span style="margin-left:10px;font-size:12px;color:var(--ink2)">Ya 데스크톱</span></div>
+      <div class="chrome"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span style="margin-left:10px;font-size:12px;color:var(--ink2)">블랙홀</span></div>
       <div class="body">
         <section class="pane glass">
           <div class="calhead">
@@ -240,10 +241,10 @@ button,input{font:inherit;color:inherit}
         </section>
         <aside class="pane glass">
           <div class="chat">
-            <div class="hd"><div class="avatar">Ya</div><div><div style="font-weight:800">Ya에게 보내기</div><div style="font-size:11.5px;color:var(--ink2)">사진·음성·문장 · 휴대폰·디스코드와 같은 대화</div></div></div>
+            <div class="hd"><div class="avatar"><svg viewBox="0 0 100 100" width="100%" height="100%"><defs><linearGradient id="rg" x1="0" x2="1"><stop offset="0" stop-color="#5ee1ff"/><stop offset=".5" stop-color="#9b7bff"/><stop offset="1" stop-color="#ff7ccf"/></linearGradient></defs><rect width="100" height="100" rx="23" fill="#120f2b"/><ellipse cx="50" cy="54" rx="38" ry="10" fill="none" stroke="url(#rg)" stroke-width="6"/><circle cx="50" cy="52" r="18" fill="#000"/><circle cx="50" cy="52" r="18.5" fill="none" stroke="#e9e3ff" stroke-width="1.6"/><path d="M12 54 A38 10 0 0 0 88 54" fill="none" stroke="url(#rg)" stroke-width="6.5"/></svg></div><div><div style="font-weight:800">블랙홀에 던지기</div><div style="font-size:11.5px;color:var(--ink2)">사진·음성·문장 · 휴대폰·디스코드와 같은 대화</div></div></div>
             <div class="thread" id="dThread"></div>
             <div class="quick" id="dQuick"></div>
-            <div class="inbar glass"><button class="ib" title="사진·파일" data-demo="photo">📎</button><button class="ib" title="음성" data-demo="voice">🎤</button><input id="dInput" placeholder="대충 적고 엔터 (예: 금요일까지 보고서 제출)"><button class="ib send" id="dSend">↑</button></div>
+            <div class="inbar glass"><button class="ib tx" data-demo="photo">파일</button><button class="ib tx" data-demo="voice">음성</button><input id="dInput" placeholder="대충 적고 엔터 (예: 금요일까지 보고서 제출)"><button class="ib send" id="dSend">↑</button></div>
           </div>
         </aside>
       </div>
@@ -258,10 +259,10 @@ button,input{font:inherit;color:inherit}
         <div class="status"><span id="pClock">2:10</span><span>100%</span></div>
         <div class="pv" id="pView"></div>
         <div class="tabbar glass" id="pTabs">
-          <button data-tab="chat" class="on"><b>💬</b>보내기</button>
-          <button data-tab="cal"><b>🗓</b>캘린더</button>
-          <button data-tab="home"><b>▦</b>위젯</button>
-          <button data-tab="lock"><b>🔒</b>잠금화면</button>
+          <button data-tab="chat" class="on">보내기</button>
+          <button data-tab="cal">캘린더</button>
+          <button data-tab="home">위젯</button>
+          <button data-tab="lock">잠금화면</button>
         </div>
         <div class="toast" id="toast"></div>
       </div>
@@ -381,22 +382,22 @@ function renderDesk(){
 const STNAME={todo:"할 일",doing:"하는 중",done:"끝"};
 function checkHTML(e){return `<div class="chk ${e.st==="done"?"done":""}" data-chk="${e.id}"><span class="box">${e.st==="done"?"✓":""}</span><span class="lb">${e.t}</span><span class="dot d-${e.area||"todo"}" style="margin-left:auto"></span></div>`}
 function dayBoardHTML(k){
-  const ROWS=[[7,10],[10,13],[13,16],[16,19],[19,22]];
+  const ROWS=Array.from({length:15},(_,i)=>[7+i,8+i]);
   const evs=of(k).filter(e=>e.s);const todos=of(k).filter(e=>e.a==="todo");
   const nowM=NOW.getHours()*60+NOW.getMinutes();
   let rows="";
   for(const[a,b]of ROWS){const A=a*60,B=b*60;
     const inRow=evs.filter(e=>mins(e.s)<B&&mins(e.e)>A);
     const lanes=[];const placed=inRow.map(e=>{const s=Math.max(mins(e.s),A),en=Math.min(mins(e.e),B);let l=lanes.findIndex(x=>x<=s);if(l<0){l=lanes.length;lanes.push(0)}lanes[l]=en;return{e,s,en,l}});
-    const h=placed.length?18+lanes.length*34+6:42;
+    const h=placed.length?16+lanes.length*32+4:34;
     let tr=`<div class="track" style="height:${h}px">`;
-    for(let hh=a;hh<b;hh++){const x=(hh*60-A)/(B-A)*100;tr+=`<div class="tick" style="left:${x}%"><span>${hh}시</span></div>`}
-    for(const p of placed){const l=(p.s-A)/(B-A)*100,w=(p.en-p.s)/(B-A)*100;const cont=mins(p.e.e)>B?' <span class="cont">→ 다음 줄</span>':(mins(p.e.s)<A?' <span class="cont">← 이어서</span>':"");
-      tr+=`<div class="blk ${p.e.a} ${p.e.p?"prov":""}" data-ev="${p.e.id}" style="left:calc(${l}% + 2px);width:calc(${w}% - 4px);top:${18+p.l*34}px">${p.e.s} ${p.e.t}${p.e.p?' <span class="ga">가</span>':""}${cont}</div>`}
+    for(const q of [15,30,45]){tr+=`<div class="tick" style="left:${q/60*100}%"><span>:${q}</span></div>`}
+    for(const p of placed){const l=(p.s-A)/(B-A)*100,w=(p.en-p.s)/(B-A)*100;const cont=mins(p.e.e)>B?' <span class="cont">→</span>':(mins(p.e.s)<A?' <span class="cont">(이어서)</span>':"");
+      tr+=`<div class="blk ${p.e.a} ${p.e.p?"prov":""}" data-ev="${p.e.id}" style="left:calc(${l}% + 2px);width:calc(${w}% - 4px);top:${16+p.l*32}px;height:28px;padding:4px 8px">${p.e.s} ${p.e.t}${p.e.p?' <span class="ga">가</span>':""}${cont}</div>`}
     if(k===TODAY&&nowM>=A&&nowM<B)tr+=`<div class="nowtick" style="left:${(nowM-A)/(B-A)*100}%"></div>`;
-    if(!placed.length)tr+=`<div style="position:absolute;right:10px;top:20px;font-size:11px;color:var(--ink3)">비어 있음</div>`;
+    
     tr+=`</div>`;
-    rows+=`<div class="trow ${k===TODAY&&B<=nowM?"past":""}"><div class="lbl">${a}–${b}시</div>${tr}</div>`}
+    rows+=`<div class="trow ${k===TODAY&&B<=nowM?"past":""}"><div class="lbl">${a}시</div>${tr}</div>`}
   const col=st=>todos.filter(e=>(e.st||"todo")===st).map(e=>`<div class="kcard" data-ev="${e.id}"><div style="display:flex;gap:6px;align-items:center"><span class="dot d-${e.area||"todo"}"></span><b style="font-weight:700;${st==="done"?"text-decoration:line-through;opacity:.6":""}">${e.t}</b></div><div class="meta">${e.area==="school"?"학교":"개인"}${e.src?` · ${e.src}`:""}<button class="mv" data-st="${e.id}">${st==="todo"?"시작 →":st==="doing"?"끝 →":"되돌리기"}</button></div></div>`).join("")||'<div class="empty" style="padding:4px">없음</div>';
   const soon=EVENTS.filter(e=>e.a==="todo"&&!e.gone&&e.st!=="done"&&e.date>k&&e.date<=ymd(addDays(parseYmd(k),7))).sort((x,y)=>x.date.localeCompare(y.date));
   const done=todos.filter(e=>e.st==="done").length;
@@ -407,7 +408,7 @@ function dayBoardHTML(k){
    <div class="lower">
     <div class="sect"><h4>오늘 할 일 <small>단추로 옮기기 · 체크하면 끝</small></h4><div class="kb"><div class="kcol"><div class="kt">할 일</div>${col("todo")}</div><div class="kcol"><div class="kt">하는 중</div>${col("doing")}</div><div class="kcol"><div class="kt">끝</div>${col("done")}</div></div>
       <h4 style="margin-top:10px">다가오는 마감 <small>7일</small></h4>${soon.map(e=>`<div class="chk" data-chk="${e.id}"><span class="box"></span><span class="lb">${e.t}</span><small style="margin-left:auto;color:var(--ink2);font-size:11px">${fmtDate(e.date)}</small></div>`).join("")||'<div class="empty">없음</div>'}</div>
-    <div class="sect"><h4>오늘 들어온 것 <small>인박스 → 옵시디언</small></h4>${inbox.map(x=>`<div class="inrow"><span style="width:38px;color:var(--ink2);font-size:11.5px;flex:none">${x.time}</span><div style="flex:1;min-width:0"><b style="font-weight:700">${x.t}</b> <span class="st ${stCls(x.state)}">${x.state}</span><span class="obs">${x.src}${x.made?` · ${x.made}`:""}</span>${x.note?`<span class="obs">📝 ${x.note}</span>`:""}</div></div>`).join("")||'<div class="empty">이날 들어온 것 없음</div>'}</div>
+    <div class="sect"><h4>오늘 들어온 것 <small>인박스 → 옵시디언</small></h4>${inbox.map(x=>`<div class="inrow"><span style="width:38px;color:var(--ink2);font-size:11.5px;flex:none">${x.time}</span><div style="flex:1;min-width:0"><b style="font-weight:700">${x.t}</b> <span class="st ${stCls(x.state)}">${x.state}</span><span class="obs">${x.src}${x.made?` · ${x.made}`:""}</span>${x.note?`<span class="obs">옵시디언: ${x.note.replace("Ya/","블랙홀/")}</span>`:""}</div></div>`).join("")||'<div class="empty">이날 들어온 것 없음</div>'}</div>
    </div></div>`;
 }
 function detailCard(e){
@@ -433,7 +434,7 @@ function bubbleHTML(m){
 function renderThreads(){
   for(const id of ["dThread","pThread"]){const el=document.getElementById(id);if(!el)continue;el.innerHTML=THREAD.map(bubbleHTML).join("");el.scrollTop=el.scrollHeight}
 }
-const QUICK=[["📷 공문 사진 보내기","photo"],["🎤 음성 메모","voice"],["디스코드에서 보낸 척","discord"],["「기억해 줘」","note"]];
+const QUICK=[["공문 사진 보내기","photo"],["음성 메모","voice"],["디스코드에서 보내기","discord"],["「기억해 줘」","note"]];
 function renderQuick(){for(const id of ["dQuick","pQuick"]){const el=document.getElementById(id);if(el)el.innerHTML=QUICK.map(([l,k])=>`<button data-demo="${k}">${l}</button>`).join("")}}
 
 /* tiny demo parser — the real app uses the local worker */
@@ -493,9 +494,9 @@ function renderPhone(){
   const v=document.getElementById("pView");
   document.querySelectorAll("#pTabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===P.tab));
   const tabbar=document.getElementById("pTabs");tabbar.style.display=P.tab==="lock"?"none":"flex";
-  if(P.tab==="chat"){v.innerHTML=`<div class="ph-head"><div class="avatar">Ya</div><div class="title" style="font-size:17px">Ya<div style="font-size:11px;font-weight:400;color:var(--ink2)">보내면 알아서 넣어요</div></div><span class="pill" style="cursor:default;font-size:11.5px">확인 대기 ${pending().length}</span></div>
+  if(P.tab==="chat"){v.innerHTML=`<div class="ph-head"><div class="avatar"><svg viewBox="0 0 100 100" width="100%" height="100%"><defs><linearGradient id="rg" x1="0" x2="1"><stop offset="0" stop-color="#5ee1ff"/><stop offset=".5" stop-color="#9b7bff"/><stop offset="1" stop-color="#ff7ccf"/></linearGradient></defs><rect width="100" height="100" rx="23" fill="#120f2b"/><ellipse cx="50" cy="54" rx="38" ry="10" fill="none" stroke="url(#rg)" stroke-width="6"/><circle cx="50" cy="52" r="18" fill="#000"/><circle cx="50" cy="52" r="18.5" fill="none" stroke="#e9e3ff" stroke-width="1.6"/><path d="M12 54 A38 10 0 0 0 88 54" fill="none" stroke="url(#rg)" stroke-width="6.5"/></svg></div><div class="title" style="font-size:17px">블랙홀<div style="font-size:11px;font-weight:400;color:var(--ink2)">보내면 알아서 넣어요</div></div><span class="pill" style="cursor:default;font-size:11.5px">확인 대기 ${pending().length}</span></div>
     <div class="thread" id="pThread"></div><div class="quick" id="pQuick"></div>
-    <div class="inbar glass" style="margin:0 10px 8px"><button class="ib" data-demo="photo">📷</button><button class="ib" data-demo="voice">🎤</button><input id="pInput" placeholder="대충 적고 보내기"><button class="ib send" id="pSend">↑</button></div>`;
+    <div class="inbar glass" style="margin:0 10px 8px"><button class="ib tx" data-demo="photo">사진</button><button class="ib tx" data-demo="voice">음성</button><input id="pInput" placeholder="대충 적고 보내기"><button class="ib send" id="pSend">↑</button></div>`;
     renderThreads();renderQuick();
     document.getElementById("pSend").onclick=()=>sendText("pInput");
     document.getElementById("pInput").onkeydown=e=>{if(e.key==="Enter"&&!e.isComposing)sendText("pInput")};
@@ -514,10 +515,10 @@ function renderPhone(){
     const today=of(TODAY),tom=of(ymd(addDays(NOW,1)));
     const li=e=>e.a==="todo"?`<div class="li" data-chk="${e.id}" style="cursor:pointer"><span class="tm">${e.st==="done"?"☑":"☐"}</span><span style="flex:1;${e.st==="done"?"text-decoration:line-through;opacity:.55":""}">${e.t}</span></div>`:`<div class="li"><span class="tm">${e.s}</span><span class="dot d-${e.a}"></span><span style="flex:1">${e.t}</span>${e.p?'<span class="ga">가</span>':""}</div>`;
     v.innerHTML=`<div class="home">
-      <div class="wg"><h4><span>오늘 · ${NOW.getMonth()+1}월 ${NOW.getDate()}일 ${DOW[NOW.getDay()]}</span><span style="color:var(--ink2);font-weight:400">Ya</span></h4>${today.map(li).join("")||'<div class="empty">비어 있음</div>'}<h4 style="margin-top:8px">내일</h4>${tom.map(li).join("")}</div>
+      <div class="wg"><h4><span>오늘 · ${NOW.getMonth()+1}월 ${NOW.getDate()}일 ${DOW[NOW.getDay()]}</span><span style="color:var(--ink2);font-weight:400">블랙홀</span></h4>${today.map(li).join("")||'<div class="empty">비어 있음</div>'}<h4 style="margin-top:8px">내일</h4>${tom.map(li).join("")}</div>
       <div style="display:flex;gap:14px">
         <div class="wg" style="flex:1"><h4>확인 대기</h4><div style="font-size:34px;font-weight:800;line-height:1.1">${pending().length}</div><div style="font-size:11px;color:var(--ink2)">눌러서 확정·취소</div></div>
-        <div class="wg" style="flex:1;display:flex;flex-direction:column;justify-content:space-between"><h4>Ya에게 말하기</h4><div style="display:flex;gap:8px"><button class="ib" data-demo="voice" style="flex:1;height:44px;font-size:20px">🎤</button><button class="ib" data-demo="photo" style="flex:1;height:44px;font-size:20px">📷</button></div></div>
+        <div class="wg" style="flex:1;display:flex;flex-direction:column;justify-content:space-between"><h4>블랙홀에 던지기</h4><div style="display:flex;gap:8px"><button class="ib tx" data-demo="voice" style="flex:1;height:40px">말하기</button><button class="ib tx" data-demo="photo" style="flex:1;height:40px">사진</button></div></div>
       </div>
       <div class="wg">${miniMonthHTML(NOW)}</div>
       <div class="apps"><span></span><span></span><span></span><span></span></div>
@@ -530,11 +531,11 @@ function renderPhone(){
       <div class="lockdate">${NOW.getMonth()+1}월 ${NOW.getDate()}일 ${DOW[NOW.getDay()]}요일</div>
       <div class="clock">2:10</div>
       <div class="lockpanel">${miniMonthHTML(NOW)}<div style="border-top:1px solid rgba(255,255,255,.25);margin-top:8px;padding-top:6px">${today.map(e=>`<div style="display:flex;gap:8px;font-size:12.5px;padding:3px 0;align-items:center"><span style="width:38px;color:var(--ink2)">${e.s||"☐"}</span><span class="dot d-${e.area||e.a}"></span>${hide(e)?"학교 일정":e.t}${e.p?' <span class="ga">가</span>':""}</div>`).join("")}</div></div>
-      <div class="noti" data-noclick="1"><div class="nh"><span class="avatar">Ya</span>Ya · 항상 표시</div><b>Ya에게 보내기</b><div style="color:var(--ink2);font-size:11.5px;margin:2px 0 6px">잠금을 풀지 않고 보낼 수 있어요</div>
-        ${P.compose?`<div style="display:flex;gap:6px"><input id="lockInput" placeholder="예: 금요일까지 생기부 입력" style="flex:1;min-width:0;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.2);border-radius:10px;padding:6px 8px;outline:0"><button class="btn ok" id="lockSend">보내기</button></div>`:`<div style="display:flex;gap:6px"><button class="btn" data-lock="voice">🎤 말하기</button><button class="btn" data-lock="text">⌨ 적기</button><button class="btn" data-lock="photo">📷 사진</button></div>`}</div>
-      ${pending().length?`<div class="noti"><div class="nh"><span class="avatar">Ya</span>Ya · 지금</div><b>확인 대기 ${pending().length}건</b><div style="color:var(--ink2);font-size:12px;margin:2px 0 6px">${pending().slice(0,2).map(e=>e.t).join(", ")}${pending().length>2?" 외":""}</div><div style="display:flex;gap:6px"><button class="btn ok" data-okall="1">모두 확정</button><button class="btn" data-tab-go="chat">열어 보기</button></div></div>`:""}
+      <div class="noti" data-noclick="1"><div class="nh"><span class="avatar"><svg viewBox="0 0 100 100" width="100%" height="100%"><defs><linearGradient id="rg" x1="0" x2="1"><stop offset="0" stop-color="#5ee1ff"/><stop offset=".5" stop-color="#9b7bff"/><stop offset="1" stop-color="#ff7ccf"/></linearGradient></defs><rect width="100" height="100" rx="23" fill="#120f2b"/><ellipse cx="50" cy="54" rx="38" ry="10" fill="none" stroke="url(#rg)" stroke-width="6"/><circle cx="50" cy="52" r="18" fill="#000"/><circle cx="50" cy="52" r="18.5" fill="none" stroke="#e9e3ff" stroke-width="1.6"/><path d="M12 54 A38 10 0 0 0 88 54" fill="none" stroke="url(#rg)" stroke-width="6.5"/></svg></span>블랙홀 · 항상 표시</div><b>블랙홀에 던지기</b><div style="color:var(--ink2);font-size:11.5px;margin:2px 0 6px">잠금을 풀지 않고 보낼 수 있어요</div>
+        ${P.compose?`<div style="display:flex;gap:6px"><input id="lockInput" placeholder="예: 금요일까지 생기부 입력" style="flex:1;min-width:0;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.2);border-radius:10px;padding:6px 8px;outline:0"><button class="btn ok" id="lockSend">보내기</button></div>`:`<div style="display:flex;gap:6px"><button class="btn" data-lock="voice">말하기</button><button class="btn" data-lock="text">적기</button><button class="btn" data-lock="photo">사진</button></div>`}</div>
+      ${pending().length?`<div class="noti"><div class="nh"><span class="avatar"><svg viewBox="0 0 100 100" width="100%" height="100%"><defs><linearGradient id="rg" x1="0" x2="1"><stop offset="0" stop-color="#5ee1ff"/><stop offset=".5" stop-color="#9b7bff"/><stop offset="1" stop-color="#ff7ccf"/></linearGradient></defs><rect width="100" height="100" rx="23" fill="#120f2b"/><ellipse cx="50" cy="54" rx="38" ry="10" fill="none" stroke="url(#rg)" stroke-width="6"/><circle cx="50" cy="52" r="18" fill="#000"/><circle cx="50" cy="52" r="18.5" fill="none" stroke="#e9e3ff" stroke-width="1.6"/><path d="M12 54 A38 10 0 0 0 88 54" fill="none" stroke="url(#rg)" stroke-width="6.5"/></svg></span>블랙홀 · 지금</div><b>확인 대기 ${pending().length}건</b><div style="color:var(--ink2);font-size:12px;margin:2px 0 6px">${pending().slice(0,2).map(e=>e.t).join(", ")}${pending().length>2?" 외":""}</div><div style="display:flex;gap:6px"><button class="btn ok" data-okall="1">모두 확정</button><button class="btn" data-tab-go="chat">열어 보기</button></div></div>`:""}
       <label class="cap" style="display:flex;gap:6px;align-items:center;justify-content:center;cursor:pointer" data-noclick="1"><input type="checkbox" id="hideSchool" ${P.hideSchool?"checked":""}> 잠금화면에서 학교 일정 제목 가리기</label>
-      <div class="cap" style="margin-top:auto">잠금화면: 사진 배경 위 반투명 달력판(배경화면으로 만들어 넣음) + 항상 떠 있는 「Ya에게 보내기」 알림. 잠금 상태에서는 보내기만 되고, 지난 대화는 보이지 않습니다. 빈 곳을 누르면 잠금 해제.</div></div>`;
+      <div class="cap" style="margin-top:auto">잠금화면: 사진 배경 위 반투명 달력판(배경화면으로 만들어 넣음) + 항상 떠 있는 「블랙홀에 던지기」 알림. 잠금 상태에서는 보내기만 되고, 지난 대화는 보이지 않습니다. 빈 곳을 누르면 잠금 해제.</div></div>`;
     const hs=document.getElementById("hideSchool");if(hs)hs.onchange=()=>{P.hideSchool=hs.checked;renderPhone()};
     const ls=document.getElementById("lockSend");if(ls){const go=()=>{const el=document.getElementById("lockInput");const v=el.value.trim();if(!v)return;P.compose=false;sendSilently({who:"me",text:v,src:"휴대폰 · 잠금화면"},v.split(/\s*(?:그리고|,)\s*/).filter(Boolean).map(parse));};ls.onclick=go;document.getElementById("lockInput").onkeydown=e=>{if(e.key==="Enter"&&!e.isComposing)go()};document.getElementById("lockInput").focus()}
   }
