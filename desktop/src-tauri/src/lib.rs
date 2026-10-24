@@ -2,6 +2,7 @@ mod cache;
 mod commands;
 mod fixtures;
 mod models;
+pub mod worker;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

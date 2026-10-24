@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ya/proposal.v1.schema.json",
+  "title": "Ya 로컬 작업기 제안 JSON v1",
+  "description": "음성·글·문서·이미지 하나를 로컬 모델로 분석한 결과. 날짜·시각은 코드가 referenceTime 기준으로 계산한다. 23열 Items 계약과 같은 kind/area 값을 쓰고, NOTE(기억할 정보)는 제안 단계에만 있다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "source", "referenceTime", "engine", "sourceText", "summary", "items", "needsReview", "reviewReasons", "timings"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "format", "sha256", "bytes"],
+      "properties": {
+        "type": { "enum": ["audio", "text", "document", "image"] },
+        "format": { "type": "string", "description": "소문자 확장자. 파일 이름·경로는 담지 않는다." },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "referenceTime": { "type": "string", "format": "date-time" },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "reader", "llmModel", "promptVersion", "workerVersion"],
+      "properties": {
+        "id": { "enum": ["A", "B"], "description": "A: 글자로 먼저 바꾼 뒤 Gemma 텍스트 모델. B: Gemma가 음성·이미지를 직접 읽음." },
+        "reader": { "type": "string", "description": "whisper 모델 또는 kordoc 버전. 글 입력·B 엔진은 빈 문자열." },
+        "llmModel": { "type": "string" },
+        "promptVersion": { "type": "string" },
+        "workerVersion": { "type": "string" }
+      }
+    },
+    "sourceText": { "type": "string", "description": "받아 적은 문장, 입력한 글, 문서·이미지에서 읽은 글." },
+    "summary": { "type": "string" },
+    "items": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/item" } },
+    "needsReview": { "type": "boolean" },
+    "reviewReasons": { "type": "array", "items": { "type": "string" } },
+    "timings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["readMs", "llmMs", "totalMs"],
+      "properties": {
+        "readMs": { "type": "integer", "minimum": 0 },
+        "llmMs": { "type": "integer", "minimum": 0 },
+        "totalMs": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "instantOrEmpty": {
+      "anyOf": [{ "const": "" }, { "type": "string", "format": "date-time" }]
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "area", "title", "details", "startAt", "endAt", "reminderAt", "evidence", "confidence", "needsReview", "reviewReasons"],
+      "properties": {
+        "kind": { "enum": ["SCHEDULE", "TODO", "NOTE"] },
+        "area": { "enum": ["PERSONAL", "SCHOOL"] },
+        "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "details": { "type": "string" },
+        "startAt": { "$ref": "#/$defs/instantOrEmpty" },
+        "endAt": { "$ref": "#/$defs/instantOrEmpty" },
+        "reminderAt": { "$ref": "#/$defs/instantOrEmpty" },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sentence", "dateText", "timeText"],
+          "properties": {
+            "sentence": { "type": "string" },
+            "dateText": { "type": "string" },
+            "timeText": { "type": "string" }
+          }
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "needsReview": { "type": "boolean" },
+        "reviewReasons": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

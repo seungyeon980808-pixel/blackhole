@@ -1,0 +1,724 @@
+{
+ "note": "가상 데이터. 실제 녹음·개인 기록 아님. 정답 시각은 referenceTime 기준.",
+ "referenceTime": "2026-10-21T09:00:00+09:00",
+ "cases": [
+  {
+   "id": "v01",
+   "voice": "Yuna",
+   "text": "내일 오후 3시에 학부모 상담 일정 추가해 줘",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "학부모",
+      "상담"
+     ],
+     "startAt": "2026-10-22T15:00:00+09:00"
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v02",
+   "voice": "Yuna",
+   "text": "모레 오전 10시 치과 예약 있어",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "치과"
+     ],
+     "startAt": "2026-10-23T10:00:00+09:00"
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v03",
+   "voice": "Yuna",
+   "text": "다음 주 화요일 오후 2시에 학년 협의회",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "학년",
+      "협의회"
+     ],
+     "startAt": "2026-10-27T14:00:00+09:00"
+    }
+   ],
+   "rate": 210
+  },
+  {
+   "id": "v04",
+   "voice": "Yuna",
+   "text": "금요일까지 수행평가 채점 끝내기",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "수행평가",
+      "채점"
+     ],
+     "startAt": "2026-10-23T09:00:00+09:00"
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v05",
+   "voice": "Yuna",
+   "text": "오늘 저녁 7시에 엄마랑 저녁 식사",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "엄마",
+      "식사"
+     ],
+     "startAt": "2026-10-21T19:00:00+09:00"
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v06",
+   "voice": "Yuna",
+   "text": "11월 3일 오후 4시 교직원 연수",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "교직원",
+      "연수"
+     ],
+     "startAt": "2026-11-03T16:00:00+09:00"
+    }
+   ],
+   "rate": 210
+  },
+  {
+   "id": "v07",
+   "voice": "Yuna",
+   "text": "세탁소에 맡긴 코트 찾아오기",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "코트"
+     ],
+     "startAt": ""
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v08",
+   "voice": "Yuna",
+   "text": "내일 아침 8시 반에 운동장 조회",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "조회"
+     ],
+     "startAt": "2026-10-22T08:30:00+09:00"
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v09",
+   "voice": "Yuna",
+   "text": "글피 오후 1시에 미용실 예약",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "미용실"
+     ],
+     "startAt": "2026-10-24T13:00:00+09:00"
+    }
+   ],
+   "rate": 210
+  },
+  {
+   "id": "v10",
+   "voice": "Yuna",
+   "text": "다음 주 월요일까지 생활기록부 입력 마감",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "생활기록부"
+     ],
+     "startAt": "2026-10-26T09:00:00+09:00"
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v11",
+   "voice": "Yuna",
+   "text": "오후 5시에 은행에 전화하기",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "은행",
+      "전화"
+     ],
+     "startAt": "2026-10-21T17:00:00+09:00"
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v12",
+   "voice": "Yuna",
+   "text": "목요일 오전 11시 학생 진로 상담",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "진로",
+      "상담"
+     ],
+     "startAt": "2026-10-22T11:00:00+09:00"
+    }
+   ],
+   "rate": 210
+  },
+  {
+   "id": "v13",
+   "voice": "Yuna",
+   "text": "자동차 보험 갱신 확인해야 돼",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "보험"
+     ],
+     "startAt": ""
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v14",
+   "voice": "Yuna",
+   "text": "내일 오전 9시 반 과학실 실험 준비",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "실험",
+      "준비"
+     ],
+     "startAt": "2026-10-22T09:30:00+09:00"
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v15",
+   "voice": "Yuna",
+   "text": "토요일 오후 6시 친구 결혼식",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "결혼식"
+     ],
+     "startAt": "2026-10-24T18:00:00+09:00"
+    }
+   ],
+   "rate": 210
+  },
+  {
+   "id": "v16",
+   "voice": "Yuna",
+   "text": "3월 2일 오전 9시 입학식",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "입학식"
+     ],
+     "startAt": "2027-03-02T09:00:00+09:00"
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v17",
+   "voice": "Yuna",
+   "text": "모레까지 가정통신문 회신 걷기",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "가정통신문"
+     ],
+     "startAt": "2026-10-23T09:00:00+09:00"
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v18",
+   "voice": "Yuna",
+   "text": "오늘 밤 10시에 택배 반품 신청하기",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "반품"
+     ],
+     "startAt": "2026-10-21T22:00:00+09:00"
+    }
+   ],
+   "rate": 210
+  },
+  {
+   "id": "v19",
+   "voice": "Yuna",
+   "text": "다음 주 금요일 오후 3시 동아리 발표회",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "동아리",
+      "발표회"
+     ],
+     "startAt": "2026-10-30T15:00:00+09:00"
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v20",
+   "voice": "Yuna",
+   "text": "내일 점심 12시에 교감 선생님과 면담",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "면담"
+     ],
+     "startAt": "2026-10-22T12:00:00+09:00"
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v21",
+   "voice": "Yuna",
+   "text": "관리비 납부하기",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "관리비"
+     ],
+     "startAt": ""
+    }
+   ],
+   "rate": 210
+  },
+  {
+   "id": "v22",
+   "voice": "Yuna",
+   "text": "수요일 오후 4시 반에 피아노 레슨",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "피아노"
+     ],
+     "startAt": "2026-10-28T16:30:00+09:00"
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v23",
+   "voice": "Yuna",
+   "text": "내일 오후 2시 시험 감독",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "시험",
+      "감독"
+     ],
+     "startAt": "2026-10-22T14:00:00+09:00"
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v24",
+   "voice": "Yuna",
+   "text": "오전 8시에 약 먹기",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "약"
+     ],
+     "startAt": "2026-10-22T08:00:00+09:00"
+    }
+   ],
+   "rate": 210
+  },
+  {
+   "id": "v25",
+   "voice": "Yuna",
+   "text": "금요일 오후 7시 동창 모임",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "동창",
+      "모임"
+     ],
+     "startAt": "2026-10-23T19:00:00+09:00"
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v26",
+   "voice": "Yuna",
+   "text": "다음 주 화요일까지 연수 결과 보고서 제출",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "보고서"
+     ],
+     "startAt": "2026-10-27T09:00:00+09:00"
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v27",
+   "voice": "Yuna",
+   "text": "모레 오후 3시 반에 안과 진료",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "안과"
+     ],
+     "startAt": "2026-10-23T15:30:00+09:00"
+    }
+   ],
+   "rate": 210
+  },
+  {
+   "id": "v28",
+   "voice": "Yuna",
+   "text": "오늘 오후 4시 교과 협의회 회의",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "교과",
+      "협의회"
+     ],
+     "startAt": "2026-10-21T16:00:00+09:00"
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v29",
+   "voice": "Yuna",
+   "text": "학급 문고 책 정리하기",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "학급",
+      "문고"
+     ],
+     "startAt": ""
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v30",
+   "voice": "Yuna",
+   "text": "내일 오전 10시에 부동산 계약",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "부동산",
+      "계약"
+     ],
+     "startAt": "2026-10-22T10:00:00+09:00"
+    }
+   ],
+   "rate": 210
+  },
+  {
+   "id": "v31",
+   "voice": "Yuna",
+   "text": "11월 15일 수학여행 출발",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "수학여행"
+     ],
+     "startAt": "2026-11-15T09:00:00+09:00"
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v32",
+   "voice": "Yuna",
+   "text": "이번 주 토요일 오전 11시 조카 돌잔치",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "돌잔치"
+     ],
+     "startAt": "2026-10-24T11:00:00+09:00"
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v33",
+   "voice": "Yuna",
+   "text": "월요일 오후 2시 학부모 공개수업",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "공개수업"
+     ],
+     "startAt": "2026-10-26T14:00:00+09:00"
+    }
+   ],
+   "rate": 210
+  },
+  {
+   "id": "v34",
+   "voice": "Yuna",
+   "text": "엄마 생신 선물 주문하기",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "선물"
+     ],
+     "startAt": ""
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v35",
+   "voice": "Yuna",
+   "text": "내일 오후 2시에 학년 회의 있고 회의 전에 출석부 정리해야 돼",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "학년",
+      "회의"
+     ],
+     "startAt": "2026-10-22T14:00:00+09:00"
+    },
+    {
+     "kind": "TODO",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "출석부"
+     ],
+     "startAt": ""
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v36",
+   "voice": "Yuna",
+   "text": "금요일 오후 6시 가족 외식하고 토요일에 세차하기",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "외식"
+     ],
+     "startAt": "2026-10-23T18:00:00+09:00"
+    },
+    {
+     "kind": "TODO",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "세차"
+     ],
+     "startAt": "2026-10-24T09:00:00+09:00"
+    }
+   ],
+   "rate": 210
+  },
+  {
+   "id": "v37",
+   "voice": "Yuna",
+   "text": "학교 복사기 비밀번호는 교무실 게시판에 붙어 있다는 거 기억해 줘",
+   "items": [
+    {
+     "kind": "NOTE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "복사기"
+     ],
+     "startAt": ""
+    }
+   ],
+   "rate": 175
+  },
+  {
+   "id": "v38",
+   "voice": "Yuna",
+   "text": "우리 반 지민이는 땅콩 알레르기가 있다는 거 기억해 둬",
+   "items": [
+    {
+     "kind": "NOTE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "알레르기"
+     ],
+     "startAt": ""
+    }
+   ],
+   "rate": 150
+  },
+  {
+   "id": "v39",
+   "voice": "Yuna",
+   "text": "자동차 타이어 교체는 3만 킬로미터마다 하면 된대",
+   "items": [
+    {
+     "kind": "NOTE",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "타이어"
+     ],
+     "startAt": ""
+    }
+   ],
+   "rate": 210
+  }
+ ],
+ "documents": [
+  {
+   "id": "d01",
+   "format": "hwpx",
+   "markdown": "# 2학년 학부모 상담 주간 안내 (가상 문서)\n\n1. 일시: 11월 3일(화), 오후 3시 ~ 5시\n2. 장소: 각 반 교실\n3. 신청서 제출 기한: 10월 30일까지 담임 교사에게 제출\n",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "상담"
+     ],
+     "startAt": "2026-11-03T15:00:00+09:00"
+    },
+    {
+     "kind": "TODO",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "신청서"
+     ],
+     "startAt": "2026-10-30T09:00:00+09:00"
+    }
+   ]
+  },
+  {
+   "id": "d02",
+   "format": "pdf",
+   "text": "가상 공지: 다음 주 수요일 오후 4시 과학과 협의회. 장소 과학실.",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "협의회"
+     ],
+     "startAt": "2026-10-28T16:00:00+09:00"
+    }
+   ]
+  },
+  {
+   "id": "d03",
+   "format": "png",
+   "markdown": "# 가상 학급 안내\n\n- 11월 7일 오전 9시 현장체험학습 출발\n- 준비물: 도시락, 물\n- 11월 4일까지 동의서 제출\n",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "체험학습"
+     ],
+     "startAt": "2026-11-07T09:00:00+09:00"
+    },
+    {
+     "kind": "TODO",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "동의서"
+     ],
+     "startAt": "2026-11-04T09:00:00+09:00"
+    }
+   ]
+  }
+ ]
+}
