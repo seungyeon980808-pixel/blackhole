@@ -117,6 +117,43 @@ button,input{font:inherit;color:inherit}
 .inbar input::placeholder{color:var(--ink3)}
 .ib{width:32px;height:32px;border-radius:11px;border:0;background:var(--glass-strong);cursor:pointer;font-size:15px;flex:none}
 .ib.send{background:#7c5cff;color:#fff}
+/* day board */
+.board2{display:flex;flex-direction:column;gap:10px;height:100%;overflow:auto;padding-right:4px}
+.rows{display:flex;flex-direction:column;gap:6px}
+.lower{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:12px;align-items:start}
+.sumrow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.sumrow span{font-size:12px;padding:4px 9px;border-radius:9px;background:var(--glass);border:1px solid var(--line)}
+.trow{display:grid;grid-template-columns:50px minmax(0,1fr);gap:8px}
+.trow .lbl{font-size:12px;color:var(--ink2);padding-top:22px;text-align:right}
+.trow.past{opacity:.45}
+.track{position:relative;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--hair);padding-top:18px}
+.track .tick{position:absolute;top:0;bottom:0;border-left:1px dashed var(--hair)}
+.track .tick span{position:absolute;top:2px;left:4px;font-size:10px;color:var(--ink3)}
+.blk{position:absolute;height:30px;border-radius:9px;padding:5px 8px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.blk.school{background:color-mix(in srgb,var(--school) 34%,transparent);border:1px solid color-mix(in srgb,var(--school) 70%,transparent)}
+.blk.personal{background:color-mix(in srgb,var(--personal) 32%,transparent);border:1px solid color-mix(in srgb,var(--personal) 70%,transparent)}
+.blk.prov{border-style:dashed;background:rgba(255,255,255,.08)}
+.blk .cont{font-size:10px;color:var(--ink2)}
+.nowtick{position:absolute;top:0;bottom:0;width:2px;background:var(--now);z-index:2}
+.side{display:flex;flex-direction:column;gap:12px;overflow:auto;min-height:0}
+.sect{border-radius:16px;padding:10px 12px;background:rgba(255,255,255,.06);border:1px solid var(--hair)}
+.sect h4{font-size:13px;font-weight:800;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.sect h4 small{font-weight:400;color:var(--ink2);font-size:11.5px}
+.kb{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.kcol{border-radius:12px;padding:6px;background:rgba(255,255,255,.05);min-height:80px}
+.kcol .kt{font-size:11.5px;color:var(--ink2);padding:2px 4px 6px;font-weight:700}
+.kcard{border-radius:10px;padding:7px 8px;background:var(--glass);border:1px solid var(--line);font-size:12px;margin-bottom:6px}
+.kcard .meta{font-size:10.5px;color:var(--ink2);margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.kcard .mv{font-size:10.5px;border:1px solid var(--line);background:none;border-radius:7px;padding:1px 6px;cursor:pointer;margin-left:auto}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 2px;cursor:pointer}
+.chk .box{width:18px;height:18px;border-radius:6px;border:1.5px solid var(--ink2);display:grid;place-items:center;font-size:12px;flex:none}
+.chk.done .box{background:var(--note);border-color:var(--note);color:#10200a}
+.chk.done .lb{text-decoration:line-through;color:var(--ink3)}
+.inrow{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--hair);font-size:12.5px}
+.inrow:first-of-type{border-top:0}
+.st{font-size:10.5px;padding:1px 6px;border-radius:7px;flex:none;border:1px solid var(--line)}
+.st.ok{color:var(--note)}.st.run{color:var(--school)}.st.warn{color:var(--todo)}
+.obs{font-size:10.5px;color:var(--ink2);display:block;margin-top:2px}
 /* phone */
 .phone{width:390px;height:844px;border-radius:54px;padding:12px;background:#0b0b0f;box-shadow:0 30px 80px rgba(0,0,0,.45);flex:none;position:relative}
 .scr{width:100%;height:100%;border-radius:44px;overflow:hidden;position:relative;background:var(--wall);display:flex;flex-direction:column}
@@ -245,14 +282,17 @@ let uid=1;
 const E=(date,s,e,t,a,extra={})=>({id:uid++,date,s,e,t,a,...extra});
 let EVENTS=[
   E("2026-10-25","15:30","16:30","안과 진료","personal",{p:true,src:"음성"}),
-  E("2026-10-25",null,null,"엄마 생신 선물 주문","todo"),
+  E("2026-10-25",null,null,"엄마 생신 선물 주문","todo",{st:"todo",area:"personal"}),
+  E("2026-10-25",null,null,"체험학습 동의서 회수","todo",{st:"doing",area:"school",src:"사진"}),
+  E("2026-10-25",null,null,"출석부 정리","todo",{st:"todo",area:"school",src:"음성"}),
+  E("2026-10-25",null,null,"택배 반품 신청","todo",{st:"done",area:"personal"}),
   E("2026-10-26","08:30","09:10","운동장 조회","school"),
   E("2026-10-26","14:00","15:00","학부모 공개수업","school"),
   E("2026-10-27","14:00","15:30","학년 협의회","school",{p:true,src:"사진"}),
   E("2026-10-28","16:00","17:00","과학과 협의회","school"),
   E("2026-10-28","16:30","17:30","피아노 레슨","personal"),
   E("2026-10-29","11:00","12:00","진로 상담","school",{p:true,src:"디스코드"}),
-  E("2026-10-30",null,null,"연수 보고서 제출","todo"),
+  E("2026-10-30",null,null,"연수 보고서 제출","todo",{st:"todo",area:"school",src:"디스코드"}),
   E("2026-10-30","18:00","20:00","가족 외식","personal"),
   E("2026-10-31","18:00","20:00","친구 결혼식","personal"),
   E("2026-10-21","16:00","17:00","교과 협의회","school"),
@@ -268,13 +308,20 @@ let EVENTS=[
   E("2026-11-03","15:00","17:00","학부모 상담 주간","school"),
   E("2026-11-07","09:00","15:00","현장체험학습","school"),
 ];
+let INBOX=[
+  {t:"가정통신문 사진",src:"휴대폰 · 사진",time:"08:12",state:"완료",made:"일정 1 · 할 일 1",note:"Ya/2026/10/2026-10-25 가정통신문 (a1b2c3d4)"},
+  {t:"음성 메모 0:06",src:"휴대폰 · 잠금화면",time:"09:40",state:"완료",made:"할 일 1",note:"Ya/2026/10/2026-10-25 음성 메모 (77e0c1aa)"},
+  {t:"2학기 평가계획.hwp",src:"데스크톱 · 넣기 폴더",time:"11:05",state:"분석 중",made:"",note:""},
+  {t:"단톡방 캡처",src:"디스코드",time:"13:30",state:"검토 필요",made:"날짜를 못 찾음",note:"Ya/2026/10/2026-10-25 단톡방 캡처 (9f31d2e0)"},
+];
+const idOf=t=>EVENTS.find(e=>e.t===t).id;
 let THREAD=[
   {who:"me",kind:"voice",text:"모레 오후 3시 반에 안과 진료",src:"휴대폰 · 음성",day:"10월 23일 (금)"},
-  {who:"ai",text:"가승인으로 넣었어요.",cards:[1]},
+  {who:"ai",text:"가승인으로 넣었어요.",cards:[idOf("안과 진료")]},
   {who:"me",kind:"photo",src:"휴대폰 · 사진",day:"10월 24일 (토)"},
-  {who:"ai",text:"사진에서 일정 1개를 찾았어요.",cards:[5]},
+  {who:"ai",text:"사진에서 일정 1개와 할 일 1개를 찾았어요.",cards:[idOf("학년 협의회"),idOf("체험학습 동의서 회수")]},
   {who:"me",text:"목요일 11시 진로 상담 잡아줘",src:"디스코드 · #ya"},
-  {who:"ai",text:"가승인으로 넣었어요.",cards:[8]},
+  {who:"ai",text:"가승인으로 넣었어요.",cards:[idOf("진로 상담")]},
 ];
 const byId=id=>EVENTS.find(e=>e.id===id);
 const of=date=>EVENTS.filter(e=>e.date===date&&!e.gone).sort((x,y)=>(x.s||"00").localeCompare(y.s||"00"));
@@ -285,7 +332,7 @@ const pending=()=>EVENTS.filter(e=>e.p&&!e.gone);
 
 /* ---------- shared views ---------- */
 let lastAdded=new Set();
-function chip(e){return `<div class="chip ${e.a} ${e.p?"prov":""} ${lastAdded.has(e.id)?"new":""}" data-ev="${e.id}"><span class="tx">${e.s?`<span class="tm">${e.s} </span>`:""}${e.t}</span>${e.p?'<span class="ga">가</span>':""}</div>`}
+function chip(e){return `<div class="chip ${e.a} ${e.p?"prov":""} ${lastAdded.has(e.id)?"new":""}" data-ev="${e.id}" ${e.st==="done"?'style="opacity:.55;text-decoration:line-through"':""}><span class="tx">${e.a==="todo"?(e.st==="done"?"☑ ":"☐ "):""}${e.s?`<span class="tm">${e.s} </span>`:""}${e.t}</span>${e.p?'<span class="ga">가</span>':""}</div>`}
 function monthHTML(cursor,{max=3,sel=null}={}){
   const first=new Date(cursor.getFullYear(),cursor.getMonth(),1);
   const start=addDays(first,-first.getDay());
@@ -327,10 +374,41 @@ function renderDesk(){
   if(D.view==="month"){document.getElementById("dTitle").textContent=`${cur.getFullYear()}년 ${cur.getMonth()+1}월`;c.innerHTML=monthHTML(cur,{max:4,sel:D.sel});c.style.overflow="hidden"}
   if(D.view==="week"){const w=weekDays(cur);const a=parseYmd(w[0]),b=parseYmd(w[6]);document.getElementById("dTitle").textContent=`${a.getMonth()+1}월 ${a.getDate()}일 – ${b.getMonth()!==a.getMonth()?(b.getMonth()+1)+"월 ":""}${b.getDate()}일`;c.innerHTML=timeGridHTML(w);c.style.overflow="auto";c.scrollTop=40*1}
   if(D.view==="day"){const k=ymd(cur);document.getElementById("dTitle").textContent=fmtDate(k);
-    const list=of(k);
-    c.innerHTML=`<div style="display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:14px;height:100%"><div style="overflow:auto">${timeGridHTML([k],{hh:44})}</div><div style="overflow:auto;padding-top:34px">${list.length?list.map(detailCard).join(""):`<div class="empty">이날은 비어 있어요. 오른쪽 채팅에 「${cur.getMonth()+1}월 ${cur.getDate()}일 오후 3시 ○○」처럼 보내 보세요.</div>`}</div></div>`;c.style.overflow="hidden"}
+    c.innerHTML=dayBoardHTML(k);c.style.overflow="hidden"}
   document.querySelectorAll("#dView button").forEach(b=>b.classList.toggle("on",b.dataset.v===D.view));
   document.getElementById("dPending").textContent=`확인 대기 ${pending().length}건`;
+}
+const STNAME={todo:"할 일",doing:"하는 중",done:"끝"};
+function checkHTML(e){return `<div class="chk ${e.st==="done"?"done":""}" data-chk="${e.id}"><span class="box">${e.st==="done"?"✓":""}</span><span class="lb">${e.t}</span><span class="dot d-${e.area||"todo"}" style="margin-left:auto"></span></div>`}
+function dayBoardHTML(k){
+  const ROWS=[[7,10],[10,13],[13,16],[16,19],[19,22]];
+  const evs=of(k).filter(e=>e.s);const todos=of(k).filter(e=>e.a==="todo");
+  const nowM=NOW.getHours()*60+NOW.getMinutes();
+  let rows="";
+  for(const[a,b]of ROWS){const A=a*60,B=b*60;
+    const inRow=evs.filter(e=>mins(e.s)<B&&mins(e.e)>A);
+    const lanes=[];const placed=inRow.map(e=>{const s=Math.max(mins(e.s),A),en=Math.min(mins(e.e),B);let l=lanes.findIndex(x=>x<=s);if(l<0){l=lanes.length;lanes.push(0)}lanes[l]=en;return{e,s,en,l}});
+    const h=placed.length?18+lanes.length*34+6:42;
+    let tr=`<div class="track" style="height:${h}px">`;
+    for(let hh=a;hh<b;hh++){const x=(hh*60-A)/(B-A)*100;tr+=`<div class="tick" style="left:${x}%"><span>${hh}시</span></div>`}
+    for(const p of placed){const l=(p.s-A)/(B-A)*100,w=(p.en-p.s)/(B-A)*100;const cont=mins(p.e.e)>B?' <span class="cont">→ 다음 줄</span>':(mins(p.e.s)<A?' <span class="cont">← 이어서</span>':"");
+      tr+=`<div class="blk ${p.e.a} ${p.e.p?"prov":""}" data-ev="${p.e.id}" style="left:calc(${l}% + 2px);width:calc(${w}% - 4px);top:${18+p.l*34}px">${p.e.s} ${p.e.t}${p.e.p?' <span class="ga">가</span>':""}${cont}</div>`}
+    if(k===TODAY&&nowM>=A&&nowM<B)tr+=`<div class="nowtick" style="left:${(nowM-A)/(B-A)*100}%"></div>`;
+    if(!placed.length)tr+=`<div style="position:absolute;right:10px;top:20px;font-size:11px;color:var(--ink3)">비어 있음</div>`;
+    tr+=`</div>`;
+    rows+=`<div class="trow ${k===TODAY&&B<=nowM?"past":""}"><div class="lbl">${a}–${b}시</div>${tr}</div>`}
+  const col=st=>todos.filter(e=>(e.st||"todo")===st).map(e=>`<div class="kcard" data-ev="${e.id}"><div style="display:flex;gap:6px;align-items:center"><span class="dot d-${e.area||"todo"}"></span><b style="font-weight:700;${st==="done"?"text-decoration:line-through;opacity:.6":""}">${e.t}</b></div><div class="meta">${e.area==="school"?"학교":"개인"}${e.src?` · ${e.src}`:""}<button class="mv" data-st="${e.id}">${st==="todo"?"시작 →":st==="doing"?"끝 →":"되돌리기"}</button></div></div>`).join("")||'<div class="empty" style="padding:4px">없음</div>';
+  const soon=EVENTS.filter(e=>e.a==="todo"&&!e.gone&&e.st!=="done"&&e.date>k&&e.date<=ymd(addDays(parseYmd(k),7))).sort((x,y)=>x.date.localeCompare(y.date));
+  const done=todos.filter(e=>e.st==="done").length;
+  const stCls=s=>s==="완료"?"ok":s==="분석 중"?"run":"warn";
+  const inbox=k===TODAY?INBOX:[];
+  return `<div class="board2"><div class="sumrow"><span>일정 ${evs.length}</span><span>할 일 ${done}/${todos.length} 끝</span><span>확인 대기 ${of(k).filter(e=>e.p).length}</span>${k===TODAY?`<span>오늘 들어온 것 ${INBOX.length}</span>`:""}</div>
+   <div class="rows">${rows}</div>
+   <div class="lower">
+    <div class="sect"><h4>오늘 할 일 <small>단추로 옮기기 · 체크하면 끝</small></h4><div class="kb"><div class="kcol"><div class="kt">할 일</div>${col("todo")}</div><div class="kcol"><div class="kt">하는 중</div>${col("doing")}</div><div class="kcol"><div class="kt">끝</div>${col("done")}</div></div>
+      <h4 style="margin-top:10px">다가오는 마감 <small>7일</small></h4>${soon.map(e=>`<div class="chk" data-chk="${e.id}"><span class="box"></span><span class="lb">${e.t}</span><small style="margin-left:auto;color:var(--ink2);font-size:11px">${fmtDate(e.date)}</small></div>`).join("")||'<div class="empty">없음</div>'}</div>
+    <div class="sect"><h4>오늘 들어온 것 <small>인박스 → 옵시디언</small></h4>${inbox.map(x=>`<div class="inrow"><span style="width:38px;color:var(--ink2);font-size:11.5px;flex:none">${x.time}</span><div style="flex:1;min-width:0"><b style="font-weight:700">${x.t}</b> <span class="st ${stCls(x.state)}">${x.state}</span><span class="obs">${x.src}${x.made?` · ${x.made}`:""}</span>${x.note?`<span class="obs">📝 ${x.note}</span>`:""}</div></div>`).join("")||'<div class="empty">이날 들어온 것 없음</div>'}</div>
+   </div></div>`;
 }
 function detailCard(e){
   return `<div class="glass" style="border-radius:16px;padding:12px;margin-bottom:10px;${e.p?"border-style:dashed":""}" data-ev="${e.id}">
@@ -341,9 +419,9 @@ function detailCard(e){
 
 /* ---------- chat (shared thread) ---------- */
 function cardHTML(id){const e=byId(id);if(!e)return"";
-  const meta=e.a==="note"?`옵시디언에 기억으로 저장 · ${e.memo||""}`:`${fmtDate(e.date)}${e.s?" "+e.s:""} · ${areaName(e.a)}`;
+  const meta=e.a==="note"?`옵시디언에 기억으로 저장 · ${e.memo||""}`:e.a==="todo"?`${fmtDate(e.date)} 할 일 체크리스트 · ${e.area==="school"?"학교":"개인"}`:`${fmtDate(e.date)}${e.s?" "+e.s:""} · ${areaName(e.a)}`;
   const state=e.gone?"gone":(e.p?"":"done");
-  return `<div class="card ${state}" data-jump="${e.id}"><div class="t"><span class="dot d-${e.a}"></span>${e.t}${e.p&&!e.gone?'<span class="ga">가</span>':""}</div><div class="m">${meta}</div>${e.gone?'<div class="m">취소했어요</div>':e.p?`<div class="acts"><button class="btn ok" data-ok="${e.id}">확정</button><button class="btn" data-no="${e.id}">취소</button></div>`:(e.a==="note"?"":'<div class="m">✓ 확정됨</div>')}</div>`}
+  return `<div class="card ${state}" data-jump="${e.id}"><div class="t"><span class="dot d-${e.a}"></span>${e.t}${e.p&&!e.gone?'<span class="ga">가</span>':""}</div><div class="m">${meta}</div>${e.gone?'<div class="m">취소했어요</div>':e.p?`<div class="acts"><button class="btn ok" data-ok="${e.id}">확정</button><button class="btn" data-no="${e.id}">취소</button></div>`:(e.a==="note"?"":e.a==="todo"?'<div class="m">☐ 체크리스트에 넣었어요</div>':'<div class="m">✓ 확정됨</div>')}</div>`}
 function bubbleHTML(m){
   if(m.typing)return `<div class="bub ai typing"><span></span><span></span><span></span></div>`;
   let inner=m.text||"";
@@ -371,13 +449,14 @@ function parse(text){
   if(m){let h=+m[2];if(["오후","저녁","밤"].includes(m[1])&&h<12)h+=12;if(!m[1]&&h>=1&&h<=7)h+=12;const mm=m[3]==="반"?30:(m[4]?+m[4]:0);s=`${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;t=t.replace(m[0],"");if(!date){date=new Date(base);if(h*60+mm<NOW.getHours()*60+NOW.getMinutes())date=addDays(date,1)}}
   if(/기억해|기억 해|알아둬|메모해/.test(text)&&!s&&!date)kind="note";
   if(/제출|내기|사기|주문|하기|보내기|신청|납부|까지/.test(text)&&!(/회의|상담|진료|모임|수업/.test(text)))kind=kind==="note"?"note":"todo";
-  if(/학교|학년|학생|학부모|교무|교과|수업|담임|상담|시험|생활기록부|반 |교직원|가정통신문|체험학습|동아리|협의회|조회/.test(text))a="school";
+  if(/학교|학년|학생|학부모|교무|교과|수업|담임|상담|시험|생활기록부|생기부|반 |교직원|가정통신문|체험학습|동아리|협의회|조회/.test(text))a="school";
   let title=t.replace(/(에|에서|까지|부터)\s/g," ").replace(/(일정|스케줄)?\s*(추가|등록|잡아|넣어)\s*(해)?\s*(줘|주세요)?|기억해\s*(줘|둬)?|알려\s*줘|있어|있음|해야\s*돼|해줘/g,"").replace(/는 거|라는 거|다는 거/g,"").replace(/\s+/g," ").replace(/^[,.\s]+|[,.\s]+$/g,"").trim();
   if(!title)title="메모";
   if(kind==="note")return{t:title,a:"note",date:TODAY,memo:"검색으로 찾기"};
   if(!date)date=kind==="todo"?null:null;
   const e=s?mins(s)+60:0;
-  return{t:title,a:kind==="todo"?"todo":a,date:date?ymd(date):null,s,e:s?`${String(Math.floor(e/60)%24).padStart(2,"0")}:${String(e%60).padStart(2,"0")}`:null};
+  if(kind==="todo"&&!date)date=base;
+  return{t:title,a:kind==="todo"?"todo":a,area:a,date:date?ymd(date):null,s,e:s?`${String(Math.floor(e/60)%24).padStart(2,"0")}:${String(e%60).padStart(2,"0")}`:null};
 }
 function send(msg,results,replyText){
   THREAD.push(msg);THREAD.push({who:"ai",typing:true});renderThreads();
@@ -386,17 +465,19 @@ function send(msg,results,replyText){
     const ids=[];lastAdded=new Set();
     for(const r of results){
       if(r.a!=="note"&&!r.date){THREAD.push({who:"ai",text:`「${r.t}」 언제인지 못 찾았어요. 날짜를 같이 보내 주세요.`});continue}
-      const ev={id:uid++,date:r.date||TODAY,s:r.s||null,e:r.e||null,t:r.t,a:r.a,p:r.a!=="note",src:msg.src?msg.src.split(" · ")[0]:"채팅",memo:r.memo};
+      const ev={id:uid++,date:r.date||TODAY,s:r.s||null,e:r.e||null,t:r.t,a:r.a,p:r.a!=="note"&&r.a!=="todo",src:msg.src?msg.src.split(" · ")[0]:"채팅",memo:r.memo,st:r.a==="todo"?"todo":undefined,area:r.area||(r.a==="todo"?"personal":undefined)};
       if(r.a==="note")ev.gone=false;
       EVENTS.push(ev);ids.push(ev.id);lastAdded.add(ev.id);
       if(ev.date&&r.a!=="note"){D.cursor=parseYmd(ev.date);D.sel=ev.date;P.cursor=parseYmd(ev.date)}
     }
+    const hh=String(NOW.getHours()).padStart(2,"0")+":"+String(NOW.getMinutes()).padStart(2,"0");
+    INBOX.push({t:msg.kind==="photo"?"사진":msg.kind==="voice"?"음성 메모":"「"+(msg.text||"").slice(0,14)+"」",src:msg.src||"채팅",time:hh,state:ids.length?"완료":"검토 필요",made:ids.length?`${ids.length}개 정리`:"날짜를 못 찾음",note:`Ya/2026/10/${TODAY} ${(results[0]&&results[0].t)||"메모"} (${Math.random().toString(16).slice(2,10)})`});
     if(ids.length)THREAD.push({who:"ai",text:replyText||(results[0].a==="note"?"기억해 둘게요.":"가승인으로 넣었어요. 틀리면 취소만 누르세요."),cards:ids});
     renderAll();toast(ids.length?"캘린더에 반영됨":"");
   },900);
 }
 function demo(kind){
-  if(kind==="photo")send({who:"me",kind:"photo",src:"사진"},[{t:"현장체험학습 출발",a:"school",date:"2026-11-07",s:"09:00",e:"15:00"},{t:"동의서 제출",a:"todo",date:"2026-11-04",s:null,e:null}],"사진에서 2개를 찾았어요.");
+  if(kind==="photo")send({who:"me",kind:"photo",src:"사진"},[{t:"현장체험학습 출발",a:"school",date:"2026-11-07",s:"09:00",e:"15:00"},{t:"동의서 제출",a:"todo",area:"school",date:"2026-11-04",s:null,e:null}],"사진에서 2개를 찾았어요.");
   if(kind==="voice")send({who:"me",kind:"voice",text:"수요일 오후 4시 반에 피아노 학원 상담",src:"음성"},[parse("수요일 오후 4시 반에 피아노 학원 상담")]);
   if(kind==="discord")send({who:"me",text:"다음 주 화요일 2시 학년 회의",src:"디스코드 · #ya"},[parse("다음 주 화요일 2시 학년 회의")]);
   if(kind==="note")send({who:"me",text:"우리 반 지민이는 땅콩 알레르기 있다는 거 기억해 줘",src:"채팅"},[parse("우리 반 지민이는 땅콩 알레르기 있다는 거 기억해 줘")]);
@@ -406,7 +487,8 @@ function sendText(inputId){const el=document.getElementById(inputId);const v=el.
   send({who:"me",text:v,src:inputId==="dInput"?"데스크톱":"휴대폰"},parts.map(parse));}
 
 /* ---------- phone ---------- */
-const P={tab:"chat",view:"month",cursor:new Date(NOW)};
+const P={tab:"chat",view:"month",cursor:new Date(NOW),hideSchool:true,compose:false};
+function sendSilently(msg,results){send(msg,results);renderPhone();toast("보냈어요 · 잠금 상태라 내용은 표시하지 않아요")}
 function renderPhone(){
   const v=document.getElementById("pView");
   document.querySelectorAll("#pTabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===P.tab));
@@ -423,14 +505,14 @@ function renderPhone(){
     if(P.view==="month"){title=`${c.getMonth()+1}월`;body=`<div class="ph-month" style="height:100%">${monthHTML(c,{max:3})}</div>`}
     if(P.view==="week"){const w=weekDays(c);const a=parseYmd(w[0]);title=`${a.getMonth()+1}월 ${a.getDate()}일 주`;
       body=`<div class="agenda">${w.map(k=>{const d=parseYmd(k),list=of(k);return `<div class="day"><div class="dl ${k===TODAY?"today":""}" data-day="${k}"><small>${DOW[d.getDay()]}</small><b>${d.getDate()}</b></div><div class="items">${list.length?list.map(e=>`<div class="aitem ${e.p?"prov":""}" data-ev="${e.id}"><span class="tm">${e.s||"할 일"}</span><span class="dot d-${e.a}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.t}</span>${e.p?'<span class="ga">가</span>':""}</div>`).join(""):'<div class="empty">비어 있음</div>'}</div></div>`}).join("")}</div>`}
-    if(P.view==="day"){const k=ymd(c);title=`${c.getMonth()+1}월 ${c.getDate()}일 ${DOW[c.getDay()]}`;body=timeGridHTML([k],{H0:7,H1:22,hh:46})+of(k).filter(e=>e.p).map(e=>`<div class="glass" style="border-radius:16px;padding:10px 12px;margin:10px 4px 0;border-style:dashed"><b>${e.t}</b> <span class="ga">가</span><div style="font-size:12px;color:var(--ink2)">${e.s||""} · ${e.src||""}에서 들어옴</div><div style="display:flex;gap:6px;margin-top:6px"><button class="btn ok" data-ok="${e.id}">확정</button><button class="btn" data-no="${e.id}">취소</button></div></div>`).join("")}
+    if(P.view==="day"){const k=ymd(c);title=`${c.getMonth()+1}월 ${c.getDate()}일 ${DOW[c.getDay()]}`;const td=of(k).filter(e=>e.a==="todo");body=(td.length?`<div class="sect" style="margin:0 2px 10px"><h4>오늘 할 일 <small>${td.filter(e=>e.st==="done").length}/${td.length}</small></h4>${td.map(checkHTML).join("")}</div>`:"")+timeGridHTML([k].map(x=>x),{H0:7,H1:22,hh:46}).replace(/<div style="font-size:10px;color:var\(--ink3\);text-align:right;padding-right:6px">할 일<\/div>.*?(?=<div><div class="hh")/s,"")+of(k).filter(e=>e.p).map(e=>`<div class="glass" style="border-radius:16px;padding:10px 12px;margin:10px 4px 0;border-style:dashed"><b>${e.t}</b> <span class="ga">가</span><div style="font-size:12px;color:var(--ink2)">${e.s||""} · ${e.src||""}에서 들어옴</div><div style="display:flex;gap:6px;margin-top:6px"><button class="btn ok" data-ok="${e.id}">확정</button><button class="btn" data-no="${e.id}">취소</button></div></div>`).join("")}
     v.innerHTML=`<div class="ph-head"><div class="title">${title}</div><button class="navbtn" data-pnav="-1">‹</button><button class="navbtn" data-pnav="1">›</button><button class="pill" data-pnav="0">오늘</button></div>
       <div style="padding:0 12px 8px"><div class="seg glass" id="pViewSeg" style="width:100%"><button data-pv="month" style="flex:1" class="${P.view==="month"?"on":""}">월</button><button data-pv="week" style="flex:1" class="${P.view==="week"?"on":""}">주</button><button data-pv="day" style="flex:1" class="${P.view==="day"?"on":""}">일</button></div></div>
       <div class="ph-body">${body}</div>`;
   }
   if(P.tab==="home"){
     const today=of(TODAY),tom=of(ymd(addDays(NOW,1)));
-    const li=e=>`<div class="li"><span class="tm">${e.s||"할 일"}</span><span class="dot d-${e.a}"></span><span style="flex:1">${e.t}</span>${e.p?'<span class="ga">가</span>':""}</div>`;
+    const li=e=>e.a==="todo"?`<div class="li" data-chk="${e.id}" style="cursor:pointer"><span class="tm">${e.st==="done"?"☑":"☐"}</span><span style="flex:1;${e.st==="done"?"text-decoration:line-through;opacity:.55":""}">${e.t}</span></div>`:`<div class="li"><span class="tm">${e.s}</span><span class="dot d-${e.a}"></span><span style="flex:1">${e.t}</span>${e.p?'<span class="ga">가</span>':""}</div>`;
     v.innerHTML=`<div class="home">
       <div class="wg"><h4><span>오늘 · ${NOW.getMonth()+1}월 ${NOW.getDate()}일 ${DOW[NOW.getDay()]}</span><span style="color:var(--ink2);font-weight:400">Ya</span></h4>${today.map(li).join("")||'<div class="empty">비어 있음</div>'}<h4 style="margin-top:8px">내일</h4>${tom.map(li).join("")}</div>
       <div style="display:flex;gap:14px">
@@ -442,13 +524,19 @@ function renderPhone(){
       <div class="cap">안드로이드 홈 화면 위젯. 위젯은 뒤 배경을 흐리게 하지 못해 반투명 판으로 유리처럼 보이게 합니다. 「말하기」 위젯을 누르면 앱을 열지 않고 바로 녹음·촬영합니다.</div></div>`;
   }
   if(P.tab==="lock"){
-    const today=of(TODAY);
+    const today=of(TODAY).filter(e=>e.st!=="done");
+    const hide=e=>P.hideSchool&&(e.a==="school"||e.area==="school");
     v.innerHTML=`<div class="lock" style="cursor:pointer" data-unlock="1">
       <div class="lockdate">${NOW.getMonth()+1}월 ${NOW.getDate()}일 ${DOW[NOW.getDay()]}요일</div>
       <div class="clock">2:10</div>
-      <div class="lockpanel">${miniMonthHTML(NOW)}<div style="border-top:1px solid rgba(255,255,255,.25);margin-top:8px;padding-top:6px">${today.map(e=>`<div style="display:flex;gap:8px;font-size:12.5px;padding:3px 0;align-items:center"><span style="width:38px;color:var(--ink2)">${e.s||"할 일"}</span><span class="dot d-${e.a}"></span>${e.t}${e.p?' <span class="ga">가</span>':""}</div>`).join("")}</div></div>
+      <div class="lockpanel">${miniMonthHTML(NOW)}<div style="border-top:1px solid rgba(255,255,255,.25);margin-top:8px;padding-top:6px">${today.map(e=>`<div style="display:flex;gap:8px;font-size:12.5px;padding:3px 0;align-items:center"><span style="width:38px;color:var(--ink2)">${e.s||"☐"}</span><span class="dot d-${e.area||e.a}"></span>${hide(e)?"학교 일정":e.t}${e.p?' <span class="ga">가</span>':""}</div>`).join("")}</div></div>
+      <div class="noti" data-noclick="1"><div class="nh"><span class="avatar">Ya</span>Ya · 항상 표시</div><b>Ya에게 보내기</b><div style="color:var(--ink2);font-size:11.5px;margin:2px 0 6px">잠금을 풀지 않고 보낼 수 있어요</div>
+        ${P.compose?`<div style="display:flex;gap:6px"><input id="lockInput" placeholder="예: 금요일까지 생기부 입력" style="flex:1;min-width:0;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.2);border-radius:10px;padding:6px 8px;outline:0"><button class="btn ok" id="lockSend">보내기</button></div>`:`<div style="display:flex;gap:6px"><button class="btn" data-lock="voice">🎤 말하기</button><button class="btn" data-lock="text">⌨ 적기</button><button class="btn" data-lock="photo">📷 사진</button></div>`}</div>
       ${pending().length?`<div class="noti"><div class="nh"><span class="avatar">Ya</span>Ya · 지금</div><b>확인 대기 ${pending().length}건</b><div style="color:var(--ink2);font-size:12px;margin:2px 0 6px">${pending().slice(0,2).map(e=>e.t).join(", ")}${pending().length>2?" 외":""}</div><div style="display:flex;gap:6px"><button class="btn ok" data-okall="1">모두 확정</button><button class="btn" data-tab-go="chat">열어 보기</button></div></div>`:""}
-      <div class="cap" style="margin-top:auto">잠금화면: 배경 사진 위에 반투명 달력판(배경화면으로 만들어 넣음) + 알림에서 바로 확정. 화면을 누르면 잠금 해제.</div></div>`;
+      <label class="cap" style="display:flex;gap:6px;align-items:center;justify-content:center;cursor:pointer" data-noclick="1"><input type="checkbox" id="hideSchool" ${P.hideSchool?"checked":""}> 잠금화면에서 학교 일정 제목 가리기</label>
+      <div class="cap" style="margin-top:auto">잠금화면: 사진 배경 위 반투명 달력판(배경화면으로 만들어 넣음) + 항상 떠 있는 「Ya에게 보내기」 알림. 잠금 상태에서는 보내기만 되고, 지난 대화는 보이지 않습니다. 빈 곳을 누르면 잠금 해제.</div></div>`;
+    const hs=document.getElementById("hideSchool");if(hs)hs.onchange=()=>{P.hideSchool=hs.checked;renderPhone()};
+    const ls=document.getElementById("lockSend");if(ls){const go=()=>{const el=document.getElementById("lockInput");const v=el.value.trim();if(!v)return;P.compose=false;sendSilently({who:"me",text:v,src:"휴대폰 · 잠금화면"},v.split(/\s*(?:그리고|,)\s*/).filter(Boolean).map(parse));};ls.onclick=go;document.getElementById("lockInput").onkeydown=e=>{if(e.key==="Enter"&&!e.isComposing)go()};document.getElementById("lockInput").focus()}
   }
 }
 
@@ -460,6 +548,12 @@ document.addEventListener("click",ev=>{
   const t=ev.target;
   const ok=t.closest("[data-ok]");if(ok){const e=byId(+ok.dataset.ok);e.p=false;renderAll();toast("확정했어요");return}
   const no=t.closest("[data-no]");if(no){const e=byId(+no.dataset.no);e.gone=true;e.p=false;renderAll();toast("취소했어요");return}
+  const ck=t.closest("[data-chk]");if(ck){const e=byId(+ck.dataset.chk);e.st=e.st==="done"?"todo":"done";renderAll();return}
+  const sm=t.closest("[data-st]");if(sm){const e=byId(+sm.dataset.st);e.st=e.st==="todo"?"doing":e.st==="doing"?"done":"todo";renderAll();return}
+  const lk=t.closest("[data-lock]");if(lk){const k=lk.dataset.lock;if(k==="text"){P.compose=true;renderPhone();return}
+    if(k==="voice"){sendSilently({who:"me",kind:"voice",text:"내일 아침에 출석부 정리하기",src:"휴대폰 · 잠금화면"},[parse("내일 아침에 출석부 정리하기")]);return}
+    if(k==="photo"){send({who:"me",kind:"photo",src:"휴대폰 · 잠금화면 촬영"},[{t:"현장체험학습 출발",a:"school",date:"2026-11-07",s:"09:00",e:"15:00"},{t:"동의서 제출",a:"todo",area:"school",date:"2026-11-04",s:null,e:null}],"사진에서 2개를 찾았어요.");renderPhone();toast("찍어서 보냈어요 · 내용은 잠금 해제 후");return}}
+  if(t.closest("[data-noclick]"))return;
   if(t.closest("[data-okall]")){pending().forEach(e=>e.p=false);renderAll();toast("모두 확정했어요");return}
   const dm=t.closest("[data-demo]");if(dm){if(t.closest("#phoneWrap")&&P.tab!=="chat"){P.tab="chat";renderPhone()}demo(dm.dataset.demo);return}
   const go=t.closest("[data-tab-go]");if(go){P.tab=go.dataset.tabGo;renderPhone();return}
