@@ -9,22 +9,22 @@
   --font:"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif;
   --ink:#f4f5fb;--ink2:rgba(244,245,251,.7);--ink3:rgba(244,245,251,.42);
   --glass:rgba(255,255,255,.08);--glass2:rgba(255,255,255,.14);--line:rgba(255,255,255,.16);--hair:rgba(255,255,255,.08);
-  --school:#5ec8ff;--personal:#ff8fcf;--todo:#ffd36e;--note:#a9e77a;--now:#ff5d7a;--warn:#ffb04d;
-  --page:#0b0c14;--wall:radial-gradient(900px 600px at 0% 0%,#2a2366 0%,transparent 60%),radial-gradient(800px 600px at 100% 100%,#0e4a5e 0%,transparent 60%),#0d0f1c;
+  --school:rgba(255,255,255,.78);--personal:rgba(255,255,255,.38);--todo:rgba(255,255,255,.6);--note:#f4f5fb;--now:#ff6b6b;--warn:rgba(244,245,251,.55);
+  --page:#0d0e12;--wall:radial-gradient(1000px 700px at 10% 0%,#1d2030 0%,transparent 65%),#101116;
   --tday:#fff;--tdayink:#111;
 }
 :root[data-theme="light"]{
   --ink:#16172a;--ink2:rgba(22,23,42,.68);--ink3:rgba(22,23,42,.42);
   --glass:rgba(255,255,255,.62);--glass2:rgba(255,255,255,.88);--line:rgba(22,23,42,.12);--hair:rgba(22,23,42,.07);
-  --school:#1689c9;--personal:#c9479a;--todo:#b98000;--note:#3f8a12;--now:#e0304f;--warn:#c25f00;
-  --page:#e8eaf3;--wall:radial-gradient(900px 600px at 0% 0%,#dcd6ff 0%,transparent 60%),radial-gradient(800px 600px at 100% 100%,#cdeff7 0%,transparent 60%),#f1f2f8;
+  --school:rgba(22,23,42,.75);--personal:rgba(22,23,42,.32);--todo:rgba(22,23,42,.6);--note:#16172a;--now:#d93838;--warn:rgba(22,23,42,.5);
+  --page:#eef0f4;--wall:radial-gradient(1000px 700px at 10% 0%,#ffffff 0%,transparent 65%),#eceef3;
   --tday:#16172a;--tdayink:#fff;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);color:var(--ink);background:var(--page);font-size:13px}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer}
-.g{background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%)}
+.g{background:var(--glass);border:1px solid var(--hair);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%)}
 .ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 20px}
 .ctl .name{display:flex;align-items:center;gap:8px;font-weight:800;font-size:16px;margin-right:auto}
 .ctl .name svg{width:26px;height:26px}
@@ -56,23 +56,23 @@ button{cursor:pointer}
 .inp input{flex:1;background:none;border:0;outline:0;font-size:14px;padding:7px 0;min-width:0}
 .inp input::placeholder{color:var(--ink3)}
 .inp button{border:0;border-radius:9px;padding:7px 11px;font-size:12.5px;background:var(--glass2)}
-.inp button.go{background:#6d55f0;color:#fff;font-weight:700}
+.inp button.go{background:var(--ink);color:var(--page);font-weight:700}
 /* marks */
 .c{display:block;font-size:11px;line-height:15px;padding:0 4px;border-radius:4px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
-.c.school{background:color-mix(in srgb,var(--school) 24%,transparent)}
-.c.personal{background:color-mix(in srgb,var(--personal) 24%,transparent)}
+.c.school{background:color-mix(in srgb,var(--school) 16%,transparent)}
+.c.personal{background:color-mix(in srgb,var(--personal) 18%,transparent)}
 .c.task{background:none;color:var(--ink);padding-left:1px}
 .c.task.done{text-decoration:line-through;opacity:.45}
 .c.prov{outline:1px dashed var(--ink3);outline-offset:-1px}
 .pb{display:block;font-size:10.5px;line-height:14px;height:14px;margin:1px -4px 0;padding:0 6px;white-space:nowrap;overflow:hidden;font-weight:700}
-.pb.school{background:color-mix(in srgb,var(--school) 40%,transparent)}
-.pb.personal{background:color-mix(in srgb,var(--personal) 40%,transparent)}
+.pb.school{background:color-mix(in srgb,var(--school) 22%,transparent)}
+.pb.personal{background:color-mix(in srgb,var(--personal) 22%,transparent)}
 .pb.st{border-top-left-radius:7px;border-bottom-left-radius:7px;margin-left:0}
 .pb.en{border-top-right-radius:7px;border-bottom-right-radius:7px;margin-right:0}
 .ga{font-size:9px;font-weight:800;padding:0 3px;border-radius:3px;background:var(--ink);color:var(--page);margin-left:3px;vertical-align:1px}
-.dd{font-size:10px;font-weight:800;padding:0 4px;border-radius:4px;border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
-.dd.hot{color:#fff;background:var(--now);border-color:var(--now)}
-.dd.soon{color:var(--warn);border-color:var(--warn)}
+.dd{font-size:11px;font-weight:700;color:var(--ink3);white-space:nowrap}
+.dd.hot{color:var(--now)}
+.dd.soon{color:var(--ink)}
 .dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
 .d-school{background:var(--school)}.d-personal{background:var(--personal)}
 /* month */
@@ -95,11 +95,11 @@ button{cursor:pointer}
 .week .per{grid-column:2 / span 7;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:2px;padding:2px 0 3px;border-bottom:1px solid var(--hair)}
 .week .per .pbw{font-size:11px;font-weight:700;padding:1px 7px;border-radius:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 2px}
 .wb{position:absolute;left:2px;right:2px;border-radius:4px;font-size:10.5px;line-height:13px;padding:1px 4px;overflow:hidden;cursor:pointer}
-.wb.school{background:color-mix(in srgb,var(--school) 34%,transparent)}
-.wb.personal{background:color-mix(in srgb,var(--personal) 34%,transparent)}
+.wb.school{background:color-mix(in srgb,var(--school) 20%,transparent)}
+.wb.personal{background:color-mix(in srgb,var(--personal) 20%,transparent)}
 .wb.prov{outline:1px dashed var(--ink2);outline-offset:-1px}
-.bell{position:absolute;left:2px;right:2px;height:0;border-top:1px dashed var(--warn);z-index:2}
-.bell span{position:absolute;right:2px;top:-7px;font-size:9px;color:var(--warn);background:var(--page);padding:0 2px}
+.bell{position:absolute;left:2px;right:2px;height:0;border-top:1px dashed var(--ink3);z-index:2}
+.bell span{position:absolute;right:2px;top:-7px;font-size:9px;color:var(--ink3);background:var(--page);padding:0 2px}
 /* 10-minute timetable */
 .tt{display:grid;grid-template-columns:30px repeat(6,minmax(0,1fr));border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--glass)}
 .tt .mh0{border-bottom:1px solid var(--line)}
@@ -110,36 +110,37 @@ button{cursor:pointer}
 .tt .row i:first-child{border-left:0}
 .tt .row i:nth-child(4){border-left:1px solid color-mix(in srgb,var(--ink) 30%,transparent)}
 .tt .bk{position:absolute;top:1px;bottom:1px;border-radius:3px;font-size:10.5px;line-height:1.15;padding:1px 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;display:flex;align-items:center}
-.tt .bk.school{background:color-mix(in srgb,var(--school) 45%,transparent)}
-.tt .bk.personal{background:color-mix(in srgb,var(--personal) 45%,transparent)}
+.tt .bk.school{background:color-mix(in srgb,var(--school) 24%,transparent)}
+.tt .bk.personal{background:color-mix(in srgb,var(--personal) 20%,transparent)}
 .tt .bk.prov{outline:1px dashed var(--ink);outline-offset:-1px;background:color-mix(in srgb,var(--ink) 10%,transparent)}
 .tt .bk.half{bottom:50%}.tt .bk.half2{top:50%}
 .tt .now{position:absolute;top:0;bottom:0;width:2px;background:var(--now);z-index:3}
-.tt .rm{position:absolute;top:0;bottom:0;width:0;border-left:2px dotted var(--warn);z-index:2}
+.tt .rm{position:absolute;top:3px;bottom:3px;width:0;border-left:1px dashed var(--ink3);z-index:2}
 .tt .row.past{opacity:.5}
 /* day */
-.day{display:grid;grid-template-columns:440px minmax(0,1.15fr) minmax(0,1fr);gap:10px;height:100%;min-height:0}
+.day{display:grid;grid-template-columns:440px minmax(0,1.2fr) minmax(0,1fr);gap:10px;height:100%;min-height:0}
 .col2{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto}
 .box{border-radius:10px;padding:7px 10px}
-.box>h4{font-size:12.5px;font-weight:800;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;letter-spacing:-.2px}
+.box>h4{font-size:12px;font-weight:700;color:var(--ink2);display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;letter-spacing:-.2px}
 .box>h4 small{font-weight:400;color:var(--ink2);font-size:11px}
-.grp{font-size:11px;font-weight:800;color:var(--ink2);margin:8px 0 3px;padding-bottom:2px;border-bottom:1px solid var(--line)}
+.grp{font-size:11px;font-weight:600;color:var(--ink3);margin:10px 0 2px}
 .grp:first-of-type{margin-top:0}
-.task{padding:4px 0 5px;border-bottom:1px solid var(--hair)}
+.task{padding:4px 0}
 .task:last-child{border-bottom:0}
-.th{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700}
+.th{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600}
 .bx{width:15px;height:15px;border:1.5px solid var(--ink2);border-radius:4px;flex:none;display:grid;place-items:center;font-size:10px;line-height:1;cursor:pointer}
-.done>.bx,.task.done .th .bx{background:var(--note);border-color:var(--note);color:#0d1a05}
+.done>.bx,.task.done .th .bx{background:var(--note);border-color:var(--note);color:var(--page)}
 .task.done .th .t{text-decoration:line-through;color:var(--ink3)}
-.tm2{font-size:11px;color:var(--ink2);margin:2px 0 0 22px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.prog{height:3px;border-radius:2px;background:var(--hair);margin:4px 0 2px 22px;overflow:hidden}
+.tm2{font-size:11px;color:var(--ink3);margin:1px 0 0 23px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.prog{display:none}
 .prog i{display:block;height:100%;background:var(--note)}
-.subs{margin:2px 0 0 22px;border-left:1px solid var(--line);padding-left:8px}
+.subs{margin:2px 0 0 23px}
 .sub{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:1px 0;cursor:pointer}
 .sub .bx{width:13px;height:13px}
-.sub.done .bx{background:var(--note);border-color:var(--note);color:#0d1a05}
+.sub.done .bx{background:var(--note);border-color:var(--note);color:var(--page)}
 .sub.done span:last-child{text-decoration:line-through;color:var(--ink3)}
-.subadd{border:0;background:none;outline:0;font-size:12px;color:var(--ink2);padding:2px 0;width:100%}
+.subadd{border:0;background:none;outline:0;font-size:12px;color:var(--ink2);padding:2px 0;width:100%;display:none}
+.task:hover .subadd,.subadd:focus{display:block}
 .subadd::placeholder{color:var(--ink3)}
 .ev{display:flex;align-items:center;gap:7px;padding:2px 0;font-size:12.5px;border-top:1px solid var(--hair);cursor:pointer}
 .ev:first-of-type{border-top:0}
@@ -148,7 +149,7 @@ button{cursor:pointer}
 .mini{font-size:11px;border:1px solid var(--line);background:var(--glass2);border-radius:6px;padding:1px 7px}
 .prow{padding:3px 0;border-top:1px solid var(--hair);font-size:12.5px}
 .prow:first-of-type{border-top:0}
-.prow .pbar{height:5px;border-radius:3px;background:var(--hair);margin-top:3px;overflow:hidden}
+.prow .pbar{height:2px;border-radius:1px;background:var(--hair);margin-top:3px;overflow:hidden}
 .prow .pbar i{display:block;height:100%}
 .inb{display:flex;gap:7px;font-size:12px;padding:2px 0;border-top:1px solid var(--hair);white-space:nowrap;overflow:hidden}
 .inb:first-of-type{border-top:0}
@@ -183,7 +184,7 @@ button{cursor:pointer}
 .tabs{display:flex;justify-content:space-around;padding:4px 8px 16px;flex:none;border-top:1px solid var(--hair)}
 .tabs button{background:none;border:0;font-size:12.5px;color:var(--ink3);padding:6px 8px;font-weight:700}
 .tabs button.on{color:var(--ink)}
-.lock{flex:1;display:flex;flex-direction:column;padding:0 12px 12px;gap:7px;background:radial-gradient(260px 300px at 25% 25%,rgba(255,170,110,.45),transparent 70%),radial-gradient(300px 300px at 85% 70%,rgba(110,190,255,.45),transparent 70%),linear-gradient(#1a1d3a,#33203f);color:#fff;overflow:auto}
+.lock{flex:1;display:flex;flex-direction:column;padding:0 12px 12px;gap:7px;background:radial-gradient(300px 340px at 30% 30%,rgba(255,200,160,.18),transparent 70%),linear-gradient(#22252f,#121318);color:#fff;overflow:auto}
 .lock .date{text-align:center;font-size:14px;font-weight:600}
 .lock .clock{text-align:center;font-size:70px;font-weight:300;letter-spacing:-3px;line-height:.95}
 .lp{border-radius:16px;padding:8px 11px;background:rgba(10,10,20,.32);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
@@ -192,19 +193,19 @@ button{cursor:pointer}
 .lr{display:flex;gap:8px;align-items:center;font-size:14px;padding:1.5px 0;white-space:nowrap;overflow:hidden}
 .lr .tm{width:42px;font-size:12px;opacity:.75;flex:none}
 .lr.past{opacity:.45}
-.lr .dd{border-color:rgba(255,255,255,.5);color:#fff}
+.lr .dd{color:rgba(255,255,255,.6)}.lr .dd.hot{color:#ff8a8a}
 .ln{border-radius:16px;padding:8px 10px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
 .ln .row{display:flex;gap:6px;align-items:center}
 .ln input{flex:1;min-width:0;border:0;outline:0;background:rgba(255,255,255,.18);border-radius:9px;padding:7px 9px;color:#fff;font-size:13px}
 .ln input::placeholder{color:rgba(255,255,255,.65)}
 .ln button{border:0;border-radius:9px;padding:7px 9px;font-size:12px;background:rgba(255,255,255,.25);color:#fff}
 .cap{font-size:10.5px;text-align:center;opacity:.7;line-height:1.5}
-.home{flex:1;padding:4px 12px;display:flex;flex-direction:column;gap:9px;overflow:auto;background:linear-gradient(160deg,#3a2f7a,#14506a 55%,#6a2a58);color:#fff}
-.wg{border-radius:20px;padding:10px 12px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.32)}
+.home{flex:1;padding:4px 12px;display:flex;flex-direction:column;gap:9px;overflow:auto;background:linear-gradient(170deg,#2b2f3d,#161821 70%);color:#fff}
+.wg{border-radius:20px;padding:10px 12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14)}
 .wg h5{font-size:11.5px;font-weight:800;margin-bottom:3px;display:flex;justify-content:space-between}
 .wg h5 small{font-weight:400;opacity:.75}
 .w2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
-.wr{display:flex;gap:8px;font-size:11.5px;padding:2px 0;border-top:1px solid rgba(255,255,255,.15)}
+.wr{display:flex;gap:8px;font-size:11.5px;padding:2px 0;border-top:1px solid rgba(255,255,255,.07)}
 .wr:first-of-type{border-top:0}
 .wr.on{font-weight:700}
 .wr .wd{width:34px;flex:none;opacity:.8}
@@ -346,7 +347,7 @@ const evOn=k=>EV.filter(e=>e.date===k&&!e.gone).sort((a,b)=>a.s.localeCompare(b.
 const dueOn=k=>TASK.filter(t=>t.due===k&&!t.gone);
 const perOn=k=>PER.filter(p=>p.from<=k&&k<=p.to&&!p.gone);
 const pending=()=>EV.filter(e=>e.p&&!e.gone);
-function dday(t){if(t.done)return `<span class="dd">끝</span>`;const n=diffDays(TODAY,t.due);if(n<0)return `<span class="dd hot">${-n}일 지남</span>`;if(n===0)return `<span class="dd hot">오늘${t.dueT?" "+t.dueT:""}</span>`;return `<span class="dd ${n<=2?"soon":""}">D-${n}</span>`}
+function dday(t){if(t.done)return "";const n=diffDays(TODAY,t.due);if(n<0)return `<span class="dd hot">${-n}일 지남</span>`;if(n===0)return `<span class="dd hot">오늘${t.dueT?" "+t.dueT:""}</span>`;return `<span class="dd ${n<=2?"soon":""}">D-${n}</span>`}
 function remsOn(k){const r=[];
   for(const e of EV)if(!e.gone&&e.rem&&e.date===k)r.push({time:e.rem,title:e.t,body:`${e.s} 시작 · ${mins(e.s)-mins(e.rem)}분 전`,ref:e.id,kind:"ev"});
   for(const t of TASK)if(!t.gone&&!t.done)for(const x of t.rem)if(x.date===k)r.push({time:x.time,title:t.t,body:`${fd(t.due)}${t.dueT?" "+t.dueT:""}까지${t.subs.length?` · 하위 ${t.subs.filter(s=>s.done).length}/${t.subs.length}`:""}`,ref:t.id,kind:"task"});
@@ -354,7 +355,7 @@ function remsOn(k){const r=[];
 
 /* ===== shared renderers ===== */
 function evChip(e){return `<span class="c ${e.a} ${e.p?"prov":""}" data-ev="${e.id}">${e.s.replace(/^0/,"")} ${e.t}${e.p?'<span class="ga">가</span>':""}</span>`}
-function taskChip(t){return `<span class="c task ${t.done?"done":""}" data-ev="${t.id}">☐ ${t.t}${t.subs.length?` ${t.subs.filter(s=>s.done).length}/${t.subs.length}`:""} <span style="opacity:.6">마감</span></span>`}
+function taskChip(t){return `<span class="c task ${t.done?"done":""}" data-ev="${t.id}">☐ ${t.t}${t.subs.length?` ${t.subs.filter(s=>s.done).length}/${t.subs.length}`:""}</span>`}
 function perBar(p,k,dow){const st=p.from===k||dow===0,en=p.to===k||dow===6;return `<span class="pb ${p.a} ${p.from===k?"st":""} ${p.to===k?"en":""}" title="${p.t} ${fd(p.from)}–${fd(p.to)}">${st?p.t:"&nbsp;"}</span>`}
 function monthHTML(cur,max){
   const f=new Date(cur.getFullYear(),cur.getMonth(),1),s0=add(f,-f.getDay());
@@ -377,15 +378,17 @@ function ttHTML(k,{H0=7,H1=24,rowH=28}={}){
   return `<div class="tt">${h}</div>`;
 }
 function taskHTML(t,{showSubAdd=true}={}){
-  const sd=t.subs.filter(s=>s.done).length,remTxt=t.rem.filter(r=>`${r.date} ${r.time}`>=`${TODAY} ${hm(nowM)}`).map(r=>(r.date===TODAY?"":fd(r.date)+" ")+r.time).join(", ");
+  const sd=t.subs.filter(s=>s.done).length;
+  const nextRem=t.rem.map(r=>`${r.date} ${r.time}`).filter(x=>x>=`${TODAY} ${hm(nowM)}`).sort()[0];
+  const meta=[t.dueT?`${diffDays(TODAY,t.due)===0?"":`${pd(t.due).getMonth()+1}/${pd(t.due).getDate()} `}${t.dueT}까지`:"",nextRem?`알림 ${nextRem.slice(0,10)===TODAY?"":`${+nextRem.slice(5,7)}/${+nextRem.slice(8,10)} `}${nextRem.slice(11)}`:"",t.subs.length?`${sd}/${t.subs.length}`:""].filter(Boolean).join(" · ");
   return `<div class="task ${t.done?"done":""}">
-    <div class="th"><span class="bx" data-tdone="${t.id}">${t.done?"✓":""}</span><span class="dot d-${t.a}" style="width:6px;height:6px"></span><span class="t">${t.t}</span><span style="margin-left:auto">${dday(t)}</span></div>
-    <div class="tm2">${fd(t.due)}${t.dueT?" "+t.dueT:""}까지${remTxt?` · 알림 ${remTxt}`:""}${t.src?` · ${t.src}`:""}</div>
-    ${t.subs.length?`<div class="prog"><i style="width:${sd/t.subs.length*100}%"></i></div><div class="subs">${t.subs.map((s,i)=>`<div class="sub ${s.done?"done":""}" data-sub="${t.id}:${i}"><span class="bx">${s.done?"✓":""}</span><span>${s.t}</span></div>`).join("")}${showSubAdd?`<input class="subadd" data-subadd="${t.id}" placeholder="+ 하위 할 일">`:""}</div>`:(showSubAdd?`<div class="subs" style="border:0"><input class="subadd" data-subadd="${t.id}" placeholder="+ 하위 할 일"></div>`:"")}
+    <div class="th"><span class="bx" data-tdone="${t.id}">${t.done?"✓":""}</span><span class="t">${t.t}</span><span style="margin-left:auto">${dday(t)}</span></div>
+    ${meta?`<div class="tm2">${meta}</div>`:""}
+    ${t.subs.length||showSubAdd?`<div class="subs">${t.subs.map((s,i)=>`<div class="sub ${s.done?"done":""}" data-sub="${t.id}:${i}"><span class="bx">${s.done?"✓":""}</span><span>${s.t}</span></div>`).join("")}${showSubAdd?`<input class="subadd" data-subadd="${t.id}" placeholder="+ 하위 할 일">`:""}</div>`:""}
   </div>`;
 }
-function evRow(e){return `<div class="ev" data-ev="${e.id}"><span class="dot d-${e.a}"></span><span class="tm">${e.s}–${e.e}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.t}${e.p?'<span class="ga">가</span>':""}</span>${e.p?`<span class="act"><button class="mini" data-ok="${e.id}">확정</button><button class="mini" data-no="${e.id}">취소</button></span>`:""}</div>`}
-function perRow(p,k){const total=diffDays(p.from,p.to)+1,nth=diffDays(p.from,k)+1;return `<div class="prow"><div style="display:flex;justify-content:space-between"><b style="font-weight:700">${p.t}</b><span style="color:var(--ink2);font-size:11.5px">${fd(p.from)}–${fd(p.to)} · ${total}일 중 ${nth}일째</span></div><div class="pbar"><i class="d-${p.a}" style="width:${nth/total*100}%"></i></div></div>`}
+function evRow(e){return `<div class="ev" data-ev="${e.id}"><span class="dot d-${e.a}" style="width:5px;height:5px"></span><span class="tm">${e.s}–${e.e}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.t}${e.p?'<span class="ga">가</span>':""}${e.rem?` <span style="color:var(--ink3);font-size:11px">알림 ${e.rem}</span>`:""}</span>${e.p?`<span class="act"><button class="mini" data-ok="${e.id}">확정</button><button class="mini" data-no="${e.id}">취소</button></span>`:""}</div>`}
+function perRow(p,k){const total=diffDays(p.from,p.to)+1,nth=diffDays(p.from,k)+1;return `<div class="prow"><div style="display:flex;justify-content:space-between"><span>${p.t}</span><span style="color:var(--ink3);font-size:11.5px">~${fd(p.to)} · ${nth}/${total}일</span></div><div class="pbar"><i style="width:${nth/total*100}%;background:var(--ink2)"></i></div></div>`}
 function taskGroups(k){
   const live=TASK.filter(t=>!t.gone);
   const today=live.filter(t=>t.due<=k&&(!t.done||t.due===k)).sort((a,b)=>a.due.localeCompare(b.due));
@@ -413,22 +416,21 @@ function renderDesk(){
       if(x===TODAY)h+=`<div style="position:absolute;left:0;right:0;height:2px;background:var(--now);top:${(nowM-H0*60)/60*RH}px;z-index:3"></div>`;h+=`</div>`}
     m.innerHTML=`<div class="week g">${h}</div>`}
   if(D.view==="day"){document.getElementById("dTitle").textContent=`${c.getMonth()+1}월 ${c.getDate()}일 (${DOW[c.getDay()]})`;
-    const G=taskGroups(k),ps=perOn(k),rems=remsOn(k),tom=ymd(add(c,1));
+    const G=taskGroups(k),ps=perOn(k),tom=ymd(add(c,1));
     m.innerHTML=`<div class="day">
       <div style="overflow:auto;min-height:0">${ttHTML(k,{H0:7,H1:24,rowH:28})}</div>
       <div class="col2"><div class="box g" style="flex:1;overflow:auto">
-        <h4>할 일 <small>체크 · 하위 목록 · 마감</small></h4>
+        <h4>할 일</h4>
         <div class="grp">오늘까지 ${G.today.length}</div>${G.today.map(t=>taskHTML(t)).join("")||'<div style="color:var(--ink3);font-size:12px">없음</div>'}
         <div class="grp">7일 안 마감 ${G.week.length}</div>${G.week.map(t=>taskHTML(t)).join("")||'<div style="color:var(--ink3);font-size:12px">없음</div>'}
         <div class="grp">나중 ${G.later.length}</div>${G.later.map(t=>taskHTML(t,{showSubAdd:false})).join("")}
       </div></div>
       <div class="col2">
-        <div class="box g"><h4>기간 <small>${ps.length}</small></h4>${ps.map(p=>perRow(p,k)).join("")||'<div style="color:var(--ink3);font-size:12px">없음</div>'}</div>
-        <div class="box g"><h4>알림 <small>${k===TODAY?"지금 "+hm(nowM):""}</small></h4>${rems.map(r=>`<div class="ev" data-ev="${r.ref}" style="${k===TODAY&&mins(r.time)<=nowM?"opacity:.45":""}"><span class="tm" style="width:42px;color:var(--warn);font-weight:700">${r.time}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.title} <span style="color:var(--ink3);font-size:11px">${r.body}</span></span></div>`).join("")||'<div style="color:var(--ink3);font-size:12px">없음</div>'}</div>
-        <div class="box g"><h4>일정 <small>${evOn(k).length}</small></h4>${evOn(k).map(evRow).join("")||'<div style="color:var(--ink3);font-size:12px">없음</div>'}
-          <h4 style="margin-top:6px">내일 <small>${fd(tom)}</small></h4>${evOn(tom).map(evRow).join("")||'<div style="color:var(--ink3);font-size:12px">없음</div>'}</div>
-        <div class="box g"><h4>확인 대기 <small>${pending().length}</small></h4>${pending().filter(e=>e.date!==k).map(e=>`<div class="ev" data-ev="${e.id}"><span class="dot d-${e.a}"></span><span class="tm">${fd(e.date)} ${e.s}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.t}</span><span class="act"><button class="mini" data-ok="${e.id}">확정</button><button class="mini" data-no="${e.id}">취소</button></span></div>`).join("")||'<div style="color:var(--ink3);font-size:12px">없음</div>'}</div>
-        ${k===TODAY?`<div class="box g"><h4>들어온 것 <small>인박스 → 옵시디언</small></h4>${INBOX.slice().reverse().map(x=>`<div class="inb"><span class="tm">${x.time}</span><span class="st ${x.st==="완료"?"ok":x.st==="분석 중"?"run":"warn"}">${x.st}</span><span>${x.t} <span class="s">${x.src}${x.out?" · "+x.out:""}</span></span></div>`).join("")}</div>`:""}
+        ${ps.length?`<div class="box g"><h4>기간</h4>${ps.map(p=>perRow(p,k)).join("")}</div>`:""}
+        <div class="box g"><h4>일정</h4>${evOn(k).map(evRow).join("")||'<div style="color:var(--ink3);font-size:12px">없음</div>'}
+          <h4 style="margin-top:8px">내일 · ${fd(tom)}</h4>${evOn(tom).map(evRow).join("")||'<div style="color:var(--ink3);font-size:12px">없음</div>'}</div>
+        <div class="box g"><h4>확인 대기 ${pending().length}</h4>${pending().filter(e=>e.date!==k).map(e=>`<div class="ev" data-ev="${e.id}"><span class="tm" style="width:96px">${fd(e.date)} ${e.s}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.t}</span><span class="act"><button class="mini" data-ok="${e.id}">확정</button><button class="mini" data-no="${e.id}">취소</button></span></div>`).join("")||'<div style="color:var(--ink3);font-size:12px">없음</div>'}
+          ${k===TODAY?`<h4 style="margin-top:8px">오늘 들어온 것 ${INBOX.length}</h4>${INBOX.slice().reverse().map(x=>`<div class="inb"><span class="tm">${x.time}</span><span>${x.t} <span class="s">${x.st==="완료"?"":x.st}</span></span></div>`).join("")}`:""}</div>
       </div></div>`}
 }
 function renderLog(){
@@ -504,19 +506,20 @@ function renderPhone(){
   if(P.tab==="cal")v.innerHTML=`<div class="phbar"><div class="title">${c.getFullYear()}년 ${c.getMonth()+1}월</div><button class="nb" data-pm="-1">‹</button><button class="nb" data-pm="1">›</button></div><div class="phbody">${monthHTML(c,3)}</div>${composer()}${tabs()}`;
   if(P.tab==="lock"){const tl=evOn(TODAY),G=taskGroups(TODAY),ps=perOn(TODAY),next=remsOn(TODAY).find(r=>mins(r.time)>nowM);
     v.innerHTML=`<div class="lock"><div class="date">10월 25일 일요일</div><div class="clock">${Math.floor(nowM/60)%12||12}:${pad(nowM%60)}</div>
-      ${ps.length?`<div class="lp" style="padding:6px 11px">${ps.map(p=>`<div style="font-size:12px;display:flex;justify-content:space-between"><span><span class="dot d-${p.a}"></span> ${p.t}</span><span style="opacity:.75">${diffDays(p.from,TODAY)+1}/${diffDays(p.from,p.to)+1}일</span></div>`).join("")}</div>`:""}
+      ${ps.length?`<div class="lp" style="padding:6px 11px">${ps.map(p=>`<div style="font-size:12px;display:flex;justify-content:space-between"><span>${p.t}</span><span style="opacity:.75">${diffDays(p.from,TODAY)+1}/${diffDays(p.from,p.to)+1}일</span></div>`).join("")}</div>`:""}
       <div class="lp"><h5>오늘 일정 <small>${next?`다음 알림 ${next.time} ${next.title}`:""}</small></h5>${tl.map(e=>`<div class="lr ${mins(e.e)<=nowM?"past":""}"><span class="tm">${e.s}</span><span class="dot d-${e.a}"></span>${e.t}${e.p?'<span class="ga" style="background:#fff;color:#111">가</span>':""}</div>`).join("")}</div>
       <div class="lp"><h5>할 일 <small>마감 순</small></h5>${[...G.today,...G.week].map(t=>`<div class="lr" style="font-size:13.5px"><span class="tm" style="width:auto">${t.done?"☑":"☐"}</span><span style="${t.done?"text-decoration:line-through;opacity:.5":""}">${t.t}${t.subs.length?` <span style="opacity:.7;font-size:11.5px">${t.subs.filter(s=>s.done).length}/${t.subs.length}</span>`:""}</span><span style="margin-left:auto">${dday(t)}</span></div>`).join("")}</div>
-      <div class="ln" style="margin-top:auto"><div class="row"><input id="lockIn" placeholder="잠금 상태에서 던지기"><button data-demo="voice">말하기</button><button data-demo="photo">사진</button><button data-go="lockIn" style="background:#6d55f0">넣기</button></div></div>
+      <div class="ln" style="margin-top:auto"><div class="row"><input id="lockIn" placeholder="잠금 상태에서 던지기"><button data-demo="voice">말하기</button><button data-demo="photo">사진</button><button data-go="lockIn" style="background:#e9eaf0;color:#111">넣기</button></div></div>
       <div class="cap">잠금화면 = 자동으로 바뀌는 배경화면 + 항상 떠 있는 입력 알림</div></div>${tabs()}`}
   if(P.tab==="home"){const tl=evOn(TODAY),G=taskGroups(TODAY),w=wk(DAY0);
-    const wrow=x=>{const d=pd(x),l=[...evOn(x).map(e=>`<span class="wi"><span class="dot d-${e.a}"></span>${e.s.replace(/^0/,"")} ${e.t}</span>`),...dueOn(x).map(t=>`<span class="wi">☐ ${t.t} 마감</span>`)];const ps=perOn(x).map(p=>p.t);return `<div class="wr ${x===TODAY?"on":""}"><span class="wd">${DOW[d.getDay()]} ${d.getDate()}</span><span class="wl">${l.join("")||'<span style="opacity:.45">—</span>'}${ps.length?`<span class="wi" style="opacity:.6">[${ps.join(", ")}]</span>`:""}</span></div>`};
+    const wrow=x=>{const d=pd(x),l=[...evOn(x).map(e=>`<span class="wi"><span style="opacity:.6">${e.s.replace(/^0/,"")}</span> ${e.t}</span>`),...dueOn(x).map(t=>`<span class="wi">☐ ${t.t}</span>`)];return `<div class="wr ${x===TODAY?"on":""}"><span class="wd">${DOW[d.getDay()]} ${d.getDate()}</span><span class="wl">${l.join("")||'<span style="opacity:.35">—</span>'}</span></div>`};
+    const perLine=ws=>{const ps=PER.filter(p=>!p.gone&&p.from<=ws[6]&&p.to>=ws[0]);return ps.length?`<div style="font-size:11px;opacity:.6;margin-bottom:3px">${ps.map(p=>`${p.t} ~${fd(p.to)}`).join(" · ")}</div>`:""};
     v.innerHTML=`<div class="home">
       <div class="wg"><h5>오늘 <small>10/25 일 · 확인 대기 ${pending().length}</small></h5><div class="w2"><div>${tl.map(e=>`<div class="lr ${mins(e.e)<=nowM?"past":""}" style="font-size:12.5px"><span class="tm" style="width:36px">${e.s}</span>${e.t}</div>`).join("")}</div>
         <div>${[...G.today,...G.week].slice(0,5).map(t=>`<div class="lr" style="font-size:12.5px"><span style="${t.done?"text-decoration:line-through;opacity:.5":""}">${t.done?"☑":"☐"} ${t.t}</span><span style="margin-left:auto">${dday(t)}</span></div>`).join("")}</div></div></div>
-      <div class="wg"><h5>이번 주</h5>${w.map(wrow).join("")}</div>
-      <div class="wg"><h5>다음 주</h5>${wk(add(DAY0,7)).map(wrow).join("")}</div>
-      <div class="wg" style="padding:7px 10px"><div class="ln" style="background:none;border:0;padding:0"><div class="row"><input id="wIn" placeholder="블랙홀에 던지기"><button data-demo="voice">말하기</button><button data-go="wIn" style="background:#6d55f0">넣기</button></div></div></div>
+      <div class="wg"><h5>이번 주</h5>${perLine(w)}${w.map(wrow).join("")}</div>
+      <div class="wg"><h5>다음 주</h5>${perLine(wk(add(DAY0,7)))}${wk(add(DAY0,7)).map(wrow).join("")}</div>
+      <div class="wg" style="padding:7px 10px"><div class="ln" style="background:none;border:0;padding:0"><div class="row"><input id="wIn" placeholder="블랙홀에 던지기"><button data-demo="voice">말하기</button><button data-go="wIn" style="background:#e9eaf0;color:#111">넣기</button></div></div></div>
      </div>${tabs()}`}
   renderLog();
 }
