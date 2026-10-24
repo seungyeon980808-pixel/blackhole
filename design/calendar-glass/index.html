@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ya 유리 캘린더 시안</title>
+<style>
+:root{
+  --ink:#fff; --ink2:rgba(255,255,255,.72); --ink3:rgba(255,255,255,.5);
+  --glass:rgba(255,255,255,.12); --glass2:rgba(255,255,255,.2); --line:rgba(255,255,255,.28);
+  --school:#5ee1ff; --personal:#ff8fd8; --todo:#ffd36e;
+  --font:"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);color:var(--ink);min-height:100vh;background:#0d1024;overflow-x:hidden}
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:radial-gradient(1200px 800px at 10% 0%,#3b2a8f 0%,transparent 60%),radial-gradient(900px 700px at 100% 30%,#0f6b8f 0%,transparent 60%),radial-gradient(800px 600px at 40% 110%,#8f2a6b 0%,transparent 60%),#0d1024}
+.blob{position:absolute;border-radius:50%;filter:blur(60px);opacity:.7}
+.b1{width:380px;height:380px;left:8%;top:12%;background:#7c5cff}
+.b2{width:460px;height:460px;right:6%;top:30%;background:#18c7d9}
+.b3{width:340px;height:340px;left:42%;bottom:-6%;background:#ff5fb8}
+.glass{background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border-radius:22px;box-shadow:0 10px 40px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.35)}
+header.top{display:flex;align-items:center;gap:16px;padding:20px 28px;flex-wrap:wrap}
+header.top h1{font-size:20px;font-weight:700;letter-spacing:-.3px}
+header.top p{color:var(--ink2);font-size:13px}
+.switch{display:flex;gap:6px;padding:5px;margin-left:auto}
+.switch button,.seg button{font:inherit;color:var(--ink2);background:none;border:0;padding:8px 14px;border-radius:14px;cursor:pointer;font-size:14px}
+.switch button.on,.seg button.on{background:var(--glass2);color:var(--ink);box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+.wrap{padding:0 28px 40px}
+.note{font-size:13px;color:var(--ink2);margin:0 0 14px;line-height:1.6}
+.dir{display:none}.dir.on{display:block}
+.row{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.row>main{min-width:0}
+.chip{min-width:0;display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border-radius:9px;background:rgba(255,255,255,.14);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip i{width:7px;height:7px;border-radius:50%;flex:none}
+.prov{border:1px dashed rgba(255,255,255,.7);background:rgba(255,255,255,.06)}
+.ga{font-size:10px;font-weight:700;padding:1px 5px;border-radius:6px;background:rgba(255,255,255,.85);color:#20204a}
+.dot-school{background:var(--school)}.dot-personal{background:var(--personal)}.dot-todo{background:var(--todo)}
+.seg{display:inline-flex;padding:4px;gap:4px}
+.muted{color:var(--ink3)}
+.btn{font:inherit;font-size:12px;padding:6px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.16);color:#fff;cursor:pointer}
+.btn.ok{background:rgba(94,225,255,.28)}
+/* month grid */
+.month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:0}
+.month .dow{font-size:12px;color:var(--ink2);padding:8px 10px}
+.month .cell{min-height:96px;padding:8px;border-top:1px solid rgba(255,255,255,.12);font-size:13px;overflow:hidden}
+.month .cell.out{opacity:.35}
+.month .cell .n{font-weight:600}
+.month .cell.today .n{background:#fff;color:#1b1b45;border-radius:10px;padding:1px 7px}
+/* week time grid */
+.week{display:grid;grid-template-columns:52px repeat(7,minmax(0,1fr));position:relative}
+.week .h{font-size:11px;color:var(--ink3);height:44px;padding-right:6px;text-align:right;border-top:1px solid rgba(255,255,255,.08)}
+.week .col{position:relative;border-left:1px solid rgba(255,255,255,.1)}
+.week .slot{height:44px;border-top:1px solid rgba(255,255,255,.08)}
+.week .ev{position:absolute;left:4px;right:4px;border-radius:10px;padding:5px 7px;font-size:11.5px;line-height:1.3;overflow:hidden}
+.week .head{font-size:12px;color:var(--ink2);text-align:center;padding:8px 0}
+.week .head b{display:block;font-size:18px;color:#fff}
+.week .head.today b{background:#fff;color:#1b1b45;border-radius:12px;width:34px;margin:2px auto 0}
+.ev.school{background:rgba(94,225,255,.3);border:1px solid rgba(94,225,255,.6)}
+.ev.personal{background:rgba(255,143,216,.28);border:1px solid rgba(255,143,216,.6)}
+.ev.prov{border-style:dashed;background:rgba(255,255,255,.08)}
+/* day */
+.day{display:grid;grid-template-columns:52px 1fr;position:relative}
+.nowline{position:absolute;left:52px;right:0;height:2px;background:#ff6b8a;box-shadow:0 0 12px #ff6b8a}
+.nowline:before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:#ff6b8a}
+/* phone */
+.phone{width:300px;height:620px;border-radius:44px;padding:14px;background:#111;box-shadow:0 20px 60px rgba(0,0,0,.5);flex:none}
+.screen{width:100%;height:100%;border-radius:32px;overflow:hidden;position:relative;background:radial-gradient(300px 300px at 20% 20%,#6b4cff,transparent 70%),radial-gradient(300px 300px at 90% 70%,#14b8c9,transparent 70%),radial-gradient(260px 260px at 30% 100%,#ff4fa8,transparent 70%),#1a1440;padding:46px 14px 14px}
+.w{border-radius:24px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);padding:12px 14px;margin-bottom:12px}
+.w h4{font-size:13px;font-weight:700;margin-bottom:6px}
+.w .li{display:flex;gap:8px;font-size:12px;padding:5px 0;align-items:center}
+.w .li .t{width:40px;color:var(--ink2);flex:none}
+.apps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:10px}
+.apps span{aspect-ratio:1;border-radius:16px;background:rgba(255,255,255,.22)}
+.caption{font-size:12px;color:var(--ink2);margin-top:10px;max-width:300px;line-height:1.55}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--ink2);flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:9px;height:9px;border-radius:50%}
+@media (max-width:900px){.wrap{padding:0 14px 30px}header.top{padding:16px 14px}.switch{margin-left:0}}
+</style>
+</head>
+<body>
+<div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<header class="top">
+  <div>
+    <h1>Ya 유리 캘린더 · 시안 3개</h1>
+    <p>모든 일정은 가짜입니다. 오늘 = 2026년 10월 25일(일). 점선 + 「가」 = AI가 올린 가승인 일정.</p>
+  </div>
+  <div class="switch glass" id="dirSwitch">
+    <button data-dir="A" class="on">A · 유리 책상</button>
+    <button data-dir="B">B · 오늘 띠</button>
+    <button data-dir="C">C · 떠 있는 카드</button>
+  </div>
+</header>
+<div class="wrap">
+  <div class="legend" style="margin-bottom:14px">
+    <span><i class="dot-school"></i>학교</span><span><i class="dot-personal"></i>개인</span><span><i class="dot-todo"></i>할 일</span><span><span class="ga">가</span>가승인(확정/취소 대기)</span>
+  </div>
+
+  <!-- A -->
+  <section class="dir on" id="dir-A">
+    <p class="note"><b>A · 유리 책상</b> — 왼쪽 고정 유리판(작은 달력·필터·확인 대기 수) + 오른쪽 큰 유리판 하나. 익숙한 캘린더 구조에 유리 질감만 입힌 안정형입니다. 위젯은 「오늘·내일 목록」.</p>
+    <div class="row">
+      <aside class="glass" style="width:250px;padding:18px;flex:none">
+        <div style="font-weight:700;margin-bottom:10px">2026년 10월</div>
+        <div id="A-mini" class="month" style="font-size:11px"></div>
+        <div style="margin-top:18px;font-size:13px;font-weight:700">보기</div>
+        <div class="legend" style="flex-direction:column;gap:8px;margin-top:8px">
+          <span><i class="dot-school"></i>학교 캘린더 ✓</span><span><i class="dot-personal"></i>개인 캘린더 ✓</span><span><i class="dot-todo"></i>할 일 ✓</span>
+        </div>
+        <div class="glass" style="margin-top:18px;padding:12px;border-radius:16px">
+          <div style="font-size:13px;font-weight:700">확인 대기 3건</div>
+          <div class="muted" style="font-size:12px;margin-top:4px">AI가 가승인으로 올린 일정</div>
+        </div>
+      </aside>
+      <main class="glass" style="flex:1;min-width:520px;padding:16px 18px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <div id="A-title" style="font-size:22px;font-weight:700"></div>
+          <div class="seg glass" style="margin-left:auto" data-target="A"><button data-v="month" class="on">월</button><button data-v="week">주</button><button data-v="day">일</button></div>
+        </div>
+        <div id="A-view"></div>
+      </main>
+      <div>
+        <div class="phone"><div class="screen">
+          <div class="w"><h4>오늘 · 10월 25일 일</h4><div id="A-w1"></div></div>
+          <div class="w"><h4>내일 · 10월 26일 월</h4><div id="A-w2"></div></div>
+          <div class="apps"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div></div>
+        <p class="caption">안드로이드 위젯 4×2 두 개. 위젯은 뒤 배경을 흐리게(blur) 할 수 없어서, 반투명 흰 판 + 둥근 모서리로 유리처럼 보이게 합니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- B -->
+  <section class="dir" id="dir-B">
+    <p class="note"><b>B · 오늘 띠</b> — 위에 2주치 날짜 띠, 그 아래는 「지금」 중심. 일간은 시간축 + 다음 일정 큰 카드, 주간은 요일별 가로 줄, 월간은 일정 밀도 점 지도. 「오늘 뭐 하지」에 가장 빠른 구조. 위젯은 「다음 일정 + 날짜 띠」.</p>
+    <div class="glass" style="padding:12px 14px;margin-bottom:16px;display:flex;gap:8px;overflow-x:auto" id="B-strip"></div>
+    <div class="row">
+      <main class="glass" style="flex:1;min-width:520px;padding:16px 18px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <div id="B-title" style="font-size:22px;font-weight:700"></div>
+          <div class="seg glass" style="margin-left:auto" data-target="B"><button data-v="day" class="on">일</button><button data-v="week">주</button><button data-v="month">월</button></div>
+        </div>
+        <div id="B-view"></div>
+      </main>
+      <div>
+        <div class="phone"><div class="screen">
+          <div class="w" style="display:flex;gap:6px;justify-content:space-between;padding:10px" id="B-wstrip"></div>
+          <div class="w" style="padding:16px">
+            <div class="muted" style="font-size:11px">다음 일정 · 1시간 20분 뒤</div>
+            <div style="font-size:20px;font-weight:700;margin:4px 0">안과 진료 <span class="ga">가</span></div>
+            <div style="font-size:12px;color:var(--ink2)">오늘 15:30 · 개인</div>
+            <div style="display:flex;gap:8px;margin-top:10px"><button class="btn ok">확정</button><button class="btn">취소</button></div>
+          </div>
+          <div class="apps"><span></span><span></span><span></span><span></span></div>
+        </div></div>
+        <p class="caption">위젯 4×1 날짜 띠 + 4×2 다음 일정. 가승인이면 위젯에서 바로 확정·취소.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- C -->
+  <section class="dir" id="dir-C">
+    <p class="note"><b>C · 떠 있는 카드</b> — 큰 판 없이 칸마다 따로 떠 있는 유리 카드. 왼쪽은 「확인 대기」 받은편지함(가승인 확정·취소가 첫 화면). 가장 유행하는 느낌이지만 정보 밀도는 가장 낮음. 위젯은 「확인 대기 + 월간」.</p>
+    <div class="row">
+      <aside style="width:270px;flex:none;display:flex;flex-direction:column;gap:12px" id="C-inbox"></aside>
+      <main style="flex:1;min-width:520px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div id="C-title" style="font-size:22px;font-weight:700"></div>
+          <div class="seg glass" style="margin-left:auto" data-target="C"><button data-v="month" class="on">월</button><button data-v="week">주</button><button data-v="day">일</button></div>
+        </div>
+        <div id="C-view"></div>
+      </main>
+      <div>
+        <div class="phone"><div class="screen">
+          <div style="display:flex;gap:12px">
+            <div class="w" style="width:50%;padding:14px"><div class="muted" style="font-size:11px">확인 대기</div><div style="font-size:34px;font-weight:800">3</div><div style="font-size:11px;color:var(--ink2)">눌러서 확정·취소</div></div>
+            <div class="w" style="width:50%;padding:14px"><div class="muted" style="font-size:11px">오늘</div><div style="font-size:34px;font-weight:800">25</div><div style="font-size:11px;color:var(--ink2)">일정 1 · 할 일 1</div></div>
+          </div>
+          <div class="w" id="C-wmonth"></div>
+        </div></div>
+        <p class="caption">위젯 2×2 두 개 + 4×4 월간. 칸마다 반투명 카드.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const EV=[
+ {d:25,s:"15:30",e:"16:30",t:"안과 진료",a:"personal",p:true},
+ {d:25,t:"엄마 생신 선물 주문",a:"todo"},
+ {d:26,s:"08:30",e:"09:10",t:"운동장 조회",a:"school"},
+ {d:26,s:"14:00",e:"15:00",t:"학부모 공개수업",a:"school"},
+ {d:27,s:"14:00",e:"15:30",t:"학년 협의회",a:"school",p:true},
+ {d:28,s:"16:00",e:"17:00",t:"과학과 협의회",a:"school"},
+ {d:28,s:"16:30",e:"17:30",t:"피아노 레슨",a:"personal"},
+ {d:29,s:"11:00",e:"12:00",t:"진로 상담",a:"school",p:true},
+ {d:30,t:"연수 보고서 제출",a:"todo"},
+ {d:30,s:"18:00",e:"20:00",t:"가족 외식",a:"personal"},
+ {d:31,s:"18:00",e:"20:00",t:"친구 결혼식",a:"personal"},
+ {d:21,s:"16:00",e:"17:00",t:"교과 협의회",a:"school"},
+ {d:23,s:"10:00",e:"11:00",t:"치과",a:"personal"},
+ {d:15,t:"생활기록부 입력",a:"todo"},{d:15,s:"09:00",e:"10:00",t:"수학여행 회의",a:"school"},
+ {d:8,s:"19:00",e:"21:00",t:"동창 모임",a:"personal"},{d:12,s:"14:00",e:"15:00",t:"시험 감독",a:"school"},
+ {d:19,s:"13:00",e:"14:00",t:"미용실",a:"personal"},{d:20,s:"16:00",e:"17:00",t:"교직원 연수",a:"school"}
+];
+const TODAY=25, DOW=["일","월","화","수","목","금","토"];
+const dowOf=d=>(d+3)%7; // 2026-10-01 is Thursday (4)
+const of=d=>EV.filter(e=>e.d===d).sort((x,y)=>(x.s||"00").localeCompare(y.s||"00"));
+const chip=e=>`<div class="chip ${e.p?'prov':''}"><i class="dot-${e.a}"></i>${e.s?`<span class="muted">${e.s}</span>`:''}${e.t}${e.p?' <span class="ga">가</span>':''}</div>`;
+const mins=s=>{const[h,m]=s.split(":").map(Number);return h*60+m};
+
+function monthGrid(opts={}){
+  let h=DOW.map(x=>`<div class="dow">${x}</div>`).join("");
+  const start=dowOf(1); const cells=[];
+  for(let i=0;i<start;i++) cells.push({n:30-start+i+1,out:true});
+  for(let d=1;d<=31;d++) cells.push({n:d});
+  while(cells.length%7) cells.push({n:cells.length-start-30,out:true});
+  for(const c of cells){
+    const list=c.out?[]:of(c.n);
+    if(opts.mini){h+=`<div style="text-align:center;padding:5px 0;${c.out?'opacity:.3':''}"><span style="${c.n===TODAY&&!c.out?'background:#fff;color:#1b1b45;border-radius:8px;padding:1px 5px':''}">${c.n}</span>${list.length&&!c.out?'<div style="height:4px;width:4px;border-radius:50%;background:#fff;margin:2px auto 0"></div>':''}</div>`;continue}
+    if(opts.cards){h+=`<div class="glass" style="margin:4px;min-height:96px;padding:8px;border-radius:16px;${c.out?'opacity:.3':''}${c.n===TODAY&&!c.out?';background:rgba(255,255,255,.28)':''}"><div style="font-weight:700;font-size:13px">${c.n}</div>${list.slice(0,3).map(chip).join("")}</div>`;continue}
+    if(opts.heat){const k=list.length;h+=`<div style="padding:10px 6px;text-align:center;${c.out?'opacity:.25':''}"><div style="margin:0 auto;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:13px;background:rgba(255,255,255,${c.out?0.04:0.06+k*0.12});${c.n===TODAY&&!c.out?'outline:2px solid #fff':''}">${c.n}</div><div style="display:flex;gap:3px;justify-content:center;margin-top:4px">${list.map(e=>`<i style="width:5px;height:5px;border-radius:50%" class="dot-${e.a}"></i>`).join("")}</div></div>`;continue}
+    h+=`<div class="cell ${c.out?'out':''} ${c.n===TODAY&&!c.out?'today':''}"><span class="n">${c.n}</span>${list.slice(0,3).map(chip).join("")}${list.length>3?`<div class="muted" style="font-size:11px">+${list.length-3}</div>`:''}</div>`;
+  }
+  return `<div class="month" ${opts.cards||opts.heat?'style="gap:0"':''}>${h}</div>`;
+}
+function weekGrid(){
+  const days=[25,26,27,28,29,30,31], H0=8,H1=21;
+  let h=`<div></div>`+days.map(d=>`<div class="head ${d===TODAY?'today':''}">${DOW[dowOf(d)]}<b>${d}</b></div>`).join("");
+  h+=`<div>`+Array.from({length:H1-H0},(_,i)=>`<div class="h">${H0+i}:00</div>`).join("")+`</div>`;
+  for(const d of days){
+    h+=`<div class="col">`+Array.from({length:H1-H0},()=>`<div class="slot"></div>`).join("");
+    for(const e of of(d).filter(e=>e.s)){const top=(mins(e.s)-H0*60)/60*44,ht=(mins(e.e)-mins(e.s))/60*44;
+      h+=`<div class="ev ${e.a} ${e.p?'prov':''}" style="top:${top}px;height:${ht-3}px">${e.s} ${e.t}${e.p?' <span class="ga">가</span>':''}</div>`}
+    h+=`</div>`;
+  }
+  const todos=days.flatMap(d=>of(d).filter(e=>!e.s).map(e=>`${d}일 ${e.t}`));
+  return `<div class="week">${h}</div><div class="legend" style="margin-top:10px"><span><i class="dot-todo"></i>시간 없는 할 일: ${todos.join(" · ")}</span></div>`;
+}
+function dayTimeline(d,withDetail){
+  const H0=8,H1=21;let h=`<div>`+Array.from({length:H1-H0},(_,i)=>`<div class="h" style="font-size:11px;color:var(--ink3);height:44px;text-align:right;padding-right:6px;border-top:1px solid rgba(255,255,255,.08)">${H0+i}:00</div>`).join("")+`</div><div class="col" style="position:relative">`+Array.from({length:H1-H0},()=>`<div style="height:44px;border-top:1px solid rgba(255,255,255,.08)"></div>`).join("");
+  for(const e of of(d).filter(e=>e.s)){const top=(mins(e.s)-H0*60)/60*44,ht=(mins(e.e)-mins(e.s))/60*44;
+    h+=`<div class="ev ${e.a} ${e.p?'prov':''}" style="position:absolute;left:6px;right:6px;top:${top}px;height:${ht-3}px;border-radius:12px;padding:8px 10px;font-size:13px">${e.s}–${e.e} <b>${e.t}</b> ${e.p?'<span class="ga">가</span>':''}</div>`}
+  h+=`</div>`;
+  const now=(14*60+10-H0*60)/60*44;
+  const todos=of(d).filter(e=>!e.s);
+  const side=withDetail?`<div class="glass" style="width:260px;padding:16px;flex:none;align-self:flex-start"><div class="muted" style="font-size:12px">선택한 일정</div><div style="font-size:18px;font-weight:700;margin:6px 0">안과 진료 <span class="ga">가</span></div><div style="font-size:13px;color:var(--ink2);line-height:1.7">오늘 15:30–16:30 · 개인<br>근거: 「모레 오후 3시 반에 안과 진료」<br>음성 메모 · 10월 23일</div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn ok">확정</button><button class="btn">취소</button></div></div>`:'';
+  return `<div style="display:flex;gap:16px"><div style="flex:1"><div class="day">${h}${d===TODAY?`<div class="nowline" style="top:${now}px"></div>`:''}</div>${todos.length?`<div class="legend" style="margin-top:10px">${todos.map(t=>`<span><i class="dot-todo"></i>할 일: ${t.t}</span>`).join("")}</div>`:''}</div>${side}</div>`;
+}
+function weekLanes(){
+  const days=[25,26,27,28,29,30,31];
+  return days.map(d=>`<div style="display:flex;align-items:center;gap:14px;padding:10px 0;border-top:1px solid rgba(255,255,255,.1)"><div style="width:58px;${d===TODAY?'font-weight:800':''}">${d}일 <span class="muted">${DOW[dowOf(d)]}</span></div><div style="position:relative;flex:1;height:34px;background:rgba(255,255,255,.05);border-radius:10px">${of(d).filter(e=>e.s).map(e=>{const l=(mins(e.s)-480)/(780)*100,w=(mins(e.e)-mins(e.s))/780*100;return `<div class="ev ${e.a} ${e.p?'prov':''}" style="position:absolute;top:3px;bottom:3px;left:${l}%;width:${w}%;border-radius:8px;padding:6px 8px;font-size:11.5px;white-space:nowrap;overflow:hidden">${e.t}</div>`}).join("")}</div><div style="width:150px;font-size:12px;color:var(--ink2)">${of(d).filter(e=>!e.s).map(e=>'☐ '+e.t).join("<br>")}</div></div>`).join("")+`<div class="muted" style="font-size:11px;display:flex;justify-content:space-between;margin:4px 0 0 72px;width:calc(100% - 236px)"><span>8시</span><span>12시</span><span>16시</span><span>21시</span></div>`;
+}
+function weekCards(){
+  return `<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px">`+[25,26,27,28,29,30,31].map(d=>`<div class="glass" style="padding:12px;border-radius:18px;min-height:260px;${d===TODAY?'background:rgba(255,255,255,.26)':''}"><div class="muted" style="font-size:12px">${DOW[dowOf(d)]}</div><div style="font-size:22px;font-weight:800;margin-bottom:6px">${d}</div>${of(d).map(chip).join("")}</div>`).join("")+`</div>`;
+}
+function dayCards(d){
+  return `<div style="display:flex;flex-direction:column;gap:10px;max-width:640px">`+of(d).map(e=>`<div class="glass" style="padding:16px 18px;display:flex;align-items:center;gap:14px;border-radius:20px;${e.p?'border-style:dashed':''}"><div style="width:62px;font-size:18px;font-weight:700">${e.s||'할 일'}</div><i class="dot-${e.a}" style="width:10px;height:10px;border-radius:50%"></i><div style="flex:1"><div style="font-size:16px;font-weight:700">${e.t} ${e.p?'<span class="ga">가</span>':''}</div><div class="muted" style="font-size:12px">${e.s?e.s+'–'+e.e:'오늘까지'} · ${e.a==='school'?'학교':e.a==='personal'?'개인':'할 일'}</div></div>${e.p?'<button class="btn ok">확정</button><button class="btn">취소</button>':''}</div>`).join("")+`</div>`;
+}
+const R={
+ A:{month:()=>monthGrid(),week:weekGrid,day:()=>dayTimeline(TODAY,true)},
+ B:{day:()=>dayTimeline(TODAY,false)+`<div class="glass" style="margin-top:16px;padding:18px;border-radius:20px"><div class="muted" style="font-size:12px">다음 일정 · 1시간 20분 뒤</div><div style="font-size:26px;font-weight:800;margin:6px 0">15:30 안과 진료 <span class="ga">가</span></div><div style="display:flex;gap:8px"><button class="btn ok">확정</button><button class="btn">취소</button></div></div>`,week:weekLanes,month:()=>monthGrid({heat:true})},
+ C:{month:()=>monthGrid({cards:true}),week:weekCards,day:()=>dayCards(TODAY)}
+};
+const TITLE={month:"2026년 10월",week:"10월 25일 – 31일",day:"10월 25일 일요일"};
+function show(dir,v){document.getElementById(dir+"-view").innerHTML=R[dir][v]();document.getElementById(dir+"-title").textContent=TITLE[v]}
+document.querySelectorAll(".seg").forEach(seg=>{seg.addEventListener("click",ev=>{const b=ev.target.closest("button");if(!b)return;seg.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));show(seg.dataset.target,b.dataset.v)})});
+document.getElementById("dirSwitch").addEventListener("click",ev=>{const b=ev.target.closest("button");if(!b)return;document.querySelectorAll("#dirSwitch button").forEach(x=>x.classList.toggle("on",x===b));document.querySelectorAll(".dir").forEach(s=>s.classList.toggle("on",s.id==="dir-"+b.dataset.dir))});
+show("A","month");show("B","day");show("C","month");
+document.getElementById("A-mini").innerHTML=monthGrid({mini:true});
+const wl=d=>of(d).map(e=>`<div class="li"><span class="t">${e.s||'할 일'}</span><i class="dot-${e.a}" style="width:7px;height:7px;border-radius:50%"></i>${e.t}${e.p?' <span class="ga">가</span>':''}</div>`).join("");
+document.getElementById("A-w1").innerHTML=wl(25);document.getElementById("A-w2").innerHTML=wl(26);
+document.getElementById("B-strip").innerHTML=Array.from({length:14},(_,i)=>{const d=((24+i)%31)+1;const n=of(d);return `<div style="min-width:58px;text-align:center;padding:8px 6px;border-radius:16px;${d===TODAY?'background:rgba(255,255,255,.3)':''}"><div class="muted" style="font-size:11px">${DOW[dowOf(d)]}</div><div style="font-size:18px;font-weight:700">${d}</div><div style="display:flex;gap:3px;justify-content:center;height:6px;margin-top:3px">${n.map(e=>`<i style="width:5px;height:5px;border-radius:50%" class="dot-${e.a}"></i>`).join("")}</div></div>`}).join("");
+document.getElementById("B-wstrip").innerHTML=[25,26,27,28,29].map(d=>`<div style="text-align:center;flex:1;padding:4px 0;border-radius:12px;${d===TODAY?'background:rgba(255,255,255,.3)':''}"><div style="font-size:10px;color:var(--ink2)">${DOW[dowOf(d)]}</div><div style="font-weight:700">${d}</div><div style="display:flex;gap:2px;justify-content:center;height:5px">${of(d).map(e=>`<i style="width:4px;height:4px;border-radius:50%" class="dot-${e.a}"></i>`).join("")}</div></div>`).join("");
+document.getElementById("C-inbox").innerHTML=`<div style="font-weight:700;padding:4px 4px 0">확인 대기 3건</div>`+EV.filter(e=>e.p).map(e=>`<div class="glass" style="padding:14px;border-radius:20px;border-style:dashed"><div class="muted" style="font-size:11px">AI 가승인 · 음성 메모</div><div style="font-size:16px;font-weight:700;margin:4px 0">${e.t} <span class="ga">가</span></div><div style="font-size:12px;color:var(--ink2)">10월 ${e.d}일 ${DOW[dowOf(e.d)]} ${e.s} · ${e.a==='school'?'학교':'개인'}</div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn ok">확정</button><button class="btn">취소</button></div></div>`).join("");
+document.getElementById("C-wmonth").innerHTML=`<h4>10월</h4>`+monthGrid({mini:true});
+</script>
+</body>
+</html>
