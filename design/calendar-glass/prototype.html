@@ -99,23 +99,24 @@ button{cursor:pointer}
 .tt .bk.half{bottom:50%}.tt .bk.half2{top:50%}
 .tt .now{position:absolute;top:0;bottom:0;width:2px;background:var(--now);z-index:3}
 .tt .row.past{opacity:.55}
-.day{display:grid;grid-template-columns:430px minmax(0,1fr);gap:12px;height:100%;min-height:0}
-.side{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
-.box{border-radius:10px;padding:8px 10px}
+.day{display:grid;grid-template-columns:460px minmax(0,1fr);gap:10px;height:100%;min-height:0}
+.side{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:8px;min-height:0;align-content:start}
+.side .box{overflow:auto;min-height:0}
+.box{border-radius:10px;padding:6px 9px}
 .box h4{font-size:12.5px;font-weight:800;display:flex;justify-content:space-between;margin-bottom:4px}
 .box h4 small{font-weight:400;color:var(--ink2)}
-.ck{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13.5px;cursor:pointer;border-top:1px solid var(--hair)}
+.ck{display:flex;align-items:center;gap:7px;padding:2px 0;font-size:13px;cursor:pointer;border-top:1px solid var(--hair)}
 .ck:first-of-type{border-top:0}
-.ck .bx{width:16px;height:16px;border:1.5px solid var(--ink2);border-radius:4px;flex:none;display:grid;place-items:center;font-size:11px;line-height:1}
+.ck .bx{width:14px;height:14px;border:1.5px solid var(--ink2);border-radius:4px;flex:none;display:grid;place-items:center;font-size:11px;line-height:1}
 .ck.done .bx{background:var(--note);border-color:var(--note);color:#0d1a05}
 .ck.done .t{text-decoration:line-through;color:var(--ink3)}
 .ck .m{margin-left:auto;font-size:11px;color:var(--ink3);white-space:nowrap}
-.ev{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px;border-top:1px solid var(--hair);cursor:pointer}
+.ev{display:flex;align-items:center;gap:7px;padding:2px 0;font-size:13px;border-top:1px solid var(--hair);cursor:pointer}
 .ev:first-of-type{border-top:0}
-.ev .tm{width:78px;color:var(--ink2);font-size:12px;flex:none}
+.ev .tm{width:74px;color:var(--ink2);font-size:11.5px;flex:none}
 .ev .act{margin-left:auto;display:flex;gap:4px}
 .mini{font-size:11px;border:1px solid var(--line);background:var(--glass2);border-radius:6px;padding:1px 7px}
-.inb{display:flex;gap:8px;font-size:12px;padding:3px 0;border-top:1px solid var(--hair)}
+.inb{display:flex;gap:7px;font-size:12px;padding:2px 0;border-top:1px solid var(--hair);white-space:nowrap;overflow:hidden}
 .inb:first-of-type{border-top:0}
 .inb .tm{color:var(--ink3);width:36px;flex:none}
 .inb .s{color:var(--ink3);font-size:11px}
@@ -158,7 +159,7 @@ button{cursor:pointer}
 .ln input::placeholder{color:rgba(255,255,255,.65)}
 .ln button{border:0;border-radius:9px;padding:7px 9px;font-size:12px;background:rgba(255,255,255,.25);color:#fff}
 .ln .pend{font-size:12px;margin-top:6px;display:flex;gap:6px;align-items:center}
-.home{flex:1;padding:4px 14px;display:flex;flex-direction:column;gap:12px;overflow:auto;background:linear-gradient(160deg,#3a2f7a,#14506a 55%,#6a2a58)}
+.home{flex:1;padding:4px 12px;display:flex;flex-direction:column;gap:10px;overflow:auto;background:linear-gradient(160deg,#3a2f7a,#14506a 55%,#6a2a58)}
 .wg{border-radius:22px;padding:12px 14px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.32);color:#fff}
 .wg h5{font-size:12px;font-weight:800;margin-bottom:4px;display:flex;justify-content:space-between}
 .wg h5 small{font-weight:400;opacity:.7}
@@ -166,6 +167,26 @@ button{cursor:pointer}
 .apps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:0 4px}
 .apps span{aspect-ratio:1;border-radius:15px;background:rgba(255,255,255,.18)}
 .apps svg{border-radius:15px;display:block;width:100%;height:auto}
+.w2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.wline{display:flex;gap:6px;align-items:center;font-size:12.5px;padding:1.5px 0;white-space:nowrap;overflow:hidden}
+.wline .tm{width:40px;opacity:.75;font-size:11.5px;flex:none}
+.wline.past{opacity:.45}
+.wg .lck{font-size:12.5px;padding:1.5px 0;white-space:nowrap;overflow:hidden}
+.wg .lck .bx{width:13px;height:13px}
+.wr{display:flex;gap:8px;font-size:11.5px;padding:2px 0;border-top:1px solid rgba(255,255,255,.15)}
+.wr:first-of-type{border-top:0}
+.wr.on{font-weight:700}
+.wr .wd{width:34px;flex:none;opacity:.8}
+.wr .wl{display:flex;flex-wrap:wrap;gap:2px 9px;min-width:0}
+.wi{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.wi .dot{width:5px;height:5px}
+.mm{display:grid;grid-template-columns:repeat(7,1fr);font-size:9.5px;text-align:center;gap:1px 0}
+.mm .mmt{grid-column:1/-1;text-align:left;font-weight:800;font-size:11.5px;margin-bottom:2px}
+.mm b{font-weight:600;opacity:.6}
+.mm span{position:relative;padding:1px 0 3px}
+.mm span.o{opacity:.3}.mm span.t{background:#fff;color:#111;border-radius:5px;font-weight:800}
+.mm i{position:absolute;left:50%;bottom:0;width:3px;height:3px;border-radius:50%;background:#fff;transform:translateX(-50%)}
+.mm span.t i{background:#111}
 .cap{font-size:10.5px;text-align:center;color:rgba(255,255,255,.7);line-height:1.5}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;z-index:50}
 .modal.on{display:flex}
@@ -305,6 +326,8 @@ const timed=k=>of(k).filter(e=>e.s);
 const todos=k=>of(k).filter(e=>e.a==="todo");
 const pending=()=>EV.filter(e=>e.p&&!e.gone);
 
+function miniMonth(cur){const f=new Date(cur.getFullYear(),cur.getMonth(),1),st=add(f,-f.getDay());
+  return `<div class="mm"><div class="mmt">${cur.getMonth()+1}월</div>${[...DOW].map(x=>`<b>${x}</b>`).join("")}${Array.from({length:42},(_,i)=>{const d=add(st,i),k=ymd(d),n=of(k).length;return `<span class="${d.getMonth()!==cur.getMonth()?"o":""} ${k===TODAY?"t":""}">${d.getDate()}${n?`<i style="opacity:${Math.min(1,.35+n*.2)}"></i>`:""}</span>`}).join("")}</div>`}
 function chip(e){const cls=e.a==="todo"?"todo"+(e.st==="done"?" done":""):e.a;return `<span class="c ${cls} ${e.p?"prov":""}" data-ev="${e.id}">${e.a==="todo"?(e.st==="done"?"☑ ":"☐ "):(e.s?e.s.replace(/^0/,"")+" ":"")}${e.t}${e.p?'<span class="ga">가</span>':""}</span>`}
 function monthHTML(cur,max){
   const f=new Date(cur.getFullYear(),cur.getMonth(),1),st=add(f,-f.getDay());
@@ -327,7 +350,8 @@ function ttHTML(k,{H0=6,H1=24,rowH=29}={}){
   }
   return `<div class="tt"><div class="mh0"></div>${[10,20,30,40,50,60].map(x=>`<div class="mh">${x}</div>`).join("")}${h}</div>`;
 }
-function ckHTML(e,showDate){return `<div class="ck ${e.st==="done"?"done":""}" data-chk="${e.id}"><span class="bx">${e.st==="done"?"✓":""}</span><span class="t">${e.t}</span><span class="m">${showDate?fd(e.date)+" · ":""}${e.area==="school"?"학교":"개인"}</span></div>`}
+function ckHTML(e,showDate){return `<div class="ck ${e.st==="done"?"done":""}" data-chk="${e.id}"><span class="bx">${e.st==="done"?"✓":""}</span><span class="dot d-${e.area||"todo"}" style="width:6px;height:6px"></span><span class="t">${e.t}</span>${showDate?`<span class="m">${fd(e.date)}</span>`:""}</div>`}
+function evRowP(e){return `<div class="ev" data-ev="${e.id}"><span class="dot d-${e.a}"></span><span class="tm" style="width:96px;white-space:nowrap">${fd(e.date)} ${e.s}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.t}</span><span class="act"><button class="mini" data-ok="${e.id}">확정</button><button class="mini" data-no="${e.id}">취소</button></span></div>`}
 function evRow(e){return `<div class="ev" data-ev="${e.id}"><span class="dot d-${e.a}"></span><span class="tm">${e.s}–${e.e}</span><span>${e.t}${e.p?'<span class="ga">가</span>':""}</span>${e.p?`<span class="act"><button class="mini" data-ok="${e.id}">확정</button><button class="mini" data-no="${e.id}">취소</button></span>`:""}</div>`}
 
 const D={view:"day",cur:new Date(NOW)};
@@ -348,10 +372,12 @@ function renderDesk(){
     const td=todos(k),soon=EV.filter(e=>e.a==="todo"&&!e.gone&&e.st!=="done"&&e.date>k&&e.date<=ymd(add(c,7))).sort((a,b)=>a.date.localeCompare(b.date));
     m.innerHTML=`<div class="day"><div style="overflow:auto;min-height:0">${ttHTML(k,{H0:7,H1:24,rowH:29})}</div>
       <div class="side">
-        <div class="box g"><h4>오늘 할 일 <small>${td.filter(e=>e.st==="done").length}/${td.length}</small></h4>${td.map(e=>ckHTML(e)).join("")||'<div style="color:var(--ink3)">없음 · 아래 입력칸에 던지면 들어옵니다</div>'}</div>
-        <div class="box g"><h4>일정 <small>${timed(k).length}</small></h4>${timed(k).map(evRow).join("")||'<div style="color:var(--ink3)">없음</div>'}</div>
-        <div class="box g"><h4>7일 안 마감</h4>${soon.map(e=>ckHTML(e,true)).join("")||'<div style="color:var(--ink3)">없음</div>'}</div>
-        ${k===TODAY?`<div class="box g"><h4>오늘 들어온 것 <small>인박스 → 옵시디언</small></h4>${INBOX.map(x=>`<div class="inb"><span class="tm">${x.time}</span><span>${x.t}<span class="st ${x.st==="완료"?"ok":x.st==="분석 중"?"run":"warn"}">${x.st}</span> <span class="s">${x.src}${x.out?" · "+x.out:""}</span></span></div>`).join("")}</div>`:""}
+        <div class="box g"><h4>할 일 <small>${td.filter(e=>e.st==="done").length}/${td.length}</small></h4>${td.map(e=>ckHTML(e)).join("")||'<div style="color:var(--ink3)">없음</div>'}</div>
+        <div class="box g"><h4>일정 <small>${timed(k).length}</small></h4>${timed(k).map(evRow).join("")||'<div style="color:var(--ink3)">없음</div>'}
+          <h4 style="margin-top:8px">내일 <small>${fd(ymd(add(c,1)))}</small></h4>${of(ymd(add(c,1))).map(e=>e.a==="todo"?ckHTML(e):evRow(e)).join("")||'<div style="color:var(--ink3)">없음</div>'}</div>
+        <div class="box g"><h4>7일 안 마감 <small>${soon.length}</small></h4>${soon.map(e=>ckHTML(e,true)).join("")||'<div style="color:var(--ink3)">없음</div>'}
+          <h4 style="margin-top:8px">확인 대기 <small>${pending().length}</small></h4>${pending().map(evRowP).join("")||'<div style="color:var(--ink3)">없음</div>'}</div>
+        <div class="box g"><h4>오늘 들어온 것 <small>인박스 → 옵시디언</small></h4>${(k===TODAY?INBOX.slice().reverse():[]).map(x=>`<div class="inb"><span class="tm">${x.time}</span><span class="st ${x.st==="완료"?"ok":x.st==="분석 중"?"run":"warn"}" style="margin:0;width:44px;flex:none">${x.st}</span><span>${x.t} <span class="s">${x.src}${x.out?" · "+x.out:""}</span></span></div>`).join("")||'<div style="color:var(--ink3)">없음</div>'}</div>
       </div></div>`}
 }
 function renderLog(){
@@ -418,12 +444,19 @@ function renderPhone(){
         ${pending().length?`<div class="pend">확인 대기 ${pending().length}건 <button data-okall="1" style="padding:3px 8px">모두 확정</button></div>`:""}</div>
       <div class="cap">잠금화면 = 달력이 그려진 배경화면(자동 갱신) + 항상 떠 있는 입력 알림</div>
      </div>${tabs()}`}
-  if(P.tab==="home"){const tl=of(TODAY);
+  if(P.tab==="home"){const tl=timed(TODAY),td=todos(TODAY),w=wk(NOW),soon=EV.filter(e=>e.a==="todo"&&!e.gone&&e.st!=="done"&&e.date>TODAY).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
+    const wrow=x=>{const d=pd(x),l=of(x);return `<div class="wr ${x===TODAY?"on":""}"><span class="wd">${DOW[d.getDay()]} ${d.getDate()}</span><span class="wl">${l.map(e=>`<span class="wi"><span class="dot d-${e.area||e.a}"></span>${e.s?e.s.replace(/^0/,"")+" ":"☐"}${e.t}</span>`).join("")||'<span style="opacity:.45">—</span>'}</span></div>`};
     v.innerHTML=`<div class="home">
-      <div class="wg"><h5>오늘 <small>10월 25일 일</small></h5>${tl.map(e=>e.a==="todo"?`<div class="lck ${e.st==="done"?"done":""}" data-chk="${e.id}" style="font-size:13.5px"><span class="bx">${e.st==="done"?"✓":""}</span>${e.t}</div>`:`<div class="lr" style="font-size:13.5px"><span class="tm">${e.s}</span><span class="dot d-${e.a}"></span>${e.t}</div>`).join("")}</div>
-      <div class="wg" style="padding:8px 10px"><div class="ln" style="background:none;border:0;padding:0"><div class="row"><input id="wIn" placeholder="블랙홀에 던지기"><button data-lock="voice">말하기</button><button data-go="wIn" style="background:#6d55f0">넣기</button></div></div></div>
-      <div class="apps"><svg viewBox="0 0 100 100"><use href="#logo"/></svg><span></span><span></span><span></span></div>
-      <div class="cap">홈 화면 위젯 2개: 오늘(일정+체크리스트), 입력 위젯</div>
+      <div class="wg"><h5>오늘 <small>10월 25일 일 · 확인 대기 ${pending().length}</small></h5>
+        <div class="w2"><div>${tl.map(e=>`<div class="wline ${mins(e.e)<=nowM?"past":""}"><span class="tm">${e.s}</span><span class="dot d-${e.a}"></span>${e.t}${e.p?'<span class="ga" style="background:#fff;color:#111">가</span>':""}</div>`).join("")}</div>
+        <div>${td.map(e=>`<div class="lck ${e.st==="done"?"done":""}" data-chk="${e.id}"><span class="bx">${e.st==="done"?"✓":""}</span>${e.t}</div>`).join("")}</div></div></div>
+      <div class="wg"><h5>이번 주</h5>${w.map(wrow).join("")}</div>
+      <div class="wg"><h5>다음 주</h5>${wk(add(NOW,7)).map(wrow).join("")}</div>
+      <div class="w2" style="gap:10px">
+        <div class="wg" style="padding:10px"><h5>마감</h5>${soon.map(e=>`<div class="wline"><span class="tm" style="width:38px">${fd(e.date).replace(/\(.\)/,"")}</span>${e.t}</div>`).join("")}</div>
+        <div class="wg" style="padding:8px">${miniMonth(NOW)}</div>
+      </div>
+      <div class="wg" style="padding:8px 10px"><div class="ln" style="background:none;border:0;padding:0"><div class="row"><input id="wIn" placeholder="블랙홀에 던지기"><button data-lock="voice">말하기</button><button data-lock="photo">사진</button><button data-go="wIn" style="background:#6d55f0">넣기</button></div></div></div>
      </div>${tabs()}`}
   renderLog();
 }
