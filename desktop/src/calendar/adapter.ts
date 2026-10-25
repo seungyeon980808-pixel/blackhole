@@ -74,7 +74,20 @@ export interface BlackholeAdapter {
   phoneActions?(): Promise<UserAction[]>;
   /** Phone: a hand-made change to send to the Mac. */
   recordAction?(action: UserAction): void;
+  /** Phone (stage 4): calendars to mirror into, and the current choice. */
+  googleCalendars?(): Promise<GoogleCalendars>;
+  setGoogleCalendars?(enabled: boolean, provisional: string, main: string): Promise<void>;
   /** Phone: called when a newer shared copy from the Mac arrives, with the phone's
    *  changes the Mac has not applied yet (to replay on top). */
   onShared?(handler: (shared: SharedCalendar, pending: UserAction[]) => void): void;
+}
+
+/** Stage 4: provisional events go to `provisional`, confirmed events and periods to `main`. */
+export interface GoogleCalendars {
+  permission: boolean;
+  enabled: boolean;
+  provisional: string;
+  main: string;
+  status: string;
+  calendars: { id: string; name: string }[];
 }

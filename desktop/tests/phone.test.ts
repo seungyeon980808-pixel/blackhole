@@ -16,7 +16,7 @@ function macCopy() {
 }
 
 function fakeBridge(shared: string) {
-  const calls = { texts: [] as string[], actions: [] as UserAction[], alarms: "", saved: "" };
+  const calls = { texts: [] as string[], actions: [] as UserAction[], alarms: "", saved: "", gcal: [] as { enabled: boolean; provisional: string; main: string }[] };
   const bridge: AndroidBridge = {
     loadState: () => calls.saved,
     saveState: (j) => void (calls.saved = j),
@@ -30,7 +30,9 @@ function fakeBridge(shared: string) {
     refreshShared: () => undefined,
     recordAction: (j) => void calls.actions.push(JSON.parse(j)),
     pendingActions: () => JSON.stringify(calls.actions),
-    syncStatus: () => "마지막 받음 09:00"
+    syncStatus: () => "마지막 받음 09:00",
+    googleCalendars: () => JSON.stringify({ permission: true, enabled: false, provisional: "", main: "", status: "", calendars: [{ id: "7", name: "블랙홀 가승인" }, { id: "9", name: "내 캘린더" }] }),
+    setGoogleCalendars: (enabled, provisional, main) => void calls.gcal.push({ enabled, provisional, main })
   };
   return { bridge, calls };
 }
@@ -94,5 +96,26 @@ describe("phone calendar (Android WebView adapter)", () => {
     const list = JSON.parse(fake.calls.alarms) as { key: string; atMs: number }[];
     expect(list.length).toBeGreaterThan(0);
     expect(list.every((a) => typeof a.atMs === "number" && a.key.includes("@"))).toBe(true);
+  });
+});
+
+describe("stage 4 on the phone", () => {
+  it("never turns on mirroring without two different calendars", async () => {
+    const fake = await mountPhone(macCopy().json);
+    document.querySelector<HTMLButtonElement>("[data-settings]")!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    const set = (name: string, value: string | boolean) => {
+      const el = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-gcal="${name}"]`)!;
+      if (typeof value === "boolean") (el as HTMLInputElement).checked = value;
+      else el.value = value;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      return new Promise((r) => setTimeout(r, 0));
+    };
+    await set("enabled", true);
+    expect(fake.calls.gcal.at(-1)).toEqual({ enabled: false, provisional: "", main: "" });
+    await set("provisional", "7");
+    await set("main", "9");
+    await set("enabled", true);
+    expect(fake.calls.gcal.at(-1)).toEqual({ enabled: true, provisional: "7", main: "9" });
   });
 });

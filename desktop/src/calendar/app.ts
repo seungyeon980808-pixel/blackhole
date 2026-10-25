@@ -3,7 +3,7 @@
  * Platform work goes through the adapter, so this module runs unchanged in the desktop
  * window, a browser and the phone WebView.
  */
-import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type InboxStatus } from "./adapter";
+import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type GoogleCalendars, type InboxStatus } from "./adapter";
 import { addDays, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type ThemeName, type UserAction } from "./model";
@@ -73,6 +73,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   });
 
   let shareLine = "";
+  let gcal: GoogleCalendars | null = null;
+  const loadCalendars = () =>
+    adapter.googleCalendars?.().then((g) => {
+      gcal = g;
+      if (settingsOpen) renderSettings();
+    });
+  (window as unknown as { blackholeCalendars?: () => void }).blackholeCalendars = () => void loadCalendars();
   let shareTimer: number | undefined;
   const save = async () => {
     await adapter.save(s).catch((e: unknown) => console.error("저장 실패", e));
@@ -227,10 +234,22 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <div class="set-note">${inbox.available ? `${st.inboxRoot ? "드라이브 폴더(인박스 원본은 지우지 않고 원본/·노트/만 씀)" : "시험 폴더"}: <code>${escapeHtml(inbox.root)}</code><br>${inbox.running ? "분석 중 · " : ""}${inbox.lastScanAt ? `마지막 확인 ${escapeHtml(inbox.lastScanAt.slice(11, 16))}` : "아직 확인 안 함"}${inbox.lastError ? `<br><span class="warn">${escapeHtml(inbox.lastError)}</span>` : ""}` : "이 화면에서는 인박스 처리를 쓸 수 없습니다."}</div>
       ${adapter.publishShared ? `<label class="set-row"><input type="checkbox" data-set="sharePhone" ${st.sharePhone ? "checked" : ""} ${inbox.driveRoot ? "" : "disabled"}> 휴대폰과 달력 공유</label>
       <div class="set-note">${inbox.driveRoot ? `드라이브 「블랙홀/달력.json」에 일정 사본을 쓰고, 휴대폰에서 바꾼 것을 받아 반영합니다.${shareLine ? `<br>${escapeHtml(shareLine)}` : ""}` : "드라이브 「블랙홀」 폴더가 없어 쓸 수 없습니다."}</div>` : ""}
+      ${adapter.googleCalendars ? gcalBlock() : ""}
       <div class="set-sep"></div>
       <div class="set-row"><button class="mini" data-testalarm>알람 시험 (10초 뒤)</button></div>
       <div class="set-note">${escapeHtml(adapter.connection.detail)}</div>`;
     el.hidden = false;
+  }
+
+  /** Stage 4 on the phone: mirror into a provisional and a main Google calendar. */
+  function gcalBlock(): string {
+    if (!gcal) return '<div class="set-sep"></div><div class="set-note">캘린더 목록을 읽는 중…</div>';
+    const opts = (sel: string) => `<option value="">고르기</option>${gcal!.calendars.map((c) => `<option value="${escapeHtml(c.id)}" ${c.id === sel ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}`;
+    return `<div class="set-sep"></div>
+      <label class="set-row"><input type="checkbox" data-gcal="enabled" ${gcal.enabled ? "checked" : ""}> 구글 캘린더에 반영</label>
+      <label class="set-row">가승인 <select data-gcal="provisional">${opts(gcal.provisional)}</select></label>
+      <label class="set-row">본 캘린더 <select data-gcal="main">${opts(gcal.main)}</select></label>
+      <div class="set-note">가승인 일정은 가승인 캘린더에, 확정한 일정과 기간은 본 캘린더에 넣습니다. 블랙홀이 넣은 일정만 고치거나 지웁니다.${gcal.permission ? "" : "<br>켜면 캘린더 권한을 묻습니다."}${gcal.status ? `<br>${escapeHtml(gcal.status)}` : ""}</div>`;
   }
 
   async function refreshInbox(): Promise<void> {
@@ -501,6 +520,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
     if (q("[data-settings]")) {
       settingsOpen = !settingsOpen;
+      if (settingsOpen) void loadCalendars();
       if (settingsOpen) renderSettings();
       else root.querySelector<HTMLElement>("#bhSettings")!.hidden = true;
       return;
@@ -580,6 +600,21 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const f = (el as HTMLInputElement).files?.[0];
       (el as HTMLInputElement).value = "";
       if (f) await submitFile(f.name, new Uint8Array(await f.arrayBuffer()));
+      return;
+    }
+    if (el.dataset.gcal && gcal && adapter.setGoogleCalendars) {
+      const g = gcal;
+      if (el.dataset.gcal === "enabled") g.enabled = (el as HTMLInputElement).checked;
+      if (el.dataset.gcal === "provisional") g.provisional = el.value;
+      if (el.dataset.gcal === "main") g.main = el.value;
+      // Never mirror without two different calendars (keeps provisional events out of the main one).
+      if (g.enabled && (!g.provisional || !g.main || g.provisional === g.main)) {
+        g.enabled = false;
+        g.status = "가승인 캘린더와 본 캘린더를 서로 다르게 골라 주세요";
+        renderSettings();
+      }
+      await adapter.setGoogleCalendars(g.enabled, g.provisional, g.main);
+      void loadCalendars();
       return;
     }
     const key = el.dataset.set;

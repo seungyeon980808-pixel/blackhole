@@ -3,7 +3,7 @@
  * Inputs go to the Drive 「블랙홀/인박스/」 (the Mac analyzes them); the calendar itself is the
  * Mac's shared copy 「블랙홀/달력.json」, with the phone's own changes sent back as action files.
  */
-import { AnalyzeError, type BlackholeAdapter, type InboxStatus } from "../calendar/adapter";
+import { AnalyzeError, type BlackholeAdapter, type GoogleCalendars, type InboxStatus } from "../calendar/adapter";
 import { isShared, type CalendarState, type SharedCalendar, type UserAction } from "../calendar/model";
 
 /** Methods the Android app adds with addJavascriptInterface (all synchronous strings). */
@@ -18,6 +18,8 @@ export interface AndroidBridge {
   recordAction(json: string): void;
   pendingActions(): string;
   syncStatus(): string;
+  googleCalendars?(): string;
+  setGoogleCalendars?(enabled: boolean, provisional: string, main: string): void;
 }
 
 declare global {
@@ -25,6 +27,8 @@ declare global {
     BlackholeAndroid?: AndroidBridge;
     /** Called by the Android app when a newer shared copy was downloaded. */
     blackholeShared?: () => void;
+    /** Called by the Android app after mirroring to the calendars. */
+    blackholeCalendars?: () => void;
   }
 }
 
@@ -77,6 +81,10 @@ export function androidAdapter(bridge: AndroidBridge): BlackholeAdapter {
     ring: async () => true,
     print: async () => undefined,
     recordAction: (action: UserAction) => bridge.recordAction(JSON.stringify(action)),
+    googleCalendars: bridge.googleCalendars
+      ? async () => parse<GoogleCalendars>(bridge.googleCalendars!(), { permission: false, enabled: false, provisional: "", main: "", status: "", calendars: [] })
+      : undefined,
+    setGoogleCalendars: bridge.setGoogleCalendars ? async (enabled, provisional, main) => bridge.setGoogleCalendars!(enabled, provisional, main) : undefined,
     onShared(handler) {
       const take = () => {
         const text = bridge.sharedCopy();
