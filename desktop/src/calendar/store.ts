@@ -305,8 +305,9 @@ export function applyAction(s: CalendarState, a: UserAction, now: Date): boolean
     case "toggleSub": toggleSub(s, a.ref, a.index); break;
     case "addSub": addSub(s, a.ref, a.title); break;
     case "alarm": {
+      // 「확인」(phone alarm) only ends the ringing; 완료 finishes a to-do; 10분 뒤 adds a reminder.
       const alarm = allAlarms(s).find((x) => x.key === a.key);
-      if (alarm) answerAlarm(s, alarm, a.answer, now);
+      if (alarm && a.answer !== "ack") answerAlarm(s, alarm, a.answer, now);
       else markFired(s, a.key);
       break;
     }

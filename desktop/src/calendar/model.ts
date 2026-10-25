@@ -181,7 +181,7 @@ export type UserAction =
   | { id: string; at: string; type: "confirm" | "cancel" | "toggleTask"; ref: string }
   | { id: string; at: string; type: "toggleSub"; ref: string; index: number }
   | { id: string; at: string; type: "addSub"; ref: string; title: string }
-  | { id: string; at: string; type: "alarm"; ref: string; key: string; answer: "done" | "snooze" };
+  | { id: string; at: string; type: "alarm"; ref: string; key: string; answer: "done" | "snooze" | "ack" };
 
 /** What the Mac shares with the phone (Drive 「블랙홀/달력.json」). */
 export interface SharedCalendar {
