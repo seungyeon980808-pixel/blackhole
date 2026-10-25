@@ -19,6 +19,8 @@ export interface AndroidBridge {
   pendingActions(): string;
   syncStatus(): string;
   googleCalendars?(): string;
+  boardOptions?(): string;
+  setBoardOptions?(lock: boolean, hideSchool: boolean): void;
   setGoogleCalendars?(enabled: boolean, provisional: string, main: string): void;
 }
 
@@ -81,6 +83,8 @@ export function androidAdapter(bridge: AndroidBridge): BlackholeAdapter {
     ring: async () => true,
     print: async () => undefined,
     recordAction: (action: UserAction) => bridge.recordAction(JSON.stringify(action)),
+    board: bridge.boardOptions ? async () => parse(bridge.boardOptions!(), { lock: false, hideSchool: false, status: "" }) : undefined,
+    setBoard: bridge.setBoardOptions ? async (lock, hideSchool) => bridge.setBoardOptions!(lock, hideSchool) : undefined,
     googleCalendars: bridge.googleCalendars
       ? async () => parse<GoogleCalendars>(bridge.googleCalendars!(), { permission: false, enabled: false, provisional: "", main: "", status: "", calendars: [] })
       : undefined,

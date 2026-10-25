@@ -392,7 +392,12 @@ pub fn resolve(date_text: &str, time_text: &str, kind: &str, reference: DateTime
             (t, false)
         })
     } else {
-        let parsed = parse_time(&time_text).or_else(|| {
+        // "오늘 밤" + "10시": the part of day was quoted with the date; apply it to a bare hour.
+        let carried = match (time_matches(&time_text).first(), daypart_in(&date_text)) {
+            (Some(m), Some((word, _))) if m.period.is_none() && !time_text.contains(':') => Some(format!("{word} {time_text}")),
+            _ => None,
+        };
+        let parsed = carried.as_deref().and_then(parse_time).or_else(|| parse_time(&time_text)).or_else(|| {
             daypart_in(&time_text).map(|(word, t)| {
                 soft_reasons.push(approx_reason(&word, t));
                 (t, false)
@@ -527,6 +532,10 @@ mod tests {
         assert_eq!(only_date.start_at.unwrap().to_rfc3339(), "2026-10-22T08:00:00+09:00");
         assert_eq!(start("모레", "점심", "SCHEDULE"), "2026-10-23T12:00:00+09:00");
         assert_eq!(start("오늘", "밤", "SCHEDULE"), "2026-10-21T21:00:00+09:00");
+        // The date phrase's part of day applies to a bare hour ("오늘 밤" + "10시" → 22:00).
+        assert_eq!(start("오늘 밤", "10시", "TODO"), "2026-10-21T22:00:00+09:00");
+        assert_eq!(start("내일 아침", "7시", "SCHEDULE"), "2026-10-22T07:00:00+09:00");
+        assert_eq!(start("내일 저녁", "15:00", "SCHEDULE"), "2026-10-22T15:00:00+09:00");
         // An hour still wins over the default.
         assert_eq!(start("오늘", "저녁 7시", "SCHEDULE"), "2026-10-21T19:00:00+09:00");
         assert_eq!(find_time_phrase("오늘 저녁에 식당 알아봐줘").as_deref(), Some("저녁"));

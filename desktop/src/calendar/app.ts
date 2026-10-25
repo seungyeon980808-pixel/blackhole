@@ -74,9 +74,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   let shareLine = "";
   let gcal: GoogleCalendars | null = null;
+  let board: { lock: boolean; hideSchool: boolean; status: string } | null = null;
   const loadCalendars = () =>
-    adapter.googleCalendars?.().then((g) => {
-      gcal = g;
+    Promise.all([adapter.googleCalendars?.(), adapter.board?.()]).then(([g, b]) => {
+      gcal = g ?? null;
+      board = b ?? null;
       if (settingsOpen) renderSettings();
     });
   (window as unknown as { blackholeCalendars?: () => void }).blackholeCalendars = () => void loadCalendars();
@@ -235,6 +237,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       ${adapter.publishShared ? `<label class="set-row"><input type="checkbox" data-set="sharePhone" ${st.sharePhone ? "checked" : ""} ${inbox.driveRoot ? "" : "disabled"}> 휴대폰과 달력 공유</label>
       <div class="set-note">${inbox.driveRoot ? `드라이브 「블랙홀/달력.json」에 일정 사본을 쓰고, 휴대폰에서 바꾼 것을 받아 반영합니다.${shareLine ? `<br>${escapeHtml(shareLine)}` : ""}` : "드라이브 「블랙홀」 폴더가 없어 쓸 수 없습니다."}</div>` : ""}
       ${adapter.googleCalendars ? gcalBlock() : ""}
+      ${adapter.board && board ? `<div class="set-sep"></div>
+      <label class="set-row"><input type="checkbox" data-board="lock" ${board.lock ? "checked" : ""}> 잠금화면 배경을 블랙홀 달력으로</label>
+      <label class="set-row"><input type="checkbox" data-board="hideSchool" ${board.hideSchool ? "checked" : ""}> 위젯·잠금화면에서 학교 일정 제목 가리기</label>
+      <div class="set-note">잠금화면 배경은 켜면 지금 배경을 바꿉니다(되돌리려면 휴대폰 배경 설정에서 다시 고름).${board.status ? `<br>${escapeHtml(board.status)}` : ""}</div>` : ""}
       <div class="set-sep"></div>
       <div class="set-row"><button class="mini" data-testalarm>알람 시험 (10초 뒤)</button></div>
       <div class="set-note">${escapeHtml(adapter.connection.detail)}</div>`;
@@ -600,6 +606,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const f = (el as HTMLInputElement).files?.[0];
       (el as HTMLInputElement).value = "";
       if (f) await submitFile(f.name, new Uint8Array(await f.arrayBuffer()));
+      return;
+    }
+    if (el.dataset.board && board && adapter.setBoard) {
+      if (el.dataset.board === "lock") board.lock = (el as HTMLInputElement).checked;
+      if (el.dataset.board === "hideSchool") board.hideSchool = (el as HTMLInputElement).checked;
+      await adapter.setBoard(board.lock, board.hideSchool);
+      void loadCalendars();
       return;
     }
     if (el.dataset.gcal && gcal && adapter.setGoogleCalendars) {

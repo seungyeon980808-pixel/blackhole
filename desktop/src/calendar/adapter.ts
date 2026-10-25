@@ -74,6 +74,9 @@ export interface BlackholeAdapter {
   phoneActions?(): Promise<UserAction[]>;
   /** Phone: a hand-made change to send to the Mac. */
   recordAction?(action: UserAction): void;
+  /** Phone (stage 5): lock-screen calendar wallpaper and hiding school titles (widget + lock screen). */
+  board?(): Promise<{ lock: boolean; hideSchool: boolean; status: string }>;
+  setBoard?(lock: boolean, hideSchool: boolean): Promise<void>;
   /** Phone (stage 4): calendars to mirror into, and the current choice. */
   googleCalendars?(): Promise<GoogleCalendars>;
   setGoogleCalendars?(enabled: boolean, provisional: string, main: string): Promise<void>;
