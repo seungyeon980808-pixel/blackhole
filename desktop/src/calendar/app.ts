@@ -214,7 +214,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <label class="set-row"><input type="checkbox" data-set="samples" ${st.showSamples ? "checked" : ""}> 가짜 자료 보이기</label>
       <div class="set-sep"></div>
       <label class="set-row"><input type="checkbox" data-set="inbox" ${inbox.enabled ? "checked" : ""} ${inbox.available ? "" : "disabled"}> 인박스 처리 (작업기)</label>
-      <div class="set-note">${inbox.available ? `시험 폴더: <code>${escapeHtml(inbox.root)}</code><br>${inbox.running ? "분석 중 · " : ""}${inbox.lastScanAt ? `마지막 확인 ${escapeHtml(inbox.lastScanAt.slice(11, 16))}` : "아직 확인 안 함"}${inbox.lastError ? `<br><span class="warn">${escapeHtml(inbox.lastError)}</span>` : ""}` : "이 화면에서는 인박스 처리를 쓸 수 없습니다."}</div>
+      ${inbox.available ? `<label class="set-row">폴더 <select data-set="inboxRoot"><option value="" ${st.inboxRoot ? "" : "selected"}>시험 폴더</option>${inbox.driveRoot ? `<option value="drive" ${st.inboxRoot ? "selected" : ""}>드라이브 「블랙홀」</option>` : ""}</select></label>` : ""}
+      <div class="set-note">${inbox.available ? `${st.inboxRoot ? "드라이브 폴더(인박스 원본은 지우지 않고 원본/·노트/만 씀)" : "시험 폴더"}: <code>${escapeHtml(inbox.root)}</code><br>${inbox.running ? "분석 중 · " : ""}${inbox.lastScanAt ? `마지막 확인 ${escapeHtml(inbox.lastScanAt.slice(11, 16))}` : "아직 확인 안 함"}${inbox.lastError ? `<br><span class="warn">${escapeHtml(inbox.lastError)}</span>` : ""}` : "이 화면에서는 인박스 처리를 쓸 수 없습니다."}</div>
       <div class="set-sep"></div>
       <div class="set-row"><button class="mini" data-testalarm>알람 시험 (10초 뒤)</button></div>
       <div class="set-note">${escapeHtml(adapter.connection.detail)}</div>`;
@@ -223,7 +224,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   async function refreshInbox(): Promise<void> {
     inbox = await adapter.inboxStatus().catch(() => inbox);
-    if (inbox.available && inbox.enabled !== s.settings.inboxEnabled && !inbox.running) {
+    const wantRoot = s.settings.inboxRoot ?? inbox.testRoot ?? inbox.root;
+    if (inbox.available && (inbox.enabled !== s.settings.inboxEnabled || inbox.root !== wantRoot) && !inbox.running) {
       inbox = await adapter.setInbox(s.settings.inboxEnabled, s.settings.inboxRoot).catch(() => inbox);
     }
   }
@@ -243,7 +245,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         afterApplied(applied.refs, applied.missing, "인박스", now);
         s.inbox.push({ at: stamp(now), title: r.fileName, src: "인박스", state: r.proposal.needsReview ? "검토 필요" : "완료", out: `${applied.refs.length}건` });
         s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: "", kind: "file", fileName: r.fileName, src: "인박스" });
-        s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: aiText(applied.refs.length, applied.missing.length), refs: applied.refs });
+        s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: aiText(applied.refs.length, applied.missing.length, r.proposal.reviewReasons), refs: applied.refs });
       } else {
         s.inbox.push({ at: stamp(now), title: r.fileName, src: "인박스", state: "실패", out: r.error ?? "" });
       }
@@ -258,7 +260,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   /* ---------- input ---------- */
 
-  function aiText(n: number, miss: number): string {
+  function aiText(n: number, miss: number, reasons: string[] = []): string {
+    if (!n && reasons.length) return `넣은 것이 없어요. ※ ${reasons.join(" · ")}`;
     if (!n) return "찾은 것이 없어요. 언제인지 같이 보내 주세요.";
     return `${n}건 넣었어요.${miss ? ` ${miss}건은 날짜를 못 찾아 기억으로 두었어요.` : ""}`;
   }
@@ -283,7 +286,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const applied = applyProposal(s, proposal, src, at);
       afterApplied(applied.refs, applied.missing, src, at);
       if (me.kind === "voice" && proposal.sourceText) s.chat[s.chat.length - 1].text = proposal.sourceText;
-      s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: aiText(applied.refs.length, applied.missing.length), refs: applied.refs });
+      s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: aiText(applied.refs.length, applied.missing.length, proposal.reviewReasons), refs: applied.refs });
       s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: proposal.needsReview ? "검토 필요" : "완료", out: `${applied.refs.length}건` });
     } catch (e) {
       const at = clock();
@@ -539,6 +542,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (key === "theme") s.settings.theme = el.value as ThemeName;
     if (key === "mode") s.settings.mode = el.value as "dark" | "light";
     if (key === "samples") s.settings.showSamples = (el as HTMLInputElement).checked;
+    if (key === "inboxRoot") {
+      s.settings.inboxRoot = el.value === "drive" ? inbox.driveRoot ?? null : null;
+      inbox = await adapter.setInbox(s.settings.inboxEnabled, s.settings.inboxRoot).catch((err: unknown) => ({ ...inbox, lastError: String(err) }));
+    }
     if (key === "inbox") {
       s.settings.inboxEnabled = (el as HTMLInputElement).checked;
       inbox = await adapter.setInbox(s.settings.inboxEnabled, s.settings.inboxRoot).catch((err: unknown) => ({ ...inbox, lastError: String(err) }));

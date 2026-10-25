@@ -187,3 +187,19 @@ describe("calendar app", () => {
     expect(root.textContent).toContain("<img src=x");
   });
 });
+
+describe("worker review without items", () => {
+  it("explains a too-short recording instead of adding anything", async () => {
+    const p = structuredClone(proposal);
+    p.items = [];
+    p.needsReview = true;
+    p.reviewReasons = ["음성이 너무 짧거나 약함 (길이 500ms, 음량 3)"];
+    await mount(fakeAdapter(p));
+    const before = app!.state.tasks.length;
+    await app!.submitFile("음성.wav", new Uint8Array([1, 2, 3]), "voice");
+    expect(app!.state.tasks.length).toBe(before);
+    const last = app!.state.chat[app!.state.chat.length - 1];
+    expect(last.text).toContain("음성이 너무 짧거나 약함");
+    expect(app!.state.inbox[app!.state.inbox.length - 1].state).toBe("검토 필요");
+  });
+});

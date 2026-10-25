@@ -5,13 +5,43 @@ use super::{
     extract::{chunk_text, direct_messages_with, looks_invented, output_schema, recheck_messages, text_messages_with, validate_with, ExtractOptions, Extraction},
     proposal::{EngineId, EngineInfo, Proposal, ProposalSource, SourceType, Timings, PROMPT_VERSION, PROPOSAL_SCHEMA_VERSION, WORKER_VERSION},
     runners::{ChatModel, DocumentReader, Transcriber},
-    source::{ensure_speech, inspect_wav, read_original, sha256_hex},
+    runners::split_words,
+    source::{inspect_wav, read_original, sha256_hex, WavInfo},
 };
 use chrono::{DateTime, FixedOffset};
 use std::{path::Path, time::Instant};
 
 /// Document chunks sent to the LLM per call.
 const CHUNK_CHARS: usize = 2_400;
+/// Recordings shorter than this, or quieter than WEAK_RMS, make no items (only a review
+/// note): whisper turns near-silence into the hint words (2026-10-25, real 0.6 s memo).
+pub const MIN_SPEECH_MS: u64 = 1_000;
+pub const WEAK_RMS: f64 = 300.0;
+/// Below this length the recognizer gets no vocabulary hint.
+pub const HINT_MIN_MS: u64 = 3_000;
+pub const WEAK_AUDIO_REASON: &str = "음성이 너무 짧거나 약함";
+pub const HINT_ONLY_REASON: &str = "받아쓴 글이 힌트 낱말뿐이라 지어낸 것으로 봄";
+
+fn weak_audio(info: &WavInfo) -> bool {
+    info.duration_ms < MIN_SPEECH_MS || info.rms < WEAK_RMS
+}
+
+/// True when every word of the transcript is (a variant of) a hint word: the recognizer
+/// repeated its prompt instead of hearing speech. "수행평회" counts as a variant of "수행평가".
+pub fn only_hint_words(transcript: &str, hints: &[String]) -> bool {
+    let words: Vec<String> = split_words(transcript)
+        .into_iter()
+        .map(|w| w.chars().filter(|c| c.is_alphanumeric()).collect::<String>())
+        .filter(|w| !w.is_empty())
+        .collect();
+    if words.is_empty() || hints.is_empty() {
+        return false;
+    }
+    let prefix = |a: &str, b: &str| a.chars().zip(b.chars()).take_while(|(x, y)| x == y).count();
+    words.iter().all(|w| {
+        hints.iter().any(|h| h.contains(w.as_str()) || w.contains(h.as_str()) || prefix(w, h) >= 2)
+    })
+}
 
 pub enum Input<'a> {
     File(&'a Path),
@@ -125,8 +155,22 @@ pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOf
     };
     let source = ProposalSource { source_type, format, sha256: sha256_hex(&bytes), bytes: bytes.len() as u64 };
 
-    if source_type == SourceType::Audio {
-        ensure_speech(&inspect_wav(&bytes)?)?;
+    // Too short or too quiet: no model call, no items, only a review note.
+    let wav = if source_type == SourceType::Audio { Some(inspect_wav(&bytes)?) } else { None };
+    let empty = |reason: String, engine: EngineId, source_text: String, reader: String| Proposal {
+        schema_version: PROPOSAL_SCHEMA_VERSION,
+        source: source.clone(),
+        reference_time: reference.to_rfc3339(),
+        engine: EngineInfo { id: engine, reader, llm_model: String::new(), prompt_version: PROMPT_VERSION.to_string(), worker_version: WORKER_VERSION.to_string() },
+        source_text,
+        summary: String::new(),
+        items: Vec::new(),
+        needs_review: true,
+        review_reasons: vec![reason],
+        timings: Timings { total_ms: started.elapsed().as_millis() as u64, ..Timings::default() },
+    };
+    if let Some(info) = wav.filter(weak_audio) {
+        return Ok(empty(format!("{WEAK_AUDIO_REASON} (길이 {}ms, 음량 {:.0})", info.duration_ms, info.rms), engine, String::new(), String::new()));
     }
     // Text and documents have nothing to read directly; they always use engine A. With the
     // OCR hint on, images always go to the model directly (the hint only exists there).
@@ -140,7 +184,11 @@ pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOf
     let read_started = Instant::now();
     let (source_text, mut reader) = match (engine, source_type, input) {
         (EngineId::Direct, _, _) => (None, String::new()),
-        (_, SourceType::Audio, Input::File(path)) => (Some(engines.transcriber.transcribe(path)?), engines.transcriber.model_name()),
+        (_, SourceType::Audio, Input::File(path)) => {
+            let short = wav.is_some_and(|w| w.duration_ms < HINT_MIN_MS);
+            let text = if short { engines.transcriber.transcribe_plain(path)? } else { engines.transcriber.transcribe(path)? };
+            (Some(text), engines.transcriber.model_name())
+        }
         (_, SourceType::Document | SourceType::Image, Input::File(path)) => (Some(engines.reader.read(path)?), engines.reader.reader_name()),
         (_, _, _) => (Some(String::from_utf8_lossy(&bytes).into_owned()), String::new()),
     };
@@ -149,6 +197,15 @@ pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOf
     if let (Some(text), SourceType::Audio) = (&source_text, source_type) {
         if looks_invented(text) {
             return Err(WorkerError::new(ErrorCode::EmptyAudio, format!("음성에서 알아들은 말이 없습니다(인식기가 지어낸 문장: 「{}」).", text.trim())));
+        }
+    }
+    if let (Some(text), SourceType::Audio) = (&source_text, source_type) {
+        let mut hints = engines.transcriber.hint_words();
+        for w in options.extract.school_words.iter().chain(&options.extract.personal_words) {
+            hints.extend(split_words(w));
+        }
+        if only_hint_words(text, &hints) {
+            return Ok(empty(format!("{HINT_ONLY_REASON}: 「{}」", text.trim()), engine, text.clone(), reader));
         }
     }
     if let Some(text) = &source_text {
@@ -274,6 +331,7 @@ pub(crate) mod fakes {
 mod tests {
     use super::{fakes::*, *};
     use crate::worker::source::pcm16_wav;
+    use std::cell::RefCell;
     use serde_json::json;
 
     fn reference() -> DateTime<FixedOffset> {
@@ -307,16 +365,76 @@ mod tests {
     }
 
     #[test]
-    fn silent_wav_fails_before_any_model_call() {
+    fn silent_or_short_wav_makes_no_items_and_no_model_call() {
         let dir = tempfile::tempdir().unwrap();
-        let wav = dir.path().join("silence.wav");
-        std::fs::write(&wav, pcm16_wav(16_000, &vec![0; 16_000])).unwrap();
+        let cases = [
+            ("silence.wav", pcm16_wav(16_000, &vec![0; 16_000])),
+            // 2026-10-25 regression: 0.5 s of near-silence became hint-word to-dos.
+            ("half-second.wav", pcm16_wav(16_000, &vec![3; 8_000])),
+            // Loud but only 0.6 s long.
+            ("short.wav", pcm16_wav(16_000, &(0..9_600).map(|i| ((i as f64 * 0.05).sin() * 6000.0) as i16).collect::<Vec<_>>())),
+            // Long enough but very weak.
+            ("weak.wav", pcm16_wav(16_000, &(0..32_000).map(|i| ((i as f64 * 0.05).sin() * 200.0) as i16).collect::<Vec<_>>())),
+        ];
+        let stt = FakeStt(Ok("수행평회, 교직원 연수, 방과후 수행평가".into()));
         let chat = FakeChat::new(vec![]);
-        let engines = Engines { transcriber: &FakeStt(Ok("감사합니다".into())), reader: &FakeReader(Ok(String::new())), text_model: &chat, direct_model: &chat };
-        for engine in [EngineId::TextFirst, EngineId::Direct] {
-            assert_eq!(analyze(&Input::File(&wav), engine, reference(), &engines).unwrap_err().code, ErrorCode::EmptyAudio);
+        let engines = Engines { transcriber: &stt, reader: &FakeReader(Ok(String::new())), text_model: &chat, direct_model: &chat };
+        for (name, bytes) in cases {
+            let wav = dir.path().join(name);
+            std::fs::write(&wav, bytes).unwrap();
+            for engine in [EngineId::TextFirst, EngineId::Direct] {
+                let p = analyze(&Input::File(&wav), engine, reference(), &engines).unwrap();
+                assert!(p.items.is_empty(), "{name}");
+                assert!(p.needs_review);
+                assert!(p.review_reasons[0].starts_with(WEAK_AUDIO_REASON), "{name}: {:?}", p.review_reasons);
+            }
         }
         assert_eq!(*chat.calls.borrow(), 0);
+    }
+
+    /// Records which transcription path was used.
+    struct HintStt {
+        hint: Vec<String>,
+        text: String,
+        plain_calls: RefCell<usize>,
+    }
+    impl Transcriber for HintStt {
+        fn model_name(&self) -> String {
+            "hint-stt".into()
+        }
+        fn transcribe(&self, _: &Path) -> Result<String, WorkerError> {
+            Ok(self.text.clone())
+        }
+        fn transcribe_plain(&self, _: &Path) -> Result<String, WorkerError> {
+            *self.plain_calls.borrow_mut() += 1;
+            Ok(self.text.clone())
+        }
+        fn hint_words(&self) -> Vec<String> {
+            self.hint.clone()
+        }
+    }
+
+    #[test]
+    fn transcript_made_only_of_hint_words_is_treated_as_invented() {
+        let dir = tempfile::tempdir().unwrap();
+        let wav = dir.path().join("memo.wav");
+        std::fs::write(&wav, speech_wav()).unwrap();
+        let stt = HintStt { hint: split_words("수행평가, 교직원 연수, 방과후"), text: "수행평회, 교직원 연수, 방과후 수행평가".into(), plain_calls: RefCell::new(0) };
+        let chat = FakeChat::new(vec![Ok(answer())]);
+        let engines = Engines { transcriber: &stt, reader: &FakeReader(Ok(String::new())), text_model: &chat, direct_model: &chat };
+        let p = analyze(&Input::File(&wav), EngineId::TextFirst, reference(), &engines).unwrap();
+        assert!(p.items.is_empty());
+        assert!(p.review_reasons[0].starts_with(HINT_ONLY_REASON));
+        assert_eq!(*chat.calls.borrow(), 0);
+        // 1 s clip (< 3 s): transcribed without the hint.
+        assert_eq!(*stt.plain_calls.borrow(), 1);
+    }
+
+    #[test]
+    fn real_speech_with_hint_words_still_goes_through() {
+        assert!(!only_hint_words("내일 교직원 연수 있어", &split_words("교직원 연수, 수행평가")));
+        assert!(only_hint_words("수행평회 교직원", &split_words("교직원 연수, 수행평가")));
+        assert!(!only_hint_words("수행평가", &[]));
     }
 
     #[test]

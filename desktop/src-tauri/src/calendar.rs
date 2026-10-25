@@ -76,18 +76,48 @@ pub fn keep_input(dir: &Path, name: &str, bytes: &[u8]) -> io::Result<PathBuf> {
     Ok(path)
 }
 
-/// The inbox only runs on a local test folder in stage 2. Cloud-synced folders (the real
-/// Google Drive 「블랙홀/」) are refused until the user approves that step.
+/// Is `root` the 「블랙홀」 folder in the Google Drive for desktop mount
+/// (`~/Library/CloudStorage/GoogleDrive-*/내 드라이브|My Drive/블랙홀`)?
+pub fn is_drive_blackhole(root: &Path) -> bool {
+    let parts: Vec<String> = root.components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
+    let n = parts.len();
+    n >= 4
+        && parts[n - 1] == "블랙홀"
+        && matches!(parts[n - 2].as_str(), "내 드라이브" | "My Drive")
+        && parts[n - 3].starts_with("GoogleDrive-")
+        && parts[n - 4] == "CloudStorage"
+}
+
+/// Folders the inbox may scan: the local test folder, or (since the phone created it,
+/// 2026-10-25) the Drive 「블랙홀」 folder itself. Other synced folders are refused.
+/// The scanner only adds 원본/ copies and 노트/; it never deletes or moves inbox originals.
 pub fn check_inbox_root(root: &Path) -> Result<(), String> {
     let text = root.to_string_lossy();
-    let lower = text.to_lowercase();
-    if ["cloudstorage", "google drive", "googledrive", "내 드라이브", "my drive", "icloud", "mobile documents", "dropbox", "onedrive"].iter().any(|k| lower.contains(k)) {
-        return Err(format!("동기화 폴더는 아직 쓰지 않습니다(시험 폴더만): {text}"));
-    }
     if !root.is_absolute() {
         return Err(format!("절대 경로가 필요합니다: {text}"));
     }
+    if is_drive_blackhole(root) {
+        return if root.is_dir() { Ok(()) } else { Err(format!("드라이브 「블랙홀」 폴더가 없습니다(휴대폰이 먼저 만듭니다): {text}")) };
+    }
+    let lower = text.to_lowercase();
+    if ["cloudstorage", "google drive", "googledrive", "내 드라이브", "my drive", "icloud", "mobile documents", "dropbox", "onedrive"].iter().any(|k| lower.contains(k)) {
+        return Err(format!("동기화 폴더는 드라이브 「블랙홀」 폴더만 씁니다: {text}"));
+    }
     Ok(())
+}
+
+/// The Drive 「블랙홀」 folder, when Google Drive for desktop is mounted and the phone made it.
+pub fn find_drive_blackhole(home: &Path) -> Option<PathBuf> {
+    let cloud = home.join("Library").join("CloudStorage");
+    let mut found: Vec<PathBuf> = fs::read_dir(&cloud)
+        .ok()?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("GoogleDrive-")))
+        .flat_map(|p| ["내 드라이브", "My Drive"].map(|d| p.join(d).join("블랙홀")))
+        .filter(|p| p.is_dir())
+        .collect();
+    found.sort();
+    found.into_iter().next()
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -191,8 +221,23 @@ mod tests {
     }
 
     #[test]
+    fn only_the_drive_blackhole_folder_is_allowed_among_synced_folders() {
+        let home = tempfile::tempdir().unwrap();
+        let drive = home.path().join("Library/CloudStorage/GoogleDrive-owner@example.invalid/내 드라이브/블랙홀");
+        assert!(is_drive_blackhole(&drive));
+        assert!(check_inbox_root(&drive).is_err(), "missing folder is refused");
+        assert_eq!(find_drive_blackhole(home.path()), None);
+        fs::create_dir_all(&drive).unwrap();
+        assert!(check_inbox_root(&drive).is_ok());
+        assert_eq!(find_drive_blackhole(home.path()), Some(drive.clone()));
+        let other = drive.parent().unwrap().join("다른폴더");
+        fs::create_dir_all(&other).unwrap();
+        assert!(check_inbox_root(&other).is_err());
+        assert!(check_inbox_root(&drive.join("인박스")).is_err());
+    }
+
+    #[test]
     fn synced_folders_are_refused() {
-        assert!(check_inbox_root(Path::new("/Users/me/Library/CloudStorage/GoogleDrive-x/내 드라이브/블랙홀")).is_err());
         assert!(check_inbox_root(Path::new("/Users/me/Google Drive/블랙홀")).is_err());
         assert!(check_inbox_root(Path::new("relative/블랙홀")).is_err());
         assert!(check_inbox_root(Path::new("/Users/me/Library/Application Support/x/시험-블랙홀")).is_ok());

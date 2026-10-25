@@ -28,6 +28,7 @@ const RING_LIMIT: Duration = Duration::from_secs(10 * 60);
 struct InboxRun {
     enabled: bool,
     root: PathBuf,
+    test_root: PathBuf,
     last_scan_at: Option<String>,
     last_error: Option<String>,
     running: bool,
@@ -44,6 +45,9 @@ pub struct Desk {
 #[serde(rename_all = "camelCase")]
 pub struct InboxStatus {
     available: bool,
+    /// Drive 「블랙홀」 folder found on this Mac (offered in 설정, never chosen automatically).
+    drive_root: Option<String>,
+    test_root: String,
     enabled: bool,
     root: String,
     last_scan_at: Option<String>,
@@ -150,8 +154,11 @@ pub async fn analyze_bytes(app: AppHandle, request: tauri::ipc::Request<'_>) -> 
 }
 
 fn status(run: &InboxRun) -> InboxStatus {
+    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
     InboxStatus {
         available: true,
+        drive_root: calendar::find_drive_blackhole(&home).map(|p| p.to_string_lossy().into_owned()),
+        test_root: run.test_root.to_string_lossy().into_owned(),
         enabled: run.enabled,
         root: run.root.to_string_lossy().into_owned(),
         last_scan_at: run.last_scan_at.clone(),
@@ -267,7 +274,9 @@ pub fn print_page(app: AppHandle) -> Result<(), String> {
 pub fn start(app: &AppHandle) {
     let desk = app.state::<Desk>();
     if let Ok(dir) = data_dir(app) {
-        desk.inbox.lock().unwrap().root = dir.join(calendar::TEST_INBOX_DIR);
+        let mut run = desk.inbox.lock().unwrap();
+        run.test_root = dir.join(calendar::TEST_INBOX_DIR);
+        run.root = run.test_root.clone();
     }
 
     let (alarms, ringing, handle) = (desk.alarms.clone(), desk.ringing.clone(), app.clone());

@@ -23,6 +23,9 @@ export class AnalyzeError extends Error {
 
 export interface InboxStatus {
   available: boolean;
+  /** Drive 「블랙홀」 folder found on this machine (desktop only). */
+  driveRoot?: string | null;
+  testRoot?: string;
   enabled: boolean;
   root: string;
   lastScanAt: string | null;

@@ -52,6 +52,9 @@ pub struct WorkerFileConfig {
     pub image_ocr_hint: Option<bool>,
     #[serde(default)]
     pub document_model: Option<String>,
+    /// Part-of-day defaults, e.g. {"저녁": "19:00"} (see dates::DEFAULT_DAYPARTS).
+    #[serde(default)]
+    pub dayparts: std::collections::BTreeMap<String, String>,
 }
 
 pub fn read_file_config(path: &Path) -> Result<WorkerFileConfig, WorkerError> {
@@ -95,6 +98,7 @@ impl WorkerConfig {
                 if path.is_file() { read_file_config(&path)? } else { WorkerFileConfig::default() }
             }
         };
+        super::dates::set_dayparts(&file.dayparts.iter().map(|(k, v)| (k.clone(), v.clone())).collect::<Vec<_>>());
         let words_on = env::var("BLACKHOLE_WORD_LISTS").map(|v| v != "off").unwrap_or(true);
         let options = AnalyzeOptions {
             extract: ExtractOptions {

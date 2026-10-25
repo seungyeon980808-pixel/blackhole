@@ -7,7 +7,52 @@
 
 use chrono::{DateTime, Datelike, Duration, FixedOffset, NaiveDate, NaiveTime, TimeZone, Timelike, Weekday};
 use regex::Regex;
-use std::sync::OnceLock;
+use std::sync::{OnceLock, RwLock};
+
+/// Default clock time for a part of the day said without an hour ("저녁에"). Marked
+/// 「대략 시각」 for review. Overridable with `dayparts` in worker-config.json.
+pub const DEFAULT_DAYPARTS: [(&str, &str); 8] = [
+    ("새벽", "05:00"),
+    ("아침", "08:00"),
+    ("오전", "09:00"),
+    ("점심", "12:00"),
+    ("낮", "13:00"),
+    ("오후", "15:00"),
+    ("저녁", "18:00"),
+    ("밤", "21:00"),
+];
+
+static DAYPARTS: RwLock<Vec<(String, NaiveTime)>> = RwLock::new(Vec::new());
+
+/// Replace the part-of-day defaults (e.g. {"저녁": "19:00"}). Unknown words or bad times are ignored.
+pub fn set_dayparts(overrides: &[(String, String)]) {
+    let mut table = default_dayparts();
+    for (word, time) in overrides {
+        if let (Some(slot), Ok(t)) = (table.iter_mut().find(|(w, _)| w == word), NaiveTime::parse_from_str(time, "%H:%M")) {
+            slot.1 = t;
+        }
+    }
+    *DAYPARTS.write().unwrap() = table;
+}
+
+fn default_dayparts() -> Vec<(String, NaiveTime)> {
+    DEFAULT_DAYPARTS.iter().map(|(w, t)| (w.to_string(), NaiveTime::parse_from_str(t, "%H:%M").expect("default"))).collect()
+}
+
+/// The first part-of-day word in `text` with its default time ("오늘 저녁" → 저녁, 18:00).
+/// 점심 is checked before 낮 ("점심" never contains 낮, but "낮" is short, so whole words win).
+fn daypart_in(text: &str) -> Option<(String, NaiveTime)> {
+    let table = { let t = DAYPARTS.read().unwrap(); if t.is_empty() { default_dayparts() } else { t.clone() } };
+    table
+        .into_iter()
+        .filter_map(|(w, t)| text.find(&w).map(|at| (at, w, t)))
+        .min_by_key(|(at, w, _)| (*at, std::cmp::Reverse(w.len())))
+        .map(|(_, w, t)| (w, t))
+}
+
+fn approx_reason(word: &str, time: NaiveTime) -> String {
+    format!("대략 시각: 「{word}」을 {}로 둠", time.format("%H:%M"))
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedSchedule {
@@ -279,7 +324,7 @@ pub fn find_date_phrase(text: &str) -> Option<String> {
 pub fn find_time_phrase(text: &str) -> Option<String> {
     let text = normalize(text);
     let matches = time_matches(&text);
-    let first = matches.first()?;
+    let Some(first) = matches.first() else { return daypart_in(&text).map(|(word, _)| word) };
     // Keep "오후 3시 ~ 5시" / "15:00~17:00" together so the end time survives.
     let end = match matches.get(1) {
         Some(next) if text[first.end..next.start].trim().trim_start_matches(['~', '-', '∼']).trim().is_empty()
@@ -340,10 +385,19 @@ pub fn resolve(date_text: &str, time_text: &str, kind: &str, reference: DateTime
             None
         }
     };
+    // A part of the day without an hour ("저녁", "오늘 저녁") gets its default time, marked approximate.
     let time = if time_text.is_empty() {
-        None
+        daypart_in(&date_text).map(|(word, t)| {
+            soft_reasons.push(approx_reason(&word, t));
+            (t, false)
+        })
     } else {
-        let parsed = parse_time(&time_text);
+        let parsed = parse_time(&time_text).or_else(|| {
+            daypart_in(&time_text).map(|(word, t)| {
+                soft_reasons.push(approx_reason(&word, t));
+                (t, false)
+            })
+        });
         if parsed.is_none() {
             reasons.push(format!("시간 표현을 해석하지 못함: 「{time_text}」"));
         }
@@ -395,7 +449,8 @@ pub fn mentions_date(text: &str, today: NaiveDate) -> bool {
 
 /// True when the resolver recognises a time phrase in `text`.
 pub fn mentions_time(text: &str) -> bool {
-    parse_time(&normalize(text)).is_some()
+    let text = normalize(text);
+    parse_time(&text).is_some() || daypart_in(&text).is_some()
 }
 
 #[cfg(test)]
@@ -460,6 +515,22 @@ mod tests {
         assert_eq!(start("오늘", "24시", "SCHEDULE"), "2026-10-22T00:00:00+09:00");
         assert_eq!(start("", "오후 12시", "SCHEDULE"), "2026-10-21T12:00:00+09:00");
         assert_eq!(start("", "새벽 12시", "SCHEDULE"), "2026-10-22T00:00:00+09:00");
+    }
+
+    #[test]
+    fn parts_of_day_without_an_hour_are_approximate() {
+        // 2026-10-25 regression: 「오늘 저녁에 … 식당 좀 알아봐줘」 left the time empty.
+        let r = resolve("오늘 저녁", "저녁", "TODO", reference());
+        assert_eq!(r.start_at.unwrap().to_rfc3339(), "2026-10-21T18:00:00+09:00");
+        assert!(r.review_reasons.iter().any(|x| x.starts_with("대략 시각")), "{:?}", r.review_reasons);
+        let only_date = resolve("내일 아침", "", "SCHEDULE", reference());
+        assert_eq!(only_date.start_at.unwrap().to_rfc3339(), "2026-10-22T08:00:00+09:00");
+        assert_eq!(start("모레", "점심", "SCHEDULE"), "2026-10-23T12:00:00+09:00");
+        assert_eq!(start("오늘", "밤", "SCHEDULE"), "2026-10-21T21:00:00+09:00");
+        // An hour still wins over the default.
+        assert_eq!(start("오늘", "저녁 7시", "SCHEDULE"), "2026-10-21T19:00:00+09:00");
+        assert_eq!(find_time_phrase("오늘 저녁에 식당 알아봐줘").as_deref(), Some("저녁"));
+        assert!(mentions_time("내일 점심 약속"));
     }
 
     #[test]
