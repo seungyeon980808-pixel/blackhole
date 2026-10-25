@@ -47,6 +47,8 @@
 
 Java 파일은 `src/com/malhaedwo/pttprobe/` 아래에 있습니다. `YOUR_GOOGLE_OAUTH_CLIENT_ID`는 도메인 접미사를 제외한 OAuth client ID 부분을 뜻합니다. 실제 client ID/redirect는 Google 설정과 일치시켜야 합니다. `owner@example.invalid`는 로그인할 수 없는 예시 주소이며 허용 계정을 무제한으로 확장하지 않습니다. 앱과 웹은 동일한 명시적 계정 allowlist를 사용해야 합니다.
 
+APK 빌드(`build.sh`)는 위 값을 저장소 밖 `~/.config/blackhole/private.env`(또는 `BLACKHOLE_PRIVATE_CONFIG`)에서 읽어 빌드용 사본에만 넣습니다. 키는 `BLACKHOLE_OAUTH_CLIENT_PREFIX`, `BLACKHOLE_ALLOWED_EMAIL`, `BLACKHOLE_SPREADSHEET_ID`, `BLACKHOLE_PRIVACY_URL`입니다. 파일이 없거나 자리표시 값이 남으면 빌드를 멈춥니다(자리표시 APK는 구글 연결·동기화가 멈춤).
+
 웹 코드는 사용할 Google Sheet에 연결된 Apps Script 프로젝트의 `Code.gs`, `Index.html`로 구성합니다. 개인 설정을 채운 사본은 공개 커밋하지 말고 로컬 또는 별도 비공개 저장소에서 관리하세요. OAuth client secret이나 토큰을 소스에 넣지 마세요.
 
 ## 호스트 테스트
