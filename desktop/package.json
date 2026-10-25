@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.8.4",
+    "@types/node": "22.19.1",
     "esbuild-wasm": "^0.25.12",
     "jsdom": "^26.1.0",
     "rollup": "npm:@rollup/wasm-node@^4.52.3",
