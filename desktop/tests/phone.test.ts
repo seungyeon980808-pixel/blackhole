@@ -31,7 +31,8 @@ function fakeBridge(shared: string) {
     recordAction: (j) => void calls.actions.push(JSON.parse(j)),
     pendingActions: () => JSON.stringify(calls.actions),
     syncStatus: () => "마지막 받음 09:00",
-    googleCalendars: () => JSON.stringify({ permission: true, enabled: false, provisional: "", main: "", status: "", calendars: [{ id: "7", name: "블랙홀 가승인" }, { id: "9", name: "내 캘린더" }] }),
+    // Like the Android side: the choice is stored and read back.
+    googleCalendars: () => JSON.stringify({ permission: true, ...(calls.gcal.at(-1) ?? { enabled: false, provisional: "", main: "" }), status: "", calendars: [{ id: "7", name: "블랙홀 가승인" }, { id: "9", name: "내 캘린더" }] }),
     setGoogleCalendars: (enabled, provisional, main) => void calls.gcal.push({ enabled, provisional, main })
   };
   return { bridge, calls };
