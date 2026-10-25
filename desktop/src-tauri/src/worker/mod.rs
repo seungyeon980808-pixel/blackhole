@@ -7,6 +7,8 @@ pub mod config;
 pub mod dates;
 pub mod error;
 pub mod extract;
+pub mod inbox;
+pub mod notes;
 pub mod pipeline;
 pub mod proposal;
 pub mod queue;

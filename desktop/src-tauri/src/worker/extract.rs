@@ -403,6 +403,21 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
     })
 }
 
+/// A sub-item that repeats its own title, or that is also listed as an item of its own
+/// ("회의 있고 그 전에 출석부 정리" → meeting + to-do), is not a sub-item.
+fn drop_echoed_subtasks(mut items: Vec<ProposalItem>) -> Vec<ProposalItem> {
+    let squash = |s: &str| s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    let titles: Vec<String> = items.iter().map(|i| squash(&i.title)).collect();
+    for item in &mut items {
+        let own = squash(&item.title);
+        item.subtasks.retain(|sub| {
+            let sub = squash(sub);
+            sub != own && !titles.iter().any(|t| *t == sub)
+        });
+    }
+    items
+}
+
 /// Parses raw model output. Shape errors fail the job; nothing is filled in by guessing.
 /// `source_text` is `None` for engine B, where the text comes from the model's `transcript`.
 pub fn validate(raw: &str, source_text: Option<&str>, reference: DateTime<FixedOffset>) -> Result<Extraction, WorkerError> {
@@ -437,7 +452,7 @@ pub fn validate_with(raw: &str, source_text: Option<&str>, reference: DateTime<F
         .enumerate()
         .map(|(index, item)| validate_item(item, index, &text, items.len() == 1, reference, options))
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(Extraction { transcript, summary, items })
+    Ok(Extraction { transcript, summary, items: drop_echoed_subtasks(items) })
 }
 
 #[cfg(test)]
@@ -494,14 +509,24 @@ mod tests {
         assert_eq!(e.items[0].reminders, vec!["2026-10-22T14:30:00+09:00"]);
         let mut v = item();
         v["kind"] = json!("TODO");
-        v["subtasks"] = json!(["학부모 상담", "명단 출력"]);
+        v["subtasks"] = json!(["상담 일정", "명단 출력"]);
         v["reminderText"] = json!("모레 8시");
         let e = validate(&answer(vec![v]).to_string(), Some(TEXT), reference()).unwrap();
         let t = &e.items[0];
-        assert_eq!(t.subtasks, vec!["학부모 상담"]);
+        assert_eq!(t.subtasks, vec!["상담 일정"]);
         assert!(t.review_reasons.iter().any(|r| r.contains("원문에 없는 하위 할 일")));
         assert!(t.review_reasons.iter().any(|r| r.contains("알림 때를 해석하지 못함")));
         assert_eq!(t.reminders, vec!["2026-10-22T14:30:00+09:00"], "falls back to the default reminder");
+    }
+
+    #[test]
+    fn subtasks_that_repeat_item_titles_are_dropped() {
+        let text = "내일 오후 2시에 학년 회의 있고 회의 전에 출석부 정리해야 돼";
+        let meeting = json!({"kind":"SCHEDULE","area":"SCHOOL","title":"학년 회의","details":"","dateText":"내일","timeText":"오후 2시","endDateText":"","subtasks":["출석부 정리"],"reminderText":"","evidence":"내일 오후 2시에 학년 회의 있고","confidence":0.9});
+        let todo = json!({"kind":"TODO","area":"SCHOOL","title":"출석부 정리","details":"","dateText":"","timeText":"","endDateText":"","subtasks":["출석부 정리"],"reminderText":"","evidence":"출석부 정리해야 돼","confidence":0.9});
+        let e = validate(&answer(vec![meeting, todo]).to_string(), Some(text), reference()).unwrap();
+        assert!(e.items[0].subtasks.is_empty());
+        assert!(e.items[1].subtasks.is_empty());
     }
 
     #[test]

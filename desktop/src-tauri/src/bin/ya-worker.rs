@@ -16,6 +16,7 @@ use ya_desktop_lib::worker::{
     error::{ErrorCode, WorkerError},
     pipeline::{analyze_with, source_type_for, Engines, Input},
     proposal::{EngineId, SourceType},
+    inbox::{scan_once, Layout},
     queue::{Enqueued, Queue},
 };
 
@@ -25,6 +26,7 @@ const USAGE: &str = "사용법:
   ya-worker run     --queue 폴더 [--now ISO8601]
   ya-worker retry   --queue 폴더 작업ID
   ya-worker list    --queue 폴더
+  ya-worker inbox   --root 블랙홀폴더 [--engine A|B] [--watch 초] [--settle 초]
 환경 변수: YA_OLLAMA_URL, YA_TEXT_MODEL, YA_DIRECT_MODEL, YA_WHISPER_BIN, YA_WHISPER_MODEL, YA_KORDOC_BIN, YA_MODELS_DIR,
   YA_WORKER_CONFIG(설정 파일, off), YA_DOCUMENT_MODEL, YA_FILL_MISSING, YA_RECHECK_BELOW, YA_IMAGE_OCR_HINT, YA_WHISPER_PROMPT, YA_WORD_LISTS=off";
 
@@ -36,6 +38,9 @@ struct Args {
     engine: Option<String>,
     now: Option<String>,
     queue: Option<PathBuf>,
+    root: Option<PathBuf>,
+    watch: Option<u64>,
+    settle: Option<u64>,
     positional: Vec<String>,
 }
 
@@ -54,6 +59,9 @@ fn parse_args() -> Result<Args, WorkerError> {
             "--engine" => args.engine = Some(value()?),
             "--now" => args.now = Some(value()?),
             "--queue" => args.queue = Some(PathBuf::from(value()?)),
+            "--root" => args.root = Some(PathBuf::from(value()?)),
+            "--watch" => args.watch = Some(value()?.parse().map_err(|_| usage_error("--watch는 초 단위 숫자입니다."))?),
+            "--settle" => args.settle = Some(value()?.parse().map_err(|_| usage_error("--settle은 초 단위 숫자입니다."))?),
             other if other.starts_with("--") => return Err(usage_error(format!("모르는 옵션: {other}"))),
             other => args.positional.push(other.to_string()),
         }
@@ -124,6 +132,21 @@ fn run() -> Result<serde_json::Value, WorkerError> {
             Ok(to_json(&queue.retry(id)?))
         }
         "list" => Ok(to_json(&Queue::open(queue_dir(&args)?)?.jobs().to_vec())),
+        "inbox" => {
+            let root = args.root.as_ref().ok_or_else(|| usage_error("--root 블랙홀 폴더가 필요합니다."))?;
+            let layout = Layout::new(root);
+            let engine = engine(&args)?;
+            let settle = std::time::Duration::from_secs(args.settle.unwrap_or(5));
+            loop {
+                let now = reference(&args)?;
+                let report = scan_once(&layout, engine, now, settle, |input, engine| analyze_one(input, engine, now))?;
+                let Some(seconds) = args.watch else { return Ok(to_json(&report)) };
+                if !report.received.is_empty() || !report.notes.is_empty() || !report.failed.is_empty() {
+                    println!("{}", serde_json::to_string(&report).unwrap_or_default());
+                }
+                std::thread::sleep(std::time::Duration::from_secs(seconds.max(1)));
+            }
+        }
         _ => Err(usage_error("명령을 고르세요.")),
     }
 }
