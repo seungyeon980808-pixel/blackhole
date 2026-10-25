@@ -37,8 +37,54 @@ struct InboxRun {
 #[derive(Default)]
 pub struct Desk {
     inbox: Arc<Mutex<InboxRun>>,
+    messenger: Arc<Mutex<MessengerRun>>,
     alarms: Arc<Mutex<Vec<AlarmSpec>>>,
     ringing: Arc<AtomicBool>,
+}
+
+#[derive(Default)]
+struct MessengerRun {
+    enabled: bool,
+    last_poll_at: Option<String>,
+    last_error: Option<String>,
+    written: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessengerStatus {
+    configured: bool,
+    config_path: String,
+    enabled: bool,
+    last_poll_at: Option<String>,
+    last_error: Option<String>,
+    written: usize,
+}
+
+fn messenger_status_of(run: &MessengerRun) -> MessengerStatus {
+    let config = crate::worker::messenger::MessengerConfig::load();
+    MessengerStatus {
+        configured: matches!(config, Ok(Some(_))),
+        config_path: crate::worker::messenger::MessengerConfig::path().to_string_lossy().into_owned(),
+        enabled: run.enabled,
+        last_poll_at: run.last_poll_at.clone(),
+        last_error: run.last_error.clone().or_else(|| config.err().map(|e| e.message)),
+        written: run.written,
+    }
+}
+
+/// Discord·Slack input status (configuration is a file outside the repo).
+#[tauri::command]
+pub fn messenger_status(desk: tauri::State<'_, Desk>) -> MessengerStatus {
+    messenger_status_of(&desk.messenger.lock().unwrap())
+}
+
+#[tauri::command]
+pub fn messenger_set(desk: tauri::State<'_, Desk>, enabled: bool) -> MessengerStatus {
+    let mut run = desk.messenger.lock().unwrap();
+    run.enabled = enabled;
+    run.last_error = None;
+    messenger_status_of(&run)
 }
 
 #[derive(Serialize)]
@@ -304,6 +350,29 @@ pub fn start(app: &AppHandle) {
             bring_forward(&handle, true);
             start_ring(&ringing);
             let _ = handle.emit("bh-alarm", serde_json::json!({ "key": alarm.key }));
+        }
+    });
+
+    // Discord·Slack → the current inbox folder, every 30 s while enabled.
+    let (messenger, inbox_for_messenger) = (desk.messenger.clone(), desk.inbox.clone());
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(30));
+        if !messenger.lock().unwrap().enabled {
+            continue;
+        }
+        let root = inbox_for_messenger.lock().unwrap().root.clone();
+        let result = crate::worker::messenger::MessengerConfig::load().and_then(|c| match c {
+            Some(config) => crate::worker::messenger::poll(&root, &config),
+            None => Err(WorkerError::new(ErrorCode::Io, "메신저 설정 파일이 없습니다.")),
+        });
+        let mut run = messenger.lock().unwrap();
+        run.last_poll_at = Some(chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string());
+        match result {
+            Ok(report) => {
+                run.written += report.written.len();
+                run.last_error = report.errors.first().cloned();
+            }
+            Err(e) => run.last_error = Some(e.message),
         }
     });
 

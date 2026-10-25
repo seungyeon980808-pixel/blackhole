@@ -105,6 +105,8 @@ export interface Settings {
   inboxRoot: string | null;
   /** Mac: write a calendar copy for the phone into the Drive 「블랙홀/달력.json」. */
   sharePhone: boolean;
+  /** Mac: take Discord·Slack messages into the inbox. */
+  messengerEnabled: boolean;
 }
 
 export interface CalendarState {
@@ -132,7 +134,8 @@ export const DEFAULT_SETTINGS: Settings = {
   showSamples: true,
   inboxEnabled: false,
   inboxRoot: null,
-  sharePhone: false
+  sharePhone: false,
+  messengerEnabled: false
 };
 
 export function emptyState(): CalendarState {

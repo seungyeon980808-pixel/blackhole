@@ -4,7 +4,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { AnalyzeError, type BlackholeAdapter, type InboxResult, type InboxStatus } from "../calendar/adapter";
+import { AnalyzeError, type BlackholeAdapter, type InboxResult, type InboxStatus, type MessengerStatus } from "../calendar/adapter";
 import { isoWithOffset } from "../calendar/dates";
 import type { CalendarState, UserAction } from "../calendar/model";
 import type { Alarm } from "../calendar/store";
@@ -68,6 +68,8 @@ export function tauriAdapter(): BlackholeAdapter {
     ring: (on) => invoke<boolean>("alarm_ring", { on }),
     print: () => invoke("print_page"),
     setLook: (theme, mode) => invoke("set_window_look", { theme, mode }),
+    messenger: () => invoke<MessengerStatus>("messenger_status"),
+    setMessenger: (enabled) => invoke<MessengerStatus>("messenger_set", { enabled }),
     publishShared: (shared) => invoke<string>("share_calendar", { shared }),
     phoneActions: () => invoke<UserAction[]>("phone_actions"),
     onFileDrop(handler) {

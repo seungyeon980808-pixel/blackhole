@@ -3,7 +3,7 @@
  * Platform work goes through the adapter, so this module runs unchanged in the desktop
  * window, a browser and the phone WebView.
  */
-import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type GoogleCalendars, type InboxStatus } from "./adapter";
+import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type GoogleCalendars, type InboxStatus, type MessengerStatus } from "./adapter";
 import { addDays, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type ThemeName, type UserAction } from "./model";
@@ -75,10 +75,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let shareLine = "";
   let gcal: GoogleCalendars | null = null;
   let board: { lock: boolean; hideSchool: boolean; status: string } | null = null;
+  let messenger: MessengerStatus | null = null;
   const loadCalendars = () =>
-    Promise.all([adapter.googleCalendars?.(), adapter.board?.()]).then(([g, b]) => {
+    Promise.all([adapter.googleCalendars?.(), adapter.board?.(), adapter.messenger?.()]).then(([g, b, m]) => {
       gcal = g ?? null;
       board = b ?? null;
+      messenger = m ?? null;
       if (settingsOpen) renderSettings();
     });
   (window as unknown as { blackholeCalendars?: () => void }).blackholeCalendars = () => void loadCalendars();
@@ -236,6 +238,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <div class="set-note">${inbox.available ? `${st.inboxRoot ? "드라이브 폴더(인박스 원본은 지우지 않고 원본/·노트/만 씀)" : "시험 폴더"}: <code>${escapeHtml(inbox.root)}</code><br>${inbox.running ? "분석 중 · " : ""}${inbox.lastScanAt ? `마지막 확인 ${escapeHtml(inbox.lastScanAt.slice(11, 16))}` : "아직 확인 안 함"}${inbox.lastError ? `<br><span class="warn">${escapeHtml(inbox.lastError)}</span>` : ""}` : "이 화면에서는 인박스 처리를 쓸 수 없습니다."}</div>
       ${adapter.publishShared ? `<label class="set-row"><input type="checkbox" data-set="sharePhone" ${st.sharePhone ? "checked" : ""} ${inbox.driveRoot ? "" : "disabled"}> 휴대폰과 달력 공유</label>
       <div class="set-note">${inbox.driveRoot ? `드라이브 「블랙홀/달력.json」에 일정 사본을 쓰고, 휴대폰에서 바꾼 것을 받아 반영합니다.${shareLine ? `<br>${escapeHtml(shareLine)}` : ""}` : "드라이브 「블랙홀」 폴더가 없어 쓸 수 없습니다."}</div>` : ""}
+      ${adapter.messenger && messenger ? `<div class="set-sep"></div>
+      <label class="set-row"><input type="checkbox" data-set="messenger" ${st.messengerEnabled ? "checked" : ""} ${messenger.configured ? "" : "disabled"}> 디스코드·슬랙 입력</label>
+      <div class="set-note">${messenger.configured ? `지정한 채널의 내 메시지를 30초마다 인박스로 가져옵니다(인박스 처리가 켜져 있어야 분석). 지금까지 ${messenger.written}개${messenger.lastPollAt ? ` · 마지막 ${escapeHtml(messenger.lastPollAt.slice(11, 16))}` : ""}` : `설정 파일을 만들면 켤 수 있습니다: <code>${escapeHtml(messenger.configPath)}</code>`}${messenger.lastError ? `<br><span class="warn">${escapeHtml(messenger.lastError)}</span>` : ""}</div>` : ""}
       ${adapter.googleCalendars ? gcalBlock() : ""}
       ${adapter.board && board ? `<div class="set-sep"></div>
       <label class="set-row"><input type="checkbox" data-board="lock" ${board.lock ? "checked" : ""}> 잠금화면 배경을 블랙홀 달력으로</label>
@@ -259,6 +264,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
 
   async function refreshInbox(): Promise<void> {
+    if (adapter.setMessenger && s.settings.messengerEnabled) void adapter.setMessenger(true).catch(() => undefined);
     inbox = await adapter.inboxStatus().catch(() => inbox);
     const wantRoot = s.settings.inboxRoot ?? inbox.testRoot ?? inbox.root;
     if (inbox.available && (inbox.enabled !== s.settings.inboxEnabled || inbox.root !== wantRoot) && !inbox.running) {
@@ -636,6 +642,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (key === "mode") s.settings.mode = el.value as "dark" | "light";
     if (key === "samples") s.settings.showSamples = (el as HTMLInputElement).checked;
     if (key === "sharePhone") s.settings.sharePhone = (el as HTMLInputElement).checked;
+    if (key === "messenger") {
+      s.settings.messengerEnabled = (el as HTMLInputElement).checked;
+      messenger = (await adapter.setMessenger?.(s.settings.messengerEnabled).catch(() => messenger)) ?? messenger;
+    }
     if (key === "inboxRoot") {
       s.settings.inboxRoot = el.value === "drive" ? inbox.driveRoot ?? null : null;
       inbox = await adapter.setInbox(s.settings.inboxEnabled, s.settings.inboxRoot).catch((err: unknown) => ({ ...inbox, lastError: String(err) }));

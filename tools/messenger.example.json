@@ -1,0 +1,12 @@
+{
+  "discord": {
+    "botToken": "YOUR_DISCORD_BOT_TOKEN",
+    "channelId": "123456789012345678",
+    "allowedUserId": "123456789012345678"
+  },
+  "slack": {
+    "botToken": "xoxb-YOUR-SLACK-BOT-TOKEN",
+    "channelId": "C0123456789",
+    "allowedUserId": "U0123456789"
+  }
+}

@@ -67,6 +67,10 @@ export interface BlackholeAdapter {
   /** Window glass (desktop shows through) for the current theme, where the platform has it. */
   setLook?(theme: string, mode: string): Promise<void>;
 
+  /** Mac (stage 5): Discord·Slack input into the inbox (tokens live in a file outside the repo). */
+  messenger?(): Promise<MessengerStatus>;
+  setMessenger?(enabled: boolean): Promise<MessengerStatus>;
+
   /* Mac ↔ phone sharing (optional). */
   /** Mac: write the shared copy. Resolves to a short status line. */
   publishShared?(shared: SharedCalendar): Promise<string>;
@@ -93,4 +97,13 @@ export interface GoogleCalendars {
   main: string;
   status: string;
   calendars: { id: string; name: string }[];
+}
+
+export interface MessengerStatus {
+  configured: boolean;
+  configPath: string;
+  enabled: boolean;
+  lastPollAt: string | null;
+  lastError: string | null;
+  written: number;
 }
