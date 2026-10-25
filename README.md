@@ -84,6 +84,16 @@ bash build.sh
 
 서명 디렉터리는 `ptt-probe.jks`(alias `pttprobe`)와 비밀번호 파일 `password`를 로컬에서 제공해야 합니다. 기본 위치는 `~/.config/blackhole/signing`입니다. 기존 설치 위 업데이트에는 반드시 원래 서명키가 필요합니다. 빌드는 키를 자동 생성하거나 교체하지 않습니다. 출력은 `build/malhaedwo-ptt-probe-0.9.0.apk`이며 서명 검증·Manifest 검사·ZIP 무결성·SHA-256 확인을 실행합니다.
 
+## 데스크톱 블랙홀 앱 (2단계, Mac)
+
+월·주·일 달력, 유리/공문서 테마, 항상 열린 입력칸과 대화 기록, 로컬 작업기 연결, 시험 폴더 인박스, 데스크톱 알람, A4 출력. 지금은 이 Mac에만 저장하고 구글에는 쓰지 않습니다(「로컬·미연결」). 자세한 내용은 `docs/desktop-app.md`.
+
+```sh
+cd desktop
+npm run tauri dev
+npm run tauri build -- --bundles app
+```
+
 ## Windows Desktop
 
 ```sh

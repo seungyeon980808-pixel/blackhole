@@ -1,6 +1,6 @@
 [package]
 name = "blackhole-desktop"
-version = "0.1.1"
+version = "0.2.0"
 description = "Blackhole Korean voice approval desk companion"
 authors = ["Blackhole"]
 edition = "2021"
@@ -28,7 +28,7 @@ sha2 = "0.10"
 ureq = { version = "2", default-features = false, features = ["json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["macos-private-api"] }
 
 [dev-dependencies]
 tempfile = "3"
