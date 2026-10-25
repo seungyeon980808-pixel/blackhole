@@ -261,6 +261,12 @@ public final class BlackholeHostTest {
         check(list.get(0).id.equals(BlackholeCalendarStore.alarmId("e-1@2026-10-25T15:00")) && list.get(0).id.startsWith("cal-")
                 && list.get(0).id.length() == 20, "같은 알림은 늘 같은 알람 id");
         check(BlackholeCalendarStore.ids("cal-1,x,cal-2").equals(Arrays.asList("cal-1", "cal-2")), "알람 id 목록");
+        String keys = BlackholeCalendarStore.keys(list);
+        String back = BlackholeCalendarStore.alarmAction(keys, list.get(0).id, "done", "x1", "2026-10-25T15:00");
+        check(back != null && back.contains("\"ref\":\"e-1\"") && back.contains("\"answer\":\"done\"") && back.contains("\"type\":\"alarm\""),
+                "휴대폰 알람의 「완료」를 Mac에 보낼 동작으로: " + back);
+        check(BlackholeCalendarStore.alarmAction(keys, "cal-unknown", "done", "x2", "t") == null
+                && BlackholeCalendarStore.alarmAction("{}", list.get(0).id, "ack", "x3", "t") == null, "달력 알람이 아니면 보내지 않음");
 
         try (FakeDrive drive = new FakeDrive()) {
             DriveTransfer transfer = new DriveTransfer(drive.filesUrl(), drive.uploadUrl(), 256 * 1024);

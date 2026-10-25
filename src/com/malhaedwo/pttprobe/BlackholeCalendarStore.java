@@ -20,6 +20,8 @@ final class BlackholeCalendarStore {
     static final String PREF_PENDING = "calendar_pending_actions";
     static final String PREF_ALARM_IDS = "calendar_alarm_ids";
     static final String PREF_STATUS = "calendar_sync_status";
+    /** 알람 id → 달력 알림 key(「항목id@시각」). 휴대폰 알람에서 누른 것을 Mac에 돌려보낼 때 쓴다. */
+    static final String PREF_ALARM_KEYS = "calendar_alarm_keys";
     static final String ALARM_PREFIX = "cal-";
     /** 한 번에 거는 달력 알람 수 상한(알람 장부가 너무 커지지 않게). */
     static final int MAX_ALARMS = 100;
@@ -75,9 +77,10 @@ final class BlackholeCalendarStore {
 
     static final class CalendarAlarm {
         final String id;
+        final String key;
         final String title;
         final long at;
-        CalendarAlarm(String id, String title, long at) { this.id = id; this.title = title; this.at = at; }
+        CalendarAlarm(String id, String key, String title, long at) { this.id = id; this.key = key; this.title = title; this.at = at; }
     }
 
     /** 달력이 넘긴 알림 목록([{key, atMs, title}]) 중 앞으로 울릴 것만, 같은 key는 같은 알람 id로. */
@@ -91,7 +94,7 @@ final class BlackholeCalendarStore {
             String key = x.optString("key", "");
             String title = x.optString("title", "");
             if (at == null || key.isEmpty() || at.longValue() <= now) continue;
-            out.add(new CalendarAlarm(alarmId(key), title.isEmpty() ? "블랙홀 알림" : title, at.longValue()));
+            out.add(new CalendarAlarm(alarmId(key), key, title.isEmpty() ? "블랙홀 알림" : title, at.longValue()));
         }
         return out;
     }
@@ -104,6 +107,29 @@ final class BlackholeCalendarStore {
             return hex.toString();
         } catch (Exception error) {
             return ALARM_PREFIX + Integer.toHexString(key.hashCode());
+        }
+    }
+
+    /** 알람 id → key 표(JSON)를 이번에 건 알람으로 바꾼다. */
+    static String keys(List<CalendarAlarm> alarms) {
+        JSONObject out = new JSONObject();
+        try { for (CalendarAlarm alarm : alarms) out.put(alarm.id, alarm.key); } catch (Exception ignored) {}
+        return out.toString();
+    }
+
+    /**
+     * 휴대폰 알람에서 누른 것(확인·완료·10분 뒤)을 Mac에 보낼 동작으로. 달력 알람이 아니면 null.
+     * 「확인」은 울림만 끝내고(할 일은 그대로), 「완료」는 할 일을 끝내며, 「10분 뒤」는 Mac 달력에도 다시 알림을 건다.
+     */
+    static String alarmAction(String keysJson, String alarmId, String answer, String actionId, String at) {
+        try {
+            String key = new JSONObject(keysJson == null || keysJson.isEmpty() ? "{}" : keysJson).optString(alarmId, "");
+            int split = key.indexOf('@');
+            if (key.isEmpty() || split <= 0) return null;
+            return new JSONObject().put("id", actionId).put("at", at).put("type", "alarm")
+                    .put("ref", key.substring(0, split)).put("key", key).put("answer", answer).toString();
+        } catch (Exception error) {
+            return null;
         }
     }
 

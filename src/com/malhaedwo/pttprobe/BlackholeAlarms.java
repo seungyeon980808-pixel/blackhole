@@ -185,6 +185,8 @@ final class BlackholeAlarms {
             }
         }
         stopRinging(app, id);
+        BlackholeCalendarActions.alarmAnswered(app, id,
+                ACTION_SNOOZE.equals(action) ? "snooze" : ACTION_DONE.equals(action) ? "done" : "ack");
         return message;
     }
 

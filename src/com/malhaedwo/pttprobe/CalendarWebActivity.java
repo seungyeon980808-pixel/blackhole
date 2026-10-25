@@ -194,10 +194,15 @@ public final class CalendarWebActivity extends Activity {
         @JavascriptInterface public void scheduleAlarms(String json) {
             List<BlackholeCalendarStore.CalendarAlarm> wanted = BlackholeCalendarStore.alarms(json, System.currentTimeMillis());
             Set<String> keep = new HashSet<>();
+            BlackholeAlarmBook book = BlackholeAlarms.load(CalendarWebActivity.this);
             for (BlackholeCalendarStore.CalendarAlarm alarm : wanted) {
                 keep.add(alarm.id);
+                BlackholeAlarmBook.Alarm known = book.get(alarm.id);
+                // 이미 같은 시각으로 걸려 있거나, 울렸거나 미뤄 둔 알람은 다시 걸지 않는다.
+                if (known != null && (known.at == alarm.at || !known.waiting() || BlackholeAlarmBook.SNOOZED.equals(known.state))) continue;
                 BlackholeAlarms.schedule(CalendarWebActivity.this, alarm.id, alarm.title, alarm.at);
             }
+            prefs().edit().putString(BlackholeCalendarStore.PREF_ALARM_KEYS, BlackholeCalendarStore.keys(wanted)).apply();
             for (String old : BlackholeCalendarStore.ids(prefs().getString(BlackholeCalendarStore.PREF_ALARM_IDS, ""))) {
                 if (!keep.contains(old)) BlackholeAlarms.cancel(CalendarWebActivity.this, old);
             }
@@ -235,11 +240,7 @@ public final class CalendarWebActivity extends Activity {
         /** 손으로 바꾼 것: Mac이 반영할 때까지 들고 있고, 인박스로 동작 파일을 보낸다. */
         @JavascriptInterface public void recordAction(String json) {
             try {
-                String pending = BlackholeCalendarStore.addPending(prefs().getString(BlackholeCalendarStore.PREF_PENDING, "[]"), json);
-                prefs().edit().putString(BlackholeCalendarStore.PREF_PENDING, pending).apply();
-                Blackhole.outbox(CalendarWebActivity.this).addStream(new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)),
-                        BlackholeOutbox.KIND_FILE, BlackholeOutbox.SOURCE_CHAT, "동작.bhact", "application/json", System.currentTimeMillis());
-                Blackhole.requestUpload(CalendarWebActivity.this);
+                BlackholeCalendarActions.record(CalendarWebActivity.this, json);
             } catch (Exception ignored) {
                 // 형식이 틀린 동작은 버린다(화면에는 이미 반영됨, 다음 사본에서 되돌아감).
             }
