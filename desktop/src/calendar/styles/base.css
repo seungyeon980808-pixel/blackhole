@@ -1,0 +1,62 @@
+/* Layout shared by both themes. Theme files only paint. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #app { height: 100%; min-width: 320px; }
+body { overflow: hidden; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid #ffb020; outline-offset: 1px; }
+
+.bh { position: relative; height: 100%; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; overflow: hidden; }
+.bh.doc { grid-template-rows: auto auto 1fr auto; }
+.bh .content { min-height: 0; overflow: hidden; }
+.bh .fchost { height: 100%; }
+.bh .sp { flex: 1; }
+.bh .conn { font-size: 11.5px; white-space: nowrap; }
+
+/* chat sheet (pull the composer handle up) */
+.bh .chatsheet { position: absolute; left: 0; right: 0; bottom: 0; height: 76%; z-index: 30; transform: translateY(105%); transition: transform .34s cubic-bezier(.2,.8,.2,1); display: flex; flex-direction: column; visibility: hidden; }
+.bh .chatsheet.open { transform: none; visibility: visible; }
+.bh.chat-open .chatsheet, .bh .chatsheet[style*="transform"] { visibility: visible; }
+.bh .thread { flex: 1; overflow: auto; padding: 4px 18px 8px; display: flex; flex-direction: column; gap: 7px; min-height: 0; }
+.bh .grab { display: flex; justify-content: center; cursor: grab; touch-action: none; }
+.bh .last { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 16px; }
+.bh .last a { cursor: pointer; }
+
+/* alarm overlay: covers the whole window until answered */
+.bh .alarm { position: absolute; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; }
+.bh .alarm.on { display: flex; }
+
+/* settings popover */
+.bh .settings { position: absolute; top: 44px; right: 12px; z-index: 40; width: 300px; max-width: calc(100% - 24px); padding: 10px 12px; font-size: 12.5px; display: flex; flex-direction: column; gap: 6px; }
+.bh .settings[hidden] { display: none; }
+.bh .set-h { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 13px; }
+.bh .set-row { display: flex; align-items: center; gap: 8px; }
+.bh .set-row select { margin-left: auto; }
+.bh .set-note { font-size: 11.5px; line-height: 1.5; opacity: .8; word-break: break-all; }
+.bh .set-note code { font-size: 11px; }
+.bh .set-sep { height: 1px; background: currentColor; opacity: .12; }
+
+/* print preview (A4), outside the themed root */
+.bh-print { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.55); overflow: auto; padding: 24px; display: flex; justify-content: center; align-items: flex-start; }
+.bh-print[hidden] { display: none; }
+.bh-print .mbar { position: sticky; top: 0; display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 8px; }
+.bh-print .pbtn { background: #fff; color: #111; border: 1px solid #777; padding: 3px 12px; border-radius: 2px; font-size: 12.5px; }
+
+.bh.buzz .content, .bh.buzz .bar, .bh.buzz .tool { animation: bh-buzz 1.1s infinite; }
+@keyframes bh-buzz { 0%,45%,100% { transform: translate(0,0); } 4%,12%,20%,28%,36% { transform: translate(-3px,0); } 8%,16%,24%,32%,40% { transform: translate(3px,0); } }
+
+.bh .ic.rec { background: #e0304f !important; color: #fff !important; animation: bh-pulse 1s infinite; }
+@keyframes bh-pulse { 50% { opacity: .6; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .bh *, .bh *::before, .bh *::after { animation: none !important; transition: none !important; }
+}
+
+@media print {
+  @page { size: A4; margin: 0; }
+  html, body { height: auto; overflow: visible; background: #fff !important; }
+  body > *:not(.bh-print) { display: none !important; }
+  .bh-print { position: static; display: block; background: none; padding: 0; overflow: visible; }
+  .bh-print .mbar { display: none; }
+  .bh-print .sheet { box-shadow: none !important; width: auto !important; min-height: auto !important; }
+}

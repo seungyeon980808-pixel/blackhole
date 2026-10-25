@@ -17,6 +17,7 @@ use blackhole_desktop_lib::worker::{
     pipeline::{analyze_with, source_type_for, Engines, Input},
     proposal::{EngineId, SourceType},
     inbox::{scan_once, Layout},
+    messenger::{poll, MessengerConfig},
     queue::{Enqueued, Queue},
 };
 
@@ -27,6 +28,7 @@ const USAGE: &str = "사용법:
   blackhole-worker retry   --queue 폴더 작업ID
   blackhole-worker list    --queue 폴더
   blackhole-worker inbox   --root 블랙홀폴더 [--engine A|B] [--watch 초] [--settle 초]
+  blackhole-worker messenger --root 블랙홀폴더 [--watch 초]   (디스코드·슬랙 → 인박스, ~/.config/blackhole/messenger.json)
 환경 변수: BLACKHOLE_OLLAMA_URL, BLACKHOLE_TEXT_MODEL, BLACKHOLE_DIRECT_MODEL, BLACKHOLE_WHISPER_BIN, BLACKHOLE_WHISPER_MODEL, BLACKHOLE_KORDOC_BIN, BLACKHOLE_MODELS_DIR,
   BLACKHOLE_WORKER_CONFIG(설정 파일, off), BLACKHOLE_DOCUMENT_MODEL, BLACKHOLE_FILL_MISSING, BLACKHOLE_RECHECK_BELOW, BLACKHOLE_IMAGE_OCR_HINT, BLACKHOLE_WHISPER_PROMPT, BLACKHOLE_WORD_LISTS=off";
 
@@ -145,6 +147,19 @@ fn run() -> Result<serde_json::Value, WorkerError> {
                     println!("{}", serde_json::to_string(&report).unwrap_or_default());
                 }
                 std::thread::sleep(std::time::Duration::from_secs(seconds.max(1)));
+            }
+        }
+        "messenger" => {
+            let root = args.root.as_ref().ok_or_else(|| usage_error("--root 블랙홀 폴더가 필요합니다."))?;
+            let config = MessengerConfig::load()?
+                .ok_or_else(|| WorkerError::new(ErrorCode::Io, format!("메신저 설정 파일이 없습니다: {}", MessengerConfig::path().display())))?;
+            loop {
+                let report = poll(root, &config)?;
+                let Some(seconds) = args.watch else { return Ok(to_json(&report)) };
+                if !report.written.is_empty() || !report.errors.is_empty() {
+                    println!("{}", serde_json::to_string(&report).unwrap_or_default());
+                }
+                std::thread::sleep(std::time::Duration::from_secs(seconds.max(10)));
             }
         }
         _ => Err(usage_error("명령을 고르세요.")),

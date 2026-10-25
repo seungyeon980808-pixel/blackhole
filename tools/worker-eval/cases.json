@@ -656,6 +656,54 @@
     }
    ],
    "rate": 210
+  },
+  {
+   "id": "v40",
+   "voice": "Yuna",
+   "text": "오늘 저녁에 친구랑 갈 식당 좀 알아봐 줘",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "식당"
+     ],
+     "startAt": "2026-10-21T18:00:00+09:00"
+    }
+   ],
+   "rate": 185
+  },
+  {
+   "id": "v41",
+   "voice": "Yuna",
+   "text": "내일 점심에 학년 협의회 있어",
+   "items": [
+    {
+     "kind": "SCHEDULE",
+     "area": "SCHOOL",
+     "titleKeywords": [
+      "협의회"
+     ],
+     "startAt": "2026-10-22T12:00:00+09:00"
+    }
+   ],
+   "rate": 185
+  },
+  {
+   "id": "v42",
+   "voice": "Yuna",
+   "text": "금요일 밤에 엄마랑 통화하기",
+   "items": [
+    {
+     "kind": "TODO",
+     "area": "PERSONAL",
+     "titleKeywords": [
+      "통화"
+     ],
+     "startAt": "2026-10-23T21:00:00+09:00"
+    }
+   ],
+   "rate": 185
   }
  ],
  "documents": [

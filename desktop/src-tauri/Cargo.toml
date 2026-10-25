@@ -1,6 +1,6 @@
 [package]
 name = "blackhole-desktop"
-version = "0.1.1"
+version = "0.2.0"
 description = "Blackhole Korean voice approval desk companion"
 authors = ["Blackhole"]
 edition = "2021"
@@ -24,11 +24,11 @@ atomicwrites = "0.4"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 regex = "1"
 sha2 = "0.10"
-# Plain HTTP only (no TLS feature): the worker talks to a model runner on loopback.
-ureq = { version = "2", default-features = false, features = ["json"] }
+# The model runner is loopback-only (checked in code); TLS is for the optional Discord/Slack input.
+ureq = { version = "2", default-features = false, features = ["json", "tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["macos-private-api"] }
 
 [dev-dependencies]
 tempfile = "3"

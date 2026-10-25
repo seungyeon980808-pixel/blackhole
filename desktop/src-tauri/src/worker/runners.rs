@@ -14,6 +14,15 @@ use std::{
 pub trait Transcriber {
     fn model_name(&self) -> String;
     fn transcribe(&self, wav: &Path) -> Result<String, WorkerError>;
+    /// Without any vocabulary hint. Short recordings use this: with almost no sound the
+    /// recognizer otherwise "hears" the hint words themselves.
+    fn transcribe_plain(&self, wav: &Path) -> Result<String, WorkerError> {
+        self.transcribe(wav)
+    }
+    /// Words given to the recognizer as a hint (empty when none).
+    fn hint_words(&self) -> Vec<String> {
+        Vec::new()
+    }
 }
 
 /// One chat call to a local LLM that must answer with JSON matching `schema`.
@@ -81,6 +90,29 @@ impl Transcriber for WhisperCli {
     }
 
     fn transcribe(&self, wav: &Path) -> Result<String, WorkerError> {
+        self.run(wav, self.prompt.as_deref())
+    }
+
+    fn transcribe_plain(&self, wav: &Path) -> Result<String, WorkerError> {
+        self.run(wav, None)
+    }
+
+    fn hint_words(&self) -> Vec<String> {
+        self.prompt.as_deref().map(split_words).unwrap_or_default()
+    }
+}
+
+/// Split a hint ("수행평가, 교직원 연수 / 방과후") into single words.
+pub fn split_words(text: &str) -> Vec<String> {
+    text.split(|c: char| c.is_whitespace() || matches!(c, ',' | '.' | '·' | '/' | ';' | ':' | '、' | '，'))
+        .map(str::trim)
+        .filter(|w| !w.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+impl WhisperCli {
+    fn run(&self, wav: &Path, prompt: Option<&str>) -> Result<String, WorkerError> {
         if !self.model.is_file() {
             return Err(WorkerError::new(
                 ErrorCode::SttModelMissing,
@@ -89,7 +121,7 @@ impl Transcriber for WhisperCli {
         }
         let mut command = Command::new(&self.binary);
         command.args(["-l", &self.language, "-nt", "-np", "-m"]).arg(&self.model).arg("-f").arg(wav);
-        if let Some(prompt) = self.prompt.as_deref().filter(|p| !p.trim().is_empty()) {
+        if let Some(prompt) = prompt.filter(|p| !p.trim().is_empty()) {
             command.arg("--prompt").arg(prompt);
         }
         let output = command

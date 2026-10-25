@@ -72,5 +72,11 @@
   ],
   "fillMissing": true,
   "imageOcrHint": true,
-  "documentModel": "gemma4:e4b-it-q4_K_M"
+  "documentModel": "gemma4:e4b-it-q4_K_M",
+  "dayparts": {
+    "아침": "08:00",
+    "점심": "12:00",
+    "저녁": "18:00",
+    "밤": "21:00"
+  }
 }
