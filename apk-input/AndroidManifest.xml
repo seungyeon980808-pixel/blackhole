@@ -45,6 +45,12 @@
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
+            android:name=".CalendarWebActivity"
+            android:exported="false"
+            android:label="블랙홀 달력"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name=".BlackholeSendActivity"
             android:exported="false"
             android:label="블랙홀"

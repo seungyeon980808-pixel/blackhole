@@ -28,6 +28,7 @@ public final class BlackholeHostTest {
         upload();
         legacyWavQueries();
         alarmBook();
+        calendar();
         System.out.println("BlackholeHostTest PASS: " + checks + " assertions (가짜 드라이브·호스트 시험, 기기 증거 아님)");
     }
 
@@ -237,6 +238,62 @@ public final class BlackholeHostTest {
     }
 
     // ---------------------------------------------------------------- 알람 장부
+
+    // ---------------------------------------------------------------- 블랙홀 달력(Mac 사본)
+
+    private static void calendar() throws Exception {
+        String shared = "{\"kind\":\"blackhole-calendar\",\"schemaVersion\":1,\"exportedAt\":\"2026-10-25T14:00\",\"events\":[],\"tasks\":[],\"periods\":[],\"notes\":[],\"appliedActions\":[\"a1\"]}";
+        check(BlackholeCalendarStore.isShared(shared), "Mac 사본 형식 확인");
+        check(!BlackholeCalendarStore.isShared("{}") && !BlackholeCalendarStore.isShared("") && !BlackholeCalendarStore.isShared("{\"kind\":\"x\"}"),
+                "빈 파일·다른 형식은 사본이 아님");
+        String pending = BlackholeCalendarStore.addPending("[]", "{\"id\":\"a1\",\"type\":\"confirm\",\"ref\":\"e-1\"}");
+        pending = BlackholeCalendarStore.addPending(pending, "{\"id\":\"a2\",\"type\":\"toggleTask\",\"ref\":\"t-1\"}");
+        pending = BlackholeCalendarStore.addPending(pending, "{\"id\":\"a2\",\"type\":\"toggleTask\",\"ref\":\"t-1\"}");
+        check(new org.json.JSONArray(pending).length() == 2, "같은 동작은 한 번만 대기");
+        check(throwsAny(() -> BlackholeCalendarStore.addPending("[]", "{\"type\":\"x\"}")), "id 없는 동작은 거절");
+        String left = BlackholeCalendarStore.prune(pending, shared);
+        check(new org.json.JSONArray(left).length() == 1 && left.contains("a2"), "Mac이 반영한 동작(a1)은 대기에서 빠짐");
+
+        String alarms = "[{\"key\":\"e-1@2026-10-25T15:00\",\"atMs\":" + (T0 + 3_600_000) + ",\"title\":\"안과 진료\"},"
+                + "{\"key\":\"t-1@old\",\"atMs\":" + (T0 - 1) + ",\"title\":\"지난 것\"},{\"bad\":1}]";
+        List<BlackholeCalendarStore.CalendarAlarm> list = BlackholeCalendarStore.alarms(alarms, T0);
+        check(list.size() == 1 && "안과 진료".equals(list.get(0).title) && list.get(0).at == T0 + 3_600_000, "앞으로 울릴 알림만 전화식 알람으로");
+        check(list.get(0).id.equals(BlackholeCalendarStore.alarmId("e-1@2026-10-25T15:00")) && list.get(0).id.startsWith("cal-")
+                && list.get(0).id.length() == 20, "같은 알림은 늘 같은 알람 id");
+        check(BlackholeCalendarStore.ids("cal-1,x,cal-2").equals(Arrays.asList("cal-1", "cal-2")), "알람 id 목록");
+
+        try (FakeDrive drive = new FakeDrive()) {
+            DriveTransfer transfer = new DriveTransfer(drive.filesUrl(), drive.uploadUrl(), 256 * 1024);
+            Cache cache = new Cache();
+            Tokens tokens = new Tokens("good");
+            BlackholeUploader uploader = new BlackholeUploader(new BlackholeOutbox(Files.createTempDirectory("bh-cal").toFile(), SEOUL),
+                    transfer, tokens, cache, () -> T0);
+            File scratch = Files.createTempDirectory("bh-cal-scratch").toFile();
+            BlackholeCalendarSync sync = new BlackholeCalendarSync(uploader, transfer, tokens, cache, scratch);
+            check("{}".equals(sync.fetch()), "처음엔 휴대폰이 빈 「달력.json」을 만들고 그 내용을 받음");
+            String root = drive.children("root").get(0).id;
+            List<FakeDrive.FileRecord> made = new java.util.ArrayList<>();
+            for (FakeDrive.FileRecord f : drive.children(root)) if ("달력.json".equals(f.name)) made.add(f);
+            check(made.size() == 1 && "calendar-shared".equals(made.get(0).props.get("blackholeKind")), "「블랙홀」 맨 위에 달력.json 하나, 표시 붙임");
+            // Mac(드라이브 앱)이 같은 파일에 덮어씀.
+            made.get(0).content = shared.getBytes(StandardCharsets.UTF_8);
+            check(shared.equals(sync.fetch()), "Mac이 덮어쓴 사본을 받음");
+            BlackholeCalendarSync again = new BlackholeCalendarSync(uploader, transfer, tokens, new Cache(), scratch);
+            again.fetch();
+            int count = 0;
+            for (FakeDrive.FileRecord f : drive.children(root)) if ("달력.json".equals(f.name)) count++;
+            check(count == 1, "캐시가 없어도 표시로 찾아 두 번 만들지 않음");
+            drive.validToken = "fresh";
+            tokens.afterInvalidate = "fresh";
+            check(shared.equals(sync.fetch()), "토큰이 만료되면 새로 받아 다시 시도");
+        }
+    }
+
+    private interface Body { void run() throws Exception; }
+
+    private static boolean throwsAny(Body body) {
+        try { body.run(); return false; } catch (Exception expected) { return true; }
+    }
 
     private static void alarmBook() {
         BlackholeAlarmBook book = new BlackholeAlarmBook();

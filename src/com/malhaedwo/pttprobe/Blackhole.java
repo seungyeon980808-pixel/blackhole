@@ -52,16 +52,22 @@ final class Blackhole {
 
     static BlackholeUploader uploader(Context context) {
         Context app = context.getApplicationContext();
-        SharedPreferences prefs = prefs(app);
-        return new BlackholeUploader(outbox(app), new DriveTransfer(),
-                new BlackholeUploader.TokenSource() {
-                    @Override public String token() throws Exception { return GoogleOAuth.getAccessToken(app); }
-                    @Override public void invalidate() { GoogleOAuth.clearCachedAccessToken(app); }
-                },
-                new BlackholeUploader.FolderCache() {
-                    @Override public String get(String key) { return prefs.getString(key, ""); }
-                    @Override public void put(String key, String value) { prefs.edit().putString(key, value).apply(); }
-                },
-                System::currentTimeMillis);
+        return new BlackholeUploader(outbox(app), new DriveTransfer(), tokens(app), folderCache(app), System::currentTimeMillis);
+    }
+
+    static BlackholeUploader.TokenSource tokens(Context context) {
+        Context app = context.getApplicationContext();
+        return new BlackholeUploader.TokenSource() {
+            @Override public String token() throws Exception { return GoogleOAuth.getAccessToken(app); }
+            @Override public void invalidate() { GoogleOAuth.clearCachedAccessToken(app); }
+        };
+    }
+
+    static BlackholeUploader.FolderCache folderCache(Context context) {
+        SharedPreferences prefs = prefs(context);
+        return new BlackholeUploader.FolderCache() {
+            @Override public String get(String key) { return prefs.getString(key, ""); }
+            @Override public void put(String key, String value) { prefs.edit().putString(key, value).apply(); }
+        };
     }
 }

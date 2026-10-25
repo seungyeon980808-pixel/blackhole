@@ -69,6 +69,13 @@ final class DriveTransfer {
         return folderId;
     }
 
+    /** 파일 내용을 글자로 받는다(작은 JSON용, 4MB까지). */
+    String downloadText(String token, String fileId) throws Exception {
+        HttpResponse response = api(token, "GET", filesUrl + "/" + enc(fileId) + "?alt=media", null, null);
+        requireSuccess(response, "Drive 파일 받기");
+        return response.body;
+    }
+
     /** 폴더·파일이 있고 휴지통에 없으면 true. 404는 false. */
     boolean exists(String token, String fileId) throws Exception {
         if (fileId == null || fileId.isEmpty()) return false;

@@ -108,6 +108,7 @@ final class FakeDrive implements AutoCloseable {
             } else if (path.startsWith("/drive/v3/files/") && method.equals("GET")) {
                 FileRecord record = files.get(path.substring("/drive/v3/files/".length()));
                 if (record == null) send(exchange, 404, "{\"error\":{\"message\":\"File not found\"}}", null);
+                else if ("media".equals(query.get("alt"))) send(exchange, 200, new String(record.content, StandardCharsets.UTF_8), null);
                 else send(exchange, 200, new JSONObject().put("id", record.id).put("trashed", record.trashed).toString(), null);
             } else if (path.equals("/drive/v3/files") && method.equals("POST")) {
                 String json = new String(body, StandardCharsets.UTF_8);

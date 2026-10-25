@@ -197,6 +197,16 @@ public final class MainActivity extends Activity {
         blackholeRow.addView(blackholeArrow, new LinearLayout.LayoutParams(dp(42), dp(48)));
         root.addView(blackholeRow);
 
+        LinearLayout calendarRow = rowCard();
+        calendarRow.setOnClickListener(v -> startActivity(new Intent(this, CalendarWebActivity.class)));
+        TextView calendarCopy = text("블랙홀 달력  ·  Mac과 같은 일정", 15, INK);
+        calendarCopy.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        calendarRow.addView(calendarCopy, weight());
+        TextView calendarArrow = text("›", 26, MUTED);
+        calendarArrow.setGravity(Gravity.CENTER);
+        calendarRow.addView(calendarArrow, new LinearLayout.LayoutParams(dp(42), dp(48)));
+        root.addView(calendarRow);
+
         settingsToggle = text("설정 · 진단  /  펼치기", 14, INK);
         settingsToggle.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         settingsToggle.setGravity(Gravity.CENTER_VERTICAL);

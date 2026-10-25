@@ -64,6 +64,12 @@ bash tests/ptt/run.sh
 
 ## 수동 APK 빌드
 
+블랙홀 달력 화면(데스크톱과 같은 `desktop/src/calendar`)이 APK의 `assets/calendar/`로 들어갑니다. 빌드 전에 웹 묶음을 만들어 두세요(Git에는 없음). 위치가 다르면 `BLACKHOLE_CALENDAR_WEB`으로 지정합니다. 없으면 `build.sh`가 멈춥니다(종료 코드 6).
+
+```sh
+cd desktop && npm ci && npm run build:phone && cd ..
+```
+
 필요한 도구는 저장소에 포함하지 않습니다. 각 도구의 배포처와 라이선스를 확인하여 준비하세요.
 
 ```text

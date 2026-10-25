@@ -41,6 +41,17 @@ public final class BlackholeWiringTest {
         String chat = component(manifest, "activity", ".BlackholeSendActivity");
         check(chat.contains("android:exported=\"false\"") && !chat.contains("showWhenLocked"), "대화 화면(지난 내용)은 잠금을 풀어야 열림");
 
+        String calendar = component(manifest, "activity", ".CalendarWebActivity");
+        check(calendar.contains("android:exported=\"false\"") && !calendar.contains("showWhenLocked"), "달력 화면(지난 일정)은 비공개, 잠금을 풀어야 열림");
+        String web = src("CalendarWebActivity");
+        check(web.contains("setAllowFileAccess(false)") && web.contains("setAllowContentAccess(false)"), "달력 WebView는 파일·제공자 접근 끔");
+        check(web.contains("ORIGIN_HOST.equals(url.getHost())") && web.contains("path.startsWith(\"/calendar/\")") && web.contains("403"),
+                "달력 WebView는 이 앱의 assets/calendar만 내보내고 나머지 주소는 막음");
+        check(web.contains("shouldOverrideUrlLoading") && web.contains("RESOURCE_AUDIO_CAPTURE") && web.contains("request.deny()"),
+                "다른 주소로 이동 금지, 마이크는 녹음 요청만 허락");
+        check(!web.contains("BlackholeCalendarSync") || !src("BlackholeCalendarSync").contains("\"PATCH\""), "휴대폰은 달력 사본에 쓰지 않음");
+        check(read("build.sh").contains("root/assets/calendar") && read("build.sh").contains("exit 6"), "APK에 달력 웹 묶음을 넣고, 없으면 빌드 중단");
+
         String alarm = component(manifest, "activity", ".BlackholeAlarmActivity");
         check(alarm.contains("android:showWhenLocked=\"true\"") && alarm.contains("android:turnScreenOn=\"true\"")
                 && alarm.contains("android:exported=\"false\""), "알람 화면: 잠금 위에서 화면을 켬");

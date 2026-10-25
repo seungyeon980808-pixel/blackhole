@@ -30,6 +30,16 @@ mkdir -p "$STAGE"
 cp -R "$HERE/src" "$STAGE/src"
 cp -R "$INPUT" "$STAGE/apk-input"
 INPUT="$STAGE/apk-input"
+
+# 블랙홀 달력 화면(데스크톱과 같은 desktop/src/calendar)을 assets/calendar/로 넣는다.
+# 웹 묶음은 Git에 없다: cd desktop && npm ci && npm run build:phone (또는 BLACKHOLE_CALENDAR_WEB로 위치 지정).
+CALENDAR_WEB="${BLACKHOLE_CALENDAR_WEB:-$HERE/desktop/dist-phone}"
+if [ ! -s "$CALENDAR_WEB/phone.html" ]; then
+  echo "Calendar web bundle is required: $CALENDAR_WEB/phone.html (cd desktop && npm run build:phone)" >&2
+  exit 6
+fi
+mkdir -p "$INPUT/root/assets/calendar"
+cp -R "$CALENDAR_WEB/." "$INPUT/root/assets/calendar/"
 find "$STAGE" \( -name '*.java' -o -name 'AndroidManifest.xml' \) -print0 | xargs -0 perl -pi -e '
   s/YOUR_GOOGLE_OAUTH_CLIENT_ID/$ENV{BLACKHOLE_OAUTH_CLIENT_PREFIX}/g;
   s/owner\@example\.invalid/$ENV{BLACKHOLE_ALLOWED_EMAIL}/g;
