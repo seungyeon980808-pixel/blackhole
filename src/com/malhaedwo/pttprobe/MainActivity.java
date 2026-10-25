@@ -84,6 +84,7 @@ public final class MainActivity extends Activity {
         runLocalReconciliation();
         SyncScheduler.ensurePeriodic(this);
         SyncScheduler.request(this);
+        BlackholeQuickNotification.refresh(this);
         handleOAuthIntent(getIntent());
     }
 
@@ -185,6 +186,16 @@ public final class MainActivity extends Activity {
         inboxArrow.setGravity(Gravity.CENTER);
         inboxRow.addView(inboxArrow, new LinearLayout.LayoutParams(dp(42), dp(48)));
         root.addView(inboxRow);
+
+        LinearLayout blackholeRow = rowCard();
+        blackholeRow.setOnClickListener(v -> startActivity(new Intent(this, BlackholeSendActivity.class)));
+        TextView blackholeCopy = text("블랙홀로 보내기  ·  문장·사진·음성", 15, INK);
+        blackholeCopy.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        blackholeRow.addView(blackholeCopy, weight());
+        TextView blackholeArrow = text("›", 26, MUTED);
+        blackholeArrow.setGravity(Gravity.CENTER);
+        blackholeRow.addView(blackholeArrow, new LinearLayout.LayoutParams(dp(42), dp(48)));
+        root.addView(blackholeRow);
 
         settingsToggle = text("설정 · 진단  /  펼치기", 14, INK);
         settingsToggle.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);

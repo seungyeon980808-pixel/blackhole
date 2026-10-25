@@ -1,0 +1,1 @@
+package android.widget; public class ScrollView extends FrameLayout { public ScrollView(android.content.Context c) { super(c); } public void setFillViewport(boolean b) { throw new RuntimeException("stub"); } public boolean fullScroll(int d) { throw new RuntimeException("stub"); } }

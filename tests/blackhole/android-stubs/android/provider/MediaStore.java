@@ -1,0 +1,1 @@
+package android.provider; public final class MediaStore { public static final String ACTION_IMAGE_CAPTURE="android.media.action.IMAGE_CAPTURE", ACTION_IMAGE_CAPTURE_SECURE="android.media.action.IMAGE_CAPTURE_SECURE", EXTRA_OUTPUT="output"; }
