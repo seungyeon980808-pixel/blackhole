@@ -1,0 +1,11 @@
+/* 공문서 테마 글꼴: 나눔고딕·나눔명조 (SIL OFL 1.1, @fontsource에서 woff2만). 앱에 포함해 외부 글꼴을 불러오지 않는다. */
+@font-face{font-family:'Nanum Gothic';font-style:normal;font-display:swap;font-weight:400;src:url(../../../node_modules/@fontsource/nanum-gothic/files/nanum-gothic-korean-400-normal.woff2) format('woff2');}
+@font-face{font-family:'Nanum Gothic';font-style:normal;font-display:swap;font-weight:700;src:url(../../../node_modules/@fontsource/nanum-gothic/files/nanum-gothic-korean-700-normal.woff2) format('woff2');}
+@font-face{font-family:'Nanum Gothic';font-style:normal;font-display:swap;font-weight:800;src:url(../../../node_modules/@fontsource/nanum-gothic/files/nanum-gothic-korean-800-normal.woff2) format('woff2');}
+@font-face{font-family:'Nanum Gothic';font-style:normal;font-display:swap;font-weight:400;src:url(../../../node_modules/@fontsource/nanum-gothic/files/nanum-gothic-latin-400-normal.woff2) format('woff2');}
+@font-face{font-family:'Nanum Gothic';font-style:normal;font-display:swap;font-weight:700;src:url(../../../node_modules/@fontsource/nanum-gothic/files/nanum-gothic-latin-700-normal.woff2) format('woff2');}
+@font-face{font-family:'Nanum Gothic';font-style:normal;font-display:swap;font-weight:800;src:url(../../../node_modules/@fontsource/nanum-gothic/files/nanum-gothic-latin-800-normal.woff2) format('woff2');}
+@font-face{font-family:'Nanum Myeongjo';font-style:normal;font-display:swap;font-weight:400;src:url(../../../node_modules/@fontsource/nanum-myeongjo/files/nanum-myeongjo-korean-400-normal.woff2) format('woff2');}
+@font-face{font-family:'Nanum Myeongjo';font-style:normal;font-display:swap;font-weight:700;src:url(../../../node_modules/@fontsource/nanum-myeongjo/files/nanum-myeongjo-korean-700-normal.woff2) format('woff2');}
+@font-face{font-family:'Nanum Myeongjo';font-style:normal;font-display:swap;font-weight:400;src:url(../../../node_modules/@fontsource/nanum-myeongjo/files/nanum-myeongjo-latin-400-normal.woff2) format('woff2');}
+@font-face{font-family:'Nanum Myeongjo';font-style:normal;font-display:swap;font-weight:700;src:url(../../../node_modules/@fontsource/nanum-myeongjo/files/nanum-myeongjo-latin-700-normal.woff2) format('woff2');}

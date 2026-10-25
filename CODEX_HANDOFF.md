@@ -7,8 +7,8 @@ Updated: 2026-09-15 KST
 Use branch `handoff/codex-20260915`. It combines the public-safe Android 0.9.0 source and the Windows Desktop 0.1.1 source in one working tree.
 
 ```sh
-git clone https://github.com/seungyeon980808-pixel/ya.git
-cd ya
+git clone https://github.com/seungyeon980808-pixel/blackhole.git
+cd blackhole
 git switch --track origin/handoff/codex-20260915
 ```
 

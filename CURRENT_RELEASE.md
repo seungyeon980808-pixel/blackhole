@@ -54,7 +54,7 @@ Verified in GitHub Actions:
 - Rust tests
 - NSIS installer build
 - MSI installer build
-- CI run: https://github.com/seungyeon980808-pixel/ya/actions/runs/34576134317
+- CI run: https://github.com/seungyeon980808-pixel/blackhole/actions/runs/34576134317
 
 Installer hashes from the successful CI artifacts:
 

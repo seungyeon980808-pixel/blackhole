@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    ya_desktop_lib::run();
+    blackhole_desktop_lib::run();
 }

@@ -1,0 +1,1 @@
+package android.provider; public final class Settings { public static final String ACTION_APP_NOTIFICATION_SETTINGS="android.settings.APP_NOTIFICATION_SETTINGS", EXTRA_APP_PACKAGE="android.provider.extra.APP_PACKAGE", ACTION_REQUEST_SCHEDULE_EXACT_ALARM="android.settings.REQUEST_SCHEDULE_EXACT_ALARM"; }

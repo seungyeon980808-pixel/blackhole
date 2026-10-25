@@ -1,0 +1,1 @@
+package com.malhaedwo.pttprobe; final class SyncScheduler { static void ensurePeriodic(android.content.Context c) { throw new RuntimeException("stub"); } static void request(android.content.Context c) { throw new RuntimeException("stub"); } }

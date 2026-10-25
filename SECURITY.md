@@ -20,7 +20,7 @@ The checked-in source must retain values such as:
 - `YOUR_GOOGLE_OAUTH_CLIENT_ID`
 - `YOUR_SPREADSHEET_ID`
 - `owner@example.invalid`
-- `https://example.invalid/ya/privacy`
+- `https://example.invalid/blackhole/privacy`
 
 A local configured copy may replace them, but that copy must not be committed.
 

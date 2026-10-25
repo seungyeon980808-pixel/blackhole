@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블랙홀 아이콘</title>
+<style>
+:root{--bg:#f3f4f9;--ink:#1d1f33;--ink2:#5b6074;--font:"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1120;--ink:#eef0f8;--ink2:#a5aac0}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);padding:32px 16px}
+main{max-width:860px;margin:0 auto}
+h1{font-size:22px}p{color:var(--ink2);margin:6px 0 22px;line-height:1.6}
+.row{display:flex;gap:26px;align-items:flex-end;flex-wrap:wrap;margin-bottom:22px}
+figure{text-align:center;font-size:11px;color:var(--ink2)}
+figure svg{display:block;margin:0 auto 6px}
+.wall{display:flex;gap:18px;padding:18px;border-radius:18px;align-items:center}
+.wall span{font-size:12px}
+</style>
+</head>
+<body>
+<main>
+<h1>블랙홀 아이콘 (단순형)</h1>
+<p>검은 판 위의 검은 구멍, 아래쪽 가장자리에만 빛이 걸린 일식 모양 하나. 글자·색 장식 없음. 아주 작아도 「빛나는 초승달 + 검은 원」으로 읽힙니다.</p>
+<div class="row">
+  <figure><svg width="160" height="160" viewBox="0 0 100 100"><use href="#logo"/></svg>앱 아이콘</figure>
+  <figure><svg width="64" height="64" viewBox="0 0 100 100"><use href="#logo"/></svg>64</figure>
+  <figure><svg width="32" height="32" viewBox="0 0 100 100"><use href="#logo"/></svg>32</figure>
+  <figure><svg width="20" height="20" viewBox="0 0 100 100" style="color:var(--ink)"><use href="#glyph"/></svg>알림(한 색)</figure>
+</div>
+<div class="wall" style="background:linear-gradient(135deg,#2a1d6b,#0d4f66 60%,#5a1b47);color:#fff"><svg width="58" height="58" viewBox="0 0 100 100"><use href="#logo"/></svg><span>어두운 배경화면</span></div>
+<div class="wall" style="background:linear-gradient(135deg,#e9e4ff,#d6f3f8 60%,#ffe2f1);margin-top:12px"><svg width="58" height="58" viewBox="0 0 100 100"><use href="#logo"/></svg><span>밝은 배경화면</span></div>
+</main>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.2"/></filter>
+  <g id="logo"><rect width="100" height="100" rx="24" fill="#0a0a0d"/><circle cx="50" cy="53" r="27" fill="#fff" opacity=".55" filter="url(#glow)"/><circle cx="50" cy="53" r="27" fill="#fff"/><circle cx="50" cy="49" r="25" fill="#0a0a0d"/></g>
+  <g id="glyph"><circle cx="50" cy="54" r="40" fill="currentColor"/><circle cx="50" cy="46" r="36" fill="var(--bg)"/></g>
+</defs></svg>
+</body>
+</html>

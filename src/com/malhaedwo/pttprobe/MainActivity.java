@@ -84,6 +84,7 @@ public final class MainActivity extends Activity {
         runLocalReconciliation();
         SyncScheduler.ensurePeriodic(this);
         SyncScheduler.request(this);
+        BlackholeQuickNotification.refresh(this);
         handleOAuthIntent(getIntent());
     }
 
@@ -185,6 +186,26 @@ public final class MainActivity extends Activity {
         inboxArrow.setGravity(Gravity.CENTER);
         inboxRow.addView(inboxArrow, new LinearLayout.LayoutParams(dp(42), dp(48)));
         root.addView(inboxRow);
+
+        LinearLayout blackholeRow = rowCard();
+        blackholeRow.setOnClickListener(v -> startActivity(new Intent(this, BlackholeSendActivity.class)));
+        TextView blackholeCopy = text("블랙홀로 보내기  ·  문장·사진·음성", 15, INK);
+        blackholeCopy.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        blackholeRow.addView(blackholeCopy, weight());
+        TextView blackholeArrow = text("›", 26, MUTED);
+        blackholeArrow.setGravity(Gravity.CENTER);
+        blackholeRow.addView(blackholeArrow, new LinearLayout.LayoutParams(dp(42), dp(48)));
+        root.addView(blackholeRow);
+
+        LinearLayout calendarRow = rowCard();
+        calendarRow.setOnClickListener(v -> startActivity(new Intent(this, CalendarWebActivity.class)));
+        TextView calendarCopy = text("블랙홀 달력  ·  Mac과 같은 일정", 15, INK);
+        calendarCopy.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        calendarRow.addView(calendarCopy, weight());
+        TextView calendarArrow = text("›", 26, MUTED);
+        calendarArrow.setGravity(Gravity.CENTER);
+        calendarRow.addView(calendarArrow, new LinearLayout.LayoutParams(dp(42), dp(48)));
+        root.addView(calendarRow);
 
         settingsToggle = text("설정 · 진단  /  펼치기", 14, INK);
         settingsToggle.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
@@ -289,7 +310,7 @@ public final class MainActivity extends Activity {
 
         Button privacy = outlinedButton("개인정보처리방침", INK, SURFACE);
         privacy.setOnClickListener(v -> startActivity(new Intent(Intent.ACTION_VIEW,
-                Uri.parse("https://example.invalid/ya/privacy"))));
+                Uri.parse("https://example.invalid/blackhole/privacy"))));
         settingsBody.addView(privacy);
     }
 

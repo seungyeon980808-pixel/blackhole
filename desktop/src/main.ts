@@ -1,17 +1,18 @@
-import "./styles.css";
-import { createApp } from "./ui";
-import { getConnectionStatus, loadInitialCache } from "./bridge";
-import { fixtureCache, unconfiguredConnection } from "./fixtures";
+import "./calendar/styles/fonts.css";
+import "./calendar/styles/base.css";
+import "./calendar/styles/glass.css";
+import "./calendar/styles/doc.css";
+import { mountBlackhole } from "./calendar/app";
+import { memoryAdapter } from "./calendar/memory-adapter";
+import { isTauri, tauriAdapter } from "./adapters/tauri";
+
+// macOS window glass: the window is transparent and the desktop shows through, blurred.
+if (isTauri() && /Mac/.test(navigator.userAgent)) document.documentElement.classList.add("native-glass");
 
 const root = document.querySelector<HTMLElement>("#app");
 if (!root) throw new Error("앱 루트가 없습니다.");
 
-Promise.all([loadInitialCache(), getConnectionStatus()])
-  .then(([cache, connection]) => createApp(root, cache.items, connection))
-  .catch((error: unknown) => {
-    console.error("Ya Desktop bootstrap failed", error);
-    createApp(root, fixtureCache.items, {
-      ...unconfiguredConnection,
-      detail: "로컬 캐시를 불러오지 못해 안전한 인공 미리보기를 표시합니다."
-    });
-  });
+mountBlackhole(root, isTauri() ? tauriAdapter() : memoryAdapter({ persist: true })).catch((error: unknown) => {
+  console.error("블랙홀 시작 실패", error);
+  root.textContent = `블랙홀을 시작하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`;
+});

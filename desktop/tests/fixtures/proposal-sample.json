@@ -1,0 +1,99 @@
+{
+  "engine": {
+    "id": "A",
+    "llmModel": "ollama/gemma4:e2b-it-q4_K_M",
+    "promptVersion": "extract-ko-v3-subtasks",
+    "reader": "",
+    "workerVersion": "0.1.1"
+  },
+  "items": [
+    {
+      "area": "PERSONAL",
+      "confidence": 0.9,
+      "details": "",
+      "endAt": "2026-10-22T16:00:00+09:00",
+      "evidence": {
+        "dateText": "내일",
+        "endDateText": "",
+        "reminderText": "",
+        "sentence": "내일 오후 3시에 학부모 상담 있고",
+        "timeText": "오후 3시"
+      },
+      "kind": "SCHEDULE",
+      "needsReview": false,
+      "reminderAt": "2026-10-22T14:30:00+09:00",
+      "reminders": [
+        "2026-10-22T14:30:00+09:00"
+      ],
+      "reviewReasons": [],
+      "startAt": "2026-10-22T15:00:00+09:00",
+      "subtasks": [],
+      "title": "학부모 상담"
+    },
+    {
+      "area": "SCHOOL",
+      "confidence": 0.85,
+      "details": "",
+      "endAt": "2026-10-23T19:00:00+09:00",
+      "evidence": {
+        "dateText": "금요일",
+        "endDateText": "",
+        "reminderText": "목요일 9시",
+        "sentence": "금요일 오후 6시까지 연수 보고서 제출: 자료 정리, 소감 작성, 결재",
+        "timeText": "오후 6시"
+      },
+      "kind": "TODO",
+      "needsReview": false,
+      "reminderAt": "2026-10-22T09:00:00+09:00",
+      "reminders": [
+        "2026-10-22T09:00:00+09:00"
+      ],
+      "reviewReasons": [],
+      "startAt": "2026-10-23T18:00:00+09:00",
+      "subtasks": [
+        "자료 정리",
+        "소감 작성",
+        "결재"
+      ],
+      "title": "연수 보고서 제출"
+    },
+    {
+      "area": "SCHOOL",
+      "confidence": 0.9,
+      "details": "",
+      "endAt": "2026-11-07T00:00:00+09:00",
+      "evidence": {
+        "dateText": "11월 3일",
+        "endDateText": "11월 6일",
+        "reminderText": "",
+        "sentence": "11월 3일부터 6일까지 상담 주간이야",
+        "timeText": ""
+      },
+      "kind": "PERIOD",
+      "needsReview": false,
+      "reminderAt": "",
+      "reminders": [],
+      "reviewReasons": [],
+      "startAt": "2026-11-03T00:00:00+09:00",
+      "subtasks": [],
+      "title": "상담 주간"
+    }
+  ],
+  "needsReview": false,
+  "referenceTime": "2026-10-21T09:00:00+09:00",
+  "reviewReasons": [],
+  "schemaVersion": 2,
+  "source": {
+    "bytes": 214,
+    "format": "txt",
+    "sha256": "bdc312edf47d25194b728007913066c71f059ad856dca3b51e0ad2aaca7082c6",
+    "type": "text"
+  },
+  "sourceText": "내일 오후 3시에 학부모 상담 있고, 금요일 오후 6시까지 연수 보고서 제출: 자료 정리, 소감 작성, 결재. 목요일 9시에 알려줘. 11월 3일부터 6일까지 상담 주간이야",
+  "summary": "학부모 상담, 연수 보고서 제출 및 상담 주간",
+  "timings": {
+    "llmMs": 5884,
+    "readMs": 0,
+    "totalMs": 5884
+  }
+}
