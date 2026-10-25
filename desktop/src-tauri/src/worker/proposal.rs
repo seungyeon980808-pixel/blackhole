@@ -1,11 +1,11 @@
-//! Proposal JSON v1: what the local worker hands to the desktop app.
+//! Proposal JSON v2: what the local worker hands to the desktop app.
 //! Mirrors `desktop/src/worker/proposal.ts` and
-//! `desktop/src-tauri/schemas/proposal.v1.schema.json`.
+//! `desktop/src-tauri/schemas/proposal.v2.schema.json`.
 
 use serde::{Deserialize, Serialize};
 
-pub const PROPOSAL_SCHEMA_VERSION: u32 = 1;
-pub const PROMPT_VERSION: &str = "extract-ko-v2-items";
+pub const PROPOSAL_SCHEMA_VERSION: u32 = 2;
+pub const PROMPT_VERSION: &str = "extract-ko-v3-subtasks";
 pub const WORKER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -62,12 +62,19 @@ pub struct Evidence {
     pub sentence: String,
     pub date_text: String,
     pub time_text: String,
+    /// End of a PERIOD ("6일", "11월 6일"). Empty otherwise.
+    #[serde(default)]
+    pub end_date_text: String,
+    /// What the user asked to be reminded at ("목요일 9시"). Empty when not said.
+    #[serde(default)]
+    pub reminder_text: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProposalItem {
-    /// "SCHEDULE" | "TODO" (23-column Items values) | "NOTE" (information to remember).
+    /// "SCHEDULE" | "TODO" (23-column Items values) | "NOTE" (information to remember)
+    /// | "PERIOD" (several whole days: start_at = first day 00:00, end_at = day after the last).
     pub kind: String,
     /// "PERSONAL" | "SCHOOL".
     pub area: String,
@@ -78,6 +85,13 @@ pub struct ProposalItem {
     pub start_at: String,
     pub end_at: String,
     pub reminder_at: String,
+    /// Every reminder instant (ISO 8601), earliest first; `reminder_at` is the first one.
+    /// Ring like a phone call at each of these.
+    #[serde(default)]
+    pub reminders: Vec<String>,
+    /// Sub-checklist under a TODO, in the source's words and order.
+    #[serde(default)]
+    pub subtasks: Vec<String>,
     pub evidence: Evidence,
     /// Model self-reported confidence, 0.0..=1.0; capped at 0.5 when review is needed.
     pub confidence: f64,
@@ -119,7 +133,7 @@ mod tests {
     use serde_json::Value;
 
     const SAMPLE: &str = include_str!("../../../tests/fixtures/proposal-sample.json");
-    const SCHEMA: &str = include_str!("../../../schemas/proposal.v1.schema.json");
+    const SCHEMA: &str = include_str!("../../../schemas/proposal.v2.schema.json");
 
     fn keys(value: &Value) -> Vec<String> {
         let mut keys: Vec<String> = value.as_object().unwrap().keys().cloned().collect();

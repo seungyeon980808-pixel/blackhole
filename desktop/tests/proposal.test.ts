@@ -4,18 +4,18 @@ import { describe, expect, it } from "vitest";
 import { isProposal } from "../src/worker/proposal";
 
 const sample = JSON.parse(readFileSync(join(process.cwd(), "tests/fixtures/proposal-sample.json"), "utf8"));
-const schema = JSON.parse(readFileSync(join(process.cwd(), "schemas/proposal.v1.schema.json"), "utf8"));
+const schema = JSON.parse(readFileSync(join(process.cwd(), "schemas/proposal.v2.schema.json"), "utf8"));
 const clone = () => structuredClone(sample);
 
-describe("worker proposal v1", () => {
+describe("worker proposal v2", () => {
   it("accepts real worker output (synthetic input)", () => {
     expect(isProposal(sample)).toBe(true);
-    expect(sample.items.map((item: { kind: string }) => item.kind)).toEqual(["SCHEDULE", "NOTE"]);
+    expect(sample.items.map((item: { kind: string }) => item.kind)).toEqual(["SCHEDULE", "TODO", "PERIOD"]);
   });
 
   it("rejects malformed proposals instead of repairing them", () => {
     const broken = [
-      (p: any) => { p.schemaVersion = 2; },
+      (p: any) => { p.schemaVersion = 3; },
       (p: any) => { p.items[0].kind = "MEETING"; },
       (p: any) => { p.items[0].area = "WORK"; },
       (p: any) => { p.items[0].title = ""; },
@@ -35,6 +35,6 @@ describe("worker proposal v1", () => {
   it("keeps the JSON schema and the sample in step", () => {
     expect(Object.keys(sample).sort()).toEqual([...schema.required].sort());
     expect(Object.keys(sample.items[0]).sort()).toEqual([...schema.$defs.item.required].sort());
-    expect(schema.$defs.item.properties.kind.enum).toEqual(["SCHEDULE", "TODO", "NOTE"]);
+    expect(schema.$defs.item.properties.kind.enum).toEqual(["SCHEDULE", "TODO", "NOTE", "PERIOD"]);
   });
 });

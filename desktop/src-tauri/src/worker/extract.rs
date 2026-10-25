@@ -1,24 +1,28 @@
 //! Prompt, output schema and strict validation of Gemma extraction results.
 
 use super::{
-    dates::{find_date_phrase, find_time_phrase, mentions_date, mentions_time, quoted_in, resolve},
+    dates::{find_date_phrase, find_time_phrase, mentions_date, mentions_time, quoted_in, resolve, resolve_period_end},
     error::{ErrorCode, WorkerError},
     proposal::{Evidence, ProposalItem},
 };
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, Duration, FixedOffset, NaiveTime, TimeZone};
 use serde_json::{json, Map, Value};
 
 pub const MAX_ITEMS: usize = 20;
+pub const MAX_SUBTASKS: usize = 20;
 
 const SYSTEM_PROMPT: &str = "너는 한국어 메모·지시·문서를 일정, 할 일, 기억할 정보로 정리하는 도구다. 입력은 말로 한 지시, 받아 적은 음성, 공문·안내문·사진에서 뽑은 글일 수 있다. JSON 하나로만 답한다.
 - summary: 입력 전체를 한 줄로 요약.
 - items: 입력에 들어 있는 일을 하나씩 나눠 담는다. 한 입력에 여러 일이 있으면 모두 따로 적고, 정리할 것이 없으면 빈 목록.
-  - kind: 정해진 때에 가거나 만나거나 참석하는 일(회의, 상담, 수업, 약속, 진료, 행사 등)은 \"SCHEDULE\", 내가 끝내야 하는 행동(제출, 구매, 연락, 준비, 신청 등, 마감 포함)은 \"TODO\", 나중에 다시 볼 사실·정보(\"기억해 둬\", 장소, 준비물, 결정 사항, 연락처 등)는 \"NOTE\".
+  - kind: 정해진 때에 가거나 만나거나 참석하는 일(회의, 상담, 수업, 약속, 진료, 행사 등)은 \"SCHEDULE\", 내가 끝내야 하는 행동(제출, 구매, 연락, 준비, 신청 등, 마감 포함)은 \"TODO\", 여러 날에 걸친 기간(시험 기간, 상담 주간, 방학, 챌린지 등)은 \"PERIOD\", 나중에 다시 볼 사실·정보(\"기억해 둬\", 장소, 준비물, 결정 사항, 연락처 등)는 \"NOTE\".
   - area: 학교 일(학생, 학부모, 수업, 담임, 교무, 시험, 생활기록부, 교직원, 학년, 동아리, 공문 등)은 \"SCHOOL\", 그 밖은 \"PERSONAL\".
   - title: 날짜·시간과 \"추가해 줘\", \"기억해 줘\" 같은 부탁 말을 뺀 짧은 제목. 원문에 있는 말을 쓴다.
   - details: 장소, 준비물, 대상 같은 덧붙일 정보. 없으면 \"\".
   - dateText: 원문의 날짜 표현을 글자 그대로 옮긴다(예: \"내일\", \"다음 주 화요일\", \"11월 3일\"). 날짜를 계산하거나 바꾸지 않는다. 없으면 \"\".
   - timeText: 원문의 시간 표현을 글자 그대로 옮긴다(예: \"오후 3시\", \"10시 반\"). 없으면 \"\".
+  - endDateText: PERIOD일 때 끝 날짜 표현을 글자 그대로(예: \"6일\", \"11월 6일\"). dateText는 시작 날짜. PERIOD가 아니면 \"\".
+  - subtasks: 할 일 아래 나열된 하위 할 일들을 원문 말 그대로 목록으로(예: \"보고서 제출: 자료 정리, 초안, 결재\" → [\"자료 정리\",\"초안\",\"결재\"]). 없으면 [].
+  - reminderText: \"~에 알려 줘\", \"~에 알림\"처럼 알림 때를 따로 말했으면 그 날짜·시간 표현을 글자 그대로(예: \"목요일 9시\"). 없으면 \"\".
   - evidence: 그 항목의 근거가 된 원문 구절.
   - confidence: 0과 1 사이 숫자. 애매하면 낮게.";
 
@@ -33,16 +37,19 @@ pub fn output_schema(with_transcript: bool) -> Value {
     let item = json!({
         "type": "object",
         "properties": {
-            "kind": { "type": "string", "enum": ["SCHEDULE", "TODO", "NOTE"] },
+            "kind": { "type": "string", "enum": ["SCHEDULE", "TODO", "NOTE", "PERIOD"] },
             "area": { "type": "string", "enum": ["PERSONAL", "SCHOOL"] },
             "title": { "type": "string" },
             "details": { "type": "string" },
             "dateText": { "type": "string" },
             "timeText": { "type": "string" },
+            "endDateText": { "type": "string" },
+            "subtasks": { "type": "array", "items": { "type": "string" } },
+            "reminderText": { "type": "string" },
             "evidence": { "type": "string" },
             "confidence": { "type": "number" }
         },
-        "required": ["kind", "area", "title", "details", "dateText", "timeText", "evidence", "confidence"]
+        "required": ["kind", "area", "title", "details", "dateText", "timeText", "endDateText", "subtasks", "reminderText", "evidence", "confidence"]
     });
     let mut properties = json!({
         "summary": { "type": "string" },
@@ -56,9 +63,10 @@ pub fn output_schema(with_transcript: bool) -> Value {
     json!({ "type": "object", "properties": properties, "required": required })
 }
 
-const FEW_SHOT_INPUTS: [&str; 2] = [
+const FEW_SHOT_INPUTS: [&str; 3] = [
     "다음 주 월요일 오전 10시에 교무 회의 있고 그 전에 회의 자료 인쇄해야 돼",
     "우리 집 와이파이 공유기는 거실 책장 뒤에 있다는 거 기억해 줘",
+    "다음 달 7일 6시까지 동아리 결과 보고서 내야 해: 사진 정리, 활동 기록, 결재. 6일 저녁 8시에 알려줘. 그리고 3일부터 5일까지는 학년 체육 주간이야",
 ];
 
 /// Phrases whisper (and audio LLMs) are known to invent from noise or silence.
@@ -86,13 +94,19 @@ fn few_shot() -> Vec<Value> {
     let mut messages = example(
         FEW_SHOT_INPUTS[0],
         json!({"summary":"교무 회의와 자료 인쇄","items":[
-            {"kind":"SCHEDULE","area":"SCHOOL","title":"교무 회의","details":"","dateText":"다음 주 월요일","timeText":"오전 10시","evidence":"다음 주 월요일 오전 10시에 교무 회의 있고","confidence":0.9},
-            {"kind":"TODO","area":"SCHOOL","title":"회의 자료 인쇄","details":"교무 회의 전에","dateText":"","timeText":"","evidence":"회의 자료 인쇄해야 돼","confidence":0.8}]}),
+            {"kind":"SCHEDULE","area":"SCHOOL","title":"교무 회의","details":"","dateText":"다음 주 월요일","timeText":"오전 10시","endDateText":"","subtasks":[],"reminderText":"","evidence":"다음 주 월요일 오전 10시에 교무 회의 있고","confidence":0.9},
+            {"kind":"TODO","area":"SCHOOL","title":"회의 자료 인쇄","details":"교무 회의 전에","dateText":"","timeText":"","endDateText":"","subtasks":[],"reminderText":"","evidence":"회의 자료 인쇄해야 돼","confidence":0.8}]}),
     );
     messages.extend(example(
         FEW_SHOT_INPUTS[1],
         json!({"summary":"공유기 위치 기억","items":[
-            {"kind":"NOTE","area":"PERSONAL","title":"와이파이 공유기 위치","details":"거실 책장 뒤","dateText":"","timeText":"","evidence":"와이파이 공유기는 거실 책장 뒤에 있다","confidence":0.9}]}),
+            {"kind":"NOTE","area":"PERSONAL","title":"와이파이 공유기 위치","details":"거실 책장 뒤","dateText":"","timeText":"","endDateText":"","subtasks":[],"reminderText":"","evidence":"와이파이 공유기는 거실 책장 뒤에 있다","confidence":0.9}]}),
+    ));
+    messages.extend(example(
+        FEW_SHOT_INPUTS[2],
+        json!({"summary":"보고서 제출과 체육 주간","items":[
+            {"kind":"TODO","area":"SCHOOL","title":"동아리 결과 보고서 제출","details":"","dateText":"다음 달 7일","timeText":"6시","endDateText":"","subtasks":["사진 정리","활동 기록","결재"],"reminderText":"6일 저녁 8시","evidence":"다음 달 7일 6시까지 동아리 결과 보고서 내야 해","confidence":0.85},
+            {"kind":"PERIOD","area":"SCHOOL","title":"학년 체육 주간","details":"","dateText":"3일","timeText":"","endDateText":"5일","subtasks":[],"reminderText":"","evidence":"3일부터 5일까지는 학년 체육 주간이야","confidence":0.85}]}),
     ));
     messages
 }
@@ -208,11 +222,20 @@ fn string_field<'a>(object: &'a Map<String, Value>, key: &str, at: &str) -> Resu
     }
 }
 
+/// A field added in v2. Missing means empty; a wrong type is still a format error.
+fn optional_string(object: &Map<String, Value>, key: &str, at: &str) -> Result<String, WorkerError> {
+    match object.get(key) {
+        None | Some(Value::Null) => Ok(String::new()),
+        Some(Value::String(value)) => Ok(value.trim().to_string()),
+        Some(other) => Err(invalid(format!("{at}{key}가 문자열이 아닙니다: {other}"))),
+    }
+}
+
 fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bool, reference: DateTime<FixedOffset>, options: &ExtractOptions) -> Result<ProposalItem, WorkerError> {
     let at = format!("items[{index}].");
     let object = value.as_object().ok_or_else(|| invalid(format!("{at} 객체가 아닙니다.")))?;
     let kind = string_field(object, "kind", &at)?;
-    if !matches!(kind, "SCHEDULE" | "TODO" | "NOTE") {
+    if !matches!(kind, "SCHEDULE" | "TODO" | "NOTE" | "PERIOD") {
         return Err(invalid(format!("{at}kind 값이 잘못되었습니다: {kind}")));
     }
     let mut area = string_field(object, "area", &at)?;
@@ -227,6 +250,16 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
     let date_text = string_field(object, "dateText", &at)?.trim().to_string();
     let time_text = string_field(object, "timeText", &at)?.trim().to_string();
     let mut sentence = string_field(object, "evidence", &at)?.trim().to_string();
+    let end_date_text = optional_string(object, "endDateText", &at)?;
+    let reminder_text = optional_string(object, "reminderText", &at)?;
+    let raw_subtasks: Vec<String> = match object.get("subtasks") {
+        None | Some(Value::Null) => Vec::new(),
+        Some(Value::Array(list)) => list
+            .iter()
+            .map(|v| v.as_str().map(|s| s.trim().to_string()).ok_or_else(|| invalid(format!("{at}subtasks에 문자열이 아닌 값이 있습니다: {v}"))))
+            .collect::<Result<_, _>>()?,
+        Some(other) => return Err(invalid(format!("{at}subtasks가 목록이 아닙니다: {other}"))),
+    };
     let confidence = object
         .get("confidence")
         .and_then(Value::as_f64)
@@ -289,19 +322,81 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         _ => {}
     }
 
-    let resolved = resolve(&date_text, &time_text, kind, reference);
-    reasons.extend(resolved.review_reasons);
+    let mut subtasks = Vec::new();
+    for sub in raw_subtasks.into_iter().filter(|s| !s.is_empty()) {
+        if subtasks.len() == MAX_SUBTASKS {
+            reasons.push(format!("하위 할 일이 많아 {MAX_SUBTASKS}개까지만 둠"));
+            break;
+        }
+        if quoted_in(source_text, &sub) {
+            subtasks.push(sub);
+        } else {
+            reasons.push(format!("원문에 없는 하위 할 일을 버림: 「{sub}」"));
+        }
+    }
+
     let iso = |d: Option<DateTime<FixedOffset>>| d.map(|d| d.to_rfc3339()).unwrap_or_default();
+    let (start, end, mut reminders) = if kind == "PERIOD" {
+        // Whole days: first day 00:00 until the day after the last. The end is resolved
+        // against the start ("3일부터 6일까지"); without one the period is a single day.
+        let first = resolve(&date_text, "", "TODO", reference);
+        reasons.extend(first.review_reasons);
+        match first.start_at {
+            Some(first_at) => {
+                let start_day = first_at.date_naive();
+                let end_day = match resolve_period_end(&end_date_text, start_day) {
+                    Some(day) => day,
+                    None => {
+                        reasons.push(if end_date_text.is_empty() {
+                            "기간의 끝 날짜가 없어 하루로 둠".to_string()
+                        } else {
+                            format!("기간 끝 날짜를 해석하지 못함: 「{end_date_text}」")
+                        });
+                        start_day
+                    }
+                };
+                let midnight = |day: chrono::NaiveDate| reference.offset().from_local_datetime(&day.and_time(NaiveTime::MIN)).single();
+                (midnight(start_day), midnight(end_day + Duration::days(1)), Vec::new())
+            }
+            None => (None, None, Vec::new()),
+        }
+    } else {
+        let resolved = resolve(&date_text, &time_text, kind, reference);
+        reasons.extend(resolved.review_reasons);
+        // Default reminder: 30 minutes before a stated time; the day's 09:00 otherwise.
+        let default = match (kind, resolved.start_at) {
+            ("NOTE", _) | (_, None) => Vec::new(),
+            (_, Some(at)) if !time_text.is_empty() => vec![at - Duration::minutes(30)],
+            (_, Some(at)) => vec![at],
+        };
+        (resolved.start_at, resolved.end_at, default)
+    };
+    if !reminder_text.is_empty() {
+        let asked = if quoted_in(source_text, &reminder_text) {
+            let date = find_date_phrase(&reminder_text).unwrap_or_default();
+            let time = find_time_phrase(&reminder_text).unwrap_or_default();
+            if time.is_empty() { None } else { resolve(&date, &time, "SCHEDULE", reference).start_at }
+        } else {
+            None
+        };
+        match asked {
+            Some(at) => reminders = vec![at],
+            None => reasons.push(format!("알림 때를 해석하지 못함: 「{reminder_text}」")),
+        }
+    }
+    reminders.sort();
     let needs_review = !reasons.is_empty();
     Ok(ProposalItem {
         kind: kind.to_string(),
         area: area.to_string(),
         title,
         details,
-        start_at: iso(resolved.start_at),
-        end_at: iso(resolved.end_at),
-        reminder_at: iso(resolved.reminder_at),
-        evidence: Evidence { sentence, date_text, time_text },
+        start_at: iso(start),
+        end_at: iso(end),
+        reminder_at: iso(reminders.first().copied()),
+        reminders: reminders.iter().map(|r| r.to_rfc3339()).collect(),
+        subtasks,
+        evidence: Evidence { sentence, date_text, time_text, end_date_text, reminder_text },
         confidence: if needs_review { confidence.min(0.5) } else { confidence },
         needs_review,
         review_reasons: reasons,
@@ -371,6 +466,61 @@ mod tests {
         assert_eq!(first.end_at, "2026-10-22T16:00:00+09:00");
         assert!(!first.needs_review);
         assert_eq!(first.confidence, 0.9);
+    }
+
+    #[test]
+    fn subtasks_reminder_and_period_are_resolved_in_code() {
+        let text = "금요일 오후 6시까지 연수 보고서 제출: 자료 정리, 소감 작성, 결재. 목요일 9시에 알려줘. 그리고 11월 3일부터 6일까지 상담 주간이야";
+        let todo = json!({"kind":"TODO","area":"SCHOOL","title":"연수 보고서 제출","details":"","dateText":"금요일","timeText":"오후 6시","endDateText":"","subtasks":["자료 정리","소감 작성","결재"],"reminderText":"목요일 9시","evidence":"금요일 오후 6시까지 연수 보고서 제출","confidence":0.9});
+        let period = json!({"kind":"PERIOD","area":"SCHOOL","title":"상담 주간","details":"","dateText":"11월 3일","timeText":"","endDateText":"6일","subtasks":[],"reminderText":"","evidence":"11월 3일부터 6일까지 상담 주간이야","confidence":0.9});
+        let e = validate(&answer(vec![todo, period]).to_string(), Some(text), reference()).unwrap();
+        let t = &e.items[0];
+        assert_eq!(t.start_at, "2026-10-23T18:00:00+09:00");
+        assert_eq!(t.subtasks, vec!["자료 정리", "소감 작성", "결재"]);
+        assert_eq!(t.reminders, vec!["2026-10-22T09:00:00+09:00"]);
+        assert_eq!(t.reminder_at, "2026-10-22T09:00:00+09:00");
+        assert!(!t.needs_review, "{:?}", t.review_reasons);
+        let p = &e.items[1];
+        assert_eq!(p.kind, "PERIOD");
+        assert_eq!(p.start_at, "2026-11-03T00:00:00+09:00");
+        assert_eq!(p.end_at, "2026-11-07T00:00:00+09:00");
+        assert!(p.reminders.is_empty());
+    }
+
+    #[test]
+    fn default_reminders_and_invented_subtasks() {
+        let e = validate(&answer(vec![item()]).to_string(), Some(TEXT), reference()).unwrap();
+        // A stated time rings 30 minutes before.
+        assert_eq!(e.items[0].reminders, vec!["2026-10-22T14:30:00+09:00"]);
+        let mut v = item();
+        v["kind"] = json!("TODO");
+        v["subtasks"] = json!(["학부모 상담", "명단 출력"]);
+        v["reminderText"] = json!("모레 8시");
+        let e = validate(&answer(vec![v]).to_string(), Some(TEXT), reference()).unwrap();
+        let t = &e.items[0];
+        assert_eq!(t.subtasks, vec!["학부모 상담"]);
+        assert!(t.review_reasons.iter().any(|r| r.contains("원문에 없는 하위 할 일")));
+        assert!(t.review_reasons.iter().any(|r| r.contains("알림 때를 해석하지 못함")));
+        assert_eq!(t.reminders, vec!["2026-10-22T14:30:00+09:00"], "falls back to the default reminder");
+    }
+
+    #[test]
+    fn period_without_end_is_one_day_and_reviewed() {
+        let text = "11월 3일 상담 주간 시작";
+        let v = json!({"kind":"PERIOD","area":"SCHOOL","title":"상담 주간","details":"","dateText":"11월 3일","timeText":"","endDateText":"","subtasks":[],"reminderText":"","evidence":"","confidence":0.7});
+        let e = validate(&answer(vec![v]).to_string(), Some(text), reference()).unwrap();
+        assert_eq!(e.items[0].end_at, "2026-11-04T00:00:00+09:00");
+        assert!(e.items[0].needs_review);
+    }
+
+    #[test]
+    fn new_fields_with_wrong_types_fail() {
+        let mut v = item();
+        v["subtasks"] = json!("자료 정리");
+        assert_eq!(validate(&answer(vec![v]).to_string(), Some(TEXT), reference()).unwrap_err().code, ErrorCode::InvalidModelOutput);
+        let mut v = item();
+        v["reminderText"] = json!(9);
+        assert_eq!(validate(&answer(vec![v]).to_string(), Some(TEXT), reference()).unwrap_err().code, ErrorCode::InvalidModelOutput);
     }
 
     #[test]

@@ -289,6 +289,28 @@ pub fn find_time_phrase(text: &str) -> Option<String> {
     Some(text[first.start..end].to_string())
 }
 
+/// End day of a multi-day period ("6일", "11월 6일", "금요일"), never before `start`.
+/// A bare day stays in the start's month, or moves to the next month when it would fall
+/// before the start ("10월 30일부터 2일까지"). `None` when nothing valid is said.
+pub fn resolve_period_end(end_text: &str, start: NaiveDate) -> Option<NaiveDate> {
+    let text = normalize(end_text).replace("까지", "").trim().to_string();
+    if text.is_empty() {
+        return None;
+    }
+    let bare = text.strip_suffix('일').and_then(|d| d.trim().parse::<u32>().ok()).filter(|_| !text.contains('월'));
+    if let Some(day) = bare {
+        let same = NaiveDate::from_ymd_opt(start.year(), start.month(), day).filter(|d| *d >= start);
+        return same.or_else(|| {
+            let (y, m) = if start.month() == 12 { (start.year() + 1, 1) } else { (start.year(), start.month() + 1) };
+            NaiveDate::from_ymd_opt(y, m, day)
+        });
+    }
+    match parse_date(&text, start) {
+        DateOutcome::Valid(date) if date >= start => Some(date),
+        _ => None,
+    }
+}
+
 /// Resolves quoted phrases against `reference`. `kind` is "SCHEDULE" or "TODO".
 pub fn resolve(date_text: &str, time_text: &str, kind: &str, reference: DateTime<FixedOffset>) -> ResolvedSchedule {
     let mut reasons = Vec::new();
@@ -390,6 +412,18 @@ mod tests {
             .start_at
             .map(|d| d.to_rfc3339())
             .unwrap_or_default()
+    }
+
+    #[test]
+    fn period_end_days() {
+        let start = NaiveDate::from_ymd_opt(2026, 11, 3).unwrap();
+        assert_eq!(resolve_period_end("6일", start), NaiveDate::from_ymd_opt(2026, 11, 6));
+        assert_eq!(resolve_period_end("6일까지", start), NaiveDate::from_ymd_opt(2026, 11, 6));
+        assert_eq!(resolve_period_end("11월 20일", start), NaiveDate::from_ymd_opt(2026, 11, 20));
+        assert_eq!(resolve_period_end("2일", NaiveDate::from_ymd_opt(2026, 10, 30).unwrap()), NaiveDate::from_ymd_opt(2026, 11, 2));
+        assert_eq!(resolve_period_end("금요일", start), NaiveDate::from_ymd_opt(2026, 11, 6));
+        assert_eq!(resolve_period_end("", start), None);
+        assert_eq!(resolve_period_end("언젠가", start), None);
     }
 
     #[test]
