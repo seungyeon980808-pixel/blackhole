@@ -1,5 +1,5 @@
 /* 공문서 테마 and the A4 print sheet: values copied from design/calendar-glass/prototype-doc.html.
-   Fonts: Nanum is not bundled (no remote fonts), so Mac falls back to AppleMyungjo / Apple SD Gothic Neo. */
+   Fonts: Nanum Gothic / Nanum Myeongjo are bundled (styles/fonts.css, OFL), no remote fonts. */
 .bh.doc, .bh-print {
   --ink: #111; --ink2: #444; --ink3: #8a8a8a; --rule: #111; --hair: #cfcfcf; --shade: #e3e8f1; --shade2: #f2f4f8;
   --navy: #1f3a68; --red: #c00000; --paper: #fff; --desk: #d9dadd;

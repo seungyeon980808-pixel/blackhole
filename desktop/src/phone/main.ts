@@ -1,3 +1,4 @@
+import "../calendar/styles/fonts.css";
 import "../calendar/styles/base.css";
 import "../calendar/styles/glass.css";
 import "../calendar/styles/doc.css";
