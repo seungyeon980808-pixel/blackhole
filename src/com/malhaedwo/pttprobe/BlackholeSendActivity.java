@@ -232,6 +232,7 @@ public final class BlackholeSendActivity extends Activity {
     private static String sourceLabel(String source) {
         if (BlackholeOutbox.SOURCE_LOCK.equals(source)) return "잠금화면";
         if (BlackholeOutbox.SOURCE_SHARE.equals(source)) return "공유";
+        if (BlackholeOutbox.SOURCE_PTT.equals(source)) return "녹음 버튼";
         return "대화";
     }
 

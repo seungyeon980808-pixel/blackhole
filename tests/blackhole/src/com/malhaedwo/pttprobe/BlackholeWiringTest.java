@@ -20,7 +20,7 @@ public final class BlackholeWiringTest {
 
         // 앱 정체성은 그대로.
         check(manifest.contains("package=\"com.malhaedwo.pttprobe\""), "패키지 이름 유지");
-        check(manifest.contains("android:versionCode=\"26\"") && manifest.contains("android:versionName=\"0.10.0\""),
+        check(manifest.contains("android:versionCode=\"27\"") && manifest.contains("android:versionName=\"0.10.1\""),
                 "버전은 이 브랜치에서 올리지 않음(설치 승인 때 정함)");
         check(manifest.contains("android.permission.USE_FULL_SCREEN_INTENT"), "전체 화면 알림 권한 선언");
         check(!manifest.contains("android.permission.CAMERA"), "CAMERA 권한 없음(카메라 앱에 맡김)");
@@ -102,6 +102,15 @@ public final class BlackholeWiringTest {
             check(!s.contains(".readAllBytes(") && !s.contains(".transferTo(") && !s.contains(".isBlank(") && !s.contains(".strip("),
                     name + ": API 31에 없는 자바 메서드 안 씀");
         }
+        String ptt = src("PttService");
+        String handoff = src("BlackholePttHandoff");
+        check(ptt.contains("BlackholePttHandoff.send(this, result.file)") && handoff.contains("BlackholeOutbox.SOURCE_PTT")
+                && handoff.contains("new FileInputStream(wav)") && !handoff.contains("addFile(") && !handoff.contains(".delete("),
+                "평소 녹음도 블랙홀 인박스로: 원본 WAV는 지우지 않고 복사만");
+        check(ptt.indexOf("TranscriptionManager.enqueue") < ptt.indexOf("BlackholePttHandoff.send(this, result.file)"),
+                "기존 저장·인식이 먼저, 블랙홀 복사는 그 뒤");
+        check(handoff.contains("catch (Throwable"), "블랙홀 복사 실패가 녹음 저장을 깨지 않음");
+
         String engine = src("GoogleSyncEngine");
         check(engine.contains("DRIVE.findOrCreateFolder(token, \"말해둬 원본 음성\", null, appProperties)")
                 && engine.contains("DRIVE.resumableUpload(token, file, file.getName(), \"audio/wav\", folderId, appProperties, \"WAV\")")

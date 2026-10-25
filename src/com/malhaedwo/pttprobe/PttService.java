@@ -219,6 +219,7 @@ public final class PttService extends Service {
             } catch (Throwable databaseError) {
                 PttStore.markError(this, "database", "음성 원본 목록 저장 실패: " + safeMessage(databaseError));
             }
+            BlackholePttHandoff.send(this, result.file);
         } catch (Throwable error) {
             fail(source, "녹음 저장 실패: " + safeMessage(error));
         } finally {

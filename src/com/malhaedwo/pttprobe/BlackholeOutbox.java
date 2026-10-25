@@ -35,6 +35,7 @@ public final class BlackholeOutbox {
     public static final String SOURCE_CHAT = "CHAT";
     public static final String SOURCE_SHARE = "SHARE";
     public static final String SOURCE_LOCK = "LOCK";
+    public static final String SOURCE_PTT = "PTT";
     public static final String STATE_PENDING = "PENDING";
     public static final String STATE_UPLOADED = "UPLOADED";
     public static final String STATE_FAILED = "FAILED";
