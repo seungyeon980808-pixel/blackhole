@@ -23,7 +23,7 @@ beforeEach(() => {
   document.body.innerHTML = "";
 });
 
-describe("Ya approval desk", () => {
+describe("Blackhole approval desk", () => {
   it("renders the local preview and all three artificial items", () => {
     const root = setup();
     expect(root.querySelector('[data-testid="preview-banner"]')?.textContent).toContain("로컬 미리보기");

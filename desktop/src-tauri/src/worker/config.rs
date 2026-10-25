@@ -28,12 +28,12 @@ pub struct WorkerConfig {
     pub kordoc_bin: PathBuf,
     pub llm_timeout: Duration,
     pub whisper_prompt: Option<String>,
-    /// Larger model for documents and images only (`YA_DOCUMENT_MODEL` / `documentModel`).
+    /// Larger model for documents and images only (`BLACKHOLE_DOCUMENT_MODEL` / `documentModel`).
     pub document_model: Option<String>,
     pub options: AnalyzeOptions,
 }
 
-/// Optional JSON file (`$YA_WORKER_CONFIG`, else `<models dir>/worker-config.json`).
+/// Optional JSON file (`$BLACKHOLE_WORKER_CONFIG`, else `<models dir>/worker-config.json`).
 /// Example: tools/worker-config.example.json. Personal word lists stay outside the repo.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -64,18 +64,18 @@ fn switch(name: &str) -> Option<bool> {
     env::var(name).ok().map(|v| matches!(v.trim(), "1" | "true" | "on"))
 }
 
-/// `~/.local/share/ya-models` on macOS/Linux, `%LOCALAPPDATA%\ya-models` on Windows.
+/// `~/.local/share/blackhole-models` on macOS/Linux, `%LOCALAPPDATA%\blackhole-models` on Windows.
 pub fn models_dir() -> PathBuf {
-    if let Some(dir) = env::var_os("YA_MODELS_DIR") {
+    if let Some(dir) = env::var_os("BLACKHOLE_MODELS_DIR") {
         return PathBuf::from(dir);
     }
     if cfg!(windows) {
         if let Some(local) = env::var_os("LOCALAPPDATA") {
-            return PathBuf::from(local).join("ya-models");
+            return PathBuf::from(local).join("blackhole-models");
         }
     }
     let home = env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
-    home.join(".local").join("share").join("ya-models")
+    home.join(".local").join("share").join("blackhole-models")
 }
 
 fn var_or(name: &str, default: impl Into<String>) -> String {
@@ -87,7 +87,7 @@ impl WorkerConfig {
     /// evaluation to switch single experiments on and off).
     pub fn from_env() -> Result<Self, WorkerError> {
         let models = models_dir();
-        let file = match env::var_os("YA_WORKER_CONFIG") {
+        let file = match env::var_os("BLACKHOLE_WORKER_CONFIG") {
             Some(v) if v == "off" => WorkerFileConfig::default(),
             Some(path) => read_file_config(Path::new(&path))?,
             None => {
@@ -95,42 +95,42 @@ impl WorkerConfig {
                 if path.is_file() { read_file_config(&path)? } else { WorkerFileConfig::default() }
             }
         };
-        let words_on = env::var("YA_WORD_LISTS").map(|v| v != "off").unwrap_or(true);
+        let words_on = env::var("BLACKHOLE_WORD_LISTS").map(|v| v != "off").unwrap_or(true);
         let options = AnalyzeOptions {
             extract: ExtractOptions {
-                fill_missing: switch("YA_FILL_MISSING").or(file.fill_missing).unwrap_or(false),
+                fill_missing: switch("BLACKHOLE_FILL_MISSING").or(file.fill_missing).unwrap_or(false),
                 school_words: if words_on { file.school_words.clone() } else { Vec::new() },
                 personal_words: if words_on { file.personal_words.clone() } else { Vec::new() },
             },
-            recheck_below: match env::var("YA_RECHECK_BELOW") {
+            recheck_below: match env::var("BLACKHOLE_RECHECK_BELOW") {
                 Ok(v) if v == "off" => None,
                 Ok(v) => v.parse().ok(),
                 Err(_) => file.recheck_below,
             },
-            image_ocr_hint: switch("YA_IMAGE_OCR_HINT").or(file.image_ocr_hint).unwrap_or(false),
+            image_ocr_hint: switch("BLACKHOLE_IMAGE_OCR_HINT").or(file.image_ocr_hint).unwrap_or(false),
         };
-        let whisper_prompt = match env::var("YA_WHISPER_PROMPT") {
+        let whisper_prompt = match env::var("BLACKHOLE_WHISPER_PROMPT") {
             Ok(v) if v == "off" || v.trim().is_empty() => None,
             Ok(v) => Some(v),
             Err(_) => file.whisper_prompt.clone(),
         };
         let kordoc_default = models.join("kordoc").join("node_modules").join(".bin").join(if cfg!(windows) { "kordoc.cmd" } else { "kordoc" });
         Ok(Self {
-            ollama_url: var_or("YA_OLLAMA_URL", DEFAULT_OLLAMA_URL),
-            text_model: var_or("YA_TEXT_MODEL", DEFAULT_TEXT_MODEL),
-            direct_model: var_or("YA_DIRECT_MODEL", DEFAULT_DIRECT_MODEL),
-            whisper_bin: env::var_os("YA_WHISPER_BIN").map(PathBuf::from).unwrap_or_else(|| {
+            ollama_url: var_or("BLACKHOLE_OLLAMA_URL", DEFAULT_OLLAMA_URL),
+            text_model: var_or("BLACKHOLE_TEXT_MODEL", DEFAULT_TEXT_MODEL),
+            direct_model: var_or("BLACKHOLE_DIRECT_MODEL", DEFAULT_DIRECT_MODEL),
+            whisper_bin: env::var_os("BLACKHOLE_WHISPER_BIN").map(PathBuf::from).unwrap_or_else(|| {
                 // tools/setup-local-models.ps1 unpacks the official Windows build here.
                 let bundled = models.join("whisper-cpp").join("Release").join("whisper-cli.exe");
                 if cfg!(windows) && bundled.is_file() { bundled } else { PathBuf::from("whisper-cli") }
             }),
-            whisper_model: env::var_os("YA_WHISPER_MODEL")
+            whisper_model: env::var_os("BLACKHOLE_WHISPER_MODEL")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| models.join("whisper").join(DEFAULT_WHISPER_MODEL_FILE)),
-            kordoc_bin: env::var_os("YA_KORDOC_BIN").map(PathBuf::from).unwrap_or(kordoc_default),
-            llm_timeout: Duration::from_secs(var_or("YA_LLM_TIMEOUT_SECS", "300").parse().unwrap_or(300)),
+            kordoc_bin: env::var_os("BLACKHOLE_KORDOC_BIN").map(PathBuf::from).unwrap_or(kordoc_default),
+            llm_timeout: Duration::from_secs(var_or("BLACKHOLE_LLM_TIMEOUT_SECS", "300").parse().unwrap_or(300)),
             whisper_prompt,
-            document_model: match env::var("YA_DOCUMENT_MODEL") {
+            document_model: match env::var("BLACKHOLE_DOCUMENT_MODEL") {
                 Ok(v) if v == "off" || v.trim().is_empty() => None,
                 Ok(v) => Some(v),
                 Err(_) => file.document_model.clone(),

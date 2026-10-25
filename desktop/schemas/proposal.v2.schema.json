@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "ya/proposal.v2.schema.json",
-  "title": "Ya 로컬 작업기 제안 JSON v2",
+  "$id": "blackhole/proposal.v2.schema.json",
+  "title": "Blackhole 로컬 작업기 제안 JSON v2",
   "description": "음성·글·문서·이미지 하나를 로컬 모델로 분석한 결과. 날짜·시각은 코드가 referenceTime 기준으로 계산한다. 23열 Items 계약과 같은 kind/area 값을 쓰고, NOTE(기억할 정보)는 제안 단계에만 있다. v2: 하위 할 일(subtasks), 알림 시각 목록(reminders), 여러 날 기간(kind PERIOD: startAt=첫날 00:00, endAt=마지막 다음 날 00:00).",
   "type": "object",
   "additionalProperties": false,

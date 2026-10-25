@@ -152,7 +152,7 @@ export function createApp(root: HTMLElement, items: Item[], connection: Connecti
 
     root.innerHTML = `<div class="app-shell">
       <aside class="sidebar">
-        <div class="brand" aria-label="Ya Desktop"><span>야</span><small>Desktop</small></div>
+        <div class="brand" aria-label="Blackhole Desktop"><span>야</span><small>Desktop</small></div>
         <nav aria-label="주 메뉴">
           <button class="nav-button is-active" type="button" aria-current="page"><span aria-hidden="true"></span>승인 데스크</button>
           <button class="nav-button" type="button" disabled title="후속 버전에서 제공됩니다."><span aria-hidden="true"></span>등록된 일정</button>

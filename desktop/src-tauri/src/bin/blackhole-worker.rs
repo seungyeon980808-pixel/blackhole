@@ -1,17 +1,17 @@
-//! `ya-worker`: run the local analysis worker without the desktop app.
+//! `blackhole-worker`: run the local analysis worker without the desktop app.
 //!
-//! ya-worker analyze (--file PATH | --text TEXT) [--engine A|B] [--now ISO8601]
-//! ya-worker enqueue --queue DIR (--file PATH | --text TEXT) [--engine A|B]
-//! ya-worker run     --queue DIR [--now ISO8601]
-//! ya-worker retry   --queue DIR JOB_ID
-//! ya-worker list    --queue DIR
+//! blackhole-worker analyze (--file PATH | --text TEXT) [--engine A|B] [--now ISO8601]
+//! blackhole-worker enqueue --queue DIR (--file PATH | --text TEXT) [--engine A|B]
+//! blackhole-worker run     --queue DIR [--now ISO8601]
+//! blackhole-worker retry   --queue DIR JOB_ID
+//! blackhole-worker list    --queue DIR
 //!
 //! JSON goes to stdout. Failures print a JSON error to stderr and exit with 2.
 
 use chrono::{DateTime, FixedOffset};
 use serde_json::json;
 use std::{path::PathBuf, process::ExitCode};
-use ya_desktop_lib::worker::{
+use blackhole_desktop_lib::worker::{
     config::WorkerConfig,
     error::{ErrorCode, WorkerError},
     pipeline::{analyze_with, source_type_for, Engines, Input},
@@ -21,14 +21,14 @@ use ya_desktop_lib::worker::{
 };
 
 const USAGE: &str = "사용법:
-  ya-worker analyze (--file 경로 | --text 문장) [--engine A|B] [--now 2026-10-21T09:00:00+09:00]
-  ya-worker enqueue --queue 폴더 (--file 경로 | --text 문장) [--engine A|B]
-  ya-worker run     --queue 폴더 [--now ISO8601]
-  ya-worker retry   --queue 폴더 작업ID
-  ya-worker list    --queue 폴더
-  ya-worker inbox   --root 블랙홀폴더 [--engine A|B] [--watch 초] [--settle 초]
-환경 변수: YA_OLLAMA_URL, YA_TEXT_MODEL, YA_DIRECT_MODEL, YA_WHISPER_BIN, YA_WHISPER_MODEL, YA_KORDOC_BIN, YA_MODELS_DIR,
-  YA_WORKER_CONFIG(설정 파일, off), YA_DOCUMENT_MODEL, YA_FILL_MISSING, YA_RECHECK_BELOW, YA_IMAGE_OCR_HINT, YA_WHISPER_PROMPT, YA_WORD_LISTS=off";
+  blackhole-worker analyze (--file 경로 | --text 문장) [--engine A|B] [--now 2026-10-21T09:00:00+09:00]
+  blackhole-worker enqueue --queue 폴더 (--file 경로 | --text 문장) [--engine A|B]
+  blackhole-worker run     --queue 폴더 [--now ISO8601]
+  blackhole-worker retry   --queue 폴더 작업ID
+  blackhole-worker list    --queue 폴더
+  blackhole-worker inbox   --root 블랙홀폴더 [--engine A|B] [--watch 초] [--settle 초]
+환경 변수: BLACKHOLE_OLLAMA_URL, BLACKHOLE_TEXT_MODEL, BLACKHOLE_DIRECT_MODEL, BLACKHOLE_WHISPER_BIN, BLACKHOLE_WHISPER_MODEL, BLACKHOLE_KORDOC_BIN, BLACKHOLE_MODELS_DIR,
+  BLACKHOLE_WORKER_CONFIG(설정 파일, off), BLACKHOLE_DOCUMENT_MODEL, BLACKHOLE_FILL_MISSING, BLACKHOLE_RECHECK_BELOW, BLACKHOLE_IMAGE_OCR_HINT, BLACKHOLE_WHISPER_PROMPT, BLACKHOLE_WORD_LISTS=off";
 
 #[derive(Default)]
 struct Args {
@@ -100,7 +100,7 @@ fn run() -> Result<serde_json::Value, WorkerError> {
     let args = parse_args()?;
     let config = WorkerConfig::from_env()?;
     let (whisper, kordoc) = (config.whisper(), config.kordoc());
-    // Per input, so a larger document model (YA_DOCUMENT_MODEL) is used only where it applies.
+    // Per input, so a larger document model (BLACKHOLE_DOCUMENT_MODEL) is used only where it applies.
     let analyze_one = |input: &Input, engine: EngineId, reference: DateTime<FixedOffset>| {
         let source = match input {
             Input::File(path) => source_type_for(path)?.0,

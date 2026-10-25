@@ -14,5 +14,5 @@ pub fn run() {
             commands::store_local_cache
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Ya Desktop");
+        .expect("error while running Blackhole Desktop");
 }

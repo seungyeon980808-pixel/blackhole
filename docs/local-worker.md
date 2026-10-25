@@ -1,4 +1,4 @@
-# Ya 로컬 분석 작업기 (1단계)
+# Blackhole 로컬 분석 작업기 (1단계)
 
 음성(WAV)·글·문서(PDF, HWP, HWPX, DOCX, XLSX)·이미지(PNG, JPG, WebP) 하나를 넣으면 이 컴퓨터 안의 모델만으로 「제안 JSON」을 만듭니다. Google, Calendar, 외부 AI API에 연결하지 않습니다. 화면(UI)은 아직 없고, 2단계에서 데스크톱 앱이 같은 Rust 모듈을 부릅니다.
 
@@ -14,7 +14,7 @@ desktop/src-tauri/src/worker/
   source.rs     원본 해시, WAV 무음 검사
   proposal.rs   제안 JSON v1 타입
   config.rs     모델·실행기 위치(환경 변수로 바꿈)
-desktop/src-tauri/src/bin/ya-worker.rs   CLI
+desktop/src-tauri/src/bin/blackhole-worker.rs   CLI
 desktop/schemas/proposal.v1.schema.json  JSON 스키마
 desktop/src/worker/proposal.ts           TS 타입과 형식 검사
 tools/setup-local-models.sh / .ps1       모델 설치
@@ -49,8 +49,8 @@ WAV ──(엔진 A) whisper.cpp ──┐
 
 ```sh
 cd desktop/src-tauri
-cargo build --release --bin ya-worker
-W=target/release/ya-worker
+cargo build --release --bin blackhole-worker
+W=target/release/blackhole-worker
 
 $W analyze --file 메모.wav --engine A          # 엔진 A (기본)
 $W analyze --file 메모.wav --engine B          # 엔진 B
@@ -58,15 +58,15 @@ $W analyze --file 공문.hwp                      # 문서는 항상 A
 $W analyze --file 안내문.png --engine B
 $W analyze --text "금요일까지 보고서 내고 민수 연락처 기억해 줘" --now 2026-10-21T09:00:00+09:00
 
-$W enqueue --queue ~/ya-queue --file 메모.wav   # 같은 내용이면 "duplicate"
-$W run     --queue ~/ya-queue                   # 받음 상태 작업을 모두 분석
-$W list    --queue ~/ya-queue
-$W retry   --queue ~/ya-queue job-0123456789abcdef
+$W enqueue --queue ~/blackhole-queue --file 메모.wav   # 같은 내용이면 "duplicate"
+$W run     --queue ~/blackhole-queue                   # 받음 상태 작업을 모두 분석
+$W list    --queue ~/blackhole-queue
+$W retry   --queue ~/blackhole-queue job-0123456789abcdef
 ```
 
 성공하면 JSON을 표준 출력에, 실패하면 `{"error":{"code":...,"message":...}}`를 표준 오류에 쓰고 종료 코드 2를 냅니다.
 
-환경 변수: `YA_OLLAMA_URL`(기본 `http://127.0.0.1:11434`), `YA_TEXT_MODEL`(기본 `gemma4:e2b-it-q4_K_M`), `YA_DIRECT_MODEL`(기본 `gemma4:e2b-it-q4_K_M`), `YA_WHISPER_BIN`, `YA_WHISPER_MODEL`, `YA_KORDOC_BIN`, `YA_MODELS_DIR`, `YA_LLM_TIMEOUT_SECS`.
+환경 변수: `BLACKHOLE_OLLAMA_URL`(기본 `http://127.0.0.1:11434`), `BLACKHOLE_TEXT_MODEL`(기본 `gemma4:e2b-it-q4_K_M`), `BLACKHOLE_DIRECT_MODEL`(기본 `gemma4:e2b-it-q4_K_M`), `BLACKHOLE_WHISPER_BIN`, `BLACKHOLE_WHISPER_MODEL`, `BLACKHOLE_KORDOC_BIN`, `BLACKHOLE_MODELS_DIR`, `BLACKHOLE_LLM_TIMEOUT_SECS`.
 
 ## 대기열 규칙
 
@@ -83,16 +83,16 @@ $W retry   --queue ~/ya-queue job-0123456789abcdef
 
 ## 정확도 설정 (2026-10-24 추가)
 
-모두 기본은 꺼져 있습니다. `~/.local/share/ya-models/worker-config.json`(또는 `YA_WORKER_CONFIG`가 가리키는 파일)에 적거나 환경 변수로 켭니다. 예시는 `tools/worker-config.example.json`이며, 실제 개인 단어 목록은 저장소에 넣지 않습니다. 설정 파일에 모르는 칸이 있으면 작업기가 시작하지 않습니다.
+모두 기본은 꺼져 있습니다. `~/.local/share/blackhole-models/worker-config.json`(또는 `BLACKHOLE_WORKER_CONFIG`가 가리키는 파일)에 적거나 환경 변수로 켭니다. 예시는 `tools/worker-config.example.json`이며, 실제 개인 단어 목록은 저장소에 넣지 않습니다. 설정 파일에 모르는 칸이 있으면 작업기가 시작하지 않습니다.
 
 | 설정 파일 칸 | 환경 변수 | 하는 일 |
 |---|---|---|
-| `fillMissing` | `YA_FILL_MISSING=1` | 모델이 빠뜨린 날짜·시간을 코드가 원문(한 항목이면 전체, 여러 항목이면 그 항목의 근거 문장)에서 찾아 채웁니다. 채운 항목은 늘 검토 표시가 붙습니다. 기억(NOTE)에는 채우지 않습니다. |
-| `whisperPrompt` | `YA_WHISPER_PROMPT` | whisper에 용어 힌트(`--prompt`)를 줍니다. |
-| `schoolWords`, `personalWords` | `YA_WORD_LISTS=off`로 끔 | 지시문에 단어 목록을 보여 주고, 항목이 한쪽 목록의 말만 담고 있으면 영역을 그쪽으로 정합니다(양쪽 다 있으면 모델 판단 유지). |
-| `recheckBelow` | `YA_RECHECK_BELOW=0.7` | 확신이 이 값보다 낮거나 검토할 항목이 있으면 모델에게 한 번 더 대조시키고, 검토 사유가 적은 답을 고릅니다. 두 번째 답이 깨지면 첫 답을 씁니다. |
-| `imageOcrHint` | `YA_IMAGE_OCR_HINT=1` | 이미지를 엔진 B로 읽을 때 kordoc 글자 인식 결과를 힌트로 함께 줍니다. 글자 인식이 실패해도 그림 읽기는 계속합니다. |
-| `documentModel` | `YA_DOCUMENT_MODEL` | 문서·이미지에만 쓸 더 큰 모델(예: `gemma4:e4b-it-q4_K_M`). 음성·글은 기본 모델 그대로. |
+| `fillMissing` | `BLACKHOLE_FILL_MISSING=1` | 모델이 빠뜨린 날짜·시간을 코드가 원문(한 항목이면 전체, 여러 항목이면 그 항목의 근거 문장)에서 찾아 채웁니다. 채운 항목은 늘 검토 표시가 붙습니다. 기억(NOTE)에는 채우지 않습니다. |
+| `whisperPrompt` | `BLACKHOLE_WHISPER_PROMPT` | whisper에 용어 힌트(`--prompt`)를 줍니다. |
+| `schoolWords`, `personalWords` | `BLACKHOLE_WORD_LISTS=off`로 끔 | 지시문에 단어 목록을 보여 주고, 항목이 한쪽 목록의 말만 담고 있으면 영역을 그쪽으로 정합니다(양쪽 다 있으면 모델 판단 유지). |
+| `recheckBelow` | `BLACKHOLE_RECHECK_BELOW=0.7` | 확신이 이 값보다 낮거나 검토할 항목이 있으면 모델에게 한 번 더 대조시키고, 검토 사유가 적은 답을 고릅니다. 두 번째 답이 깨지면 첫 답을 씁니다. |
+| `imageOcrHint` | `BLACKHOLE_IMAGE_OCR_HINT=1` | 이미지를 엔진 B로 읽을 때 kordoc 글자 인식 결과를 힌트로 함께 줍니다. 글자 인식이 실패해도 그림 읽기는 계속합니다. |
+| `documentModel` | `BLACKHOLE_DOCUMENT_MODEL` | 문서·이미지에만 쓸 더 큰 모델(예: `gemma4:e4b-it-q4_K_M`). 음성·글은 기본 모델 그대로. |
 
 날짜 해석은 이번에 `2026. 11. 12.` 같은 공문 날짜, `15:00`·`15:00~17:00` 같은 24시간 표기, `11/27(금)`을 더 읽습니다(설정 없이 항상 켜짐).
 
@@ -102,7 +102,7 @@ $W retry   --queue ~/ya-queue job-0123456789abcdef
 node tools/worker-eval/run-eval.mjs --report docs/worker-eval-results.md
 ```
 
-`say -v Yuna`로 합성한 가짜 음성만 씁니다. 합성 WAV·문서·원자료는 `~/.local/share/ya-models/eval`에 두고 저장소에는 표만 남깁니다. 결과는 `docs/worker-eval-results.md`.
+`say -v Yuna`로 합성한 가짜 음성만 씁니다. 합성 WAV·문서·원자료는 `~/.local/share/blackhole-models/eval`에 두고 저장소에는 표만 남깁니다. 결과는 `docs/worker-eval-results.md`.
 
 ### 추천 기본 엔진: A (whisper.cpp + Gemma 4 E2B)
 
@@ -118,7 +118,7 @@ node tools/worker-eval/run-eval.mjs --report docs/worker-eval-results.md
 
 ### 2차 실험 뒤 추천 설정 (2026-10-24)
 
-`tools/worker-config.example.json`을 `~/.local/share/ya-models/worker-config.json`으로 복사하고 단어 목록을 자기 것으로 바꿉니다. 문서·이미지용 `gemma4:e4b-it-q4_K_M`은 `bash tools/setup-local-models.sh --with-document-model`로 받습니다.
+`tools/worker-config.example.json`을 `~/.local/share/blackhole-models/worker-config.json`으로 복사하고 단어 목록을 자기 것으로 바꿉니다. 문서·이미지용 `gemma4:e4b-it-q4_K_M`은 `bash tools/setup-local-models.sh --with-document-model`로 받습니다.
 
 - 켬: `fillMissing`, `whisperPrompt`, 단어 목록, `imageOcrHint`, `documentModel` = e4b
 - 끔: `recheckBelow`
@@ -135,8 +135,8 @@ e4b를 쓰지 않으면 이미지 힌트(`imageOcrHint`)도 끄는 편이 낫습
 ## 블랙홀 폴더 처리 (2026-10-25)
 
 ```sh
-ya-worker inbox --root "<블랙홀 폴더>"             # 한 번 훑기
-ya-worker inbox --root "<블랙홀 폴더>" --watch 30  # 30초마다 계속
+blackhole-worker inbox --root "<블랙홀 폴더>"             # 한 번 훑기
+blackhole-worker inbox --root "<블랙홀 폴더>" --watch 30  # 30초마다 계속
 ```
 
 - `인박스/`에 파일(문장 .txt, 음성 .wav, PDF·한글·워드·엑셀, 사진)을 넣으면 `원본/연/월/<해시8>-<이름>`에 사본을 남기고 분석해 `노트/{학교|개인|미분류}/연/월/날짜 제목 (해시8).md`를 씁니다. 인박스 원본은 지우거나 옮기지 않습니다.

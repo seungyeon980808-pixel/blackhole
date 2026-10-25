@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Ya Desktop",
+  "productName": "Blackhole Desktop",
   "version": "0.1.1",
-  "identifier": "com.malhaedwo.ya.desktop",
+  "identifier": "com.malhaedwo.blackhole.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Ya Desktop · 승인 데스크",
+        "title": "Blackhole Desktop · 승인 데스크",
         "width": 1180,
         "height": 760,
         "minWidth": 700,
@@ -32,7 +32,7 @@
     "targets": ["nsis", "msi"],
     "icon": ["icons/icon.ico"],
     "shortDescription": "한국어 음성 승인 데스크 컴패니언",
-    "longDescription": "Ya의 승인 항목을 안전하게 검토하는 Windows 데스크톱 컴패니언입니다.",
+    "longDescription": "블랙홀의 승인 항목을 안전하게 검토하는 Windows 데스크톱 컴패니언입니다.",
     "windows": {
       "webviewInstallMode": {
         "type": "downloadBootstrapper",

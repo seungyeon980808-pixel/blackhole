@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ya 전체 구조 설계</title>
+<title>Blackhole 전체 구조 설계</title>
 <style>
 :root{--bg:#f6f7fb;--paper:#fff;--ink:#1d1f33;--ink2:#5b6074;--line:#e3e5ee;--a:#6a4cf0;--school:#1a9fd0;--personal:#d64ea6;--todo:#c98a00;--note:#4f9a1c;--warn:#b5521b;--font:"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11131f;--paper:#1a1d2c;--ink:#eef0f8;--ink2:#a5aac0;--line:#2c3045;--a:#9b86ff;--school:#5ee1ff;--personal:#ff8fd8;--todo:#ffd36e;--note:#b9f27c;--warn:#ff9c66}}
@@ -44,7 +44,7 @@ code{font-size:13px;background:rgba(127,127,160,.15);padding:1px 5px;border-radi
 </head>
 <body>
 <main>
-<h1>Ya 전체 구조 설계 (초안)</h1>
+<h1>Blackhole 전체 구조 설계 (초안)</h1>
 <p class="sub">2026-10-25 · 목표: 휴대폰·데스크톱·메신저 어디서든 <b>던져 두기만 하면</b> 일정·할 일·기억으로 정리되고, 원본은 옵시디언에서 검색된다. 분석은 이 Mac의 로컬 AI만 쓴다.</p>
 
 <div class="callout"><b>한 줄 요약</b><br>모든 입력은 <b>하나의 인박스</b>로 모이고, Mac의 작업기가 하나씩 꺼내 <b>읽고(글로 바꾸고) → 뽑고(일정·할 일·기억) → 나눠 보냅니다</b>(캘린더 / 할 일 목록 / 옵시디언). 원본은 절대 지우지 않고, 어디서 왔는지 끝까지 연결됩니다.</div>
@@ -54,14 +54,14 @@ code{font-size:13px;background:rgba(127,127,160,.15);padding:1px 5px;border-radi
   <div class="col">
     <div class="colt">① 던지는 곳</div>
     <div class="box"><b>휴대폰 · 잠금화면</b><small>고정 알림의 [말하기][적기][사진], 볼륨 버튼 녹음(이미 있음), 빠른 설정 타일</small></div>
-    <div class="box"><b>휴대폰 · 앱/공유</b><small>카톡형 채팅, 갤러리·카톡·파일 앱에서 「Ya로 보내기」, 홈 위젯</small></div>
+    <div class="box"><b>휴대폰 · 앱/공유</b><small>카톡형 채팅, 갤러리·카톡·파일 앱에서 「블랙홀로 보내기」, 홈 위젯</small></div>
     <div class="box"><b>데스크톱</b><small>채팅 칸, 파일 끌어놓기, 단축키 빠른 입력, 넣기 폴더</small></div>
-    <div class="box"><b>디스코드·슬랙</b><small>Ya 봇에게 메시지·사진·파일</small></div>
+    <div class="box"><b>디스코드·슬랙</b><small>Blackhole 봇에게 메시지·사진·파일</small></div>
   </div>
   <div class="arrow">→</div>
   <div class="col">
     <div class="colt">② 인박스와 작업기 (Mac)</div>
-    <div class="box"><b>구글 드라이브 「Ya 인박스」</b><small>휴대폰이 원본(음성·사진·파일·문장)을 올리는 우편함. Mac이 꺼져 있어도 쌓임. 이미 음성 원본을 이 방식으로 올리고 있음</small></div>
+    <div class="box"><b>구글 드라이브 「Blackhole 인박스」</b><small>휴대폰이 원본(음성·사진·파일·문장)을 올리는 우편함. Mac이 꺼져 있어도 쌓임. 이미 음성 원본을 이 방식으로 올리고 있음</small></div>
     <div class="box core"><b>로컬 인박스 + 대기열</b><small>원본 사본을 해시로 보관 → 받음/분석 중/결과 있음/실패. 같은 원본은 한 번만</small></div>
     <div class="box core"><b>읽기</b><small>음성 → whisper, 문서·사진 → kordoc(글자 인식), 문장은 그대로</small></div>
     <div class="box core"><b>뽑기</b><small>Gemma 4가 일정·할 일·기억으로 나눔. 날짜는 코드가 계산, 원문에 없는 내용은 버림</small></div>
@@ -69,8 +69,8 @@ code{font-size:13px;background:rgba(127,127,160,.15);padding:1px 5px;border-radi
   <div class="arrow">→</div>
   <div class="col">
     <div class="colt">③ 나눠 보내는 곳</div>
-    <div class="box"><b>일정</b><small>구글 캘린더 「Ya 가승인」 → 확정하면 본 캘린더로</small></div>
-    <div class="box"><b>할 일 (체크리스트)</b><small>Ya 기록(23열 시트의 할 일)로. 그날 체크리스트·위젯·잠금화면에 표시, 체크하면 완료</small></div>
+    <div class="box"><b>일정</b><small>구글 캘린더 「Blackhole 가승인」 → 확정하면 본 캘린더로</small></div>
+    <div class="box"><b>할 일 (체크리스트)</b><small>Blackhole 기록(23열 시트의 할 일)로. 그날 체크리스트·위젯·잠금화면에 표시, 체크하면 완료</small></div>
     <div class="box"><b>옵시디언</b><small>입력마다 「원본 노트」 1장: 읽어 낸 전체 글 + 원본 파일 + 만들어진 일정·할 일 링크. 기억은 여기에만</small></div>
     <div class="box"><b>알림</b><small>휴대폰·데스크톱·디스코드로 「넣었어요 [확정][취소]」</small></div>
   </div>
@@ -80,31 +80,31 @@ code{font-size:13px;background:rgba(127,127,160,.15);padding:1px 5px;border-radi
 <h2>2. 잠금화면에서 바로 보내기 — 가능합니다</h2>
 <table>
 <tr><th>방법</th><th>잠금 해제 없이</th><th>내용</th></tr>
-<tr><td>볼륨 버튼 녹음</td><td class="ok">됨 (이미 있음)</td><td>화면이 꺼져 있어도 길게 눌러 말하기. 지금 Ya 0.9.0 기능</td></tr>
-<tr><td>고정 알림 「Ya에게 보내기」</td><td class="ok">됨</td><td>잠금화면 알림에 [🎤 말하기] [⌨ 적기] [📷 사진]. 「적기」는 알림 안에서 바로 입력(바로 답장 방식)</td></tr>
+<tr><td>볼륨 버튼 녹음</td><td class="ok">됨 (이미 있음)</td><td>화면이 꺼져 있어도 길게 눌러 말하기. 지금 Blackhole 0.9.0 기능</td></tr>
+<tr><td>고정 알림 「블랙홀에게 보내기」</td><td class="ok">됨</td><td>잠금화면 알림에 [🎤 말하기] [⌨ 적기] [📷 사진]. 「적기」는 알림 안에서 바로 입력(바로 답장 방식)</td></tr>
 <tr><td>잠금화면 위 촬영·녹음 화면</td><td class="ok">됨</td><td>카메라 앱처럼 잠금 위에 뜨는 작은 화면에서 찍거나 말하고 보냄. 빠른 설정 타일·잠금화면 바로가기(삼성)로 엶</td></tr>
-<tr><td>갤러리에 있던 사진 고르기</td><td class="no">안 됨</td><td>보안상 잠금을 풀어야 갤러리를 볼 수 있음. 「Ya로 보내기」 공유는 잠금 해제 후</td></tr>
+<tr><td>갤러리에 있던 사진 고르기</td><td class="no">안 됨</td><td>보안상 잠금을 풀어야 갤러리를 볼 수 있음. 「블랙홀로 보내기」 공유는 잠금 해제 후</td></tr>
 <tr><td>잠금화면에서 일정 보기</td><td class="ok">됨</td><td>달력을 그린 배경화면을 자동으로 바꿔 넣는 방식 + 알림. <b>학교 일정 제목 가리기</b> 옵션 필수(학생 이름 노출 방지)</td></tr>
 </table>
 <div class="callout warn">잠금화면 입력은 <b>휴대폰을 든 누구나 「추가」는 할 수 있다</b>는 뜻입니다. 대신 잠금 상태에서는 보내기만 되고, 지난 기록·다른 일정 내용은 보이지 않게 합니다. 잘못 들어온 건 가승인 단계에서 취소하면 됩니다.</div>
 
 <h2>3. 파일 → 인박스 → 옵시디언 (검색용)</h2>
 <ol>
-<li><b>받기</b>: 원본을 드라이브 「Ya 인박스」(휴대폰) 또는 Mac 넣기 폴더(데스크톱)로. Mac 작업기가 로컬 인박스로 가져와 SHA-256으로 보관.</li>
+<li><b>받기</b>: 원본을 드라이브 「Blackhole 인박스」(휴대폰) 또는 Mac 넣기 폴더(데스크톱)로. Mac 작업기가 로컬 인박스로 가져와 SHA-256으로 보관.</li>
 <li><b>읽기</b>: kordoc이 PDF·한글·워드·엑셀·사진을 글(마크다운)로, whisper가 음성을 글로.</li>
-<li><b>옵시디언 원본 노트 만들기</b>: <code>Ya/2026/10/2026-10-25 가정통신문 현장체험학습 (a1b2c3d4).md</code>
+<li><b>옵시디언 원본 노트 만들기</b>: <code>Blackhole/2026/10/2026-10-25 가정통신문 현장체험학습 (a1b2c3d4).md</code>
   <ul>
     <li>머리말: 받은 시각, 어디서 왔는지(휴대폰 사진·디스코드 등), 원본 해시, 개인/학교 구분, 상태(미확정)</li>
-    <li>본문: 읽어 낸 <b>전체 글</b>(검색 대상) + 원본 파일 링크(<code>Ya/첨부/</code>에 사본)</li>
+    <li>본문: 읽어 낸 <b>전체 글</b>(검색 대상) + 원본 파일 링크(<code>Blackhole/첨부/</code>에 사본)</li>
     <li>연결: 이 원본에서 나온 일정·할 일 목록과 링크, 같은 날 다른 입력 링크</li>
   </ul></li>
 <li><b>검색</b>: 옵시디언 검색으로 「현장체험학습」, 「동의서」 같은 낱말을 찾으면 원본 노트가 나오고, 거기서 원본 파일·일정으로 이어집니다.</li>
 </ol>
-<div class="callout warn"><b>SecondBrain 규칙과 맞추기</b>: 지금 보관함은 개인 자료만 받고, 업무 자료는 별도 보관함이 정해질 때까지 넣지 않는 규칙이 있습니다. 또 위키(<code>wiki/</code>)는 확인된 사실만 두는 곳이라, Ya는 위키를 고치지 않고 <code>Ya/</code> 폴더에 원본 노트만 씁니다. 학교 자료는 별도 「학교 보관함」을 만드는 것을 권합니다. (결정 필요)</div>
+<div class="callout warn"><b>SecondBrain 규칙과 맞추기</b>: 지금 보관함은 개인 자료만 받고, 업무 자료는 별도 보관함이 정해질 때까지 넣지 않는 규칙이 있습니다. 또 위키(<code>wiki/</code>)는 확인된 사실만 두는 곳이라, 블랙홀는 위키를 고치지 않고 <code>Blackhole/</code> 폴더에 원본 노트만 씁니다. 학교 자료는 별도 「학교 보관함」을 만드는 것을 권합니다. (결정 필요)</div>
 
 <h2>4. 할 일 체크리스트</h2>
 <ul>
-<li>할 일은 이미 Ya 기록(23열 시트)에 <code>kind = TODO</code>로 있고, 완료는 <code>status = DONE</code>입니다. <b>새 칸 없이</b> 체크리스트를 만들 수 있습니다.</li>
+<li>할 일은 이미 Blackhole 기록(23열 시트)에 <code>kind = TODO</code>로 있고, 완료는 <code>status = DONE</code>입니다. <b>새 칸 없이</b> 체크리스트를 만들 수 있습니다.</li>
 <li>보이는 곳: 데스크톱 일간 보기, 휴대폰 일 보기, 홈 위젯, 잠금화면 달력판. 어디서 체크해도 같은 기록이 완료됩니다.</li>
 <li>마감이 있는 할 일(예: 「11월 4일까지 동의서 제출」)은 그날 체크리스트에, 마감 없는 할 일은 「언젠가」 묶음에.</li>
 <li>할 일마다 출처 링크: 눌러서 원본 공문·음성으로 바로 갑니다.</li>
@@ -113,7 +113,7 @@ code{font-size:13px;background:rgba(127,127,160,.15);padding:1px 5px;border-radi
 <h2>4-1. 할 일 구조: 마감 · 하위 체크리스트 · 기간 · 알림 (2026-10-25 추가)</h2>
 <table>
 <tr><th>개념</th><th>예</th><th>기록 방법</th></tr>
-<tr><td>할 일 + 마감</td><td>연수 보고서 제출, 10/30 18:00까지 (D-5)</td><td>Ya 기록 <code>TODO</code>, <code>startAt</code>=마감 시각</td></tr>
+<tr><td>할 일 + 마감</td><td>연수 보고서 제출, 10/30 18:00까지 (D-5)</td><td>Blackhole 기록 <code>TODO</code>, <code>startAt</code>=마감 시각</td></tr>
 <tr><td>하위 체크리스트</td><td>자료 정리 / 소감 작성 / 결재 올리기</td><td>23열에 칸이 없음 → 하위 항목 표(itemId·순서·제목·완료)를 따로 두고 부모 itemId로 연결. 옵시디언 원본 노트에도 체크박스로 기록</td></tr>
 <tr><td>기간</td><td>수행평가 채점 기간 10/19–10/30</td><td><code>SCHEDULE</code>의 <code>startAt</code>~<code>endAt</code>이 여러 날(종일). 캘린더에는 종일 여러 날 일정</td></tr>
 <tr><td>알림</td><td>15:00 「30분 뒤 안과 진료」, 10/29 09:00 「보고서 마감 하루 전」</td><td><code>reminderAt</code>(첫 알림) + 추가 알림은 하위 표와 같은 방식. 휴대폰은 정확한 시각 알람(이미 있는 ReminderScheduler), 데스크톱은 OS 알림</td></tr>
@@ -140,9 +140,9 @@ code{font-size:13px;background:rgba(127,127,160,.15);padding:1px 5px;border-radi
 <h2>6. 무엇을 어디에 저장하나</h2>
 <table>
 <tr><th>자료</th><th>원장(진짜 기록)</th><th>보조 사본</th></tr>
-<tr><td>일정</td><td>구글 캘린더 (가승인 → 본 캘린더)</td><td>Ya 기록 시트(itemId로 연결)</td></tr>
-<tr><td>할 일</td><td>Ya 기록 시트 <code>TODO</code></td><td>휴대폰 DB, 데스크톱 캐시</td></tr>
-<tr><td>원본(음성·사진·파일)</td><td>Mac 로컬 인박스(해시 보관)</td><td>드라이브 「Ya 인박스」(우편함), 옵시디언 첨부</td></tr>
+<tr><td>일정</td><td>구글 캘린더 (가승인 → 본 캘린더)</td><td>Blackhole 기록 시트(itemId로 연결)</td></tr>
+<tr><td>할 일</td><td>Blackhole 기록 시트 <code>TODO</code></td><td>휴대폰 DB, 데스크톱 캐시</td></tr>
+<tr><td>원본(음성·사진·파일)</td><td>Mac 로컬 인박스(해시 보관)</td><td>드라이브 「Blackhole 인박스」(우편함), 옵시디언 첨부</td></tr>
 <tr><td>읽어 낸 글·기억</td><td>옵시디언 원본 노트</td><td>분석 결과(Analysis 시트, 2단계)</td></tr>
 </table>
 <p class="note">모든 결과에는 원본 해시가 붙어 있어서, 일정 → 원본 노트 → 원본 파일로 어느 방향에서든 찾아갈 수 있습니다.</p>
@@ -159,7 +159,7 @@ code{font-size:13px;background:rgba(127,127,160,.15);padding:1px 5px;border-radi
 <ol class="steps">
 <li><b>로컬 작업기 핵심</b> <span class="tag t-have">끝남</span><br><span class="note">음성·문서·사진 → 제안 JSON, 대기열, 평가</span></li>
 <li><b>Mac 인박스 + 옵시디언 원본 노트</b> <span class="tag t-new">다음</span><br><span class="note">넣기 폴더에 파일을 넣으면 옵시디언에 검색되는 노트가 생김. 구글 연결 없이 바로 써 볼 수 있음</span></li>
-<li><b>휴대폰 보내기</b> <span class="tag t-new">새로</span><br><span class="note">카톡형 채팅, 「Ya로 보내기」 공유, 잠금화면 알림 입력·촬영, 드라이브 인박스 업로드</span></li>
+<li><b>휴대폰 보내기</b> <span class="tag t-new">새로</span><br><span class="note">카톡형 채팅, 「블랙홀로 보내기」 공유, 잠금화면 알림 입력·촬영, 드라이브 인박스 업로드</span></li>
 <li><b>가승인 캘린더 + 할 일 체크리스트 + 확정 알림</b><br><span class="note">원래 계획의 3단계에 체크리스트 추가</span></li>
 <li><b>새 캘린더 화면</b><br><span class="note">데스크톱(월·주·업무관리판 일간·채팅), 안드로이드 위젯, 잠금화면 배경</span></li>
 <li><b>디스코드·슬랙</b> <span class="tag t-later">뒤</span></li>

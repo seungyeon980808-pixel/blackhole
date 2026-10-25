@@ -20,13 +20,13 @@ const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > 0 ? process.argv[i + 1] : fallback;
 };
-const modelsDir = process.env.YA_MODELS_DIR ?? join(homedir(), ".local/share/ya-models");
+const modelsDir = process.env.BLACKHOLE_MODELS_DIR ?? join(homedir(), ".local/share/blackhole-models");
 const out = resolve(arg("out", join(modelsDir, "eval")));
 const report = arg("report", null);
 const limit = Number(arg("limit", "0"));
-const worker = resolve(arg("worker", join(repo, "desktop/src-tauri/target/release/ya-worker")));
-const kordoc = process.env.YA_KORDOC_BIN ?? join(modelsDir, "kordoc/node_modules/.bin/kordoc");
-const ollama = process.env.YA_OLLAMA_URL ?? "http://127.0.0.1:11434";
+const worker = resolve(arg("worker", join(repo, "desktop/src-tauri/target/release/blackhole-worker")));
+const kordoc = process.env.BLACKHOLE_KORDOC_BIN ?? join(modelsDir, "kordoc/node_modules/.bin/kordoc");
+const ollama = process.env.BLACKHOLE_OLLAMA_URL ?? "http://127.0.0.1:11434";
 const spec = JSON.parse(readFileSync(join(here, "cases.json"), "utf8"));
 const cases = limit ? spec.cases.slice(0, limit) : spec.cases;
 const REF = spec.referenceTime;
@@ -74,7 +74,7 @@ async function unloadAll() {
 }
 
 function analyze(config, args) {
-  const env = { ...process.env, YA_TEXT_MODEL: config.textModel };
+  const env = { ...process.env, BLACKHOLE_TEXT_MODEL: config.textModel };
   const started = Date.now();
   const r = run("/usr/bin/time", ["-l", worker, "analyze", ...args, "--engine", config.engine, "--now", REF], { env });
   const wall = Date.now() - started;
@@ -200,7 +200,7 @@ for (const [id, r] of Object.entries(results.configs)) {
   const ms = median(r.perCase.map((p) => p.totalMs));
   lines.push(`| ${r.label} | ${pct(count("kind"), n)} | ${r.engine === "rules" ? `${pct(count("area"), n)}*` : pct(count("area"), n)} | ${pct(count("title"), n)} | ${pct(count("startAt"), n)} | ${pct(perfectItems, n)} | ${pct(perfectCases, r.perCase.length)} | ${failures} | ${flaggedWrong} | ${r.engine === "rules" ? "-" : (meanCer * 100).toFixed(1) + "%"} | ${ms < 10 ? ms.toFixed(2) + "ms" : (ms / 1000).toFixed(1) + "초"} | ${mb(Math.max(...r.perCase.map((p) => p.rss)))} | ${mb(r.ollamaModelBytes)} |`);
 }
-lines.push("", "작업기 최대 메모리: `ya-worker`와 그 자식(whisper-cli, kordoc) 프로세스의 최대 RSS. 모델 실행기 메모리: Ollama 모델 실행 프로세스의 최대 RSS(모델 하나만 올린 상태). 처리 시간: 모델을 미리 올려 둔 뒤 입력 하나의 음성 인식·문서 읽기·Gemma 시간 합.", "", "\\* 규칙 파서는 영역을 고르지 않습니다. Android 앱이 저장하는 기본값 PERSONAL로 채점했습니다. 기억(NOTE)과 한 문장 속 여러 항목도 만들지 못합니다.", "");
+lines.push("", "작업기 최대 메모리: `blackhole-worker`와 그 자식(whisper-cli, kordoc) 프로세스의 최대 RSS. 모델 실행기 메모리: Ollama 모델 실행 프로세스의 최대 RSS(모델 하나만 올린 상태). 처리 시간: 모델을 미리 올려 둔 뒤 입력 하나의 음성 인식·문서 읽기·Gemma 시간 합.", "", "\\* 규칙 파서는 영역을 고르지 않습니다. Android 앱이 저장하는 기본값 PERSONAL로 채점했습니다. 기억(NOTE)과 한 문장 속 여러 항목도 만들지 못합니다.", "");
 lines.push("### 문서·이미지 (kordoc)", "", "| 문서 | 방식 | 항목 완전 정답 | 시작 시각 | 처리 시간 | 실패 |", "|---|---|---|---|---|---|");
 for (const [id, byConfig] of Object.entries(results.documents)) {
   for (const r of Object.values(byConfig)) {

@@ -300,7 +300,7 @@ public final class MainActivity extends Activity {
 
         Button privacy = outlinedButton("개인정보처리방침", INK, SURFACE);
         privacy.setOnClickListener(v -> startActivity(new Intent(Intent.ACTION_VIEW,
-                Uri.parse("https://example.invalid/ya/privacy"))));
+                Uri.parse("https://example.invalid/blackhole/privacy"))));
         settingsBody.addView(privacy);
     }
 

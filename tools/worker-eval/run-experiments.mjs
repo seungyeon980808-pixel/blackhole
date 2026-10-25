@@ -19,14 +19,14 @@ const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > 0 ? process.argv[i + 1] : fallback;
 };
-const modelsDir = process.env.YA_MODELS_DIR ?? join(homedir(), ".local/share/ya-models");
+const modelsDir = process.env.BLACKHOLE_MODELS_DIR ?? join(homedir(), ".local/share/blackhole-models");
 const evalDir = join(modelsDir, "eval");
 const split = arg("split", "dev");
 const suites = arg("suite", "voice,docs").split(",");
 const report = arg("report", null);
-const worker = join(repo, "desktop/src-tauri/target/release/ya-worker");
-const stage1 = join(evalDir, "ya-worker-c3788e7");
-const ollama = process.env.YA_OLLAMA_URL ?? "http://127.0.0.1:11434";
+const worker = join(repo, "desktop/src-tauri/target/release/blackhole-worker");
+const stage1 = join(evalDir, "blackhole-worker-c3788e7");
+const ollama = process.env.BLACKHOLE_OLLAMA_URL ?? "http://127.0.0.1:11434";
 const docsDir = join(evalDir, "docs2");
 const voiceSpec = JSON.parse(readFileSync(join(here, "cases.json"), "utf8"));
 const docSpec = JSON.parse(readFileSync(join(here, "documents.json"), "utf8"));
@@ -36,24 +36,24 @@ const examplePrompt = JSON.parse(readFileSync(exampleConfig, "utf8")).whisperPro
 
 const E2B = "gemma4:e2b-it-q4_K_M";
 const E4B = "gemma4:e4b-it-q4_K_M";
-const OFF = { YA_WORKER_CONFIG: "off", YA_DOCUMENT_MODEL: "off", YA_FILL_MISSING: "0", YA_RECHECK_BELOW: "off", YA_IMAGE_OCR_HINT: "0", YA_WHISPER_PROMPT: "off" };
-const WORDS = { YA_WORKER_CONFIG: exampleConfig, YA_DOCUMENT_MODEL: "off", YA_FILL_MISSING: "0", YA_IMAGE_OCR_HINT: "0", YA_RECHECK_BELOW: "off", YA_WHISPER_PROMPT: "off" };
+const OFF = { BLACKHOLE_WORKER_CONFIG: "off", BLACKHOLE_DOCUMENT_MODEL: "off", BLACKHOLE_FILL_MISSING: "0", BLACKHOLE_RECHECK_BELOW: "off", BLACKHOLE_IMAGE_OCR_HINT: "0", BLACKHOLE_WHISPER_PROMPT: "off" };
+const WORDS = { BLACKHOLE_WORKER_CONFIG: exampleConfig, BLACKHOLE_DOCUMENT_MODEL: "off", BLACKHOLE_FILL_MISSING: "0", BLACKHOLE_IMAGE_OCR_HINT: "0", BLACKHOLE_RECHECK_BELOW: "off", BLACKHOLE_WHISPER_PROMPT: "off" };
 
 // image: "ocr" = engine A (kordoc OCR → text), "vision" = engine B, "both" = engine B + OCR hint.
 const CONFIGS = {
   stage1: { label: "1단계 그대로", bin: stage1, env: {}, image: "ocr" },
   base: { label: "기준(날짜 형식 확장만)", env: OFF, image: "ocr" },
-  fill: { label: "(a) 빠진 날짜·시간 채우기", env: { ...OFF, YA_FILL_MISSING: "1" }, image: "ocr" },
-  prompt: { label: "(b) whisper 용어 힌트", env: { ...OFF, YA_WHISPER_PROMPT: examplePrompt }, image: "ocr", voiceOnly: true },
+  fill: { label: "(a) 빠진 날짜·시간 채우기", env: { ...OFF, BLACKHOLE_FILL_MISSING: "1" }, image: "ocr" },
+  prompt: { label: "(b) whisper 용어 힌트", env: { ...OFF, BLACKHOLE_WHISPER_PROMPT: examplePrompt }, image: "ocr", voiceOnly: true },
   words: { label: "(c) 학교/개인 단어 목록", env: WORDS, image: "ocr" },
-  e4b: { label: "(d) gemma4:e4b", env: { ...OFF, YA_TEXT_MODEL: E4B, YA_DIRECT_MODEL: E4B }, image: "ocr" },
-  recheck: { label: "(e) 확신 낮으면 다시 묻기(0.7)", env: { ...OFF, YA_RECHECK_BELOW: "0.7" }, image: "ocr" },
+  e4b: { label: "(d) gemma4:e4b", env: { ...OFF, BLACKHOLE_TEXT_MODEL: E4B, BLACKHOLE_DIRECT_MODEL: E4B }, image: "ocr" },
+  recheck: { label: "(e) 확신 낮으면 다시 묻기(0.7)", env: { ...OFF, BLACKHOLE_RECHECK_BELOW: "0.7" }, image: "ocr" },
   vision: { label: "이미지: Gemma가 직접 읽기(B)", env: OFF, image: "vision", imagesOnly: true },
-  hint: { label: "(f) 이미지: 직접 읽기 + OCR 힌트", env: { ...OFF, YA_IMAGE_OCR_HINT: "1" }, image: "both", imagesOnly: true },
-  hint4: { label: "(f)+(d) 이미지: e4b 직접 + OCR 힌트", env: { ...OFF, YA_IMAGE_OCR_HINT: "1", YA_DIRECT_MODEL: E4B }, image: "both", imagesOnly: true },
-  docmodel: { label: "(d') 문서·이미지만 e4b", env: { ...OFF, YA_DOCUMENT_MODEL: E4B }, image: "ocr", docsOnly: true },
-  combo: { label: "조합: (a)+(b)+(c)+(f)", env: { ...WORDS, YA_FILL_MISSING: "1", YA_WHISPER_PROMPT: examplePrompt, YA_IMAGE_OCR_HINT: "1" }, image: "both" },
-  combo4: { label: "조합 + 문서·이미지만 e4b", env: { ...WORDS, YA_FILL_MISSING: "1", YA_WHISPER_PROMPT: examplePrompt, YA_IMAGE_OCR_HINT: "1", YA_DOCUMENT_MODEL: E4B }, image: "both", docsOnly: true },
+  hint: { label: "(f) 이미지: 직접 읽기 + OCR 힌트", env: { ...OFF, BLACKHOLE_IMAGE_OCR_HINT: "1" }, image: "both", imagesOnly: true },
+  hint4: { label: "(f)+(d) 이미지: e4b 직접 + OCR 힌트", env: { ...OFF, BLACKHOLE_IMAGE_OCR_HINT: "1", BLACKHOLE_DIRECT_MODEL: E4B }, image: "both", imagesOnly: true },
+  docmodel: { label: "(d') 문서·이미지만 e4b", env: { ...OFF, BLACKHOLE_DOCUMENT_MODEL: E4B }, image: "ocr", docsOnly: true },
+  combo: { label: "조합: (a)+(b)+(c)+(f)", env: { ...WORDS, BLACKHOLE_FILL_MISSING: "1", BLACKHOLE_WHISPER_PROMPT: examplePrompt, BLACKHOLE_IMAGE_OCR_HINT: "1" }, image: "both" },
+  combo4: { label: "조합 + 문서·이미지만 e4b", env: { ...WORDS, BLACKHOLE_FILL_MISSING: "1", BLACKHOLE_WHISPER_PROMPT: examplePrompt, BLACKHOLE_IMAGE_OCR_HINT: "1", BLACKHOLE_DOCUMENT_MODEL: E4B }, image: "both", docsOnly: true },
 };
 const configIds = arg("configs", Object.keys(CONFIGS).join(",")).split(",");
 
@@ -80,7 +80,7 @@ async function unloadAll() {
 }
 
 function analyze(config, args, engine) {
-  const env = { ...process.env, YA_TEXT_MODEL: E2B, YA_DIRECT_MODEL: E2B, ...config.env };
+  const env = { ...process.env, BLACKHOLE_TEXT_MODEL: E2B, BLACKHOLE_DIRECT_MODEL: E2B, ...config.env };
   const r = run("/usr/bin/time", ["-l", config.bin ?? worker, "analyze", ...args, "--engine", engine, "--now", REF], { env });
   let proposal = null, error = null;
   try { proposal = JSON.parse(r.stdout); } catch { /* error below */ }

@@ -1,16 +1,16 @@
 # Windows counterpart of tools/setup-local-models.sh. NOT YET RUN ON A WINDOWS MACHINE.
-# Installs what the Ya analysis worker needs; skips anything present; never deletes.
+# Installs what the Blackhole analysis worker needs; skips anything present; never deletes.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\setup-local-models.ps1 [-Check]
 #
 # Ollama and Node.js come from winget; whisper.cpp from its official GitHub release
 # (ggml-org/whisper.cpp, b5454 = v1.9.5, whisper-bin-x64.zip). Models go to
-# %LOCALAPPDATA%\ya-models (override with YA_MODELS_DIR) and %USERPROFILE%\.ollama\models.
+# %LOCALAPPDATA%\blackhole-models (override with BLACKHOLE_MODELS_DIR) and %USERPROFILE%\.ollama\models.
 param([switch]$Check, [switch]$WithComparison, [switch]$WithDocumentModel)
 $ErrorActionPreference = "Stop"
 
-$ModelsDir = if ($env:YA_MODELS_DIR) { $env:YA_MODELS_DIR } else { Join-Path $env:LOCALAPPDATA "ya-models" }
-$OllamaUrl = if ($env:YA_OLLAMA_URL) { $env:YA_OLLAMA_URL } else { "http://127.0.0.1:11434" }
+$ModelsDir = if ($env:BLACKHOLE_MODELS_DIR) { $env:BLACKHOLE_MODELS_DIR } else { Join-Path $env:LOCALAPPDATA "blackhole-models" }
+$OllamaUrl = if ($env:BLACKHOLE_OLLAMA_URL) { $env:BLACKHOLE_OLLAMA_URL } else { "http://127.0.0.1:11434" }
 $OllamaModels = @(@{ Name = "gemma4:e2b-it-q4_K_M"; Mb = 4600 })
 if ($WithDocumentModel) { $OllamaModels += @{ Name = "gemma4:e4b-it-q4_K_M"; Mb = 6600 } }
 if ($WithComparison) { $OllamaModels += @{ Name = "gemma3:1b"; Mb = 806 }, @{ Name = "gemma3:4b"; Mb = 3400 } }
@@ -73,12 +73,12 @@ if (-not $Check -and $plan.Count -gt 0) {
   if (-not (Test-Path $Kordoc)) {
     $kdir = Join-Path $ModelsDir "kordoc"
     New-Item -ItemType Directory -Force $kdir | Out-Null
-    if (-not (Test-Path (Join-Path $kdir "package.json"))) { '{"name":"ya-kordoc","private":true}' | Set-Content (Join-Path $kdir "package.json") }
+    if (-not (Test-Path (Join-Path $kdir "package.json"))) { '{"name":"blackhole-kordoc","private":true}' | Set-Content (Join-Path $kdir "package.json") }
     npm install --prefix $kdir --no-fund --no-audit "kordoc@$KordocVersion"
   }
   & $Kordoc check-ocr-models
 }
 
 Write-Output ""
-Write-Output "작업기 환경 변수 예: YA_WHISPER_BIN=$WhisperCli"
+Write-Output "작업기 환경 변수 예: BLACKHOLE_WHISPER_BIN=$WhisperCli"
 if (OllamaUp) { ollama list }

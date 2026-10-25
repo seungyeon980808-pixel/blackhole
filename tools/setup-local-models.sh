@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs the local runners and models the Ya analysis worker uses (macOS, Apple Silicon).
+# Installs the local runners and models the Blackhole analysis worker uses (macOS, Apple Silicon).
 # Safe to re-run: anything already present is skipped, and nothing is ever deleted.
 #
 #   bash tools/setup-local-models.sh                     # install what is missing
@@ -10,12 +10,12 @@
 # Everything lives outside the repository:
 #   Homebrew: ollama, whisper.cpp
 #   Ollama models: ~/.ollama/models (gemma4:e2b-it-q4_K_M; gemma3:1b/4b with --with-comparison)
-#   $YA_MODELS_DIR (default ~/.local/share/ya-models): whisper/ggml-large-v3-turbo-q5_0.bin, kordoc/
+#   $BLACKHOLE_MODELS_DIR (default ~/.local/share/blackhole-models): whisper/ggml-large-v3-turbo-q5_0.bin, kordoc/
 #   kordoc OCR models: ~/.cache/kordoc/models
 set -euo pipefail
 
-MODELS_DIR="${YA_MODELS_DIR:-$HOME/.local/share/ya-models}"
-OLLAMA_URL="${YA_OLLAMA_URL:-http://127.0.0.1:11434}"
+MODELS_DIR="${BLACKHOLE_MODELS_DIR:-$HOME/.local/share/blackhole-models}"
+OLLAMA_URL="${BLACKHOLE_OLLAMA_URL:-http://127.0.0.1:11434}"
 OLLAMA_MODELS=(gemma4:e2b-it-q4_K_M)
 WHISPER_FILE="ggml-large-v3-turbo-q5_0.bin"
 WHISPER_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$WHISPER_FILE"
@@ -108,7 +108,7 @@ if ((CHECK_ONLY == 0 && ${#plan[@]} > 0)); then
   fi
   if [[ ! -x "$MODELS_DIR/kordoc/node_modules/.bin/kordoc" ]]; then
     mkdir -p "$MODELS_DIR/kordoc"
-    [[ -f "$MODELS_DIR/kordoc/package.json" ]] || printf '{"name":"ya-kordoc","private":true}\n' >"$MODELS_DIR/kordoc/package.json"
+    [[ -f "$MODELS_DIR/kordoc/package.json" ]] || printf '{"name":"blackhole-kordoc","private":true}\n' >"$MODELS_DIR/kordoc/package.json"
     npm install --prefix "$MODELS_DIR/kordoc" --no-fund --no-audit "kordoc@$KORDOC_VERSION"
   fi
   # Fetch OCR models now so analysis never downloads anything.

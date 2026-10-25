@@ -19,7 +19,7 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <application
         android:allowBackup="false"
-        android:label="말해둬"
+        android:label="블랙홀"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
         <activity
@@ -118,7 +118,7 @@
         <service
             android:name=".VolumeKeyService"
             android:exported="true"
-            android:label="말해둬 PTT 물리 버튼"
+            android:label="블랙홀 PTT 물리 버튼"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />

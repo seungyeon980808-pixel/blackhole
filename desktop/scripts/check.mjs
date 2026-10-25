@@ -21,8 +21,8 @@ const rustFixtures = await text("src-tauri/src/fixtures.rs");
 const workflow = await text("../.github/workflows/windows-desktop.yml");
 
 check(packageJson.version === "0.1.1", "package version must be 0.1.1");
-check(tauri.productName === "Ya Desktop", "Tauri productName must be Ya Desktop");
-check(tauri.identifier === "com.malhaedwo.ya.desktop", "unexpected Tauri identifier");
+check(tauri.productName === "Blackhole Desktop", "Tauri productName must be Blackhole Desktop");
+check(tauri.identifier === "com.malhaedwo.blackhole.desktop", "unexpected Tauri identifier");
 check(tauri.version === "0.1.1", "Tauri version must be 0.1.1");
 check(JSON.stringify(tauri.bundle.targets) === JSON.stringify(["nsis", "msi"]), "NSIS and MSI targets required");
 check(tauri.bundle.windows.nsis.installMode === "currentUser", "NSIS must install per-user");
@@ -91,4 +91,4 @@ if (failures.length) {
   console.error("Acceptance check failed:\n" + failures.map((failure) => `- ${failure}`).join("\n"));
   process.exit(1);
 }
-console.log("Acceptance check passed: safe local Ya Desktop v0.1.1 source contract verified.");
+console.log("Acceptance check passed: safe local Blackhole Desktop v0.1.1 source contract verified.");

@@ -29,7 +29,7 @@ pub struct WavInfo {
     pub rms: f64,
 }
 
-/// Parses a 16-bit PCM RIFF/WAVE file (the format Ya Android records).
+/// Parses a 16-bit PCM RIFF/WAVE file (the format Blackhole Android records).
 pub fn inspect_wav(bytes: &[u8]) -> Result<WavInfo, WorkerError> {
     let unsupported = |why: &str| WorkerError::new(ErrorCode::UnsupportedAudio, format!("지원하지 않는 음성 파일: {why}"));
     if bytes.len() < 12 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
@@ -144,7 +144,7 @@ mod tests {
 
     #[test]
     fn missing_original_is_input_missing() {
-        let err = read_original(Path::new("/nonexistent/ya-worker-test.wav")).unwrap_err();
+        let err = read_original(Path::new("/nonexistent/blackhole-worker-test.wav")).unwrap_err();
         assert_eq!(err.code, ErrorCode::InputMissing);
     }
 }

@@ -1,6 +1,6 @@
-# Ya · 야
+# Blackhole · 블랙홀
 
-옆 사람에게 “야” 하고 말을 건네듯, 음성으로 기록하고 확인한 뒤 일정으로 연결하는 개인용 Android 앱과 Windows 검토 데스크톱입니다.
+문장·음성·사진·링크를 던져 두기만 하면 로컬 AI가 일정·할 일·기억으로 정리하는 개인용 Android 앱과 데스크톱입니다. 이전 이름은 Ya(야), 그 전은 말해둬입니다(2026-10-25 이름 변경).
 
 ## 구성
 
@@ -11,7 +11,7 @@
 - Windows Tauri 읽기 전용 승인 문서함과 로컬 fixture/cache 계약
 - package: `com.malhaedwo.pttprobe` (기존 업데이트 호환을 위해 유지)
 
-기존 코드의 화면·내부 명칭에는 이전 이름 “말해둬”가 남아 있습니다. 저장소/제품 이름은 Ya이며, 이번 공개용 복사본은 기능 전체의 이름 변경 작업과 구분합니다.
+저장소·제품 이름은 블랙홀(blackhole)입니다. 기존 설치 위 업데이트를 위해 Android 패키지 `com.malhaedwo.pttprobe`, 서명, DB 이름 등 내부 식별자에는 이전 이름 “말해둬”를 그대로 둡니다.
 
 ## 현재 상태
 
@@ -82,7 +82,7 @@ export PTT_SIGNING_HOME=/private/path/to/signing
 bash build.sh
 ```
 
-서명 디렉터리는 `ptt-probe.jks`(alias `pttprobe`)와 비밀번호 파일 `password`를 로컬에서 제공해야 합니다. 기본 위치는 `~/.config/ya/signing`입니다. 기존 설치 위 업데이트에는 반드시 원래 서명키가 필요합니다. 빌드는 키를 자동 생성하거나 교체하지 않습니다. 출력은 `build/malhaedwo-ptt-probe-0.9.0.apk`이며 서명 검증·Manifest 검사·ZIP 무결성·SHA-256 확인을 실행합니다.
+서명 디렉터리는 `ptt-probe.jks`(alias `pttprobe`)와 비밀번호 파일 `password`를 로컬에서 제공해야 합니다. 기본 위치는 `~/.config/blackhole/signing`입니다. 기존 설치 위 업데이트에는 반드시 원래 서명키가 필요합니다. 빌드는 키를 자동 생성하거나 교체하지 않습니다. 출력은 `build/malhaedwo-ptt-probe-0.9.0.apk`이며 서명 검증·Manifest 검사·ZIP 무결성·SHA-256 확인을 실행합니다.
 
 ## Windows Desktop
 

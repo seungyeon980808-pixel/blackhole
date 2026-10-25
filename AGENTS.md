@@ -1,4 +1,4 @@
-# Ya agent rules
+# Blackhole agent rules
 
 Read these files before changing code:
 

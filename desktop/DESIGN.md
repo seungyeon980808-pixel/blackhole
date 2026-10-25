@@ -1,4 +1,4 @@
-# Ya Desktop visual contract
+# Blackhole Desktop visual contract
 
 ## Product premise
 

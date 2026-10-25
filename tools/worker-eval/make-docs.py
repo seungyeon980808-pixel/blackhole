@@ -20,9 +20,9 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 HERE = Path(__file__).resolve().parent
-MODELS = Path(os.environ.get("YA_MODELS_DIR", Path.home() / ".local/share/ya-models"))
-KORDOC = os.environ.get("YA_KORDOC_BIN", str(MODELS / "kordoc/node_modules/.bin/kordoc"))
-CHROME = os.environ.get("YA_EVAL_CHROME", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+MODELS = Path(os.environ.get("BLACKHOLE_MODELS_DIR", Path.home() / ".local/share/blackhole-models"))
+KORDOC = os.environ.get("BLACKHOLE_KORDOC_BIN", str(MODELS / "kordoc/node_modules/.bin/kordoc"))
+CHROME = os.environ.get("BLACKHOLE_EVAL_CHROME", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
 PEN_FONT = MODELS / "eval-gen/fonts/NanumPenScript-Regular.ttf"
 GOTHIC = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
 

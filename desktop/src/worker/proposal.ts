@@ -1,5 +1,5 @@
 /**
- * Proposal JSON v2 produced by the local worker (`ya-worker`, Rust `worker::proposal`).
+ * Proposal JSON v2 produced by the local worker (`blackhole-worker`, Rust `worker::proposal`).
  * Schema: `desktop/schemas/proposal.v2.schema.json`. Not wired into the UI yet (stage 2).
  */
 import type { ItemArea, ItemKind } from "../domain";

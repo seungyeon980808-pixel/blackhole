@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
-TOOLS="${PTT_TOOLCHAIN_HOME:-$HOME/.local/share/ya/android-toolchain}"
+TOOLS="${PTT_TOOLCHAIN_HOME:-$HOME/.local/share/blackhole/android-toolchain}"
 JAVA_HOME="${JAVA_HOME:-$TOOLS/jdk/Contents/Home}"
 ANDROID_JAR="$TOOLS/sdk/platforms/android-35/android.jar"
 R8="$TOOLS/libs/r8-9.4.17.jar"
@@ -21,7 +21,7 @@ cp "$BUILD/dex/classes.dex" "$INPUT/dex/classes.dex"
 "$JAVA_HOME/bin/javac" -encoding UTF-8 -source 11 -target 11 -cp "$ARSC:$APKSIG" -d "$BUILD/tools" "$HERE/tools/BuildApk.java" "$HERE/tools/InspectApk.java" "$HERE/tools/SignVerifyApk.java"
 "$JAVA_HOME/bin/java" -cp "$BUILD/tools:$ARSC" BuildApk "$INPUT" "$BUILD/ptt-probe-unsigned.apk"
 
-SIGNING_HOME="${PTT_SIGNING_HOME:-$HOME/.config/ya/signing}"
+SIGNING_HOME="${PTT_SIGNING_HOME:-$HOME/.config/blackhole/signing}"
 KEYSTORE="$SIGNING_HOME/ptt-probe.jks"
 PASSFILE="$SIGNING_HOME/password"
 if [ ! -s "$KEYSTORE" ] || [ ! -s "$PASSFILE" ]; then

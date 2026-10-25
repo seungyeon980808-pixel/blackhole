@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-capability",
-  "description": "Ya Desktop main window with Tauri core APIs only.",
+  "description": "Blackhole Desktop main window with Tauri core APIs only.",
   "windows": ["main"],
   "permissions": ["core:default"]
 }

@@ -1,6 +1,6 @@
 # 로컬 모델 설치 기록
 
-작성 2026-10-24. Ya 로컬 분석 작업기(`ya-worker`)가 쓰는 실행기와 모델입니다. 모두 저장소 밖에 있고, 음성·문서 내용을 외부로 보내지 않습니다. 모델 파일을 받을 때만 인터넷을 씁니다.
+작성 2026-10-24. Blackhole 로컬 분석 작업기(`blackhole-worker`)가 쓰는 실행기와 모델입니다. 모두 저장소 밖에 있고, 음성·문서 내용을 외부로 보내지 않습니다. 모델 파일을 받을 때만 인터넷을 씁니다.
 
 설치·확인은 `bash tools/setup-local-models.sh`로 다시 할 수 있습니다(기본은 Gemma 4 E2B 하나, 평가용 Gemma 3 두 개는 `--with-comparison`). 이미 있는 것은 건너뛰고, 아무것도 지우지 않습니다. `--check`를 붙이면 설치 없이 상태만 보고 한국어 문장 하나로 실행을 확인합니다.
 
@@ -15,17 +15,17 @@
 |---|---|---|---|---|
 | Ollama | 0.40.10 | Homebrew `ollama` | `/opt/homebrew/Cellar/ollama` | 60MB |
 | whisper.cpp (`whisper-cli`) | 1.9.5 | Homebrew `whisper.cpp` | `/opt/homebrew/Cellar/whisper.cpp` | 6MB |
-| kordoc | 4.24.3 (MIT) | npm `kordoc` | `~/.local/share/ya-models/kordoc` | 438MB(Node 의존성 포함) |
+| kordoc | 4.24.3 (MIT) | npm `kordoc` | `~/.local/share/blackhole-models/kordoc` | 438MB(Node 의존성 포함) |
 
 Homebrew가 함께 설치한 의존성: `ggml` 0.27.0, `llama.cpp` 0.7.0, `sdl2-compat` 2.32.74, `sdl3` 3.4.18, `mlx-c` 0.7.0_1 (합계 약 38MB). `llama.cpp`는 whisper.cpp의 의존성으로 들어왔고 작업기는 쓰지 않습니다.
 
-Ollama 서버는 `ollama serve`를 백그라운드로 띄워 `127.0.0.1:11434`에서만 받습니다(로그 `~/.local/share/ya-models/ollama-serve.log`). 로그인 시 자동 시작은 설정하지 않았습니다. 작업기는 `http://127.0.0.1`·`localhost`·`[::1]`이 아닌 실행기 주소를 거부합니다.
+Ollama 서버는 `ollama serve`를 백그라운드로 띄워 `127.0.0.1:11434`에서만 받습니다(로그 `~/.local/share/blackhole-models/ollama-serve.log`). 로그인 시 자동 시작은 설정하지 않았습니다. 작업기는 `http://127.0.0.1`·`localhost`·`[::1]`이 아닌 실행기 주소를 거부합니다.
 
 ## 모델
 
 | 용도 | 이름 | 양자화 | 해시 | 용량 | 위치 |
 |---|---|---|---|---|---|
-| 음성 인식(엔진 A) | whisper `ggml-large-v3-turbo-q5_0.bin` | q5_0 | 파일 SHA-256 `394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2` | 548MB | `~/.local/share/ya-models/whisper/` |
+| 음성 인식(엔진 A) | whisper `ggml-large-v3-turbo-q5_0.bin` | q5_0 | 파일 SHA-256 `394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2` | 548MB | `~/.local/share/blackhole-models/whisper/` |
 | 비교용(평가에서만 사용) | Ollama `gemma3:4b` | Q4_K_M | ID `68ceab7e468a`, 모델 층 `sha256:f06e91e18fc7…`, 그림 층 `sha256:7a50f9607a47…` | 3.4GB | `~/.ollama/models` |
 | 비교용(평가에서만 사용) | Ollama `gemma3:1b` | Q4_K_M | ID `97558784bdc9`, 모델 층 `sha256:2f8c3d137f24…` | 806MB | `~/.ollama/models` |
 | **기본**: 글 정리(엔진 A)와 음성·이미지 직접(엔진 B) | Ollama `gemma4:e2b-it-q4_K_M` | Q4_K_M | ID `b37049369adf`, 모델 층 `sha256:6dd7ac24fe13…`, 음성·그림 층 `sha256:7ba3bbacdf1b…` | 4.6GB | `~/.ollama/models` |
@@ -39,13 +39,13 @@ Ollama 서버는 `ollama serve`를 백그라운드로 띄워 `127.0.0.1:11434`�
 ## 실행 확인 (2026-10-24, 이 Mac)
 
 ```text
-$ whisper-cli -m ~/.local/share/ya-models/whisper/ggml-large-v3-turbo-q5_0.bin -l ko -nt -np -f t1.wav
+$ whisper-cli -m ~/.local/share/blackhole-models/whisper/ggml-large-v3-turbo-q5_0.bin -l ko -nt -np -f t1.wav
  내일 오후 3시에 학부모 상담 일정 추가해줘.
 
 $ curl 127.0.0.1:11434/api/generate  (gemma3:1b) "한 문장으로 답해: 내일 오후 3시 학부모 상담은 언제야?"
 내일 오후 3시입니다.
 
-$ ya-worker analyze --file t1.wav --engine B --now 2026-10-21T09:00:00+09:00
+$ blackhole-worker analyze --file t1.wav --engine B --now 2026-10-21T09:00:00+09:00
 sourceText: 내일 오후 3시에 학부모 상담 일정 추가해 줘
 items[0]: SCHEDULE SCHOOL 「학부모 상담 일정 추가」 2026-10-22T15:00:00+09:00
 
@@ -66,7 +66,7 @@ ollama rm gemma4:e4b-it-q4_K_M        # 실험 (d) 비교용
 ollama rm gemma4:e2b-it-q4_K_M
 
 # whisper 모델, kordoc, 평가용 합성 파일
-rm -r ~/.local/share/ya-models
+rm -r ~/.local/share/blackhole-models
 rm -r ~/.cache/kordoc
 
 # 실행기 (함께 들어온 의존성은 autoremove가 정리)
@@ -79,8 +79,8 @@ rm -r ~/.ollama
 
 ## 평가용 가짜 문서 도구 (2026-10-24 추가)
 
-- 손글씨체 글꼴 Nanum Pen Script (OFL, Google Fonts 저장소): `~/.local/share/ya-models/eval-gen/fonts/` 3MB. 가짜 손글씨 메모를 만들 때만 씁니다.
-- 가짜 문서·이미지와 실험 원자료: `~/.local/share/ya-models/eval/` (`docs2/`, `experiments-*.json`, 1단계 실행 파일 사본 `ya-worker-c3788e7`).
+- 손글씨체 글꼴 Nanum Pen Script (OFL, Google Fonts 저장소): `~/.local/share/blackhole-models/eval-gen/fonts/` 3MB. 가짜 손글씨 메모를 만들 때만 씁니다.
+- 가짜 문서·이미지와 실험 원자료: `~/.local/share/blackhole-models/eval/` (`docs2/`, `experiments-*.json`, 1단계 실행 파일 사본 `blackhole-worker-c3788e7`).
 - 문서 생성에 쓰는 Pillow·openpyxl은 `uv run --with`로 그때그때 받아 쓰고 시스템에 설치하지 않았습니다.
 - 받은 용량 합계(1단계 포함): 약 17GB, 한도 20GB 안.
 
