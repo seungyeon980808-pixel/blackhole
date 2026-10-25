@@ -196,7 +196,9 @@ export interface SharedCalendar {
 }
 
 export function sharedFrom(s: CalendarState, now: string): SharedCalendar {
-  return { kind: "blackhole-calendar", schemaVersion: 1, exportedAt: now, events: s.events, tasks: s.tasks, periods: s.periods, notes: s.notes, appliedActions: s.appliedActions.slice(-500) };
+  // Fake sample data stays on the Mac: it is never sent to Drive or the phone.
+  const real = <T extends { sample?: boolean }>(list: T[]) => list.filter((x) => !x.sample);
+  return { kind: "blackhole-calendar", schemaVersion: 1, exportedAt: now, events: real(s.events), tasks: real(s.tasks), periods: real(s.periods), notes: real(s.notes), appliedActions: s.appliedActions.slice(-500) };
 }
 
 export function isShared(v: unknown): v is SharedCalendar {

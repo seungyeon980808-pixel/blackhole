@@ -50,6 +50,12 @@ async function mountPhone(shared: string) {
 }
 
 describe("phone calendar (Android WebView adapter)", () => {
+  it("never shares the Mac's fake sample data", async () => {
+    const { seedState } = await import("../src/calendar/samples");
+    const shared = sharedFrom(seedState(new Date(2026, 9, 25)), "x");
+    expect(shared.events.length + shared.tasks.length + shared.periods.length).toBe(0);
+  });
+
   it("shows the Mac's shared copy, no fake data", async () => {
     const { s } = macCopy();
     await mountPhone(macCopy().json);
