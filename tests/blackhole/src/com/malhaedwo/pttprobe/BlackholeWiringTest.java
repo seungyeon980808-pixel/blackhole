@@ -56,6 +56,12 @@ public final class BlackholeWiringTest {
         check(mirror.contains("PREF_ENABLED, false") && mirror.contains("provisional == main"), "가승인 캘린더 반영은 켜고 두 캘린더를 따로 고르기 전에는 쓰지 않음");
         check(mirror.contains("ownedBy(resolver") && mirror.contains("CUSTOM_APP_URI"), "이 앱이 만든 일정만 바꾸고 지움");
 
+        String widget = component(manifest, "receiver", ".CalendarWidgetProvider");
+        check(widget.contains("APPWIDGET_UPDATE") && widget.contains("@xml/blackhole_widget_info"), "홈 위젯 등록");
+        check(component(manifest, "service", ".CalendarRefreshJob").contains("BIND_JOB_SERVICE"), "30분 새로 고침 작업 등록");
+        String refresh = src("CalendarRefreshJob");
+        check(refresh.contains("PREF_LOCK, false") && refresh.contains("FLAG_LOCK"), "잠금화면 배경은 켠 경우에만, 잠금화면에만");
+
         String alarm = component(manifest, "activity", ".BlackholeAlarmActivity");
         check(alarm.contains("android:showWhenLocked=\"true\"") && alarm.contains("android:turnScreenOn=\"true\"")
                 && alarm.contains("android:exported=\"false\""), "알람 화면: 잠금 위에서 화면을 켬");

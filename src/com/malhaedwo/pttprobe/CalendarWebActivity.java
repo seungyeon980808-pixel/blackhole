@@ -77,6 +77,7 @@ public final class CalendarWebActivity extends Activity {
         web.addJavascriptInterface(new Bridge(), "BlackholeAndroid");
         SystemBarInsets.setContentView(this, web, Color.rgb(13, 15, 32));
         web.loadUrl(START_URL);
+        CalendarRefreshJob.schedule(this);
     }
 
     @Override public void onBackPressed() {
@@ -229,27 +230,26 @@ public final class CalendarWebActivity extends Activity {
 
         @JavascriptInterface public void refreshShared() {
             io.execute(() -> {
-                String status;
-                try {
-                    BlackholeCalendarSync sync = new BlackholeCalendarSync(Blackhole.uploader(CalendarWebActivity.this), new DriveTransfer(),
-                            Blackhole.tokens(CalendarWebActivity.this), Blackhole.folderCache(CalendarWebActivity.this),
-                            new File(getCacheDir(), "blackhole-calendar"));
-                    String text = sync.fetch();
-                    if (BlackholeCalendarStore.isShared(text)) {
-                        String pending = BlackholeCalendarStore.prune(prefs().getString(BlackholeCalendarStore.PREF_PENDING, "[]"), text);
-                        prefs().edit().putString(BlackholeCalendarStore.PREF_SHARED, text)
-                                .putString(BlackholeCalendarStore.PREF_PENDING, pending).apply();
-                        status = "Mac 사본 받음 " + clock();
-                        prefs().edit().putString(BlackholeCalendarMirror.PREF_STATUS, CalendarMirrorWriter.sync(CalendarWebActivity.this, text)).apply();
-                    } else {
-                        status = "Mac이 아직 사본을 쓰지 않았습니다(Mac 블랙홀 설정 「휴대폰과 달력 공유」)";
-                    }
-                } catch (Exception error) {
-                    status = "사본 받기 실패: " + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
-                }
-                prefs().edit().putString(BlackholeCalendarStore.PREF_STATUS, status).apply();
+                CalendarRefreshJob.refresh(CalendarWebActivity.this);
                 if (web != null) web.post(() -> web.evaluateJavascript("window.blackholeShared&&window.blackholeShared()", null));
             });
+        }
+
+        /** 5단계: 잠금화면 배경, 학교 일정 제목 가리기(위젯·잠금화면). */
+        @JavascriptInterface public String boardOptions() {
+            try {
+                return new JSONObject().put("lock", prefs().getBoolean(BlackholeBoard.PREF_LOCK, false))
+                        .put("hideSchool", prefs().getBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, false))
+                        .put("status", prefs().getString(BlackholeBoard.PREF_STATUS, "")).toString();
+            } catch (Exception error) {
+                return "{}";
+            }
+        }
+
+        @JavascriptInterface public void setBoardOptions(boolean lock, boolean hideSchool) {
+            prefs().edit().putBoolean(BlackholeBoard.PREF_LOCK, lock).putBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, hideSchool).apply();
+            CalendarRefreshJob.forgetLock(CalendarWebActivity.this);
+            io.execute(() -> CalendarRefreshJob.publish(CalendarWebActivity.this));
         }
 
         /** 손으로 바꾼 것: Mac이 반영할 때까지 들고 있고, 인박스로 동작 파일을 보낸다. */

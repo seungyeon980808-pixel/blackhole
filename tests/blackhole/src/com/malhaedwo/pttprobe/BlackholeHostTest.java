@@ -30,6 +30,7 @@ public final class BlackholeHostTest {
         alarmBook();
         calendar();
         mirror();
+        board();
         System.out.println("BlackholeHostTest PASS: " + checks + " assertions (가짜 드라이브·호스트 시험, 기기 증거 아님)");
     }
 
@@ -342,6 +343,33 @@ public final class BlackholeHostTest {
         List<BlackholeCalendarMirror.Op> upd = BlackholeCalendarMirror.plan(BlackholeCalendarMirror.wanted(moved, SEOUL), placed, 7, 9);
         check(upd.size() == 1 && upd.get(0).kind == BlackholeCalendarMirror.Kind.UPDATE, "시각이 바뀌면 그 일정만 고침");
         check(BlackholeCalendarMirror.marker("e-1").equals("blackhole://calendar/e-1"), "앱이 만든 일정 표시");
+    }
+
+    // ---------------------------------------------------------------- 5단계 위젯·잠금화면 내용
+
+    private static void board() {
+        String shared = "{\"kind\":\"blackhole-calendar\",\"schemaVersion\":1,\"events\":["
+                + "{\"id\":\"e-1\",\"title\":\"민수 어머니 상담\",\"area\":\"school\",\"date\":\"2026-10-25\",\"start\":\"15:30\",\"end\":\"16:00\",\"provisional\":true},"
+                + "{\"id\":\"e-2\",\"title\":\"가족 저녁\",\"area\":\"personal\",\"date\":\"2026-10-25\",\"start\":\"09:00\",\"end\":\"10:00\"},"
+                + "{\"id\":\"e-3\",\"title\":\"내일 것\",\"area\":\"personal\",\"date\":\"2026-10-26\",\"start\":\"09:00\",\"end\":\"10:00\"},"
+                + "{\"id\":\"e-4\",\"title\":\"취소\",\"area\":\"personal\",\"date\":\"2026-10-25\",\"start\":\"11:00\",\"gone\":true}],"
+                + "\"tasks\":[{\"id\":\"t-1\",\"title\":\"보고서\",\"area\":\"school\",\"due\":\"2026-10-27\",\"done\":false,\"subs\":[{\"title\":\"a\",\"done\":true},{\"title\":\"b\",\"done\":false}]},"
+                + "{\"id\":\"t-2\",\"title\":\"관리비\",\"area\":\"personal\",\"due\":\"2026-10-24\",\"done\":false},"
+                + "{\"id\":\"t-3\",\"title\":\"먼 것\",\"area\":\"personal\",\"due\":\"2026-12-01\",\"done\":false}],"
+                + "\"periods\":[{\"id\":\"p-1\",\"title\":\"채점 기간\",\"area\":\"school\",\"from\":\"2026-10-19\",\"to\":\"2026-10-30\"}],\"notes\":[]}";
+        java.time.LocalDate day = java.time.LocalDate.of(2026, 10, 25);
+        BlackholeBoard.Board b = BlackholeBoard.build(shared, day, java.time.LocalTime.of(14, 0), false);
+        check("10월 25일 일요일".equals(b.date), "날짜 머리: " + b.date);
+        check(b.events.size() == 2 && "09:00".equals(b.events.get(0).time) && b.events.get(0).past && b.events.get(1).provisional,
+                "오늘 일정만 시각 순, 지난 것 표시, 가승인 표시");
+        check(b.tasks.size() == 2 && "1일 지남".equals(b.tasks.get(0).badge) && "D-2".equals(b.tasks.get(1).badge)
+                && b.tasks.get(1).text.endsWith(" 1/2"), "할 일은 마감 순(7일 안), 밀린 것·D-day·하위 진행");
+        check(b.periods.size() == 1 && b.periods.get(0).endsWith("7/12일"), "진행 중 기간과 경과");
+        BlackholeBoard.Board hidden = BlackholeBoard.build(shared, day, java.time.LocalTime.of(14, 0), true);
+        check("학교 일정".equals(hidden.events.get(1).text) && hidden.tasks.get(1).text.startsWith("학교 할 일")
+                && hidden.periods.get(0).startsWith("학교 기간") && "가족 저녁".equals(hidden.events.get(0).text),
+                "학교 일정 제목 가리기: 학교 항목만 가림(학생 이름이 잠금화면에 안 보이게)");
+        check(BlackholeBoard.build("", day, java.time.LocalTime.NOON, false).empty(), "사본이 없으면 빈 판");
     }
 
     private interface Body { void run() throws Exception; }

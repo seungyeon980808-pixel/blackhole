@@ -24,7 +24,7 @@ HOST=()
 while IFS= read -r f; do HOST+=("$f"); done < <(collect "$HERE/json" "$HERE/src")
 "$JAVA_HOME/bin/javac" -encoding UTF-8 --release 11 -d "$OUT/host" "${HOST[@]}" \
   "$SRC/BlackholeOutbox.java" "$SRC/DriveTransfer.java" "$SRC/BlackholeUploader.java" "$SRC/BlackholeAlarmBook.java" \
-  "$SRC/BlackholeCalendarStore.java" "$SRC/BlackholeCalendarSync.java" "$SRC/BlackholeCalendarMirror.java"
+  "$SRC/BlackholeCalendarStore.java" "$SRC/BlackholeCalendarSync.java" "$SRC/BlackholeCalendarMirror.java" "$SRC/BlackholeBoard.java"
 "$JAVA_HOME/bin/java" -ea -cp "$OUT/host" com.malhaedwo.pttprobe.BlackholeHostTest
 
 # 2) 안드로이드 쪽 컴파일 검사(스텁)
