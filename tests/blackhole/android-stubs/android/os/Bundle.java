@@ -1,0 +1,1 @@
+package android.os; public final class Bundle { public String getString(String k) { throw new RuntimeException("stub"); } public void putString(String k, String v) { throw new RuntimeException("stub"); } public CharSequence getCharSequence(String k) { throw new RuntimeException("stub"); } }

@@ -18,6 +18,9 @@ public final class BootReceiver extends BroadcastReceiver {
                 CaptureAutomation.processAllReady(app);
                 SyncScheduler.ensurePeriodic(app);
                 SyncScheduler.request(app);
+                BlackholeAlarms.restoreAll(app);
+                BlackholeQuickNotification.refresh(app);
+                Blackhole.requestUpload(app);
             } finally { pending.finish(); }
         }, "MalhaedwoReschedule").start();
     }

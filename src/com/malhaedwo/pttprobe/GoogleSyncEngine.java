@@ -12,7 +12,6 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -34,12 +33,11 @@ public final class GoogleSyncEngine {
     public static final String SPREADSHEET_ID = "YOUR_SPREADSHEET_ID";
     private static final String SHEETS = "https://sheets.googleapis.com/v4/spreadsheets/" + SPREADSHEET_ID;
     private static final String DRIVE_FILES = "https://www.googleapis.com/drive/v3/files";
-    private static final String DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files";
     private static final String OWNER = GoogleOAuth.ALLOWED_EMAIL;
     private static final int ITEM_COLUMNS = 23;
     private static final int ATTACHMENT_COLUMNS = 12;
     private static final int AUDIT_COLUMNS = 8;
-    private static final int UPLOAD_CHUNK = 256 * 1024;
+    private static final DriveTransfer DRIVE = new DriveTransfer();
     private static final Object LOCK = new Object();
 
     public static final class Result {
@@ -409,24 +407,11 @@ public final class GoogleSyncEngine {
         SharedPreferences preferences = context.getSharedPreferences("malhaedwo_sync_runtime", Context.MODE_PRIVATE);
         String cached = preferences.getString("drive_folder_id", "");
         if (cached != null && !cached.isEmpty()) return cached;
-        String query = "mimeType='application/vnd.google-apps.folder' and name='말해둬 원본 음성' and trashed=false";
-        String url = DRIVE_FILES + "?spaces=drive&pageSize=10&fields=" + enc("files(id,name)") + "&q=" + enc(query);
-        HttpResponse response = api(token, "GET", url, null, null);
-        requireSuccess(response, "Drive 폴더 찾기");
-        JSONArray files = new JSONObject(response.body).optJSONArray("files");
-        String folderId = files != null && files.length() > 0 ? files.optJSONObject(0).optString("id", "") : "";
-        if (folderId.isEmpty()) {
-            JSONObject metadata = new JSONObject();
-            metadata.put("name", "말해둬 원본 음성");
-            metadata.put("mimeType", "application/vnd.google-apps.folder");
-            JSONObject appProperties = new JSONObject();
-            appProperties.put("owner", "malhaedwo");
-            metadata.put("appProperties", appProperties);
-            HttpResponse created = api(token, "POST", DRIVE_FILES + "?fields=id", metadata.toString(), null);
-            requireSuccess(created, "Drive 폴더 만들기");
-            folderId = new JSONObject(created.body).optString("id", "");
-        }
-        if (folderId.isEmpty()) throw new Exception("Drive 폴더 ID를 받지 못했습니다");
+        Map<String,String> appProperties = new LinkedHashMap<>();
+        appProperties.put("owner", "malhaedwo");
+        String folderId;
+        try { folderId = DRIVE.findOrCreateFolder(token, "말해둬 원본 음성", null, appProperties); }
+        catch (DriveTransfer.HttpFailure failure) { throw new HttpFailure(failure.code, failure.getMessage()); }
         preferences.edit().putString("drive_folder_id", folderId).apply();
         return folderId;
     }
@@ -441,118 +426,20 @@ public final class GoogleSyncEngine {
     }
 
     private static String findDriveAudio(String token, String folderId, String itemUuid, String sha) throws Exception {
-        String query = driveQueryLiteral(folderId) + " in parents and trashed=false" +
-                " and appProperties has { key='malhaedwoItemId' and value=" + driveQueryLiteral(itemUuid) + " }" +
-                " and appProperties has { key='sha256' and value=" + driveQueryLiteral(sha) + " }";
-        String url = DRIVE_FILES + "?spaces=drive&pageSize=10&fields=" + enc("files(id,trashed)") + "&q=" + enc(query);
-        HttpResponse response = api(token, "GET", url, null, null);
-        requireSuccess(response, "Drive 기존 원본 찾기");
-        JSONArray files = new JSONObject(response.body).optJSONArray("files");
-        if (files == null) return "";
-        for (int i = 0; i < files.length(); i++) {
-            JSONObject file = files.optJSONObject(i);
-            if (file != null && !file.optBoolean("trashed", false)) {
-                String id = file.optString("id", "");
-                if (!id.isEmpty()) return id;
-            }
-        }
-        return "";
-    }
-
-    private static String driveQueryLiteral(String value) {
-        String escaped = value == null ? "" : value.replace("\\", "\\\\").replace("'", "\\'");
-        return "'" + escaped + "'";
+        Map<String,String> appProperties = new LinkedHashMap<>();
+        appProperties.put("malhaedwoItemId", itemUuid);
+        appProperties.put("sha256", sha);
+        try { return DRIVE.findChild(token, folderId, appProperties); }
+        catch (DriveTransfer.HttpFailure failure) { throw new HttpFailure(failure.code, failure.getMessage()); }
     }
 
     private static String resumableUpload(String token, File file, String folderId,
                                           String itemUuid, String sha) throws Exception {
-        JSONObject metadata = new JSONObject();
-        metadata.put("name", file.getName());
-        metadata.put("mimeType", "audio/wav");
-        metadata.put("parents", new JSONArray().put(folderId));
-        JSONObject appProperties = new JSONObject();
+        Map<String,String> appProperties = new LinkedHashMap<>();
         appProperties.put("malhaedwoItemId", itemUuid);
         appProperties.put("sha256", sha);
-        metadata.put("appProperties", appProperties);
-        Map<String,String> headers = new HashMap<>();
-        headers.put("X-Upload-Content-Type", "audio/wav");
-        headers.put("X-Upload-Content-Length", String.valueOf(file.length()));
-        HttpResponse start = api(token, "POST", DRIVE_UPLOAD + "?uploadType=resumable&fields=id,name,size", metadata.toString(), headers);
-        requireSuccess(start, "Drive 업로드 세션 만들기");
-        String session = start.header("Location");
-        if (session.isEmpty()) throw new Exception("Drive resumable 업로드 주소를 받지 못했습니다");
-        long total = file.length();
-        long offset = 0;
-        int failures = 0;
-        try (RandomAccessFile input = new RandomAccessFile(file, "r")) {
-            while (offset < total) {
-                checkInterrupted();
-                int length = (int) Math.min(UPLOAD_CHUNK, total - offset);
-                byte[] chunk = new byte[length];
-                input.seek(offset);
-                input.readFully(chunk);
-                HttpURLConnection connection = (HttpURLConnection) new URL(session).openConnection();
-                connection.setRequestMethod("PUT");
-                connection.setDoOutput(true);
-                connection.setConnectTimeout(30_000);
-                connection.setReadTimeout(60_000);
-                connection.setRequestProperty("Authorization", "Bearer " + token);
-                connection.setRequestProperty("Content-Type", "audio/wav");
-                connection.setRequestProperty("Content-Range", "bytes " + offset + "-" + (offset + length - 1) + "/" + total);
-                connection.setFixedLengthStreamingMode(length);
-                try (OutputStream output = connection.getOutputStream()) { output.write(chunk); }
-                int code = connection.getResponseCode();
-                String body = read(connection, code, 2_000_000);
-                String accepted = connection.getHeaderField("Range");
-                connection.disconnect();
-                if (code == 200 || code == 201) {
-                    String id = new JSONObject(body).optString("id", "");
-                    if (id.isEmpty()) throw new Exception("Drive 업로드 파일 ID가 없습니다");
-                    return id;
-                }
-                if (code == 308) {
-                    long next = nextOffset(accepted);
-                    offset = next > offset ? next : offset + length;
-                    failures = 0;
-                    continue;
-                }
-                if ((code == 408 || code == 429 || code >= 500) && failures++ < 2) {
-                    offset = queryUploadOffset(token, session, total, offset);
-                    continue;
-                }
-                throw new HttpFailure(code, "Drive WAV 업로드 실패: " + responseMessage(body));
-            }
-        }
-        throw new Exception("Drive WAV 업로드가 완료 응답 없이 끝났습니다");
-    }
-
-    private static long queryUploadOffset(String token, String session, long total, long fallback) {
-        try {
-            HttpURLConnection connection = (HttpURLConnection) new URL(session).openConnection();
-            connection.setRequestMethod("PUT");
-            connection.setRequestProperty("Authorization", "Bearer " + token);
-            connection.setDoOutput(true);
-            connection.setFixedLengthStreamingMode(0);
-            connection.setRequestProperty("Content-Range", "bytes */" + total);
-            connection.setConnectTimeout(20_000);
-            connection.setReadTimeout(20_000);
-            int code = connection.getResponseCode();
-            String range = connection.getHeaderField("Range");
-            connection.disconnect();
-            if (code == 308) {
-                long next = nextOffset(range);
-                return next >= 0 ? next : fallback;
-            }
-        } catch (Throwable ignored) {}
-        return fallback;
-    }
-
-    private static long nextOffset(String range) {
-        if (range == null) return -1;
-        int dash = range.lastIndexOf('-');
-        if (dash < 0) return -1;
-        try { return Long.parseLong(range.substring(dash + 1).trim()) + 1; }
-        catch (Throwable ignored) { return -1; }
+        try { return DRIVE.resumableUpload(token, file, file.getName(), "audio/wav", folderId, appProperties, "WAV"); }
+        catch (DriveTransfer.HttpFailure failure) { throw new HttpFailure(failure.code, failure.getMessage()); }
     }
 
     private static void deleteDriveFile(String token, String fileId) throws Exception {

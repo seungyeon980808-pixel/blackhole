@@ -2,4 +2,11 @@
 <resources package="com.malhaedwo.pttprobe" id="0x7f">
     <public type="string" name="accessibility_description" id="0x7f010000" />
     <public type="xml" name="accessibility_service_config" id="0x7f020000" />
+    <public type="string" name="widget_description" id="0x7f010001" />
+    <public type="string" name="widget_send" id="0x7f010002" />
+    <public type="xml" name="blackhole_widget_info" id="0x7f020001" />
+    <public type="layout" name="blackhole_widget" id="0x7f030000" />
+    <public type="id" name="widget_root" id="0x7f040000" />
+    <public type="id" name="widget_board" id="0x7f040001" />
+    <public type="id" name="widget_send" id="0x7f040002" />
 </resources>

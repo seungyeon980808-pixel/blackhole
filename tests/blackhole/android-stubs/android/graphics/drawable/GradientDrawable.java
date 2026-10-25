@@ -1,0 +1,1 @@
+package android.graphics.drawable; public class GradientDrawable extends Drawable { public void setColor(int c) { throw new RuntimeException("stub"); } public void setStroke(int w, int c) { throw new RuntimeException("stub"); } public void setCornerRadius(float r) { throw new RuntimeException("stub"); } }

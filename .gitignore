@@ -3,6 +3,7 @@ build/
 release/
 apk-input/dex/
 tests/wiring/.build/
+tests/blackhole/.build/
 *.apk
 *.aab
 *.dex

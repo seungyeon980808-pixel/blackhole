@@ -1,6 +1,6 @@
-# Ya Desktop 0.1.1 for Windows
+# Blackhole Desktop 0.1.1 for Windows
 
-Ya의 한국어 음성 승인 데스크를 Windows에서 검토하기 위한 첫 설치형 컴패니언입니다. Tauri v2, Vite, 바닐라 TypeScript로 구성했습니다.
+블랙홀의 한국어 음성 승인 데스크를 Windows에서 검토하기 위한 첫 설치형 컴패니언입니다. Tauri v2, Vite, 바닐라 TypeScript로 구성했습니다.
 
 ## 현재 범위
 

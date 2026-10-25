@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.malhaedwo.pttprobe"
-    android:versionCode="25"
-    android:versionName="0.9.0">
+    android:versionCode="29"
+    android:versionName="0.11.0">
     <uses-sdk android:minSdkVersion="31" android:targetSdkVersion="35" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -16,9 +16,11 @@
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <application
         android:allowBackup="false"
-        android:label="말해둬"
+        android:label="블랙홀"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
         <activity
@@ -43,6 +45,89 @@
             android:name=".InboxActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
+        <receiver
+            android:name=".CalendarWidgetProvider"
+            android:exported="true"
+            android:label="블랙홀">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/blackhole_widget_info" />
+        </receiver>
+        <service
+            android:name=".CalendarRefreshJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <activity
+            android:name=".CalendarWebActivity"
+            android:exported="false"
+            android:label="블랙홀 달력"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".BlackholeSendActivity"
+            android:exported="false"
+            android:label="블랙홀"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".BlackholeShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="블랙홀로 보내기"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter android:label="블랙홀로 보내기">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter android:label="블랙홀로 보내기">
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".BlackholeLockCaptureActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+        <activity
+            android:name=".BlackholeAlarmActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:turnScreenOn="true" />
+        <activity
+            android:name=".BlackholeAlarmSetupActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <service
+            android:name=".BlackholeUploadJob"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <receiver
+            android:name=".BlackholeReplyReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".BlackholeAlarmReceiver"
+            android:exported="false" />
+        <provider
+            android:name=".BlackholeCaptureProvider"
+            android:authorities="com.malhaedwo.pttprobe.blackhole.capture"
+            android:exported="false"
+            android:grantUriPermissions="true" />
         <service
             android:name=".PttService"
             android:exported="false"
@@ -55,7 +140,7 @@
         <service
             android:name=".VolumeKeyService"
             android:exported="true"
-            android:label="말해둬 PTT 물리 버튼"
+            android:label="블랙홀 PTT 물리 버튼"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
