@@ -6,12 +6,11 @@
 import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type InboxStatus } from "./adapter";
 import { addDays, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
-import { normalizeState, type CalendarState, type ChatKind, type ChatMessage, type ThemeName } from "./model";
+import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
 import { seedState } from "./samples";
 import {
-  addSub, answerAlarm, applyProposal, cancelEntry, confirmEvent, describe, findEntry, log, markFired, newId,
-  toggleSub, toggleTask, upcomingAlarms, type Alarm
+  applyAction, applyProposal, describe, findEntry, log, markFired, newId, upcomingAlarms, type Alarm
 } from "./store";
 import type { Ctx, ThemeView, ViewName } from "./views/common";
 import { doc, printSheet } from "./views/doc";
@@ -73,7 +72,17 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     else if (t.closest("[data-closeprint]") || t === printRoot) printRoot.hidden = true;
   });
 
-  const save = () => adapter.save(s).catch((e: unknown) => console.error("저장 실패", e));
+  let shareLine = "";
+  let shareTimer: number | undefined;
+  const save = async () => {
+    await adapter.save(s).catch((e: unknown) => console.error("저장 실패", e));
+    if (adapter.publishShared && s.settings.sharePhone) {
+      window.clearTimeout(shareTimer);
+      shareTimer = window.setTimeout(() => {
+        void adapter.publishShared!(sharedFrom(s, stamp(clock()))).then((line) => (shareLine = line), (e: unknown) => (shareLine = String(e)));
+      }, 1500);
+    }
+  };
 
   function ctx(): Ctx {
     const now = clock();
@@ -216,6 +225,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <label class="set-row"><input type="checkbox" data-set="inbox" ${inbox.enabled ? "checked" : ""} ${inbox.available ? "" : "disabled"}> 인박스 처리 (작업기)</label>
       ${inbox.available ? `<label class="set-row">폴더 <select data-set="inboxRoot"><option value="" ${st.inboxRoot ? "" : "selected"}>시험 폴더</option>${inbox.driveRoot ? `<option value="drive" ${st.inboxRoot ? "selected" : ""}>드라이브 「블랙홀」</option>` : ""}</select></label>` : ""}
       <div class="set-note">${inbox.available ? `${st.inboxRoot ? "드라이브 폴더(인박스 원본은 지우지 않고 원본/·노트/만 씀)" : "시험 폴더"}: <code>${escapeHtml(inbox.root)}</code><br>${inbox.running ? "분석 중 · " : ""}${inbox.lastScanAt ? `마지막 확인 ${escapeHtml(inbox.lastScanAt.slice(11, 16))}` : "아직 확인 안 함"}${inbox.lastError ? `<br><span class="warn">${escapeHtml(inbox.lastError)}</span>` : ""}` : "이 화면에서는 인박스 처리를 쓸 수 없습니다."}</div>
+      ${adapter.publishShared ? `<label class="set-row"><input type="checkbox" data-set="sharePhone" ${st.sharePhone ? "checked" : ""} ${inbox.driveRoot ? "" : "disabled"}> 휴대폰과 달력 공유</label>
+      <div class="set-note">${inbox.driveRoot ? `드라이브 「블랙홀/달력.json」에 일정 사본을 쓰고, 휴대폰에서 바꾼 것을 받아 반영합니다.${shareLine ? `<br>${escapeHtml(shareLine)}` : ""}` : "드라이브 「블랙홀」 폴더가 없어 쓸 수 없습니다."}</div>` : ""}
       <div class="set-sep"></div>
       <div class="set-row"><button class="mini" data-testalarm>알람 시험 (10초 뒤)</button></div>
       <div class="set-note">${escapeHtml(adapter.connection.detail)}</div>`;
@@ -227,6 +238,20 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const wantRoot = s.settings.inboxRoot ?? inbox.testRoot ?? inbox.root;
     if (inbox.available && (inbox.enabled !== s.settings.inboxEnabled || inbox.root !== wantRoot) && !inbox.running) {
       inbox = await adapter.setInbox(s.settings.inboxEnabled, s.settings.inboxRoot).catch(() => inbox);
+    }
+  }
+
+  async function pullPhoneActions(): Promise<void> {
+    if (!adapter.phoneActions || !s.settings.sharePhone) return;
+    const actions = await adapter.phoneActions().catch(() => []);
+    const now = clock();
+    let n = 0;
+    for (const a of actions) if (applyAction(s, a, now)) n++;
+    if (n) {
+      log(s, { label: "휴대폰", msg: `휴대폰에서 바꾼 것 ${n}건 반영`, src: "휴대폰" }, now);
+      await save();
+      syncAlarms();
+      render();
     }
   }
 
@@ -290,6 +315,15 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: proposal.needsReview ? "검토 필요" : "완료", out: `${applied.refs.length}건` });
     } catch (e) {
       const at = clock();
+      if (e instanceof AnalyzeError && e.code === "QUEUED") {
+        s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: e.message });
+        s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: "분석 중", out: "" });
+        busy--;
+        await save();
+        renderComposer();
+        render();
+        return;
+      }
       const msg = e instanceof AnalyzeError ? e.message : e instanceof Error ? e.message : String(e);
       s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: `분석하지 못했어요: ${msg}`, error: true });
       log(s, { label: "실패", msg, src }, at);
@@ -413,7 +447,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   async function answer(action: "done" | "snooze"): Promise<void> {
     const a = alarmOn;
     if (!a) return;
-    answerAlarm(s, a, action, clock());
+    if (a.ref) userAction({ type: "alarm", ref: a.ref, key: a.key, answer: action }, false);
+    else markFired(s, a.key);
     nextAlarm();
     await save();
     syncAlarms();
@@ -421,6 +456,15 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
 
   /* ---------- events ---------- */
+
+  /** A hand-made change: applied here, and sent to the other device when the adapter shares. */
+  function userAction(a: Omit<UserAction, "id" | "at"> & Record<string, unknown>, refresh = true): void {
+    const now = clock();
+    const action = { ...a, id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, at: stamp(now) } as UserAction;
+    applyAction(s, action, now);
+    adapter.recordAction?.(action);
+    if (refresh) void act(() => undefined);
+  }
 
   async function act(fn: () => void): Promise<void> {
     fn();
@@ -435,12 +479,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const now = clock();
     if (q("[data-alarm]")) return void answer(q("[data-alarm]")!.dataset.alarm as "done" | "snooze");
     if (q("[data-drag]")) return;
-    if (q("[data-ok]")) return void act(() => confirmEvent(s, q("[data-ok]")!.dataset.ok!, now));
-    if (q("[data-no]")) return void act(() => cancelEntry(s, q("[data-no]")!.dataset.no!, now));
-    if (q("[data-tdone]")) return void act(() => toggleTask(s, q("[data-tdone]")!.dataset.tdone!));
+    if (q("[data-ok]")) return userAction({ type: "confirm", ref: q("[data-ok]")!.dataset.ok! });
+    if (q("[data-no]")) return userAction({ type: "cancel", ref: q("[data-no]")!.dataset.no! });
+    if (q("[data-tdone]")) return userAction({ type: "toggleTask", ref: q("[data-tdone]")!.dataset.tdone! });
     if (q("[data-sub]")) {
       const [id, i] = q("[data-sub]")!.dataset.sub!.split(":");
-      return void act(() => toggleSub(s, id, Number(i)));
+      return userAction({ type: "toggleSub", ref: id, index: Number(i) });
     }
     if (q("[data-go]")) {
       const input = root.querySelector<HTMLInputElement>(`#${q("[data-go]")!.dataset.go}`);
@@ -519,7 +563,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (el instanceof HTMLInputElement && el.dataset.subadd) {
       const id = el.dataset.subadd;
       const v = el.value;
-      void act(() => addSub(s, id, v)).then(() => root.querySelector<HTMLInputElement>(`[data-subadd="${id}"]`)?.focus());
+      if (v.trim()) userAction({ type: "addSub", ref: id, title: v.trim() }, false);
+      void act(() => undefined).then(() => root.querySelector<HTMLInputElement>(`[data-subadd="${id}"]`)?.focus());
       return;
     }
     if (el instanceof HTMLInputElement && (el.id === "bhIn" || el.id === "bhChatIn")) {
@@ -542,6 +587,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (key === "theme") s.settings.theme = el.value as ThemeName;
     if (key === "mode") s.settings.mode = el.value as "dark" | "light";
     if (key === "samples") s.settings.showSamples = (el as HTMLInputElement).checked;
+    if (key === "sharePhone") s.settings.sharePhone = (el as HTMLInputElement).checked;
     if (key === "inboxRoot") {
       s.settings.inboxRoot = el.value === "drive" ? inbox.driveRoot ?? null : null;
       inbox = await adapter.setInbox(s.settings.inboxEnabled, s.settings.inboxRoot).catch((err: unknown) => ({ ...inbox, lastError: String(err) }));
@@ -602,6 +648,18 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   window.addEventListener("pointermove", onMove);
   window.addEventListener("pointerup", onUp);
   adapter.onAlarm((a) => fireAlarm(a));
+  adapter.onShared?.((shared, pendingActions) => {
+    s.events = shared.events;
+    s.tasks = shared.tasks;
+    s.periods = shared.periods;
+    s.notes = shared.notes;
+    s.appliedActions = shared.appliedActions.slice();
+    const now = clock();
+    for (const a of pendingActions) applyAction(s, a, now);
+    void adapter.save(s);
+    syncAlarms();
+    render();
+  });
   adapter.onFileDrop?.((paths) => paths.forEach((p) => void submitPath(p)));
 
   let lastWidthCompact = false;
@@ -639,7 +697,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (m % 30 === 0) syncAlarms();
     }
   }, 15_000));
-  timers.push(window.setInterval(() => void pullInbox(), 5_000));
+  timers.push(window.setInterval(() => {
+    void pullInbox();
+    void pullPhoneActions();
+  }, 5_000));
 
   return {
     state: s,

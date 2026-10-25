@@ -103,6 +103,8 @@ export interface Settings {
   inboxEnabled: boolean;
   /** Test folder for the worker inbox. null = adapter default. */
   inboxRoot: string | null;
+  /** Mac: write a calendar copy for the phone into the Drive 「블랙홀/달력.json」. */
+  sharePhone: boolean;
 }
 
 export interface CalendarState {
@@ -118,6 +120,8 @@ export interface CalendarState {
   firedAlarms: string[];
   /** Inbox job IDs already turned into calendar entries. */
   ingestedJobs: string[];
+  /** Phone actions (확정·취소·체크…) already applied, by action id. */
+  appliedActions: string[];
   settings: Settings;
   nextId: number;
 }
@@ -127,7 +131,8 @@ export const DEFAULT_SETTINGS: Settings = {
   mode: "dark",
   showSamples: true,
   inboxEnabled: false,
-  inboxRoot: null
+  inboxRoot: null,
+  sharePhone: false
 };
 
 export function emptyState(): CalendarState {
@@ -142,6 +147,7 @@ export function emptyState(): CalendarState {
     inbox: [],
     firedAlarms: [],
     ingestedJobs: [],
+    appliedActions: [],
     settings: { ...DEFAULT_SETTINGS },
     nextId: 1
   };
@@ -164,7 +170,36 @@ export function normalizeState(value: unknown): CalendarState | null {
     inbox: list<InboxEntry>(v.inbox),
     firedAlarms: list<string>(v.firedAlarms),
     ingestedJobs: list<string>(v.ingestedJobs),
+    appliedActions: list<string>(v.appliedActions),
     settings: { ...DEFAULT_SETTINGS, ...(v.settings ?? {}) },
     nextId: typeof v.nextId === "number" && v.nextId > 0 ? v.nextId : 1
   };
+}
+
+/** A change made by hand on one device, replayed on the other (phone → Mac). */
+export type UserAction =
+  | { id: string; at: string; type: "confirm" | "cancel" | "toggleTask"; ref: string }
+  | { id: string; at: string; type: "toggleSub"; ref: string; index: number }
+  | { id: string; at: string; type: "addSub"; ref: string; title: string }
+  | { id: string; at: string; type: "alarm"; ref: string; key: string; answer: "done" | "snooze" };
+
+/** What the Mac shares with the phone (Drive 「블랙홀/달력.json」). */
+export interface SharedCalendar {
+  kind: "blackhole-calendar";
+  schemaVersion: 1;
+  exportedAt: string;
+  events: CalEvent[];
+  tasks: Task[];
+  periods: Period[];
+  notes: Memo[];
+  appliedActions: string[];
+}
+
+export function sharedFrom(s: CalendarState, now: string): SharedCalendar {
+  return { kind: "blackhole-calendar", schemaVersion: 1, exportedAt: now, events: s.events, tasks: s.tasks, periods: s.periods, notes: s.notes, appliedActions: s.appliedActions.slice(-500) };
+}
+
+export function isShared(v: unknown): v is SharedCalendar {
+  const x = v as SharedCalendar;
+  return !!x && x.kind === "blackhole-calendar" && x.schemaVersion === 1 && [x.events, x.tasks, x.periods, x.notes].every(Array.isArray);
 }

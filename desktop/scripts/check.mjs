@@ -92,7 +92,7 @@ const sensitiveContent = [
 ];
 for (const path of allFiles) {
   const name = relative(rootPath, path);
-  if (/^src\/calendar\/.*\.ts$/.test(name)) {
+  if (/^src\/(calendar|phone)\/.*\.ts$/.test(name)) {
     const code = await readFile(path, "utf8");
     check(!code.includes("@tauri-apps"), `calendar module must not import Tauri (phone WebView reuse): ${name}`);
   }

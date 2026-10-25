@@ -198,6 +198,23 @@ pub fn inbox_results(desk: tauri::State<'_, Desk>) -> Result<Vec<InboxResult>, S
     calendar::inbox_results(&Layout::new(root).state()).map_err(|e| e.to_string())
 }
 
+fn drive_root() -> Result<PathBuf, String> {
+    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    calendar::find_drive_blackhole(&home).ok_or_else(|| "드라이브 「블랙홀」 폴더가 없습니다.".to_string())
+}
+
+/// Write the phone's copy (Drive 「블랙홀/달력.json」, made by the phone). Returns a status line.
+#[tauri::command]
+pub fn share_calendar(shared: serde_json::Value) -> Result<String, String> {
+    calendar::write_shared(&drive_root()?, &shared)?;
+    Ok(format!("휴대폰 공유 사본을 {}에 씀", chrono::Local::now().format("%H:%M")))
+}
+
+#[tauri::command]
+pub fn phone_actions() -> Vec<serde_json::Value> {
+    drive_root().map(|root| calendar::read_phone_actions(&root)).unwrap_or_default()
+}
+
 #[tauri::command]
 pub fn alarms_schedule(desk: tauri::State<'_, Desk>, alarms: Vec<AlarmSpec>) {
     *desk.alarms.lock().unwrap() = alarms;

@@ -9,7 +9,8 @@
     "test": "node scripts/run-tool.mjs vitest run",
     "test:watch": "node scripts/run-tool.mjs vitest",
     "acceptance": "node scripts/check.mjs",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "build:phone": "tsc --noEmit && node scripts/run-tool.mjs vite build --config vite.phone.config.mjs"
   },
   "dependencies": {
     "@fullcalendar/core": "6.1.19",

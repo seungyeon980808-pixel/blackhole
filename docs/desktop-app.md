@@ -40,3 +40,10 @@ npm run tauri build -- --bundles app      # src-tauri/target/release/bundle/maco
 ## 어댑터 (휴대폰이 구현할 것)
 
 `desktop/src/calendar/adapter.ts`의 `BlackholeAdapter`: `load/save`, `analyze`, `inboxStatus/setInbox/inboxResults`, `scheduleAlarms/onAlarm/ring`, `print`, (선택) `onFileDrop`. 휴대폰은 같은 화면에 자기 어댑터를 넘기면 됩니다.
+
+## 휴대폰과 달력 공유 (2026-10-25)
+
+- 휴대폰 블랙홀 앱이 같은 달력 화면(`desktop/src/calendar/`)을 WebView로 띄웁니다. 웹 묶음은 `npm run build:phone` → `desktop/dist-phone/`(Git에 넣지 않음), APK를 만들 때 `assets/calendar/`로 들어갑니다.
+- 휴대폰의 구글 권한(drive.file)은 자기가 만든 파일만 보므로, **휴대폰이 드라이브 「블랙홀/달력.json」을 빈 파일로 먼저 만들고** Mac 앱은 그 파일에 덮어쓰기만 합니다(새로 만들지 않음).
+- Mac: 설정 「휴대폰과 달력 공유」를 켜면 저장할 때마다 일정·할 일·기간·기억 사본을 씁니다(대화·접수 기록은 넣지 않음). 학교 일정 제목이 개인 구글 드라이브에 올라갑니다(제품 소유자 선택, 2026-10-25).
+- 휴대폰: 사본을 받아 보여 주고, 입력은 「블랙홀/인박스/」로 보냅니다(Mac이 분석). 휴대폰에서 누른 확정·취소·체크·하위 추가·알람 응답은 `인박스/*.bhact` 작은 파일로 보내고, Mac 앱이 읽어 한 번만 반영합니다(파일은 지우지 않음, 작업기는 건너뜀). 알람은 휴대폰의 전화식 알람이 울립니다.

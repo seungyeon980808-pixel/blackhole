@@ -39,7 +39,9 @@ pub fn run() {
             desk::alarms_schedule,
             desk::alarm_ring,
             desk::print_page,
-            desk::set_window_look
+            desk::set_window_look,
+            desk::share_calendar,
+            desk::phone_actions
         ])
         .build(tauri::generate_context!())
         .expect("error while building Blackhole");

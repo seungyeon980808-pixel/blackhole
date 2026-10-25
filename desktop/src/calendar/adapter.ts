@@ -4,7 +4,7 @@
  * pass its own; the browser preview uses the memory adapter.
  */
 import type { Proposal } from "../worker/proposal";
-import type { CalendarState } from "./model";
+import type { CalendarState, SharedCalendar, UserAction } from "./model";
 import type { Alarm } from "./store";
 
 export interface AnalyzeInput {
@@ -15,6 +15,7 @@ export interface AnalyzeInput {
   now: Date;
 }
 
+/** code "QUEUED": sent for analysis elsewhere (phone → Mac); not a failure. */
 export class AnalyzeError extends Error {
   constructor(readonly code: string, message: string) {
     super(message);
@@ -65,4 +66,15 @@ export interface BlackholeAdapter {
   onFileDrop?(handler: (paths: string[]) => void): void;
   /** Window glass (desktop shows through) for the current theme, where the platform has it. */
   setLook?(theme: string, mode: string): Promise<void>;
+
+  /* Mac ↔ phone sharing (optional). */
+  /** Mac: write the shared copy. Resolves to a short status line. */
+  publishShared?(shared: SharedCalendar): Promise<string>;
+  /** Mac: actions the phone sent (read from the inbox; files are never deleted). */
+  phoneActions?(): Promise<UserAction[]>;
+  /** Phone: a hand-made change to send to the Mac. */
+  recordAction?(action: UserAction): void;
+  /** Phone: called when a newer shared copy from the Mac arrives, with the phone's
+   *  changes the Mac has not applied yet (to replay on top). */
+  onShared?(handler: (shared: SharedCalendar, pending: UserAction[]) => void): void;
 }

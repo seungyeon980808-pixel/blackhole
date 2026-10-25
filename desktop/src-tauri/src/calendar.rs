@@ -16,6 +16,8 @@ use std::{
 pub const STATE_FILE: &str = "blackhole-calendar-v1.json";
 pub const INPUT_DIR: &str = "입력";
 pub const TEST_INBOX_DIR: &str = "시험-블랙홀";
+/// Shared copy for the phone, at the top of the Drive 「블랙홀」 folder.
+pub const SHARED_FILE: &str = "달력.json";
 
 /// Load the calendar state. A file that is not JSON is moved aside (never deleted) and
 /// `None` is returned, so the app starts fresh instead of crashing.
@@ -118,6 +120,43 @@ pub fn find_drive_blackhole(home: &Path) -> Option<PathBuf> {
         .collect();
     found.sort();
     found.into_iter().next()
+}
+
+/// Write the shared calendar copy into `<root>/달력.json`, but only into a file that already
+/// exists: the phone creates it, because its Drive permission (drive.file) only reaches files it
+/// made itself. Written in place (same Drive file), never created or renamed here.
+pub fn write_shared(root: &Path, shared: &serde_json::Value) -> Result<(), String> {
+    if shared.get("kind").and_then(|k| k.as_str()) != Some("blackhole-calendar") {
+        return Err("공유 사본 형식이 아닙니다.".into());
+    }
+    let path = root.join(SHARED_FILE);
+    if !path.is_file() {
+        return Err("휴대폰이 아직 「달력.json」을 만들지 않았습니다. 휴대폰에서 블랙홀 달력을 한 번 열어 주세요.".into());
+    }
+    let bytes = serde_json::to_vec(shared).map_err(|e| e.to_string())?;
+    let mut file = fs::OpenOptions::new().write(true).truncate(true).open(&path).map_err(|e| format!("「달력.json」을 열 수 없습니다: {e}"))?;
+    file.write_all(&bytes).and_then(|_| file.sync_all()).map_err(|e| format!("「달력.json」을 쓰지 못했습니다: {e}"))
+}
+
+/// Phone actions: every `인박스/*.bhact` file (one JSON action or a list). Read only.
+pub fn read_phone_actions(root: &Path) -> Vec<serde_json::Value> {
+    let Ok(entries) = fs::read_dir(root.join("인박스")) else { return Vec::new() };
+    let mut paths: Vec<PathBuf> = entries
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|e| e == crate::worker::inbox::PHONE_ACTION_EXT))
+        .collect();
+    paths.sort();
+    let mut out = Vec::new();
+    for path in paths {
+        let Ok(bytes) = fs::read(&path) else { continue };
+        match serde_json::from_slice::<serde_json::Value>(&bytes) {
+            Ok(serde_json::Value::Array(list)) => out.extend(list),
+            Ok(v @ serde_json::Value::Object(_)) => out.push(v),
+            _ => {}
+        }
+    }
+    out.retain(|a| a.get("id").and_then(|v| v.as_str()).is_some() && a.get("type").and_then(|v| v.as_str()).is_some());
+    out
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -234,6 +273,27 @@ mod tests {
         fs::create_dir_all(&other).unwrap();
         assert!(check_inbox_root(&other).is_err());
         assert!(check_inbox_root(&drive.join("인박스")).is_err());
+    }
+
+    #[test]
+    fn shared_copy_is_written_only_into_the_phone_made_file_and_actions_are_read_only() {
+        let root = tempfile::tempdir().unwrap();
+        let shared = json!({"kind": "blackhole-calendar", "schemaVersion": 1, "events": []});
+        assert!(write_shared(root.path(), &shared).unwrap_err().contains("휴대폰이 아직"));
+        assert!(!root.path().join(SHARED_FILE).exists(), "never created here");
+        fs::write(root.path().join(SHARED_FILE), b"{}").unwrap();
+        write_shared(root.path(), &shared).unwrap();
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(root.path().join(SHARED_FILE)).unwrap()).unwrap(), shared);
+        assert!(write_shared(root.path(), &json!({"x": 1})).is_err());
+
+        let inbox = root.path().join("인박스");
+        fs::create_dir_all(&inbox).unwrap();
+        fs::write(inbox.join("20261025-1-폰-a-동작.bhact"), br#"{"id":"a1","type":"confirm","ref":"e-1","at":"x"}"#).unwrap();
+        fs::write(inbox.join("20261025-2-폰-b-동작.bhact"), br#"[{"id":"a2","type":"toggleTask","ref":"t-1","at":"x"},{"bad":1}]"#).unwrap();
+        fs::write(inbox.join("메모.txt"), b"x").unwrap();
+        let actions = read_phone_actions(root.path());
+        assert_eq!(actions.iter().map(|a| a["id"].as_str().unwrap()).collect::<Vec<_>>(), ["a1", "a2"]);
+        assert!(inbox.join("20261025-1-폰-a-동작.bhact").exists(), "action files stay");
     }
 
     #[test]

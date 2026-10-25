@@ -3,7 +3,7 @@
  */
 import type { Proposal, ProposalItem } from "../worker/proposal";
 import { addDays, diffDays, fdShort, fromStamp, isoToStamp, mins, nowHM, parseDay, stamp, ymd } from "./dates";
-import type { Area, CalEvent, CalendarState, Entry, LogEntry, Memo, Period, Task } from "./model";
+import type { Area, CalEvent, CalendarState, Entry, LogEntry, Memo, Period, Task, UserAction } from "./model";
 
 export const newId = (s: CalendarState, prefix: string): string => `${prefix}-${s.nextId++}`;
 
@@ -289,3 +289,27 @@ export function answerAlarm(s: CalendarState, alarm: Alarm, action: "done" | "sn
 }
 
 export const ddayDays = (today: string, due: string): number => diffDays(today, due);
+
+/* ---------- replaying a hand-made change ---------- */
+
+/** Apply a user action once (by id). Returns false when it was applied before or its entry is gone. */
+export function applyAction(s: CalendarState, a: UserAction, now: Date): boolean {
+  if (s.appliedActions.includes(a.id)) return false;
+  s.appliedActions.push(a.id);
+  if (s.appliedActions.length > 2000) s.appliedActions.splice(0, s.appliedActions.length - 2000);
+  if (!findEntry(s, a.ref)) return false;
+  switch (a.type) {
+    case "confirm": confirmEvent(s, a.ref, now); break;
+    case "cancel": cancelEntry(s, a.ref, now); break;
+    case "toggleTask": toggleTask(s, a.ref); break;
+    case "toggleSub": toggleSub(s, a.ref, a.index); break;
+    case "addSub": addSub(s, a.ref, a.title); break;
+    case "alarm": {
+      const alarm = allAlarms(s).find((x) => x.key === a.key);
+      if (alarm) answerAlarm(s, alarm, a.answer, now);
+      else markFired(s, a.key);
+      break;
+    }
+  }
+  return true;
+}
