@@ -52,6 +52,10 @@ public final class BlackholeWiringTest {
         check(!web.contains("BlackholeCalendarSync") || !src("BlackholeCalendarSync").contains("\"PATCH\""), "휴대폰은 달력 사본에 쓰지 않음");
         check(read("build.sh").contains("root/assets/calendar") && read("build.sh").contains("exit 6"), "APK에 달력 웹 묶음을 넣고, 없으면 빌드 중단");
 
+        String mirror = src("CalendarMirrorWriter");
+        check(mirror.contains("PREF_ENABLED, false") && mirror.contains("provisional == main"), "가승인 캘린더 반영은 켜고 두 캘린더를 따로 고르기 전에는 쓰지 않음");
+        check(mirror.contains("ownedBy(resolver") && mirror.contains("CUSTOM_APP_URI"), "이 앱이 만든 일정만 바꾸고 지움");
+
         String alarm = component(manifest, "activity", ".BlackholeAlarmActivity");
         check(alarm.contains("android:showWhenLocked=\"true\"") && alarm.contains("android:turnScreenOn=\"true\"")
                 && alarm.contains("android:exported=\"false\""), "알람 화면: 잠금 위에서 화면을 켬");

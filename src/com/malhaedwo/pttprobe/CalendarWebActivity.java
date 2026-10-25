@@ -46,6 +46,7 @@ public final class CalendarWebActivity extends Activity {
     static final String ORIGIN_HOST = "appassets.androidplatform.net";
     static final String START_URL = "https://" + ORIGIN_HOST + "/calendar/phone.html";
     private static final int REQUEST_MIC = 41;
+    private static final int REQUEST_CALENDAR = 42;
 
     private WebView web;
     private PermissionRequest waitingMic;
@@ -128,6 +129,10 @@ public final class CalendarWebActivity extends Activity {
 
     @Override public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(code, permissions, results);
+        if (code == REQUEST_CALENDAR) {
+            mirrorNow();
+            return;
+        }
         if (code != REQUEST_MIC || waitingMic == null) return;
         if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) waitingMic.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
         else waitingMic.deny();
@@ -135,6 +140,15 @@ public final class CalendarWebActivity extends Activity {
     }
 
     private SharedPreferences prefs() { return Blackhole.prefs(this); }
+
+    /** 지금 가진 Mac 사본을 구글 캘린더에 반영하고, 끝나면 화면에 알린다. */
+    private void mirrorNow() {
+        io.execute(() -> {
+            String status = CalendarMirrorWriter.sync(this, prefs().getString(BlackholeCalendarStore.PREF_SHARED, "{}"));
+            prefs().edit().putString(BlackholeCalendarMirror.PREF_STATUS, status).apply();
+            if (web != null) web.post(() -> web.evaluateJavascript("window.blackholeCalendars&&window.blackholeCalendars()", null));
+        });
+    }
 
     private File stateFile() { return new File(new File(getFilesDir(), "blackhole-calendar"), "state.json"); }
 
@@ -226,6 +240,7 @@ public final class CalendarWebActivity extends Activity {
                         prefs().edit().putString(BlackholeCalendarStore.PREF_SHARED, text)
                                 .putString(BlackholeCalendarStore.PREF_PENDING, pending).apply();
                         status = "Mac 사본 받음 " + clock();
+                        prefs().edit().putString(BlackholeCalendarMirror.PREF_STATUS, CalendarMirrorWriter.sync(CalendarWebActivity.this, text)).apply();
                     } else {
                         status = "Mac이 아직 사본을 쓰지 않았습니다(Mac 블랙홀 설정 「휴대폰과 달력 공유」)";
                     }
@@ -243,6 +258,36 @@ public final class CalendarWebActivity extends Activity {
                 BlackholeCalendarActions.record(CalendarWebActivity.this, json);
             } catch (Exception ignored) {
                 // 형식이 틀린 동작은 버린다(화면에는 이미 반영됨, 다음 사본에서 되돌아감).
+            }
+        }
+
+        /** 4단계: 고를 수 있는 캘린더와 지금 설정. */
+        @JavascriptInterface public String googleCalendars() {
+            try {
+                org.json.JSONArray list = new org.json.JSONArray();
+                for (CalendarSync.CalendarOption option : CalendarSync.listWritable(CalendarWebActivity.this)) {
+                    list.put(new JSONObject().put("id", String.valueOf(option.id)).put("name", option.toString()));
+                }
+                return new JSONObject()
+                        .put("permission", CalendarSync.hasPermission(CalendarWebActivity.this))
+                        .put("enabled", prefs().getBoolean(BlackholeCalendarMirror.PREF_ENABLED, false))
+                        .put("provisional", prefs().getString(BlackholeCalendarMirror.PREF_PROVISIONAL, ""))
+                        .put("main", prefs().getString(BlackholeCalendarMirror.PREF_MAIN, ""))
+                        .put("status", prefs().getString(BlackholeCalendarMirror.PREF_STATUS, ""))
+                        .put("calendars", list).toString();
+            } catch (Exception error) {
+                return "{}";
+            }
+        }
+
+        @JavascriptInterface public void setGoogleCalendars(boolean enabled, String provisional, String main) {
+            prefs().edit().putBoolean(BlackholeCalendarMirror.PREF_ENABLED, enabled)
+                    .putString(BlackholeCalendarMirror.PREF_PROVISIONAL, provisional == null ? "" : provisional)
+                    .putString(BlackholeCalendarMirror.PREF_MAIN, main == null ? "" : main).apply();
+            if (enabled && !CalendarSync.hasPermission(CalendarWebActivity.this)) {
+                runOnUiThread(() -> requestPermissions(new String[]{Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR}, REQUEST_CALENDAR));
+            } else {
+                mirrorNow();
             }
         }
 

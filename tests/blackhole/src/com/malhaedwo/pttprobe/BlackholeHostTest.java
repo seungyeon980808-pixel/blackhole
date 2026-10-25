@@ -29,6 +29,7 @@ public final class BlackholeHostTest {
         legacyWavQueries();
         alarmBook();
         calendar();
+        mirror();
         System.out.println("BlackholeHostTest PASS: " + checks + " assertions (가짜 드라이브·호스트 시험, 기기 증거 아님)");
     }
 
@@ -293,6 +294,54 @@ public final class BlackholeHostTest {
             tokens.afterInvalidate = "fresh";
             check(shared.equals(sync.fetch()), "토큰이 만료되면 새로 받아 다시 시도");
         }
+    }
+
+    // ---------------------------------------------------------------- 4단계 가승인 캘린더 계산
+
+    private static void mirror() {
+        String shared = "{\"kind\":\"blackhole-calendar\",\"schemaVersion\":1,\"events\":["
+                + "{\"id\":\"e-1\",\"title\":\"학부모 상담\",\"date\":\"2026-10-26\",\"start\":\"15:00\",\"end\":\"16:00\",\"provisional\":true},"
+                + "{\"id\":\"e-2\",\"title\":\"운동회\",\"date\":\"2026-10-27\",\"start\":null,\"end\":null,\"provisional\":false},"
+                + "{\"id\":\"e-3\",\"title\":\"취소된 것\",\"date\":\"2026-10-27\",\"start\":\"09:00\",\"end\":\"10:00\",\"provisional\":false,\"gone\":true},"
+                + "{\"id\":\"e-4\",\"title\":\"날짜 틀림\",\"date\":\"10월\",\"start\":\"09:00\"}],"
+                + "\"tasks\":[],\"periods\":[{\"id\":\"p-1\",\"title\":\"상담 주간\",\"from\":\"2026-11-03\",\"to\":\"2026-11-06\"}],\"notes\":[]}";
+        List<BlackholeCalendarMirror.Want> wanted = BlackholeCalendarMirror.wanted(shared, SEOUL);
+        check(wanted.size() == 3, "취소·형식 틀린 일정은 빼고 일정 2 + 기간 1");
+        BlackholeCalendarMirror.Want e1 = wanted.get(0);
+        check(e1.provisional && !e1.allDay && e1.start == ZonedDateTime.of(2026, 10, 26, 15, 0, 0, 0, SEOUL).toInstant().toEpochMilli()
+                && e1.end - e1.start == 3_600_000L, "시각 일정은 이 기기 시간대로");
+        BlackholeCalendarMirror.Want e2 = wanted.get(1);
+        check(e2.allDay && e2.end - e2.start == 86_400_000L && e2.start % 86_400_000L == 0, "종일 일정은 UTC 자정 하루");
+        BlackholeCalendarMirror.Want p1 = wanted.get(2);
+        check(p1.allDay && p1.end - p1.start == 4 * 86_400_000L, "기간 11/3–11/6은 종일 4일");
+
+        Map<String,BlackholeCalendarMirror.Placed> placed = new LinkedHashMap<>();
+        check(BlackholeCalendarMirror.plan(wanted, placed, 7, 7).isEmpty() && BlackholeCalendarMirror.plan(wanted, placed, -1, 9).isEmpty(),
+                "두 캘린더가 같거나 정하지 않았으면 아무것도 안 씀");
+        List<BlackholeCalendarMirror.Op> first = BlackholeCalendarMirror.plan(wanted, placed, 7, 9);
+        check(first.size() == 3 && first.get(0).kind == BlackholeCalendarMirror.Kind.INSERT && first.get(0).calendarId == 7
+                && first.get(1).calendarId == 9 && first.get(2).calendarId == 9, "가승인 → 가승인 캘린더(7), 확정·기간 → 본 캘린더(9)");
+        long eventId = 100;
+        for (BlackholeCalendarMirror.Op op : first) {
+            BlackholeCalendarMirror.Placed p = new BlackholeCalendarMirror.Placed();
+            p.entryId = op.want.entryId; p.calendarId = op.calendarId; p.eventId = eventId++; p.hash = op.want.hash;
+            placed.put(p.entryId, p);
+        }
+        placed = BlackholeCalendarMirror.parsePlaced(BlackholeCalendarMirror.placedJson(placed));
+        check(placed.size() == 3 && placed.get("e-1").eventId == 100, "장부 저장·읽기");
+        check(BlackholeCalendarMirror.plan(wanted, placed, 7, 9).isEmpty(), "바뀐 게 없으면 아무것도 안 함");
+
+        // 확정: 가승인 캘린더에서 지우고 본 캘린더에 넣는다. 기간은 사라지면 지운다.
+        String confirmed = shared.replace("\"provisional\":true", "\"provisional\":false").replace(",\"periods\":[{\"id\":\"p-1\",\"title\":\"상담 주간\",\"from\":\"2026-11-03\",\"to\":\"2026-11-06\"}]", ",\"periods\":[]");
+        List<BlackholeCalendarMirror.Op> next = BlackholeCalendarMirror.plan(BlackholeCalendarMirror.wanted(confirmed, SEOUL), placed, 7, 9);
+        check(next.size() == 3 && next.get(0).kind == BlackholeCalendarMirror.Kind.DELETE && next.get(0).calendarId == 7
+                && next.get(1).kind == BlackholeCalendarMirror.Kind.INSERT && next.get(1).calendarId == 9
+                && next.get(2).kind == BlackholeCalendarMirror.Kind.DELETE && "p-1".equals(next.get(2).placed.entryId),
+                "확정하면 가승인 캘린더 → 본 캘린더로 옮기고, 없어진 기간은 지움");
+        String moved = shared.replace("\"start\":\"15:00\"", "\"start\":\"15:30\"");
+        List<BlackholeCalendarMirror.Op> upd = BlackholeCalendarMirror.plan(BlackholeCalendarMirror.wanted(moved, SEOUL), placed, 7, 9);
+        check(upd.size() == 1 && upd.get(0).kind == BlackholeCalendarMirror.Kind.UPDATE, "시각이 바뀌면 그 일정만 고침");
+        check(BlackholeCalendarMirror.marker("e-1").equals("blackhole://calendar/e-1"), "앱이 만든 일정 표시");
     }
 
     private interface Body { void run() throws Exception; }
