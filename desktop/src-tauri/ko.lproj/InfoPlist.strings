@@ -1,0 +1,3 @@
+/* 메뉴 막대·Dock·Finder에 보이는 이름 */
+"CFBundleName" = "블랙홀";
+"CFBundleDisplayName" = "블랙홀";

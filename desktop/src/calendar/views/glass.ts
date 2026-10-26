@@ -1,4 +1,5 @@
 /** 유리 테마 (기본). Markup follows design/calendar-glass/prototype-glass.html. */
+import { holiday } from "../holidays";
 import { addDays, DOW, fdShort, mins, parseDay, ymd, diffDays } from "../dates";
 import type { CalEvent, ChatMessage, Period, Task } from "../model";
 import { alarmsOn, dueOn, eventsOn, findEntry, pending, periodsOn, taskGroups, type Alarm } from "../store";
@@ -117,7 +118,8 @@ export const glass: ThemeView = {
       const b = addDays(a, 6);
       return { title: `${a.getMonth() + 1}월 ${a.getDate()}일 – ${a.getMonth() === b.getMonth() ? "" : `${b.getMonth() + 1}월 `}${b.getDate()}일` };
     }
-    return { title: `${c.getMonth() + 1}월 ${c.getDate()}일 (${DOW[c.getDay()]})` };
+    const h = holiday(ymd(c));
+    return { title: `${c.getMonth() + 1}월 ${c.getDate()}일 (${DOW[c.getDay()]})${h ? ` · ${h}` : ""}` };
   },
   day: (ctx) => {
     const k = ymd(ctx.cur);

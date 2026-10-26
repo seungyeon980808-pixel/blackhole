@@ -191,3 +191,16 @@ describe("secrets, 기억, undo", () => {
     await vi.waitFor(() => expect(memo.gone).toBeUndefined());
   });
 });
+
+describe("Korean holidays and the Mac menu", () => {
+  it("shows the holiday in the day title; menu items reach the page", async () => {
+    let menu: ((id: string) => void) | null = null;
+    const root = await mount(mac({ onMenu: (h) => (menu = h) }));
+    app!.setView("day", "2026-10-09");
+    expect(root.querySelector("#bhTitle")!.textContent).toBe("10월 9일 (금) · 한글날");
+    menu!("month");
+    expect(root.querySelector('[data-v="month"]')!.classList.contains("on")).toBe(true);
+    menu!("settings");
+    expect(root.querySelector<HTMLElement>("#bhSettings")!.hidden).toBe(false);
+  });
+});

@@ -111,6 +111,7 @@ pub fn agent_plist(exe: &Path) -> String {
 <plist version="1.0">
 <dict>
   <key>Label</key><string>{AGENT_LABEL}</string>
+  <key>AssociatedBundleIdentifiers</key><string>com.malhaedwo.blackhole.desktop</string>
   <key>ProgramArguments</key><array><string>{}</string><string>--login</string></array>
   <key>RunAtLoad</key><true/>
   <key>ProcessType</key><string>Interactive</string>
@@ -458,6 +459,7 @@ pub fn capture(app: &AppHandle) {
 /* ---------- windows ---------- */
 
 pub fn show_main(app: &AppHandle) {
+    activate_app(app);
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
         let _ = w.unminimize();
@@ -475,6 +477,7 @@ pub fn open_quick(app: &AppHandle, query: Option<String>, toggle: bool) {
         if toggle && query.is_none() && w.is_visible().unwrap_or(false) && w.is_focused().unwrap_or(false) {
             let _ = w.hide();
         } else {
+            activate_app(app);
             let _ = w.center();
             let _ = w.show();
             let _ = w.set_focus();
@@ -482,6 +485,7 @@ pub fn open_quick(app: &AppHandle, query: Option<String>, toggle: bool) {
         }
         return;
     }
+    activate_app(app);
     if let Some(q) = query {
         *app.state::<MacState>().quick_query.lock().unwrap() = q;
     }
@@ -502,6 +506,19 @@ pub fn open_quick(app: &AppHandle, query: Option<String>, toggle: bool) {
     if let Ok(w) = built {
         raise_window(&w, false);
     }
+}
+
+/// Bring Blackhole to the front (the quick window opened from a shortcut, the menu bar or Raycast
+/// must take the keyboard even while another app is active).
+pub fn activate_app(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    let _ = app.run_on_main_thread(|| {
+        if let Some(mtm) = objc2::MainThreadMarker::new() {
+            #[allow(deprecated)]
+            objc2_app_kit::NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
+        }
+    });
+    let _ = app;
 }
 
 /// Put a window above everything: all Spaces, over full-screen apps (alarm: screen-saver level).
@@ -668,6 +685,91 @@ pub fn run_action(app: &AppHandle, action: &str) {
         "capture" => capture(app),
         "open" => show_main(app),
         "quit" => app.exit(0),
+        _ => {}
+    }
+}
+
+/// The Mac menu bar, in Korean: 블랙홀 · 파일 · 편집 · 보기 · 윈도우 · 도움말. Items the page acts
+/// on (설정, 새 항목, 실행 취소, 월/주/일 …) come to it as `bh-menu` with their id.
+pub fn build_app_menu(app: &AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
+    let item = |id: &str, text: &str, accel: Option<&str>| MenuItem::with_id(app, id, text, true, accel);
+    let about = AboutMetadata {
+        name: Some("블랙홀".into()),
+        version: Some(app.package_info().version.to_string()),
+        comments: Some("던져 두면 일정·할 일·기억으로 정리되는 개인 달력".into()),
+        ..AboutMetadata::default()
+    };
+    let menu = Menu::with_items(
+        app,
+        &[
+            &Submenu::with_items(app, "블랙홀", true, &[
+                &PredefinedMenuItem::about(app, Some("블랙홀 정보"), Some(about))?,
+                &PredefinedMenuItem::separator(app)?,
+                &item("m-settings", "설정…", Some("CmdOrCtrl+,"))?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::hide(app, Some("블랙홀 가리기"))?,
+                &PredefinedMenuItem::hide_others(app, Some("기타 가리기"))?,
+                &PredefinedMenuItem::show_all(app, Some("모두 보기"))?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::quit(app, Some("블랙홀 종료"))?,
+            ])?,
+            &Submenu::with_items(app, "파일", true, &[
+                &item("m-new", "새 항목", Some("CmdOrCtrl+N"))?,
+                &item("m-quick", "빠른 입력·찾기…", Some("CmdOrCtrl+F"))?,
+                &item("m-clipboard", "클립보드 보내기", None)?,
+                &item("m-capture", "화면 일부 캡처해 넣기", None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &item("m-print", "출력…", Some("CmdOrCtrl+P"))?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::close_window(app, Some("창 닫기"))?,
+            ])?,
+            &Submenu::with_items(app, "편집", true, &[
+                &item("m-undo", "실행 취소", Some("CmdOrCtrl+Z"))?,
+                &PredefinedMenuItem::redo(app, Some("실행 복귀"))?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::cut(app, Some("오려두기"))?,
+                &PredefinedMenuItem::copy(app, Some("복사하기"))?,
+                &PredefinedMenuItem::paste(app, Some("붙여넣기"))?,
+                &PredefinedMenuItem::select_all(app, Some("전체 선택"))?,
+            ])?,
+            &Submenu::with_items(app, "보기", true, &[
+                &item("m-month", "월", Some("CmdOrCtrl+1"))?,
+                &item("m-week", "주", Some("CmdOrCtrl+2"))?,
+                &item("m-day", "일", Some("CmdOrCtrl+3"))?,
+                &PredefinedMenuItem::separator(app)?,
+                &item("m-today", "오늘로 가기", Some("CmdOrCtrl+T"))?,
+                &item("m-chat", "대화 기록", Some("CmdOrCtrl+L"))?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::fullscreen(app, Some("전체 화면"))?,
+            ])?,
+            &Submenu::with_items(app, "윈도우", true, &[
+                &PredefinedMenuItem::minimize(app, Some("최소화"))?,
+                &PredefinedMenuItem::maximize(app, Some("확대/축소"))?,
+                &PredefinedMenuItem::separator(app)?,
+                &item("m-open", "블랙홀 창", Some("CmdOrCtrl+0"))?,
+            ])?,
+            &Submenu::with_items(app, "도움말", true, &[&item("m-guide", "처음 쓰기 안내", None)?, &item("m-raycast", "Raycast 스크립트 만들기", None)?])?,
+        ],
+    )?;
+    app.set_menu(menu)?;
+    Ok(())
+}
+
+/// A menu-bar item: the Mac-side ones run here, the rest go to the page.
+pub fn menu_event(app: &AppHandle, id: &str) {
+    match id {
+        "m-quick" => run_action(app, "quick"),
+        "m-clipboard" => run_action(app, "clipboard"),
+        "m-capture" => run_action(app, "capture"),
+        "m-open" => show_main(app),
+        "m-raycast" => {
+            let _ = raycast_install();
+        }
+        id if id.starts_with("m-") => {
+            show_main(app);
+            let _ = app.emit_to("main", "bh-menu", id.trim_start_matches("m-"));
+        }
         _ => {}
     }
 }

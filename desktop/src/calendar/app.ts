@@ -1281,6 +1281,27 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (e.code === "KeyT") return go(() => root.querySelector<HTMLButtonElement>('[data-nav="0"]')?.click());
   };
   document.addEventListener("keydown", onGlobalKey);
+  // Mac menu bar (its key equivalents reach the page only through here).
+  adapter.onMenu?.((id) => {
+    const click = (sel: string) => root.querySelector<HTMLElement>(sel)?.click();
+    if (id === "settings") return click("[data-settings]");
+    if (id === "new") return root.querySelector<HTMLInputElement>("#bhIn")?.focus();
+    if (id === "print") return click("[data-print]");
+    if (id === "month" || id === "week" || id === "day") return click(`[data-v="${id}"]`);
+    if (id === "today") return click('[data-nav="0"]');
+    if (id === "chat") return setChat(!chatOpen);
+    if (id === "guide") {
+      guideOpen = true;
+      void loadCalendars();
+      return renderGuide();
+    }
+    if (id === "undo") {
+      // In a text box: the box's own undo. Otherwise: the last change on the calendar.
+      const active = document.activeElement as HTMLElement | null;
+      if (active?.matches?.("input, textarea") && (active as HTMLInputElement).value) return void document.execCommand("undo");
+      return undo();
+    }
+  });
 
   let lastWidthCompact = false;
   const onResize = () => {

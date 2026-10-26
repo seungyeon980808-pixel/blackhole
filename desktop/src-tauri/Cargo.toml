@@ -39,5 +39,5 @@ tempfile = "3"
 [target.'cfg(target_os = "macos")'.dependencies]
 # Alarm window above full-screen apps and on every Space (window level, collection behavior).
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder", "NSGraphics", "NSEvent", "block2"] }
+objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder", "NSGraphics", "NSEvent", "NSApplication", "block2"] }
 block2 = "0.6"

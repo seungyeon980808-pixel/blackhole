@@ -92,6 +92,9 @@ export function tauriAdapter(): BlackholeAdapter {
     secretIntake: (text, secret) => invoke<"put" | "secret" | "ask">("secret_intake", { text, secret }),
     raycastInstall: () => invoke<string>("raycast_install"),
     openQuick: () => void invoke("quick_action", { action: "quick" }),
+    onMenu(h) {
+      void listen<string>("bh-menu", (e) => h(e.payload));
+    },
     aiSkipped: (reason) => void invoke("ai_skipped", { reason }).catch(() => undefined),
     setClaudeOptions: (budgetUsd, skipSimple) => invoke<ClaudeStatus>("claude_set_options", { budgetUsd, skipSimple }),
     desk: () => invoke<DeskStatus>("desk_status"),

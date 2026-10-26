@@ -44,12 +44,17 @@ pub fn run() {
             let mut settings = mac::load_settings(&dir);
             // First start: offer starting at login, on by default (설정 turns it off for good).
             // (A development build cannot be a login item; the installed app offers it then.)
+            if settings.autostart && mac::autostart_on() {
+                // Refresh the login item (app path, name shown in 「로그인 항목」).
+                let _ = mac::set_autostart(true);
+            }
             if !settings.autostart_offered && mac::set_autostart(true).is_ok() {
                 settings.autostart_offered = true;
                 settings.autostart = true;
                 let _ = mac::save_settings(&dir, &settings);
             }
             *app.state::<mac::MacState>().sound.lock().unwrap() = settings.alarm_sound.clone();
+            let _ = mac::build_app_menu(handle);
             let _ = mac::build_tray(handle, &settings.shortcuts);
             for problem in mac::register_shortcuts(handle, &settings.shortcuts) {
                 eprintln!("블랙홀 단축키: {problem}");
@@ -63,6 +68,7 @@ pub fn run() {
             }
             Ok(())
         })
+        .on_menu_event(|app, e| mac::menu_event(app, e.id().as_ref()))
         .on_window_event(|window, event| {
             // Closing a window keeps Blackhole running (menu bar + Dock) so the inbox and alarms go on.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

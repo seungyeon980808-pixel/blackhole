@@ -65,3 +65,5 @@ button { cursor: pointer; }
 .bh .toast { position: absolute; left: 50%; bottom: 86px; transform: translateX(-50%); z-index: 55; max-width: min(560px, calc(100% - 32px)); padding: 7px 14px; border-radius: 10px; font-size: 12.5px; background: rgba(16, 24, 52, .92); color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.25); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bh .toast a { color: #9db7ff; margin-left: 8px; cursor: pointer; }
 .bh .conn.warn { color: #ff6b6b; }
+
+.bh .fc .hol { color: #e5484d; }

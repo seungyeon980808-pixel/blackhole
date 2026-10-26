@@ -1,3 +1,4 @@
+import { holiday } from "../holidays";
 /** 공문서 테마 and the A4 print sheet. Markup follows design/calendar-glass/prototype-doc.html. */
 import { addDays, diffDays, fdDoc, fdDocLong, mins, weekDays, ymd } from "../dates";
 import type { CalEvent, ChatMessage, Period, Task } from "../model";
@@ -134,7 +135,7 @@ export const doc: ThemeView = {
         summary: `일정 ${w.reduce((n, x) => n + eventsOn(ctx.s, x).length, 0)}건 · 마감 ${w.reduce((n, x) => n + dueOn(ctx.s, x).length, 0)}건${pending(ctx.s).length ? ` · 확정 대기 ${pending(ctx.s).length}건` : ""}`
       };
     }
-    return { title: `${fdDocLong(k)} 일일 현황`, summary: docSummary(ctx, k) };
+    return { title: `${fdDocLong(k)}${holiday(k) ? `(${holiday(k)})` : ""} 일일 현황`, summary: docSummary(ctx, k) };
   },
   day: (ctx) => {
     const k = ymd(ctx.cur);

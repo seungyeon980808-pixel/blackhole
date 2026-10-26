@@ -94,6 +94,8 @@ export interface BlackholeAdapter {
   inboxDrafted?(skip: string[]): Promise<void>;
   /** Mac: secrets first — "secret" kept in the keychain only, "ask" 「비밀로 저장할까요?」, "put" go on. */
   secretIntake?(text: string, secret?: boolean): Promise<"put" | "secret" | "ask">;
+  /** Mac: the menu bar (설정, 새 항목, 실행 취소, 월/주/일, 오늘, 대화 기록, 출력, 처음 쓰기 안내). */
+  onMenu?(handler: (id: string) => void): void;
   /** Mac: open the quick input/search window (⌘F). */
   openQuick?(): void;
   /** Mac: write the Raycast script commands and show their folder. */
