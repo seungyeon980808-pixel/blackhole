@@ -85,12 +85,13 @@ final class BlackholeQuickNotification {
                 continue;
             }
             BlackholeBoard.Line t = tasks.get(i);
+            String title = lockTitle(t, i, hideTitles);
             PendingIntent done = PendingIntent.getBroadcast(app, TASK_BASE + i,
                     new Intent(app, BlackholeTaskReceiver.class).setAction(BlackholeTaskReceiver.ACTION_DONE)
-                            .putExtra(BlackholeTaskReceiver.EXTRA_ID, t.id).putExtra(BlackholeTaskReceiver.EXTRA_SRC, t.srcKey),
+                            .putExtra(BlackholeTaskReceiver.EXTRA_ID, t.id).putExtra(BlackholeTaskReceiver.EXTRA_SRC, t.srcKey)
+                            .putExtra(BlackholeTaskReceiver.EXTRA_TITLE, title),
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             Notification.Action check = new Notification.Action.Builder(null, "완료", done).setAuthenticationRequired(false).build();
-            String title = lockTitle(t, i, hideTitles);
             // 묶음 표시는 시스템에 맡긴다(삼성은 같은 앱 알림을 「블랙홀」 아래 모아 보임).
             Notification item = new Notification.Builder(app, CHANNEL_ID)
                     .setSmallIcon(android.R.drawable.checkbox_off_background)

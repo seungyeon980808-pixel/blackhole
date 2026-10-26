@@ -20,6 +20,7 @@ public class JSONObject {
     public JSONObject put(String key, int value) throws JSONException { map.put(key, value); return this; }
     public JSONObject put(String key, boolean value) throws JSONException { map.put(key, value); return this; }
     public Object opt(String key) { return map.get(key); }
+    public Object remove(String key) { return map.remove(key); }
     public boolean has(String key) { return map.containsKey(key); }
     public String optString(String key, String fallback) {
         Object value = map.get(key);

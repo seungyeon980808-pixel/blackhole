@@ -19,6 +19,8 @@ interface Base {
   createdAt: string;
   /** Cancelled or undone. Kept, never deleted. */
   gone?: boolean;
+  /** It was a provisional event when cancelled (「되돌리기」 brings it back as provisional). */
+  goneProvisional?: boolean;
   /** Seeded fake data (hidden when settings.showSamples is false). */
   sample?: boolean;
   details?: string;
@@ -215,7 +217,7 @@ export function normalizeState(value: unknown): CalendarState | null {
  * entry's srcKey: a phone draft has its own id, so the Mac finds its entry for the same job.
  */
 export type UserAction = { src?: string } & (
-  | { id: string; at: string; type: "confirm" | "cancel" | "toggleTask" | "aiAccept" | "aiDismiss"; ref: string }
+  | { id: string; at: string; type: "confirm" | "cancel" | "restore" | "toggleTask" | "aiAccept" | "aiDismiss"; ref: string }
   | { id: string; at: string; type: "toggleSub"; ref: string; index: number }
   | { id: string; at: string; type: "addSub"; ref: string; title: string }
   | { id: string; at: string; type: "alarm"; ref: string; key: string; answer: "done" | "snooze" | "ack" });

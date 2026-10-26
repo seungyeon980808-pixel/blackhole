@@ -337,8 +337,19 @@ export function cancelEntry(s: CalendarState, id: string, now: Date): void {
   if (!x || x.gone) return;
   const label = x.kind === "event" && x.provisional ? "취소" : "되돌림";
   x.gone = true;
+  if (x.kind === "event" && x.provisional) x.goneProvisional = true;
   if (x.kind === "event") x.provisional = false;
   log(s, { label, msg: x.title }, now);
+}
+
+/** 「되돌리기」 of a cancel: the entry comes back as it was (a provisional event stays provisional). */
+export function restoreEntry(s: CalendarState, id: string, now: Date): void {
+  const x = findEntry(s, id);
+  if (!x || !x.gone) return;
+  delete x.gone;
+  if (x.kind === "event" && x.goneProvisional) x.provisional = true;
+  delete x.goneProvisional;
+  log(s, { label: "되살림", msg: x.title, ref: x.id }, now);
 }
 
 export function toggleTask(s: CalendarState, id: string): void {
@@ -465,7 +476,7 @@ export const ddayDays = (today: string, due: string): number => diffDays(today, 
 export function applyAction(s: CalendarState, a: UserAction, now: Date): boolean {
   if (s.appliedActions.includes(a.id)) return false;
   // A phone draft's id is not known here: use this device's entry for the same job.
-  const bySrc = a.src ? allEntries(s).find((x) => x.srcKey === a.src && !x.gone) : undefined;
+  const bySrc = a.src ? allEntries(s).find((x) => x.srcKey === a.src && (a.type === "restore" ? !!x.gone : !x.gone)) : undefined;
   const target = findEntry(s, a.ref) ?? bySrc;
   // The job is not here yet (its file comes after the action): try again on a later pull.
   if (!target && a.src && !s.draftedJobs.includes(a.src) && !s.ingestedJobs.includes(a.src) && !a.src.startsWith("local-")) return false;
@@ -479,6 +490,7 @@ export function applyAction(s: CalendarState, a: UserAction, now: Date): boolean
     case "aiDismiss": delete target.suggest; break;
     case "confirm": confirmEvent(s, a.ref, now); break;
     case "cancel": cancelEntry(s, a.ref, now); break;
+    case "restore": restoreEntry(s, a.ref, now); break;
     case "toggleTask": toggleTask(s, a.ref); break;
     case "toggleSub": toggleSub(s, a.ref, a.index); break;
     case "addSub": addSub(s, a.ref, a.title); break;

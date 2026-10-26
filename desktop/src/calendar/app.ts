@@ -218,17 +218,23 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     toast(`되돌렸어요: ${u.label}`);
   }
 
-  function toast(msg: string, undoRef?: string): void {
+  /**
+   * The short note at the bottom (snackbar). With `canUndo` it carries 「되돌리기」 for the newest
+   * entry on the undo stack; `undoRef` first puts 「넣기」 of that entry on the stack.
+   */
+  function toast(msg: string, undoRef?: string, canUndo = !!undoRef): void {
     if (undoRef) {
       const x = findEntry(s, undoRef);
-      if (x) undoStack.push({ label: `「${x.title}」 넣기`, run: () => userAction({ type: "cancel", ref: undoRef }) });
+      if (x) undoStack.push({ label: `「${x.title}」 넣기`, run: () => userAction({ type: "cancel", ref: undoRef }, true, false) });
+      else canUndo = false;
     }
     const el = root.querySelector<HTMLElement>("#bhToast");
     if (!el) return;
-    el.innerHTML = `${escapeHtml(msg)}${undoRef ? ` <a data-no="${escapeHtml(undoRef)}" role="button" tabindex="0">되돌리기 ⌘Z</a>` : ""}`;
+    const key = adapter.origin === "휴대폰" ? "" : " ⌘Z";
+    el.innerHTML = `<span>${escapeHtml(msg)}</span>${canUndo ? `<a data-undo role="button" tabindex="0">되돌리기${key}</a>` : ""}`;
     el.hidden = false;
     window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => (el.hidden = true), undoRef ? 6000 : 3500);
+    toastTimer = window.setTimeout(() => (el.hidden = true), canUndo ? 6000 : 3500);
   }
 
   function renderLast(): void {
@@ -914,23 +920,32 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   /* ---------- events ---------- */
 
   /** A hand-made change: applied here, and sent to the other device when the adapter shares. */
-  function userAction(a: Omit<UserAction, "id" | "at"> & Record<string, unknown>, refresh = true): void {
+  /**
+   * A hand-made change: applied here, and sent to the other device when the adapter shares.
+   * Checks and cancels (`undoable`) go on the undo stack and show 「되돌리기」 at the bottom.
+   * Undoing sends the opposite change (check again · 「restore」), so the other device follows.
+   */
+  function userAction(a: Omit<UserAction, "id" | "at"> & Record<string, unknown>, refresh = true, undoable = true): void {
     const now = clock();
     const target = findEntry(s, a.ref);
+    let note = "";
     if (target && (a.type === "toggleTask" || a.type === "toggleSub")) {
       const again = { ...a };
-      undoStack.push({ label: a.type === "toggleTask" ? `「${target.title}」 체크` : "하위 할 일 체크", run: () => userAction(again) });
+      if (undoable) undoStack.push({ label: a.type === "toggleTask" ? `「${target.title}」 체크` : "하위 할 일 체크", run: () => userAction(again, true, false) });
     } else if (target && a.type === "cancel" && !target.gone) {
-      undoStack.push({ label: `「${target.title}」 취소`, run: () => {
-        delete target.gone;
-        void act(() => undefined);
-      } });
-    }
+      const ref = target.id;
+      const provisional = target.kind === "event" && !!target.provisional;
+      if (undoable) undoStack.push({ label: `「${target.title}」 ${provisional ? "취소" : "지우기"}`, run: () => userAction({ type: "restore", ref }, true, false) });
+      note = `${provisional ? "취소했어요" : "지웠어요"}: 「${target.title}」`;
+    } else if (target && a.type === "confirm") note = `확정했어요: 「${target.title}」`;
     if (undoStack.length > 30) undoStack.shift();
     const src = findEntry(s, a.ref)?.srcKey;
     const action = { ...a, ...(src ? { src } : {}), id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, at: stamp(now) } as UserAction;
     applyAction(s, action, now);
     adapter.recordAction?.(action);
+    if (target && a.type === "toggleTask" && target.kind === "task") note = target.done ? `완료: 「${target.title}」` : `완료 취소: 「${target.title}」`;
+    else if (target && a.type === "toggleSub" && target.kind === "task") note = `하위 할 일 체크 · 「${target.title}」`;
+    if (note && undoable) toast(note, undefined, a.type !== "confirm");
     if (refresh) void act(() => undefined);
   }
 
@@ -964,6 +979,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       });
     }
     if (q("[data-drag]")) return;
+    if (q("[data-undo]")) return undo();
     if (q("[data-ok]")) return userAction({ type: "confirm", ref: q("[data-ok]")!.dataset.ok! });
     if (q("[data-no]")) return userAction({ type: "cancel", ref: q("[data-no]")!.dataset.no! });
     if (q("[data-tdone]")) return userAction({ type: "toggleTask", ref: q("[data-tdone]")!.dataset.tdone! });
@@ -1077,7 +1093,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
       return;
     }
-    if (el.matches("[data-tdone],[data-sub],[data-ok],[data-no]") && !(el instanceof HTMLButtonElement)) {
+    if (el.matches("[data-tdone],[data-sub],[data-ok],[data-no],[data-undo]") && !(el instanceof HTMLButtonElement)) {
       el.click();
       return;
     }

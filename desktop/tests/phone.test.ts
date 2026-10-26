@@ -92,6 +92,41 @@ describe("phone calendar (Android WebView adapter)", () => {
     expect(mac.events[0].provisional).toBe(false);
   });
 
+  it("완료·지우기 show 「되돌리기」, and undoing sends the opposite change to the Mac", async () => {
+    const { s: mac, json } = macCopy();
+    const fake = await mountPhone(json);
+    const task = app!.state.tasks.find((t) => !t.gone && !t.done)!;
+    app!.setView("day", task.due);
+    document.querySelector<HTMLElement>(`[data-tdone="${task.id}"]`)!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    const toast = document.querySelector<HTMLElement>("#bhToast")!;
+    expect(toast.hidden).toBe(false);
+    expect(toast.textContent).toBe(`완료: 「${task.title}」되돌리기`);
+    toast.querySelector<HTMLElement>("[data-undo]")!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(app!.state.tasks.find((t) => t.id === task.id)!.done).toBe(false);
+    expect(fake.calls.actions.map((a) => a.type)).toEqual(["toggleTask", "toggleTask"]);
+
+    const ev = app!.state.events.find((e) => e.provisional && !e.gone)!;
+    app!.setView("day", ev.date);
+    document.querySelector<HTMLElement>(`[data-no="${ev.id}"]`)!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(app!.state.events.find((e) => e.id === ev.id)!.gone).toBe(true);
+    expect(toast.textContent).toContain("취소했어요");
+    toast.querySelector<HTMLElement>("[data-undo]")!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    const back = app!.state.events.find((e) => e.id === ev.id)!;
+    expect(back.gone).toBeUndefined();
+    expect(back.provisional).toBe(true);
+    expect(fake.calls.actions.map((a) => a.type)).toEqual(["toggleTask", "toggleTask", "cancel", "restore"]);
+    // The Mac replays the same four: nothing changed in the end.
+    for (const a of fake.calls.actions) applyAction(mac, a, NOW);
+    expect(mac.tasks.find((t) => t.id === task.id)!.done).toBe(false);
+    const macEv = mac.events.find((e) => e.id === ev.id)!;
+    expect(macEv.gone).toBeUndefined();
+    expect(macEv.provisional).toBe(true);
+  });
+
   it("hands alarms to the native phone-call alarm", async () => {
     const fake = await mountPhone(macCopy().json);
     const list = JSON.parse(fake.calls.alarms) as { key: string; atMs: number }[];

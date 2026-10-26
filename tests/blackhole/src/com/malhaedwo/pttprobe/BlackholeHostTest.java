@@ -523,6 +523,20 @@ public final class BlackholeHostTest {
         check(BlackholeBoard.lockTasks(after, 4).size() == 1, "잠금화면 「완료」는 Mac 반영 전에도 위젯·알림에서 바로 빠짐");
         String draftPending = BlackholeCalendarStore.addPendingSafe(BlackholeCalendarStore.completeAction("lock-2", "x", "t-dphone", "job-a"));
         check(BlackholeCalendarStore.withPending(shared, draftPending).contains("\"done\":true"), "휴대폰 초안 id로 누른 완료도 같은 원본의 Mac 항목에 얹음");
+        String undone = BlackholeCalendarStore.addPendingSafe(action);
+        try {
+            undone = BlackholeCalendarStore.addPending(undone, BlackholeCalendarStore.completeAction("lock-undo", "x", "t-1", "job-a"));
+            check(BlackholeBoard.lockTasks(BlackholeBoard.build(BlackholeCalendarStore.withPending(shared, undone), today, java.time.LocalTime.of(9, 0), false), 4).size() == 2,
+                    "잠금화면 「완료」 뒤 되돌리기(같은 체크 한 번 더)면 할 일이 다시 보임");
+            String gone = BlackholeCalendarStore.addPending("[]", "{\"id\":\"c-1\",\"at\":\"x\",\"type\":\"cancel\",\"ref\":\"t-2\"}");
+            check(BlackholeBoard.lockTasks(BlackholeBoard.build(BlackholeCalendarStore.withPending(shared, gone), today, java.time.LocalTime.of(9, 0), false), 4).size() == 1,
+                    "달력에서 지운 할 일은 Mac 반영 전에도 위젯·잠금화면에서 빠짐");
+            String back = BlackholeCalendarStore.addPending(gone, "{\"id\":\"r-1\",\"at\":\"x\",\"type\":\"restore\",\"ref\":\"t-2\"}");
+            check(BlackholeBoard.lockTasks(BlackholeBoard.build(BlackholeCalendarStore.withPending(shared, back), today, java.time.LocalTime.of(9, 0), false), 4).size() == 2,
+                    "지우기를 되돌리면 다시 보임");
+        } catch (Exception error) {
+            check(false, "대기 동작 추가: " + error);
+        }
     }
 
     private static void nativeAlarms() {

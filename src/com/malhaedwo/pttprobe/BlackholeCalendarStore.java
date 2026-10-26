@@ -88,7 +88,7 @@ final class BlackholeCalendarStore {
     }
 
     /**
-     * 위젯·잠금화면용: Mac이 아직 반영하지 않은 휴대폰 체크(toggleTask)를 사본에 미리 얹는다.
+     * 위젯·잠금화면용: Mac이 아직 반영하지 않은 휴대폰 체크(toggleTask)·지우기(cancel)·되살리기(restore)를 사본에 미리 얹는다.
      * 항목 id가 없으면 같은 원본(src)의 항목에 얹는다(휴대폰 초안 → Mac 항목).
      */
     static String withPending(String shared, String pending) {
@@ -96,21 +96,30 @@ final class BlackholeCalendarStore {
         if (list.length() == 0 || shared == null || shared.isEmpty()) return shared == null ? "" : shared;
         try {
             JSONObject copy = new JSONObject(shared);
-            JSONArray tasks = copy.optJSONArray("tasks");
-            for (int i = 0; tasks != null && i < list.length(); i++) {
+            for (int i = 0; i < list.length(); i++) {
                 JSONObject a = list.optJSONObject(i);
-                if (a == null || !"toggleTask".equals(a.optString("type", ""))) continue;
+                String type = a == null ? "" : a.optString("type", "");
+                boolean toggle = "toggleTask".equals(type);
+                boolean cancel = "cancel".equals(type);
+                boolean restore = "restore".equals(type);
+                if (!toggle && !cancel && !restore) continue;
                 JSONObject hit = null;
-                for (int j = 0; j < tasks.length() && hit == null; j++) {
-                    JSONObject t = tasks.optJSONObject(j);
-                    if (t != null && a.optString("ref", "").equals(t.optString("id", ""))) hit = t;
+                for (String key : toggle ? new String[]{"tasks"} : new String[]{"tasks", "events", "periods"}) {
+                    JSONArray items = copy.optJSONArray(key);
+                    for (int j = 0; items != null && j < items.length() && hit == null; j++) {
+                        JSONObject t = items.optJSONObject(j);
+                        if (t != null && a.optString("ref", "").equals(t.optString("id", ""))) hit = t;
+                    }
+                    String src = a.optString("src", "");
+                    for (int j = 0; items != null && j < items.length() && hit == null && !src.isEmpty(); j++) {
+                        JSONObject t = items.optJSONObject(j);
+                        if (t != null && src.equals(t.optString("srcKey", "")) && t.optBoolean("gone", false) == restore) hit = t;
+                    }
                 }
-                String src = a.optString("src", "");
-                for (int j = 0; j < tasks.length() && hit == null && !src.isEmpty(); j++) {
-                    JSONObject t = tasks.optJSONObject(j);
-                    if (t != null && src.equals(t.optString("srcKey", "")) && !t.optBoolean("gone", false)) hit = t;
-                }
-                if (hit != null) hit.put("done", !hit.optBoolean("done", false));
+                if (hit == null) continue;
+                if (toggle) hit.put("done", !hit.optBoolean("done", false));
+                else if (cancel) hit.put("gone", true);
+                else hit.remove("gone");
             }
             return copy.toString();
         } catch (Exception error) {

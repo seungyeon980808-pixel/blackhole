@@ -1,7 +1,7 @@
 package android.app;
 import android.content.Context; import android.graphics.drawable.Icon;
 public class Notification { public int flags; public static final int FLAG_INSISTENT=4, VISIBILITY_PUBLIC=1;
-  public static final String CATEGORY_SERVICE="service", CATEGORY_ALARM="alarm", CATEGORY_REMINDER="reminder";
+  public static final String CATEGORY_SERVICE="service", CATEGORY_ALARM="alarm", CATEGORY_REMINDER="reminder", CATEGORY_STATUS="status";
   public static class Builder { public Builder(Context c, String channel) {}
     public Builder setSmallIcon(int icon) { throw new RuntimeException("stub"); } public Builder setContentTitle(CharSequence t) { throw new RuntimeException("stub"); } public Builder setContentText(CharSequence t) { throw new RuntimeException("stub"); }
     public Builder setOngoing(boolean b) { throw new RuntimeException("stub"); } public Builder setOnlyAlertOnce(boolean b) { throw new RuntimeException("stub"); } public Builder setShowWhen(boolean b) { throw new RuntimeException("stub"); }

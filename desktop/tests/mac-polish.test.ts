@@ -187,8 +187,22 @@ describe("secrets, 기억, undo", () => {
     const memo = app!.state.notes.find((n) => n.title === "학교 행정실 내선 1234")!;
     document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyZ", key: "z", metaKey: true, bubbles: true }));
     await vi.waitFor(() => expect(memo.gone).toBe(true));
+    // ⌘Z walks back (it does not redo what it just undid).
     document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyZ", key: "z", metaKey: true, bubbles: true }));
-    await vi.waitFor(() => expect(memo.gone).toBeUndefined());
+    await vi.waitFor(() => expect(document.querySelector("#bhToast")!.textContent).toBe("되돌릴 것이 없어요"));
+    expect(memo.gone).toBe(true);
+  });
+
+  it("지우기 then 되돌리기 brings it back (the bottom note and ⌘Z)", async () => {
+    let put: ((p: PutItem) => void) | null = null;
+    const a = mac({ onPut: (h) => (put = h) });
+    const root = await mount(a);
+    put!({ memo: "되돌리기 시험 메모", via: "빠른 입력" });
+    await vi.waitFor(() => expect(app!.state.notes.some((n) => n.title === "되돌리기 시험 메모")).toBe(true));
+    const memo = app!.state.notes.find((n) => n.title === "되돌리기 시험 메모")!;
+    root.querySelector<HTMLElement>("#bhToast [data-undo]")!.click();
+    await vi.waitFor(() => expect(memo.gone).toBe(true));
+    expect(root.querySelector("#bhToast")!.textContent).toContain("되돌렸어요");
   });
 });
 
