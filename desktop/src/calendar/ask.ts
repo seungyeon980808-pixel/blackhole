@@ -1,0 +1,300 @@
+/**
+ * 「질문하면 답하기」: a local answer engine (no AI, no cost) over the user's own records —
+ * events, to-dos, periods, 기억, inbox results, Obsidian notes (Drive 「블랙홀/노트/」) and secret
+ * NAMES (never values). Character-bigram inverted index (works for Korean without a tokenizer),
+ * date words turned into ranges by code. Only when the local result is fuzzy, or the question
+ * asks for a summary, the few best lines go to the AI.
+ *
+ * Shared by the main window's chat panel and the quick window (same engine, same answers).
+ */
+import { addDays, DOW, parseDay, ymd } from "./dates";
+import type { CalendarState } from "./model";
+import { parseRule } from "./rules";
+
+export type DocKind = "event" | "task" | "period" | "note" | "obsidian" | "inbox" | "secret";
+
+export interface AskDoc {
+  /** Entry id, `secret:<name>`, `obsidian:<path>` or `inbox:<n>`. */
+  id: string;
+  kind: DocKind;
+  title: string;
+  text: string;
+  /** The day the record is about (event day, deadline, period start, note day). */
+  date: string;
+  /** Period end. */
+  to?: string;
+  /** When it was put in (YYYY-MM-DD) — 「지난주에 …라고 했지?」 asks by this. */
+  said: string;
+  time?: string;
+  done?: boolean;
+  /** Where it came from (원문 위치): source, note path. */
+  where: string;
+}
+
+export interface AskSources {
+  secrets: { name: string; at: string }[];
+  notes: { path: string; title: string; text: string; date: string }[];
+}
+
+export interface AskHit {
+  id: string;
+  kind: DocKind;
+  title: string;
+  when: string;
+  where: string;
+}
+
+export interface Answer {
+  /** local: answered here · ai: send `lines` to the AI · none: nothing found. */
+  mode: "local" | "ai" | "none";
+  text: string;
+  hits: AskHit[];
+  /** For the AI (mode "ai"): `[id] …` lines, never a secret value. */
+  lines: string[];
+  /** Milliseconds the local search took. */
+  ms: number;
+}
+
+export const KIND_LABEL: Record<DocKind, string> = { event: "일정", task: "할 일", period: "기간", note: "기억", obsidian: "노트", inbox: "인박스", secret: "비밀" };
+
+/* ---------- question or put-in ---------- */
+
+const ASK_WORDS = /뭐였지|뭐였더라|뭐더라|뭐지|언제|어디|몇 ?시|몇 ?개|있나|알려 ?줘|뭐야|뭐 ?있|무슨|누구|얼마|찾아 ?줘|기억나|했지|였지|였더라|했더라|이었나|인가요?$|있어요?\?|맞지|어때|정리해 ?줘|요약/;
+
+/**
+ * "ask" a question, "put" something to put in, "both" can't tell (a clock time and a question
+ * word: 「내일 3시에 알려줘」) — then the user picks with one click.
+ */
+export function classify(raw: string, now: Date): "ask" | "put" | "both" {
+  const t = raw.trim();
+  if (!t) return "put";
+  if (/[?？]\s*$/.test(t)) return "ask";
+  if (!ASK_WORDS.test(t)) return "put";
+  return parseRule(t, now).hasTime ? "both" : "ask";
+}
+
+/* ---------- date words → range ---------- */
+
+export interface Range {
+  from: string;
+  to: string;
+  label: string;
+}
+
+export function dateRange(text: string, now: Date): Range | null {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const day = (n: number, label: string): Range => ({ from: ymd(addDays(today, n)), to: ymd(addDays(today, n)), label });
+  const week = (n: number, label: string): Range => {
+    const s = addDays(today, -today.getDay() + 7 * n);
+    return { from: ymd(s), to: ymd(addDays(s, 6)), label };
+  };
+  const month = (n: number, label: string): Range => {
+    const a = new Date(today.getFullYear(), today.getMonth() + n, 1);
+    const b = new Date(today.getFullYear(), today.getMonth() + n + 1, 0);
+    return { from: ymd(a), to: ymd(b), label };
+  };
+  if (/지난\s?주|저번\s?주/.test(text)) return week(-1, "지난주");
+  if (/다음\s?주/.test(text)) return week(1, "다음 주");
+  if (/이번\s?주|금주|이 주/.test(text)) return week(0, "이번 주");
+  if (/주말/.test(text)) {
+    const sat = addDays(today, 6 - today.getDay());
+    return { from: ymd(sat), to: ymd(addDays(sat, 1)), label: "주말" };
+  }
+  if (/지난\s?달|저번\s?달/.test(text)) return month(-1, "지난달");
+  if (/다음\s?달/.test(text)) return month(1, "다음 달");
+  if (/이번\s?달/.test(text)) return month(0, "이번 달");
+  if (/그저께|그제/.test(text)) return day(-2, "그저께");
+  if (/어제/.test(text)) return day(-1, "어제");
+  if (/모레/.test(text)) return day(2, "모레");
+  if (/내일/.test(text)) return day(1, "내일");
+  if (/오늘/.test(text)) return day(0, "오늘");
+  return null;
+}
+
+/* ---------- documents ---------- */
+
+const short = (k: string): string => {
+  const d = parseDay(k);
+  return `${d.getMonth() + 1}/${d.getDate()}(${DOW[d.getDay()]})`;
+};
+
+export function docsOf(s: CalendarState, src: AskSources | null): AskDoc[] {
+  const out: AskDoc[] = [];
+  const said = (c: string) => c.slice(0, 10);
+  for (const e of s.events) if (!e.gone && !e.sample) out.push({ id: e.id, kind: "event", title: e.title, text: e.details ?? "", date: e.date, time: e.start ?? undefined, said: said(e.createdAt), where: e.source });
+  for (const t of s.tasks) if (!t.gone && !t.sample) out.push({ id: t.id, kind: "task", title: t.title, text: [t.details ?? "", ...t.subs.map((x) => x.title)].join(" "), date: t.noDue ? said(t.createdAt) : t.due, time: t.dueTime ?? undefined, done: t.done, said: said(t.createdAt), where: t.source });
+  for (const p of s.periods) if (!p.gone && !p.sample) out.push({ id: p.id, kind: "period", title: p.title, text: p.details ?? "", date: p.from, to: p.to, said: said(p.createdAt), where: p.source });
+  for (const n of s.notes) if (!n.gone && !n.sample) out.push({ id: n.id, kind: "note", title: n.title, text: n.details ?? "", date: said(n.createdAt), said: said(n.createdAt), where: n.source });
+  s.inbox.forEach((x, i) => {
+    if (x.state === "실패" || x.state === "검토 필요") out.push({ id: `inbox:${i}`, kind: "inbox", title: x.title, text: `${x.state} ${x.out}`, date: x.at.slice(0, 10), said: x.at.slice(0, 10), where: `인박스 ${x.at.slice(11, 16)}` });
+  });
+  for (const x of src?.secrets ?? []) out.push({ id: `secret:${x.name}`, kind: "secret", title: x.name, text: "", date: x.at.slice(0, 10), said: x.at.slice(0, 10), where: "이 Mac 키체인" });
+  for (const n of src?.notes ?? []) out.push({ id: `obsidian:${n.path}`, kind: "obsidian", title: n.title.replace(/^\d{4}-\d{2}-\d{2}\s*/, ""), text: n.text, date: n.date, said: n.date, where: `노트/${n.path}` });
+  return out;
+}
+
+/** How a record is said in one line (glass dates; 「까지」 for deadlines). */
+export function whenOf(d: AskDoc): string {
+  if (d.kind === "event") return `${short(d.date)} ${d.time ?? "종일"}`;
+  if (d.kind === "task") return `${short(d.date)}${d.time ? " " + d.time : ""}까지${d.done ? " · 끝냄" : ""}`;
+  if (d.kind === "period") return `${short(d.date)} ~ ${short(d.to ?? d.date)}`;
+  if (d.kind === "secret") return "키체인 · Touch ID로 복사";
+  return short(d.date);
+}
+
+const hitOf = (d: AskDoc): AskHit => ({ id: d.id, kind: d.kind, title: d.title, when: whenOf(d), where: d.where });
+
+/* ---------- index ---------- */
+
+const norm = (v: string) => v.toLowerCase().normalize("NFC");
+
+/** Bigrams of each word (a one-letter word is its own gram). */
+function grams(text: string): string[] {
+  const out: string[] = [];
+  for (const w of norm(text).split(/[^0-9a-z가-힣]+/)) {
+    if (!w) continue;
+    if (w.length === 1) out.push(w);
+    for (let i = 0; i + 1 < w.length; i++) out.push(w.slice(i, i + 2));
+  }
+  return out;
+}
+
+export class AskIndex {
+  readonly docs: AskDoc[];
+  private readonly post = new Map<string, Map<number, number>>();
+
+  constructor(docs: AskDoc[]) {
+    this.docs = docs;
+    docs.forEach((d, i) => {
+      const add = (g: string, w: number) => {
+        let m = this.post.get(g);
+        if (!m) this.post.set(g, (m = new Map()));
+        m.set(i, Math.max(m.get(i) ?? 0, w));
+      };
+      for (const g of grams(d.title)) add(g, 1);
+      for (const g of grams(d.text)) add(g, 0.6);
+    });
+  }
+
+  /**
+   * `cover`: share of the query's grams found anywhere in the doc (decides 「clear」 or not).
+   * `score`: the same with the title counting more (decides the order).
+   */
+  search(query: string): { doc: AskDoc; score: number; cover: number }[] {
+    const qg = [...new Set(grams(query))];
+    if (!qg.length) return [];
+    const score = new Map<number, number>();
+    const cover = new Map<number, number>();
+    for (const g of qg) {
+      for (const [i, w] of this.post.get(g) ?? []) {
+        score.set(i, (score.get(i) ?? 0) + w);
+        cover.set(i, (cover.get(i) ?? 0) + 1);
+      }
+    }
+    return [...score].map(([i, v]) => ({ doc: this.docs[i], score: v / qg.length, cover: cover.get(i)! / qg.length })).sort((a, b) => b.score - a.score || b.cover - a.cover);
+  }
+}
+
+/* ---------- answering ---------- */
+
+/** Words that only shape the question (dropped before searching), after endings are cut. */
+const STOP_WORDS = new Set(("뭐였지 뭐였더라 뭐더라 뭐지 뭐야 뭐 있어 있나 있었지 있었나 있지 있을까 언제 어디 몇시 몇 시 개 알려줘 알려 줘 무슨 누구 얼마 얼마나 찾아줘 찾아 기억나 했지 맞지 좀 거 것 어떻게 하기로 하기 해 해야 내야 해줘 할 하는 요약해 정리해 " +
+  "오늘 내일 모레 어제 그제 그저께 주 이번 지난 다음 저번 지난주 이번주 다음주 저번주 금주 주말 달 이번달 지난달 다음달 저번달 " +
+  "마감 일 일정 약속 스케줄 기간 비번 비밀번호 암호 메모 기억 노트 무엇 뭘 어떤 그거 거기").split(" "));
+/** Endings cut from each word (「언제까지야」 → 「언제」, 「수거는」 → 「수거」). 이/가 stay (와이파이). */
+const ENDING = /(이라고|라고|했었지|했지|했더라|었지|였지|였더라|이었나|인가요|인가|이야|예요|이에요|까지|에서|으로|해요|야|요|은|는|을|를|에|의|도|로|랑|과|와)$/;
+
+function termsOf(q: string): string {
+  return q.split(/[^0-9A-Za-z가-힣]+/).map((w) => {
+    let x = w;
+    for (let i = 0; i < 2 && x.length > 1; i++) {
+      const y = x.replace(ENDING, "");
+      // A word never shrinks below two letters (「치과」 is not 「치」 + 과).
+      if (y === x || y.length < 2) break;
+      x = y;
+    }
+    return x;
+  }).filter((w) => w && !STOP_WORDS.has(w) && !(w.length === 1 && /[가-힣]/.test(w))).join(" ");
+}
+
+
+function kindsOf(q: string): DocKind[] | null {
+  if (/비번|비밀번호|암호|pw|PIN|핀번호|계좌|카드\s?번호/i.test(q)) return ["secret", "note", "obsidian"];
+  if (/마감|할\s?일|해야|제출/.test(q)) return ["task"];
+  if (/일정|약속|스케줄|회의|모임/.test(q) && !/노트|메모/.test(q)) return ["event", "period"];
+  if (/메모|기억|노트/.test(q)) return ["note", "obsidian"];
+  return null;
+}
+
+const SUMMARY = /요약|정리해|어때|왜|어떻게|비교|추천|몇\s?개|얼마나/;
+const SAID = /라고|했지|했더라|말했|적었|넣었|적어\s?둔|넣어\s?둔/;
+
+function inRange(d: AskDoc, r: Range, bySaid: boolean): boolean {
+  if (bySaid) return d.said >= r.from && d.said <= r.to;
+  const end = d.to ?? d.date;
+  return d.date <= r.to && end >= r.from;
+}
+
+const LINE_TEXT = 160;
+export function lineOf(d: AskDoc): string {
+  // Secrets: the name only. The value never leaves the keychain.
+  const body = d.kind === "secret" ? "(값은 키체인에만)" : d.text.replace(/\s+/g, " ").slice(0, LINE_TEXT);
+  return `[${d.id}] ${KIND_LABEL[d.kind]} · ${whenOf(d)} · ${d.title}${body ? ` — ${body}` : ""}`;
+}
+
+/** Nearest upcoming first (not done), then the most recent past. */
+function byNear(today: string) {
+  return (a: AskDoc, b: AskDoc) => {
+    const fa = a.date >= today && !a.done;
+    const fb = b.date >= today && !b.done;
+    if (fa !== fb) return fa ? -1 : 1;
+    return fa ? `${a.date}${a.time ?? ""}`.localeCompare(`${b.date}${b.time ?? ""}`) : `${b.date}${b.time ?? ""}`.localeCompare(`${a.date}${a.time ?? ""}`);
+  };
+}
+
+const STRONG = 0.75;
+const WEAK = 0.45;
+
+/**
+ * Answer a question from the index. Clear → mode "local" (no AI). Fuzzy or a summary asked →
+ * mode "ai" with the best lines. Nothing near → "none".
+ */
+export function answer(index: AskIndex, question: string, now: Date): Answer {
+  const t0 = performance.now();
+  const today = ymd(now);
+  const range = dateRange(question, now);
+  const bySaid = SAID.test(question);
+  const kinds = kindsOf(question);
+  const terms = termsOf(question);
+  const done = (a: Omit<Answer, "ms">): Answer => ({ ...a, ms: performance.now() - t0 });
+  const okKind = (d: AskDoc) => (kinds ? kinds.includes(d.kind) : d.kind !== "inbox" || /인박스|실패|검토/.test(question));
+
+  // 「이번 주 마감 뭐 있어?」: a range and maybe a kind, no other words → a list, made here.
+  if (!terms && range) {
+    const want = kinds ?? ["event", "task", "period"];
+    const list = index.docs
+      .filter((d) => want.includes(d.kind) && inRange(d, range, bySaid) && !(d.kind === "task" && d.done && !bySaid))
+      .sort((a, b) => `${a.date}${a.time ?? ""}`.localeCompare(`${b.date}${b.time ?? ""}`));
+    const what = kinds?.[0] === "task" ? "마감" : kinds?.[0] === "event" ? "일정" : kinds?.includes("secret") ? "비밀" : "일정·마감";
+    if (SUMMARY.test(question) && list.length >= 2) return done({ mode: "ai", text: `${range.label} ${what} ${list.length}개`, hits: list.slice(0, 12).map(hitOf), lines: list.slice(0, 12).map(lineOf) });
+    return done({ mode: "local", text: list.length ? `${range.label} ${what} ${list.length}개` : `${range.label} ${what} 없음`, hits: list.slice(0, 20).map(hitOf), lines: [] });
+  }
+
+  if (!terms) return done({ mode: "none", text: "무엇을 찾을지 한 단어만 더 써 주세요 · 예: 「치과 언제야?」", hits: [], lines: [] });
+
+  const found = index.search(terms).filter((x) => okKind(x.doc) && (!range || inRange(x.doc, range, bySaid)));
+  const strong = found.filter((x) => x.cover >= STRONG).map((x) => x.doc).sort(byNear(today));
+  const near = found.filter((x) => x.cover >= WEAK).slice(0, 8).map((x) => x.doc);
+
+  if (strong.length && !SUMMARY.test(question)) {
+    const top = strong[0];
+    // The card shows the title and details; the line says only the answer itself.
+    const head =
+      top.kind === "secret" ? "키체인에 있어요 · 복사는 Touch ID 뒤" :
+      top.kind === "obsidian" || top.kind === "note" ? (top.text ? top.text.replace(/\s+/g, " ").slice(0, 80) : "찾았어요") :
+      whenOf(top);
+    return done({ mode: "local", text: strong.length > 1 ? `${head} · 찾은 것 ${strong.length}개` : head, hits: strong.slice(0, 8).map(hitOf), lines: [] });
+  }
+  if (near.length) return done({ mode: "ai", text: "가까운 기록", hits: near.map(hitOf), lines: near.map(lineOf) });
+  return done({ mode: "none", text: range ? `${range.label}에는 「${terms}」 기록이 없어요` : `「${terms}」 기록을 찾지 못했어요`, hits: [], lines: [] });
+}

@@ -294,3 +294,10 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass details.fold > summary::before { content: "▸ "; }
 .bh.glass details.fold[open] > summary::before { content: "▾ "; }
 .bh.glass details.fold.tech > summary { color: var(--ink3); font-size: 11px; }
+/* chat panel (right) */
+.bh.glass.side > .chatsheet { border-radius: 0; border-left: 1px solid var(--line); background: color-mix(in srgb, var(--page) 38%, transparent); }
+.bh.glass.side .panelbar b { font-size: 13px; }
+.bh.glass .rc.edit input { background: var(--glass2); border: 1px solid var(--line); border-radius: 6px; color: var(--ink); outline: 0; }
+.bh.glass .rc.edit input:focus { border-color: #6f8dff; }
+.bh.glass .rc .mini { margin: 0; }
+.bh.glass .rc .ra .mini + .mini { margin-left: 0; }

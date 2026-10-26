@@ -11,18 +11,24 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { answer as answerQuestion, AskIndex, classify, docsOf, KIND_LABEL, whenOf, type AskHit, type AskSources, type DocKind } from "../calendar/ask";
+import { normalizeState } from "../calendar/model";
 
 interface Hit {
   id: string;
   kind: string;
   title: string;
   sub: string;
+  /** Record kind from the answer engine (opens a note, copies a secret). */
+  dk?: DocKind;
 }
+
+const toHit = (h: AskHit): Hit => ({ id: h.id, kind: KIND_LABEL[h.kind], title: h.title, sub: h.kind === "obsidian" ? h.where : h.when, dk: h.kind });
 
 type Intake = "put" | "secret" | "ask";
 
 const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-const HINT = "Enter 넣기 · ⌘Enter 기억 · ⇧Enter 묻기 · ↑↓ 고르기 · Esc 닫기";
+const HINT = "Enter 넣기(물으면 답) · ⌘Enter 기억 · ⇧Enter 묻기 · ↑↓ 고르기 · Esc 닫기";
 
 export function mountQuick(root: HTMLElement): void {
   document.documentElement.classList.add("bhw-quick");
@@ -38,13 +44,29 @@ export function mountQuick(root: HTMLElement): void {
   let sel = -1;
   let heading = "";
   let pending: { text: string; memo: boolean } | null = null;
+  /** 「내일 3시에 알려줘」: 찾기 or 넣기, one click. */
+  let choice: string | null = null;
   let seq = 0;
+  // Same answer engine as the main window's chat panel: the saved calendar + secret names + notes.
+  let index: AskIndex | null = null;
+  let indexAt = 0;
+  const loadIndex = async (force = false): Promise<AskIndex> => {
+    if (index && !force && Date.now() - indexAt < 5_000) return index;
+    const [raw, src] = await Promise.all([invoke("load_calendar_state").catch(() => null), invoke<AskSources>("ask_sources").catch(() => null)]);
+    index = new AskIndex(docsOf(normalizeState(raw) ?? normalizeState({ schemaVersion: 1 })!, src));
+    indexAt = Date.now();
+    return index;
+  };
 
   const say = (t: string, warn = false) => {
     msg.textContent = t;
     msg.classList.toggle("warn", warn);
   };
   const draw = () => {
+    if (choice !== null) {
+      list.innerHTML = `<div class="qask">찾아볼까요, 넣을까요?<div><button type="button" data-choose="ask">찾아보기</button><button type="button" data-choose="put">넣기</button></div></div>`;
+      return;
+    }
     if (pending) {
       list.innerHTML = `<div class="qask">비밀번호 같아요. 이 Mac 키체인에만 둘까요? (드라이브·AI로 보내지 않음)<div><button type="button" data-secret="yes">비밀로 저장</button><button type="button" data-secret="no">그냥 넣기</button></div></div>`;
       return;
@@ -63,15 +85,23 @@ export function mountQuick(root: HTMLElement): void {
     const q = input.value.trim();
     const mine = ++seq;
     if (!q) return showToday();
-    const found = await invoke<Hit[]>("quick_search", { query: q }).catch(() => []);
+    const idx = await loadIndex();
     if (mine !== seq) return;
-    hits = found;
-    heading = found.length ? "찾음" : "";
+    // A question shows its local answer as you type; anything else, the closest records.
+    if (classify(q, new Date()) === "ask") {
+      const a = answerQuestion(idx, q, new Date());
+      hits = a.hits.map(toHit);
+      heading = a.mode === "local" ? a.text : hits.length ? "가까운 기록 · Enter로 AI에 묻기" : "";
+    } else {
+      hits = idx.search(q).filter((x) => x.cover >= 0.5).slice(0, 8).map((x) => toHit({ id: x.doc.id, kind: x.doc.kind, title: x.doc.title, when: whenOf(x.doc), where: x.doc.where }));
+      heading = hits.length ? "찾음" : "";
+    }
     sel = -1;
     draw();
   };
   const reset = () => {
     pending = null;
+    choice = null;
     input.value = "";
     say(HINT);
     void showToday();
@@ -83,6 +113,8 @@ export function mountQuick(root: HTMLElement): void {
 
   void listen<string>("bh-quick-open", (e) => {
     pending = null;
+    choice = null;
+    void loadIndex(true);
     say(HINT);
     if (e.payload) {
       input.value = e.payload;
@@ -115,23 +147,39 @@ export function mountQuick(root: HTMLElement): void {
       say(`넣지 못했어요: ${String(err)}`, true);
     }
   };
-  const ask = async () => {
-    const question = input.value.trim();
+  /** Local answer first (0원); only a fuzzy question or a summary goes to the AI with the lines found. */
+  const ask = async (text = input.value.trim()) => {
+    const question = text.trim();
     if (!question) return;
-    say("내 기록에서 찾는 중… (AI 한 번)");
+    choice = null;
+    const a = answerQuestion(await loadIndex(), question, new Date());
+    hits = a.hits.map(toHit);
+    sel = -1;
+    if (a.mode !== "ai") {
+      heading = a.text;
+      draw();
+      say(a.mode === "local" ? "내 기록에서 바로 찾았어요(AI 안 씀) · 고르면 열림" : HINT);
+      return;
+    }
+    heading = "기록을 보고 정리하는 중… (AI 한 번)";
+    draw();
     try {
-      const a = await invoke<{ answer: string; hits: Hit[] }>("quick_ask", { question });
-      hits = a.hits;
-      heading = a.answer;
-      sel = -1;
+      const r = await invoke<{ answer: string; ids: string[] }>("ask_records", { question, lines: a.lines });
+      const used = a.hits.filter((h) => r.ids.includes(h.id));
+      hits = (used.length ? used : a.hits.slice(0, 3)).map(toHit);
+      heading = r.answer || "기록에 없어요.";
       draw();
       say("답은 내 기록에서만 찾았어요 · 항목을 고르면 열립니다");
     } catch (err) {
-      say(`묻지 못했어요: ${String(err)}`, true);
+      heading = "가까운 기록";
+      draw();
+      say(`AI로 정리하지 못했어요: ${String(err)}`, true);
     }
   };
   const openHit = async (h: Hit) => {
     if (h.kind === "비밀") return copyHit(h);
+    if (h.dk === "obsidian") return void invoke("note_open", { path: h.id.replace(/^obsidian:/, "") }).catch((err: unknown) => say(String(err), true));
+    if (h.dk === "inbox") return;
     await invoke("quick_open", { id: h.id });
   };
   const copyHit = async (h: Hit) => {
@@ -163,6 +211,13 @@ export function mountQuick(root: HTMLElement): void {
       if (e.shiftKey) return void ask();
       if (e.metaKey) return void put(true);
       if (sel >= 0 && hits[sel]) return void openHit(hits[sel]);
+      const c = classify(input.value, new Date());
+      if (c === "ask") return void ask();
+      if (c === "both") {
+        choice = input.value.trim();
+        draw();
+        return;
+      }
       return void put(false);
     }
     // ⌘C with a result chosen and no text selected in the box: copy the result.
@@ -173,8 +228,9 @@ export function mountQuick(root: HTMLElement): void {
   });
   root.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (pending) {
+    if (pending || choice !== null) {
       pending = null;
+      choice = null;
       say(HINT);
       draw();
       return;
@@ -185,6 +241,12 @@ export function mountQuick(root: HTMLElement): void {
     const t = e.target as HTMLElement;
     const a = t.closest<HTMLElement>("[data-a]")?.dataset.a;
     if (a) return void invoke("quick_action", { action: a });
+    const ch = t.closest<HTMLElement>("[data-choose]")?.dataset.choose;
+    if (ch && choice !== null) {
+      const v = choice;
+      choice = null;
+      return void (ch === "ask" ? ask(v) : put(false));
+    }
     const s = t.closest<HTMLElement>("[data-secret]")?.dataset.secret;
     if (s && pending) return void put(pending.memo, s === "yes");
     const i = t.closest<HTMLElement>("[data-i]")?.dataset.i;

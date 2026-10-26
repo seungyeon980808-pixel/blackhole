@@ -1105,6 +1105,57 @@ pub async fn quick_ask(app: AppHandle, question: String) -> Result<crate::find::
     tauri::async_runtime::spawn_blocking(move || crate::find::ask(&dir, &question)).await.map_err(|e| e.to_string())?
 }
 
+/// What the local answer index needs besides the calendar: secret names (never values) and the
+/// Obsidian notes under Drive 「블랙홀/노트/」.
+#[derive(serde::Serialize)]
+pub struct AskSources {
+    secrets: Vec<crate::secret::SecretName>,
+    notes: Vec<crate::find::NoteDoc>,
+}
+
+#[tauri::command]
+pub async fn ask_sources(app: AppHandle) -> AskSources {
+    let dir = app.path().app_data_dir().unwrap_or_default();
+    tauri::async_runtime::spawn_blocking(move || {
+        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+        let notes = calendar::find_drive_blackhole(&home).map(|root| crate::find::scan_notes(&root)).unwrap_or_default();
+        AskSources { secrets: crate::secret::list(&dir), notes }
+    })
+    .await
+    .unwrap_or(AskSources { secrets: Vec::new(), notes: Vec::new() })
+}
+
+#[derive(serde::Serialize)]
+pub struct AskReply {
+    answer: String,
+    ids: Vec<String>,
+}
+
+/// A question the local index could not settle: the few lines it found go to Claude (short).
+/// Lines that look like a secret value are dropped before sending.
+#[tauri::command]
+pub async fn ask_records(question: String, lines: Vec<String>) -> Result<AskReply, String> {
+    if !matches!(crate::secret::guess(&question), crate::secret::Guess::None) {
+        return Err("비밀 정보처럼 보이는 글은 AI에 보내지 않습니다.".into());
+    }
+    let lines: Vec<String> = lines.into_iter().filter(|l| matches!(crate::secret::guess(l), crate::secret::Guess::None)).take(12).map(|l| l.chars().take(400).collect()).collect();
+    tauri::async_runtime::spawn_blocking(move || crate::find::ask_lines(&question, &lines).map(|(answer, ids)| AskReply { answer, ids }))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Open an Obsidian note from an answer card (only files under Drive 「블랙홀/노트/」).
+#[tauri::command]
+pub fn note_open(path: String) -> Result<(), String> {
+    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    let root = calendar::find_drive_blackhole(&home).ok_or("드라이브 「블랙홀」 폴더가 없습니다.")?.join("노트");
+    let full = root.join(&path).canonicalize().map_err(|_| "노트를 찾지 못했습니다.".to_string())?;
+    if !full.starts_with(root.canonicalize().map_err(|e| e.to_string())?) || full.extension().and_then(|e| e.to_str()) != Some("md") {
+        return Err("노트 폴더 밖은 열 수 없습니다.".into());
+    }
+    Command::new("/usr/bin/open").arg(&full).spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
 /// Open a search result in the main window (its day).
 #[tauri::command]
 pub fn quick_open(app: AppHandle, id: String) {

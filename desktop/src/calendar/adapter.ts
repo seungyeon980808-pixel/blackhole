@@ -117,6 +117,15 @@ export interface BlackholeAdapter {
   openPrivacy?(pane: "microphone" | "speech" | "screen" | "notifications" | "accessibility"): void;
   notifyTest?(): void;
 
+  /* 질문하면 답하기 (Mac): the local index also reads secret NAMES and Obsidian notes; fuzzy
+     questions go to the AI with only the few lines found. */
+  askSources?(): Promise<import("./ask").AskSources>;
+  askAi?(question: string, lines: string[]): Promise<{ answer: string; ids: string[] }>;
+  /** Copy a secret's value (Touch ID first; the clipboard is cleared after 30 s). */
+  secretCopy?(name: string): Promise<void>;
+  /** Open an Obsidian note under Drive 「블랙홀/노트/」. */
+  openNote?(path: string): Promise<void>;
+
   /** Mac: the Claude API analyzer (key in the macOS keychain; the page never sees it). */
   claude?(): Promise<ClaudeStatus>;
   setClaudeKey?(key: string): Promise<ClaudeStatus>;

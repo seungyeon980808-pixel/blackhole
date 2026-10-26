@@ -89,3 +89,37 @@ button { cursor: pointer; }
 .bh .settings .set-g { font-size: 11px; font-weight: 700; letter-spacing: .02em; opacity: .55; margin-top: 4px; }
 .bh .settings .kbd { width: 116px; text-align: center; cursor: pointer; caret-color: transparent; }
 .bh .settings .set-row .push { margin-left: auto; }
+
+/* Chat panel on the right (desktop, wide window): history on top, the input at its foot.
+   Folded or narrower than 1100px, it goes back to the bottom input + pull-up sheet. */
+.bh .panelbar, .bh .resizer, .bh [data-panel="open"] { display: none; }
+.bh.panel-closed [data-panel="open"] { display: inline-block; }
+.bh.side { grid-template-columns: minmax(0, 1fr) var(--panel-w, 360px); }
+.bh.side > * { grid-column: 1; }
+.bh.side > .composer { display: none; }
+.bh.side > .chatsheet { grid-column: 2; grid-row: 1 / -1; position: relative; inset: auto; height: auto; min-height: 0; transform: none !important; visibility: visible; transition: none; z-index: 5; }
+.bh.side .chatsheet .grab, .bh.side .chatsheet .sheethead { display: none; }
+.bh.side .panelbar { display: flex; align-items: center; gap: 6px; padding: 12px 12px 6px; font-size: 13px; }
+.bh.side .panelbar .sp { flex: 1; }
+.bh.side .resizer { display: block; position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 6; }
+.bh.side .resizer:hover, .bh.side .resizer:focus-visible { background: linear-gradient(90deg, transparent 3px, rgba(111, 141, 255, .55) 3px, rgba(111, 141, 255, .55) 5px, transparent 5px); outline: 0; }
+.bh.side .thread { padding: 4px 12px 8px; }
+.bh.side .sheetcomp { margin: 6px 10px 10px; }
+.bh.side .bub.ai { max-width: 100%; }
+.bh.side .bub.me { max-width: 88%; }
+html.native-glass .bh.side .panelbar { padding-top: 34px; }
+/* Edit form inside a card */
+.bh .rc.edit { display: flex; flex-direction: column; gap: 5px; }
+.bh .rc.edit input { font: inherit; font-size: 12.5px; padding: 3px 6px; min-width: 0; }
+.bh .rc.edit .ed-t { width: 100%; font-weight: 700; }
+.bh .rc .ed-row { display: flex; gap: 6px; }
+.bh .rc .ed-row input { flex: 1; }
+.bh .rc .ra { flex-wrap: wrap; }
+/* Answer lists (more than 3): one dense row per record, buttons on the right. */
+.bh .rc.sm { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: center; padding-top: 4px; padding-bottom: 4px; margin-top: 4px; }
+.bh .rc.sm > b, .bh .rc.sm > .rm2 { grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bh .rc.sm > .ra { grid-column: 2; grid-row: 1 / span 2; margin-top: 0; flex-wrap: nowrap; }
+.bh .rc.sm [data-edit], .bh .rc.sm [data-copy] { display: none; }
+/* With the panel open the calendar is narrower: the timetable column shrinks with it. */
+.bh.glass.side .day { grid-template-columns: minmax(280px, 37%) minmax(0, 1.15fr) minmax(0, 1fr); }
+.bh.doc.side .day { grid-template-columns: minmax(290px, 36%) minmax(0, 1fr) minmax(0, 1.05fr); gap: 16px; }

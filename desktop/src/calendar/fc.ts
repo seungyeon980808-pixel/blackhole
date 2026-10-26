@@ -50,6 +50,11 @@ export class FcHost {
   private key = "";
   private el: HTMLElement | null = null;
 
+  /** The box changed size (chat panel opened, folded or resized): FullCalendar measures again. */
+  resize(): void {
+    this.fc?.updateSize();
+  }
+
   show(el: HTMLElement, ctx: Ctx, theme: ThemeName, view: ThemeView, handlers: FcHandlers, compact: boolean): void {
     const fcView = ctx.view === "month" ? "dayGridMonth" : "timeGridWeek";
     const key = `${fcView}|${theme}|${compact}`;

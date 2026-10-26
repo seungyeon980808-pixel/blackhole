@@ -213,3 +213,8 @@
 /* 접수 결과: 검토 필요는 빨강, 나머지는 접힘 */
 .bh.doc details.fold > summary { cursor: pointer; font-size: 12px; padding: 3px 0; }
 .bh.doc details.fold.tech > summary { color: #777; font-size: 11px; }
+/* chat panel (right) */
+.bh.doc.side > .chatsheet { border-top: 0; border-left: 2px solid var(--rule); box-shadow: none; }
+.bh.doc.side .panelbar { font-family: var(--sans); border-bottom: 1.5px solid var(--rule); margin: 0 12px; padding: 12px 0 5px; }
+.bh.doc .rc.edit input { border: 1px solid #777; background: #fff; }
+.bh.doc .rc .ra .mini { margin-left: 0; }

@@ -96,6 +96,10 @@ export interface ChatMessage {
   fileName?: string;
   /** Analysis failed (shown, can be retried by sending again). */
   error?: boolean;
+  /** An answer: the records it found (entries, secret names, notes). */
+  hits?: import("./ask").AskHit[];
+  /** 「찾을까요, 넣을까요?」: the sentence waiting for one click. */
+  choice?: string;
 }
 
 export interface LogEntry {

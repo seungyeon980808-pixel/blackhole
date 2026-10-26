@@ -111,28 +111,109 @@ pub struct Answer {
 
 const ASK_SYSTEM: &str = "너는 사용자의 개인 일정·할 일·기억 기록에서만 답하는 비서다. 아래 기록 목록에 있는 내용만 근거로 짧은 한국어로 답한다. 기록에 없으면 「기록에 없어요」라고만 답한다. 추측하지 않는다. 근거가 된 기록의 [id]를 ids에 넣는다.";
 
+/// One small Claude call over the given lines (`[id] …`), same budget and usage log as the
+/// analyzer. Returns the answer and the ids it used. The caller never puts secret values in.
+pub fn ask_lines(question: &str, lines: &[String]) -> Result<(String, Vec<String>), String> {
+    use crate::worker::runners::ChatModel;
+    let config = crate::worker::config::WorkerConfig::from_env().map_err(|e| e.message)?;
+    let chat = crate::worker::claude::ClaudeChat::new(&config.claude_model, "low");
+    let today = chrono::Local::now().format("%Y-%m-%d (%a)").to_string();
+    let body = format!("오늘: {today}\n기록:\n{}\n\n질문: {question}", lines.join("\n"));
+    let schema = json!({"type":"object","properties":{"answer":{"type":"string"},"ids":{"type":"array","items":{"type":"string"}}},"required":["answer","ids"]});
+    let raw = chat.chat_json(vec![json!({"role":"system","content":ASK_SYSTEM}), json!({"role":"user","content":body})], &schema).map_err(|e| e.message)?;
+    let v: Value = serde_json::from_str(&raw).map_err(|_| "AI 답을 읽지 못했습니다.".to_string())?;
+    let ids = v["ids"].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(str::to_string)).collect();
+    Ok((v["answer"].as_str().unwrap_or("").to_string(), ids))
+}
+
 /// 「내 기록에 묻기」: one Claude call over the user's own lines (same budget and usage log).
 pub fn ask(dir: &Path, question: &str) -> Result<Answer, String> {
-    use crate::worker::runners::ChatModel;
     let state = calendar::load_state(dir).map_err(|e| e.to_string())?.unwrap_or(Value::Null);
     let lines = context_lines(&state, question, 12_000);
     if lines.is_empty() {
         return Ok(Answer { answer: "아직 기록이 없어요.".into(), hits: Vec::new() });
     }
-    let config = crate::worker::config::WorkerConfig::from_env().map_err(|e| e.message)?;
-    let chat = crate::worker::claude::ClaudeChat::new(&config.claude_model, "low");
-    let today = chrono::Local::now().format("%Y-%m-%d (%a)").to_string();
-    let body = format!("오늘: {today}\n기록:\n{}\n\n질문: {question}", lines.iter().map(|(_, l)| l.as_str()).collect::<Vec<_>>().join("\n"));
-    let schema = json!({"type":"object","properties":{"answer":{"type":"string"},"ids":{"type":"array","items":{"type":"string"}}},"required":["answer","ids"]});
-    let raw = chat.chat_json(vec![json!({"role":"system","content":ASK_SYSTEM}), json!({"role":"user","content":body})], &schema).map_err(|e| e.message)?;
-    let v: Value = serde_json::from_str(&raw).map_err(|_| "AI 답을 읽지 못했습니다.".to_string())?;
-    let ids: Vec<String> = v["ids"].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(str::to_string)).collect();
+    let (answer, ids) = ask_lines(question, &lines.iter().map(|(_, l)| l.clone()).collect::<Vec<_>>())?;
+    let v = json!({ "answer": answer });
     let hits = entries(&state)
         .into_iter()
         .filter(|x| x["id"].as_str().is_some_and(|id| ids.iter().any(|i| i == id)))
         .map(|x| Hit { id: x["id"].as_str().unwrap_or("").into(), kind: kind_word(x["kind"].as_str().unwrap_or("")).into(), title: x["title"].as_str().unwrap_or("").into(), sub: when(x) })
         .collect();
     Ok(Answer { answer: v["answer"].as_str().unwrap_or("").to_string(), hits })
+}
+
+/// An Obsidian note under `<블랙홀>/노트/` for the local answer index (title, start of the body).
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteDoc {
+    /// Path under `노트/` (shown as where the answer came from).
+    pub path: String,
+    pub title: String,
+    pub text: String,
+    /// YYYY-MM-DD of the last change.
+    pub date: String,
+}
+
+const NOTE_LIMIT: usize = 3000;
+const NOTE_CHARS: usize = 1200;
+
+/// Read one note: no front matter, at most NOTE_CHARS characters of the body.
+pub fn note_doc(root: &Path, path: &Path) -> Option<NoteDoc> {
+    use std::io::Read;
+    let mut buf = Vec::new();
+    std::fs::File::open(path).ok()?.take(16 * 1024).read_to_end(&mut buf).ok()?;
+    let raw = String::from_utf8_lossy(&buf);
+    let body = if let Some(rest) = raw.strip_prefix("---\n") { rest.split_once("\n---").map(|(_, b)| b).unwrap_or(rest) } else { &raw };
+    let text: String = body.trim().chars().take(NOTE_CHARS).collect();
+    let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok()?;
+    let date = chrono::DateTime::<chrono::Local>::from(modified).format("%Y-%m-%d").to_string();
+    let rel = path.strip_prefix(root.join("노트")).ok()?.to_string_lossy().to_string();
+    Some(NoteDoc { path: rel, title: path.file_stem()?.to_string_lossy().to_string(), text, date })
+}
+
+/// Every `.md` under `<root>/노트/` (newest first, at most NOTE_LIMIT). Read again only when a
+/// file's modified time changed.
+pub fn scan_notes(root: &Path) -> Vec<NoteDoc> {
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+    use std::time::SystemTime;
+    static CACHE: Mutex<Option<HashMap<std::path::PathBuf, (SystemTime, NoteDoc)>>> = Mutex::new(None);
+    let mut files = Vec::new();
+    let mut stack = vec![root.join("노트")];
+    while let Some(dir) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+        for e in rd.flatten() {
+            let p = e.path();
+            let name = e.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') {
+                continue;
+            }
+            if p.is_dir() {
+                stack.push(p);
+            } else if name.ends_with(".md") {
+                if let Ok(m) = e.metadata().and_then(|m| m.modified()) {
+                    files.push((m, p));
+                }
+            }
+        }
+    }
+    files.sort_by(|a, b| b.0.cmp(&a.0));
+    files.truncate(NOTE_LIMIT);
+    let mut guard = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    let cache = guard.get_or_insert_with(HashMap::new);
+    let out: Vec<NoteDoc> = files
+        .iter()
+        .filter_map(|(m, p)| match cache.get(p) {
+            Some((t, d)) if t == m => Some(d.clone()),
+            _ => {
+                let d = note_doc(root, p)?;
+                cache.insert(p.clone(), (*m, d.clone()));
+                Some(d)
+            }
+        })
+        .collect();
+    out
 }
 
 fn safe_name(s: &str) -> String {
@@ -188,6 +269,21 @@ mod tests {
         assert_eq!(lines[0].0, "t1");
         assert!(lines[0].1.contains("반품 기한 11월 2일"));
         assert_eq!(lines.len(), 2);
+    }
+
+    #[test]
+    fn notes_are_indexed_without_front_matter() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = write_memo_note(dir.path(), "지마켓 반품은 11월 2일까지\n택배 기사님께 맡김").unwrap();
+        std::fs::create_dir_all(dir.path().join("노트").join(".숨김")).unwrap();
+        std::fs::write(dir.path().join("노트").join(".숨김").join("x.md"), "숨김").unwrap();
+        let notes = scan_notes(dir.path());
+        assert_eq!(notes.len(), 1);
+        assert!(notes[0].path.starts_with("기억"));
+        assert!(notes[0].text.starts_with("지마켓 반품은"));
+        assert!(!notes[0].text.contains("종류: 기억"));
+        assert_eq!(scan_notes(dir.path()), notes, "second scan comes from the cache");
+        assert!(p.exists());
     }
 
     #[test]

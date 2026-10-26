@@ -1,6 +1,7 @@
 import { diffDays, hm, mins } from "../dates";
 import type { CalendarState, ChatMessage, Entry, Task } from "../model";
-import type { Alarm } from "../store";
+import { findEntry, type Alarm } from "../store";
+import { KIND_LABEL, type AskHit } from "../ask";
 
 export type ViewName = "month" | "week" | "day";
 
@@ -20,6 +21,10 @@ export interface Ctx {
   hint?: string;
   /** Folds the user opened (by key): their rows are drawn only then, so long lists stay light. */
   open?: Set<string>;
+  /** The entry whose card shows the edit form (Mac). */
+  editing?: string | null;
+  /** Cards may offer 수정 (not on the phone: its changes travel as actions only). */
+  canEdit?: boolean;
 }
 
 /** A fold whose rows are drawn only while open (data-fold: the app re-renders on toggle). */
@@ -29,7 +34,7 @@ export function lazyFold(ctx: Ctx, key: string, label: string, rows: () => strin
 }
 
 /** Placeholder of the always-open input. While the AI refines, typing on is fine (drafts go in at once). */
-export const inputHint = (ctx: Ctx, inSheet: boolean): string => (ctx.busy ? "다듬는 중… 계속 넣어도 됩니다" : inSheet ? "더 넣기 · 고칠 것 쓰기" : ctx.hint ?? "");
+export const inputHint = (ctx: Ctx, inSheet: boolean): string => (ctx.busy ? "다듬는 중… 계속 넣어도 됩니다" : inSheet ? "더 넣기 · 묻기" : ctx.hint ?? "");
 
 export interface ThemeView {
   fd: (k: string) => string;
@@ -159,3 +164,58 @@ export function hourSegments(events: { id: string; title: string; area: string; 
 }
 
 export const pct = (m: number, A: number): string => `${(((m - A) / 60) * 100).toFixed(3)}%`;
+
+/**
+ * A result card in the chat: what went in (or what an answer found), with the actions it needs.
+ * `answer`: a found record — 열기 · 복사 · 완료 · 수정. Otherwise a put-in result — 확정/취소 or
+ * 되돌리기, 수정, 열기. Both themes share it (they paint .rc/.rm2/.ra/.mini).
+ */
+export function resultCard(ctx: Ctx, id: string, fd: (k: string) => string, answer = false, where = "", compact = false): string {
+  const x = findEntry(ctx.s, id);
+  if (!x) return "";
+  const kind = KIND_WORD[x.kind];
+  const parts =
+    x.kind === "event" ? [`${fd(x.date)} ${x.start ? `${x.start}${x.end ? "–" + x.end : ""}` : "종일"}`, x.provisional ? "가승인" : "", x.reminders.length ? `알림 ${x.reminders.map((r) => r.slice(11)).join(", ")}` : ""] :
+    x.kind === "task" ? [x.noDue ? "마감 없음" : `${fd(x.due)}${x.dueTime ? " " + x.dueTime : ""}까지`, x.subs.length ? `하위 ${x.subs.filter((t) => t.done).length}/${x.subs.length}` : "", x.reminders.length ? `알림 ${x.reminders.map((r) => (r.slice(0, 10) === x.due ? r.slice(11) : `${+r.slice(5, 7)}/${+r.slice(8, 10)} ${r.slice(11)}`)).join(", ")}` : "", x.done ? "끝냄" : ""] :
+    x.kind === "period" ? [`${fd(x.from)} ~ ${fd(x.to)}`] : [x.details ?? ""];
+  const meta = [kind, ...parts].filter(Boolean).join(" · ");
+  const review = x.review?.length ? `<div class="rm2 warn">※ ${esc(x.review.join(" · "))}</div>` : "";
+  // The edit form opens in the one card that was clicked (the same entry may have several cards).
+  const key = `${where}|${x.id}`;
+  if (ctx.editing === key && ctx.canEdit) {
+    const day = x.kind === "event" ? x.date : x.kind === "task" ? x.due : x.kind === "period" ? x.from : "";
+    const time = x.kind === "event" ? x.start ?? "" : x.kind === "task" ? x.dueTime ?? "" : "";
+    return `<div class="rc edit" data-editing="${esc(key)}"><input class="ed-t" value="${esc(x.title)}" aria-label="제목">
+      ${day ? `<div class="ed-row"><input type="date" class="ed-d" value="${day}" aria-label="날짜">${x.kind === "event" || x.kind === "task" ? `<input type="time" class="ed-h" value="${time}" aria-label="시각(비우면 ${x.kind === "event" ? "종일" : "시각 없음"})">` : ""}</div>` : ""}
+      <div class="ra"><button class="mini" data-editsave="${esc(key)}">저장</button><button class="mini" data-editcancel>그만</button></div></div>`;
+  }
+  const b = (attr: string, label: string) => `<button class="mini" ${attr}>${label}</button>`;
+  const acts: string[] = [];
+  if (x.gone) acts.push(b(`data-restore="${x.id}"`, "되살리기"));
+  else {
+    if (x.kind === "event" && x.provisional) acts.push(b(`data-ok="${x.id}"`, "확정"), b(`data-no="${x.id}"`, "취소"));
+    if (x.kind === "task") acts.push(b(`data-tdone="${x.id}"`, x.done ? "완료 취소" : "완료"));
+    if (ctx.canEdit) acts.push(b(`data-edit="${esc(key)}"`, "수정"));
+    if (x.kind !== "note") acts.push(b(`data-open="${x.id}"`, "열기"));
+    if (answer) acts.push(b(`data-copy="${x.id}"`, "복사"));
+    else if (!(x.kind === "event" && x.provisional)) acts.push(b(`data-no="${x.id}"`, "되돌리기"));
+  }
+  return `<div class="rc ${x.gone ? "gone" : ""} ${compact ? "sm" : ""}"><b>${esc(x.title)}</b>${draftTag(x)}<div class="rm2">${esc(x.gone ? `${kind} · 지움` : meta)}</div>${review}<div class="ra">${acts.join("")}</div></div>`;
+}
+
+/** A found record that is not a calendar entry: a secret name, an Obsidian note, an inbox line. */
+export function hitCard(h: AskHit): string {
+  const act =
+    h.kind === "secret" ? `<button class="mini" data-secretcopy="${esc(h.id.slice(7))}">복사(Touch ID)</button>` :
+    h.kind === "obsidian" ? `<button class="mini" data-note="${esc(h.id.slice(9))}">열기</button><button class="mini" data-copytext="${esc(h.title)}">복사</button>` : "";
+  return `<div class="rc"><b>${esc(h.title)}</b><div class="rm2">${KIND_LABEL[h.kind]} · ${esc(h.kind === "secret" ? "값은 이 Mac 키체인에만" : `${h.when} · ${h.where}`)}</div>${act ? `<div class="ra">${act}</div>` : ""}</div>`;
+}
+
+/** Cards under a chat message: answers (hits) or put-in results (refs), and the 「찾기/넣기」 choice. */
+export function chatCards(ctx: Ctx, m: ChatMessage, fd: (k: string) => string): string {
+  const cards = m.hits?.length
+    ? m.hits.map((h) => (["event", "task", "period", "note"].includes(h.kind) ? resultCard(ctx, h.id, fd, true, m.id, m.hits!.length > 3) || hitCard(h) : hitCard(h))).join("")
+    : (m.refs ?? []).map((r) => resultCard(ctx, r, fd, false, m.id)).join("");
+  const choice = m.choice ? `<div class="ra"><button class="mini" data-choose="ask" data-cmsg="${m.id}">찾아보기</button><button class="mini" data-choose="put" data-cmsg="${m.id}">넣기</button></div>` : "";
+  return cards + choice;
+}

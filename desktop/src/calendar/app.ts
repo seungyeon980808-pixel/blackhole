@@ -4,7 +4,8 @@
  * window, a browser and the phone WebView.
  */
 import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type BoardOptions, type ClaudeStatus, type DeskStatus, type GoogleCalendars, type InboxStatus, type MessengerStatus, type PutItem } from "./adapter";
-import { addDays, parseDay, stamp, ymd } from "./dates";
+import { answer as answerQuestion, AskIndex, classify, docsOf, type AskSources } from "./ask";
+import { addDays, fromStamp, hm, mins, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
@@ -40,6 +41,12 @@ export interface BlackholeApp {
 
 const THEMES: Record<ThemeName, ThemeView> = { glass, doc };
 const COMPACT = 760;
+/** Narrower than this (the calendar would be under ~740px), the chat panel folds away and the input goes back under the calendar. */
+export const SIDE_MIN = 1100;
+const PANEL_MIN = 280;
+const PANEL_MAX = 560;
+/** Messages drawn in the chat (older ones stay saved). */
+const CHAT_SHOWN = 200;
 /** Worker codes that mean 「the analyzer is not available now」, not 「this input failed」. */
 const WAITING_CODES = ["API_KEY_MISSING", "API_BILLING", "RUNNER_UNAVAILABLE", "MODEL_MISSING", "STT_UNAVAILABLE"];
 /** Minimum time between two writes of the Drive 「달력.json」. */
@@ -87,6 +94,24 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let lastDraftMs: number | null = null;
   /** The day view last drawn: lists keep their scroll only while it stays the same day. */
   let lastRendered = "";
+  /** Right-hand chat panel (desktop): open unless the user folded it; width in px. Remembered. */
+  const sideCapable = adapter.origin !== "휴대폰";
+  let sidePref = true;
+  let panelW = 360;
+  try {
+    sidePref = localStorage.getItem("bh-panel") !== "closed";
+    panelW = Math.max(PANEL_MIN, Math.min(PANEL_MAX, Number(localStorage.getItem("bh-panel-w")) || 360));
+  } catch {
+    /* defaults */
+  }
+  let side = false;
+  let editing: string | null = null;
+  let chatDrawn = -1;
+  /** Local answer index: rebuilt when the calendar changed (dataVer) or the sources were re-read. */
+  let dataVer = 0;
+  let sources: AskSources | null = null;
+  let sourcesAt = 0;
+  let askCache: { ver: number; idx: AskIndex } | null = null;
   /** Lazy folds the user opened (「N개 더」, 「오래 지난 것」); kept for this session. */
   const openFolds = new Set<string>();
   const fcHost = new FcHost();
@@ -155,6 +180,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     });
   };
   const save = async () => {
+    dataVer++;
     await adapter.save(s).catch((e: unknown) => console.error("저장 실패", e));
     if (adapter.publishShared && s.settings.sharePhone && shareTimer === undefined) {
       const wait = Math.max(1500, lastSharedAt + SHARE_GAP_MS - Date.now());
@@ -173,7 +199,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       recording: !!recording,
       busy: busy > 0,
       open: openFolds,
-      hint: adapter.origin === "휴대폰" ? "쓰고 보내기 — 「내일 3시 치과」" : adapter.onPut ? "쓰고 Enter — 「내일 3시 치과」, 「금요일까지 보고서」 · 파일은 끌어 놓기, 사진은 ⌘V" : "쓰고 Enter — 「내일 3시 치과」"
+      editing,
+      canEdit: !adapter.recordAction,
+      hint: adapter.origin === "휴대폰" ? "쓰고 보내기 — 「내일 3시 치과」" : adapter.onPut ? (side ? "넣기·묻기 · Enter" : "넣기·묻기 — 「내일 3시 치과」, 「치과 언제야?」 · 파일은 끌어 놓기, 사진은 ⌘V") : "넣기·묻기 — 「내일 3시 치과」, 「치과 언제야?」"
     };
   }
 
@@ -187,12 +215,52 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     applyLook();
     void adapter.setLook?.(s.settings.theme, s.settings.mode).catch(() => undefined);
     root.innerHTML = `${theme().shell(c)}
-      <section class="chatsheet" id="bhChat" aria-label="대화 기록"><div class="grab" data-drag="close" role="button" tabindex="0" aria-label="대화 기록 닫기"><i></i></div><div class="sheethead">대화 기록</div><div class="thread" id="bhThread" aria-live="polite"></div><div class="sheetcomp" id="bhChatComp"></div></section>
+      <section class="chatsheet" id="bhChat" aria-label="대화 기록"><div class="resizer" data-resize role="separator" aria-orientation="vertical" aria-label="대화 패널 폭" tabindex="0"></div><div class="grab" data-drag="close" role="button" tabindex="0" aria-label="대화 기록 닫기"><i></i></div><div class="sheethead">대화 기록</div><div class="panelbar"><b>대화</b><span class="sp"></span><button class="mini" data-panel="close" title="대화 접기 (⌘L)" aria-label="대화 패널 접기">접기</button></div><div class="thread" id="bhThread" aria-live="polite"></div><div class="sheetcomp" id="bhChatComp"></div></section>
       <div class="settings" id="bhSettings" role="dialog" aria-label="설정" hidden></div>
       <div class="settings guide" id="bhGuide" role="dialog" aria-label="처음 쓰기" hidden></div>
       <div class="alarm" id="bhAlarm" aria-live="assertive"></div>
       <div class="toast" id="bhToast" role="status" aria-live="polite" hidden></div>
       <input type="file" id="bhFile" hidden accept="image/*,.pdf,.hwp,.hwpx,.docx,.xlsx,.txt,.wav">`;
+    if (sideCapable) {
+      // 「대화」 in the header: shows the folded panel again (the panel has 「접기」 itself).
+      const set = root.querySelector<HTMLElement>("[data-settings]");
+      set?.insertAdjacentHTML("beforebegin", `<button class="${set.className}" data-panel="open" title="대화 펴기 (⌘L)">대화</button>`);
+    }
+    side = sideOn();
+    renderComposer();
+    render();
+    // The calendar box changes width with the panel (open, fold, drag): FullCalendar follows.
+    mainObserver?.disconnect();
+    const main = root.querySelector<HTMLElement>("#bhMain");
+    if (main && typeof ResizeObserver !== "undefined") {
+      mainObserver = new ResizeObserver(() => fcHost.resize());
+      mainObserver.observe(main);
+    }
+  }
+  let mainObserver: ResizeObserver | undefined;
+
+  /** The chat panel is on the right when the window is wide enough and the user did not fold it. */
+  function sideOn(): boolean {
+    return sideCapable && sidePref && root.clientWidth >= SIDE_MIN;
+  }
+
+  function setSidePref(open: boolean): void {
+    sidePref = open;
+    try {
+      localStorage.setItem("bh-panel", open ? "open" : "closed");
+    } catch {
+      /* not kept */
+    }
+    relayout();
+    if (side) root.querySelector<HTMLInputElement>("#bhIn")?.focus();
+  }
+
+  /** Side or bottom: the input moves with it (same id, same text). */
+  function relayout(): void {
+    const next = sideOn();
+    if (next === side) return render();
+    side = next;
+    chatDrawn = -1;
     renderComposer();
     render();
   }
@@ -212,8 +280,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const keep = (id: string) => root.querySelector<HTMLInputElement>(`#${id}`)?.value ?? "";
     const v1 = keep("bhIn");
     const v2 = keep("bhChatIn");
-    if (comp) comp.innerHTML = theme().composer(c, "bhIn", false);
-    if (chatComp) chatComp.innerHTML = theme().composer(c, "bhChatIn", true);
+    if (side) {
+      // The panel holds the one input; the bottom bar is empty (and hidden).
+      if (comp) comp.innerHTML = "";
+      if (chatComp) chatComp.innerHTML = theme().composer(c, "bhIn", true);
+    } else {
+      if (comp) comp.innerHTML = theme().composer(c, "bhIn", false);
+      if (chatComp) chatComp.innerHTML = theme().composer(c, "bhChatIn", true);
+    }
     const i1 = root.querySelector<HTMLInputElement>("#bhIn");
     const i2 = root.querySelector<HTMLInputElement>("#bhChatIn");
     if (i1) i1.value = v1;
@@ -248,8 +322,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const x = findEntry(s, undoRef);
       if (x) undoStack.push({ label: `「${x.title}」 넣기`, run: () => userAction({ type: "cancel", ref: undoRef }, true, false) });
       else canUndo = false;
-      // The line above the input already says it, with 확정·취소/되돌리기: no second copy.
-      if (x && !chatOpen && s.log[s.log.length - 1]?.ref === undoRef && root.querySelector("#bhLast")) {
+      // The chat card (panel) or the line above the input already says it, with its buttons: no second copy.
+      const inPanel = side && s.chat.slice(-3).some((m) => m.refs?.includes(undoRef));
+      if (x && (inPanel || (!side && !chatOpen && s.log[s.log.length - 1]?.ref === undoRef && root.querySelector("#bhLast")))) {
         renderLast();
         return;
       }
@@ -286,7 +361,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const c = ctx();
     let day = "";
     let h = "";
-    for (const m of s.chat) {
+    for (const m of s.chat.slice(-CHAT_SHOWN)) {
       const d = m.at.slice(0, 10);
       if (d !== day) {
         day = d;
@@ -294,9 +369,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
       h += theme().bubble(c, m);
     }
-    if (busy) h += '<div class="bub ai typing">분석 중…</div>';
+    // A draft card already says 「다듬는 중」; the typing line is only for what has no card yet.
+    if (busy && s.chat[s.chat.length - 1]?.who !== "ai") h += '<div class="bub ai typing">찾는 중…</div>';
+    // Keep the reader's place unless they were at the bottom or something new arrived.
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    const top = el.scrollTop;
     el.innerHTML = h;
-    el.scrollTop = el.scrollHeight;
+    el.scrollTop = atBottom || chatDrawn !== s.chat.length ? el.scrollHeight : top;
+    chatDrawn = s.chat.length;
   }
 
   function render(): void {
@@ -340,8 +420,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         else if (tt) scrollToNow(tt, c.nowM);
       }
     }
-    root.classList.toggle("chat-open", chatOpen);
-    root.querySelector("#bhChat")?.classList.toggle("open", chatOpen);
+    root.classList.toggle("side", side);
+    root.classList.toggle("panel-closed", sideCapable && !sidePref && root.clientWidth >= SIDE_MIN);
+    root.style.setProperty("--panel-w", `${panelW}px`);
+    root.classList.toggle("chat-open", chatOpen && !side);
+    root.querySelector("#bhChat")?.classList.toggle("open", chatOpen || side);
     try {
       localStorage.setItem("bh-view", view);
     } catch {
@@ -354,7 +437,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       conn.classList.toggle("warn", !!state);
     }
     renderLast();
-    if (chatOpen) renderChat();
+    if (chatOpen || side) renderChat();
     if (settingsOpen) renderSettings();
   }
 
@@ -613,7 +696,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         afterApplied(applied.refs, applied.missing, "인박스", now, applied.updated, applied.suggested);
         s.inbox.push({ at: stamp(now), title: r.fileName, src: "인박스", state: r.proposal.needsReview ? "검토 필요" : "완료", out: `${applied.refs.length}건` });
         if (!drafted) s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: "", kind: "file", fileName: r.fileName, src: "인박스" });
-        s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: aiText(applied.refs.length, applied.missing.length, r.proposal.reviewReasons, applied), refs: applied.refs.length ? applied.refs : applied.suggested });
+        card(aiText(applied.refs.length, applied.missing.length, r.proposal.reviewReasons, applied), applied.refs.length ? applied.refs : applied.suggested);
       } else {
         s.inbox.push({ at: stamp(now), title: r.fileName, src: "인박스", state: "실패", out: r.error ?? "" });
       }
@@ -649,7 +732,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         skip.push(d.jobId);
         log(s, { label: line.label, msg: line.msg, src, ref: x.id }, now);
         s.inbox.push({ at: stamp(now), title: d.text.slice(0, 40), src, state: "완료", out: "1건" });
-      } else log(s, { label: "초안", msg: line.msg, src, ref: x.id }, now);
+        card("휴대폰에서 받아 바로 넣었어요(간단한 문장이라 AI 생략).", [x.id]);
+      } else {
+        log(s, { label: "초안", msg: line.msg, src, ref: x.id }, now);
+        card("휴대폰에서 받아 초안으로 넣었어요 · AI가 다듬는 중", [x.id]);
+      }
       n++;
     }
     if (n) void adapter.inboxDrafted?.(skip).catch(() => undefined);
@@ -661,6 +748,25 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
 
   /* ---------- input ---------- */
+
+  /**
+   * The chat card for these entries: the draft's card is updated in place when the AI result (or
+   * a failure) arrives, so one put-in is one card. Otherwise a new AI message.
+   */
+  function card(text: string, refs: string[], extra: Partial<ChatMessage> = {}): ChatMessage {
+    for (let i = s.chat.length - 1; i >= Math.max(0, s.chat.length - 30) && refs.length; i--) {
+      const m = s.chat[i];
+      if (m.who === "ai" && !m.hits && m.refs?.some((r) => refs.includes(r))) {
+        m.text = text;
+        m.refs = [...new Set([...m.refs, ...refs])];
+        Object.assign(m, extra);
+        return m;
+      }
+    }
+    const m: ChatMessage = { id: newId(s, "c"), at: stamp(clock()), who: "ai", text, refs, ...extra };
+    s.chat.push(m);
+    return m;
+  }
 
   function aiText(n: number, miss: number, reasons: string[] = [], r?: { updated: string[]; suggested: string[] }): string {
     if (r?.suggested.length && !n) return "손댄 항목이라 그대로 두고 AI 제안만 붙였어요.";
@@ -690,9 +796,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", ...me, src });
     const key = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const drafted = input.text !== undefined && !opts.noDraft;
+    let draftMsg: ChatMessage | null = null;
     if (drafted) {
       const x = draftFromText(s, input.text!, src, now, key);
       log(s, { label: "초안", msg: describe(s, x.id, theme().fd).msg, src, ref: x.id }, now);
+      draftMsg = card("초안으로 넣었어요 · AI가 다듬는 중", [x.id]);
     }
     busy++;
     renderComposer();
@@ -708,7 +816,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const applied = refineDrafts(s, key, proposal, src, at);
       afterApplied(applied.refs, applied.missing, src, at, applied.updated, applied.suggested);
       if (me.kind === "voice" && proposal.sourceText) s.chat[s.chat.length - 1].text = proposal.sourceText;
-      s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: aiText(applied.refs.length, applied.missing.length, proposal.reviewReasons, applied), refs: applied.refs.length ? applied.refs : applied.suggested });
+      const shown = applied.refs.length ? applied.refs : applied.suggested;
+      const text = aiText(applied.refs.length, applied.missing.length, proposal.reviewReasons, applied);
+      if (draftMsg) Object.assign(draftMsg, { text, refs: [...new Set([...(draftMsg.refs ?? []), ...shown])] });
+      else card(text, shown);
       s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: proposal.needsReview ? "검토 필요" : "완료", out: `${applied.refs.length}건` });
     } catch (e) {
       const at = clock();
@@ -718,7 +829,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
           rekey(s, key, e.job);
           adapter.keepDrafts?.(draftsOf(s, e.job));
         }
-        s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: drafted ? "초안으로 넣었어요. Mac이 정리하면 다듬어집니다." : e.message });
+        if (drafted) card("초안으로 넣었어요. Mac이 정리하면 다듬어집니다.", draftsOf(s, e.job ?? key).map((x) => x.id));
+        else s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: e.message });
         s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: "분석 중", out: "" });
         busy--;
         await save();
@@ -736,7 +848,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         x.review = [...(x.review ?? []), waiting ? "AI 다듬기 안 함 · 규칙 초안" : "AI 분석 실패 · 규칙으로만 넣음"];
       }
       if (waiting && kept.length) {
-        s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: `초안으로 넣었어요. AI 다듬기는 하지 못했어요: ${msg}`, refs: kept.map((x) => x.id) });
+        card(`초안으로 넣었어요. AI 다듬기는 하지 못했어요: ${msg}`, kept.map((x) => x.id));
         s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: "검토 필요", out: "초안" });
         busy--;
         await save();
@@ -745,7 +857,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         render();
         return;
       }
-      s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: `분석하지 못했어요: ${msg}${kept.length ? " 초안은 그대로 두었어요." : ""}`, error: true, refs: kept.map((x) => x.id) });
+      if (kept.length) card(`분석하지 못했어요: ${msg} 초안은 그대로 두었어요.`, kept.map((x) => x.id), { error: true });
+      else s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: `분석하지 못했어요: ${msg}`, error: true });
       log(s, { label: "실패", msg, src }, at);
       s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: "실패", out: msg });
     } finally {
@@ -762,9 +875,21 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     return !!adapter.aiSkipped && claude?.skipSimple !== false && claude?.analyzer !== "local" && isSimpleCertain(text, parseDraft(text, at));
   }
 
-  async function submitText(text: string, src = adapter.origin, checked = false): Promise<void> {
+  async function submitText(text: string, src = adapter.origin, checked = false, mode?: "put"): Promise<void> {
     const v = text.trim();
     if (!v) return;
+    // A question gets an answer from the records; 「내일 3시에 알려줘」 (both) asks once with two buttons.
+    if (!checked && mode !== "put") {
+      const c = classify(v, clock());
+      if (c === "ask") return askQuestion(v);
+      if (c === "both") {
+        s.chat.push({ id: newId(s, "c"), at: stamp(clock()), who: "ai", text: `「${v}」 — 찾아볼까요, 넣을까요?`, choice: v });
+        if (!side) setChat(true);
+        await save();
+        render();
+        return;
+      }
+    }
     // Secrets never reach the calendar, the chat or the AI (Mac: keychain only).
     if (!checked && adapter.secretIntake) {
       const r = await adapter.secretIntake(v).catch(() => "put" as const);
@@ -795,6 +920,101 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     await analyze({ text: v, now: clock() }, { text: v, kind: "text" }, src, "문장");
   }
 
+  /** The local index over the records (+ secret names and notes from the Mac), rebuilt when stale. */
+  async function askIndex(): Promise<AskIndex> {
+    if (adapter.askSources && Date.now() - sourcesAt > 60_000) {
+      sources = await adapter.askSources().catch(() => sources);
+      sourcesAt = Date.now();
+      askCache = null;
+    }
+    if (!askCache || askCache.ver !== dataVer) askCache = { ver: dataVer, idx: new AskIndex(docsOf(s, sources)) };
+    return askCache.idx;
+  }
+
+  /**
+   * 질문하면 답하기: the local index answers clear questions at once (no AI, 0원). Fuzzy ones or a
+   * summary go to the AI with only the few lines found (secret names, never values).
+   */
+  async function askQuestion(q: string): Promise<void> {
+    const now = clock();
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: q, kind: "text", src: "질문" });
+    if (!side) setChat(true);
+    const a = answerQuestion(await askIndex(), q, now);
+    const aiReady = !!adapter.askAi && !!claude?.hasKey && !((claude.budgetUsd ?? 0) > 0 && claude.monthUsd >= (claude.budgetUsd ?? 0));
+    if (a.mode === "ai" && aiReady) {
+      const m: ChatMessage = { id: newId(s, "c"), at: stamp(now), who: "ai", text: "기록을 보고 정리하는 중…", hits: a.hits };
+      s.chat.push(m);
+      busy++;
+      render();
+      try {
+        const r = await adapter.askAi!(q, a.lines);
+        m.text = r.answer || "기록에 없어요.";
+        const used = a.hits.filter((h) => r.ids.includes(h.id));
+        m.hits = used.length ? used : a.hits.slice(0, 3);
+      } catch (e) {
+        m.text = `AI로 정리하지 못했어요(${friendlyError(e)}) · 가까운 기록입니다`;
+      } finally {
+        busy--;
+      }
+    } else {
+      const text = a.mode === "ai" ? `${a.text}${adapter.askAi ? " · AI 키가 없거나 예산을 다 써서 AI 없이 찾은 것" : ""}` : a.text;
+      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text, hits: a.hits });
+    }
+    await save();
+    render();
+  }
+
+  /** 수정 on a card: title, day and time in place (Mac). One ⌘Z puts it back. */
+  function saveEdit(key: string): void {
+    const id = key.slice(key.indexOf("|") + 1);
+    const x = findEntry(s, id);
+    const el = [...root.querySelectorAll<HTMLElement>("[data-editing]")].find((e) => e.dataset.editing === key);
+    if (!x || !el) return;
+    const val = (sel: string) => el.querySelector<HTMLInputElement>(sel)?.value.trim() ?? "";
+    const before = structuredClone(x);
+    const title = val(".ed-t");
+    const d = val(".ed-d");
+    const h = val(".ed-h");
+    if (title) x.title = title.slice(0, 80);
+    const shift = (from: string, to: string) => {
+      const delta = fromStamp(to).getTime() - fromStamp(from).getTime();
+      return (r: string) => stamp(new Date(fromStamp(r).getTime() + delta));
+    };
+    if (x.kind === "event" && d) {
+      const dur = x.start && x.end ? mins(x.end) - mins(x.start) : 60;
+      const old = `${x.date}T${x.start ?? "09:00"}`;
+      x.date = d;
+      x.start = h || null;
+      x.end = h ? hm(Math.min(mins(h) + Math.max(dur, 10), 23 * 60 + 59)) : null;
+      x.reminders = h ? x.reminders.map(shift(old, `${d}T${h}`)) : [];
+    } else if (x.kind === "task" && d) {
+      const old = `${x.due}T${x.dueTime ?? "09:00"}`;
+      x.due = d;
+      x.dueTime = h || null;
+      x.noDue = false;
+      x.reminders = x.reminders.map(shift(old, `${d}T${h || "09:00"}`));
+    } else if (x.kind === "period" && d) {
+      const len = Math.round((parseDay(x.to).getTime() - parseDay(x.from).getTime()) / 864e5);
+      x.from = d;
+      x.to = ymd(addDays(parseDay(d), len));
+    }
+    x.touched = true;
+    x.draft = false;
+    x.review = undefined;
+    editing = null;
+    log(s, { label: "수정", msg: x.title, src: adapter.origin, ref: x.id }, clock());
+    undoStack.push({ label: `「${before.title}」 수정`, run: () => {
+      const y = findEntry(s, id);
+      if (y) {
+        for (const k of Object.keys(y)) delete (y as unknown as Record<string, unknown>)[k];
+        Object.assign(y, before);
+      }
+      void act(() => undefined);
+    } });
+    toast(`고쳤어요: 「${x.title}」`, undefined, true);
+    void act(() => undefined);
+  }
+
   /** ⌘Enter: a 기억 exactly as typed (no AI; also an Obsidian note under 노트/기억/). */
   async function addMemo(text: string, via: string): Promise<void> {
     const now = clock();
@@ -802,6 +1022,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const memo = { id: newId(s, "n"), kind: "note" as const, title: first.slice(0, 80), details: rest.join("\n").trim() || undefined, area: "personal" as const, source: via, createdAt: stamp(now) };
     s.notes.push(memo);
     log(s, { label: "기억", msg: memo.title, src: via, ref: memo.id }, now);
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: text.trim(), kind: "text", src: via });
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: "기억으로 저장했어요(AI 없이 그대로).", refs: [memo.id] });
     toast(`기억으로 저장: ${memo.title}`, memo.id);
     await save();
     render();
@@ -845,6 +1067,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       try {
         await adapter.inboxPut(p.path);
         log(s, { label: "넣음", msg: `${name} → 인박스(곧 정리)`, src: p.via }, clock());
+        s.chat.push({ id: newId(s, "c"), at: stamp(clock()), who: "me", text: "", kind: /\.(png|jpe?g|heic|webp)$/i.test(name) ? "photo" : "file", fileName: name, src: p.via });
+        s.chat.push({ id: newId(s, "c"), at: stamp(clock()), who: "ai", text: "받았어요 · 곧 정리해서 여기에 카드로 보여 드릴게요." });
         await save();
         renderLast();
         toast(`${name} 넣음 · 곧 정리됩니다`);
@@ -1012,6 +1236,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (refresh) void act(() => undefined);
   }
 
+  function copyText(text: string): void {
+    void navigator.clipboard?.writeText(text).then(() => toast("복사했어요"), () => toast("복사하지 못했어요"));
+  }
+
   async function act(fn: () => void): Promise<void> {
     fn();
     await save();
@@ -1043,6 +1271,43 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
     if (q("[data-drag]")) return;
     if (q("[data-undo]")) return undo();
+    if (q("[data-panel]")) return setSidePref(q("[data-panel]")!.dataset.panel === "open");
+    if (q("[data-choose]")) {
+      const b = q("[data-choose]")!;
+      const i = s.chat.findIndex((m) => m.id === b.dataset.cmsg);
+      const v = i >= 0 ? s.chat[i].choice : undefined;
+      if (v === undefined) return;
+      s.chat.splice(i, 1);
+      return void (b.dataset.choose === "ask" ? askQuestion(v) : submitText(v, adapter.origin, false, "put"));
+    }
+    if (q("[data-edit]")) {
+      editing = q("[data-edit]")!.dataset.edit!;
+      render();
+      return [...root.querySelectorAll<HTMLElement>("[data-editing]")].find((e) => e.dataset.editing === editing)?.querySelector<HTMLInputElement>(".ed-t")?.focus();
+    }
+    if (q("[data-editsave]")) return saveEdit(q("[data-editsave]")!.dataset.editsave!);
+    if (q("[data-editcancel]")) {
+      editing = null;
+      return render();
+    }
+    if (q("[data-restore]")) return userAction({ type: "restore", ref: q("[data-restore]")!.dataset.restore! });
+    if (q("[data-open]")) {
+      const x = findEntry(s, q("[data-open]")!.dataset.open!);
+      if (x?.kind === "event") openDay(x.date);
+      else if (x?.kind === "task") openDay(x.due);
+      else if (x?.kind === "period") openDay(x.from);
+      return;
+    }
+    if (q("[data-copy]")) {
+      const id = q("[data-copy]")!.dataset.copy!;
+      return findEntry(s, id) ? copyText(describe(s, id, theme().fd).msg) : undefined;
+    }
+    if (q("[data-copytext]")) return copyText(q("[data-copytext]")!.dataset.copytext!);
+    if (q("[data-secretcopy]")) {
+      const name = q("[data-secretcopy]")!.dataset.secretcopy!;
+      return void adapter.secretCopy?.(name).then(() => toast("복사했어요 · 30초 뒤 클립보드에서 지웁니다"), (e: unknown) => toast(friendlyError(e)));
+    }
+    if (q("[data-note]")) return void adapter.openNote?.(q("[data-note]")!.dataset.note!).catch((e: unknown) => toast(friendlyError(e)));
     if (q("[data-ok]")) return userAction({ type: "confirm", ref: q("[data-ok]")!.dataset.ok! });
     if (q("[data-no]")) return userAction({ type: "cancel", ref: q("[data-no]")!.dataset.no! });
     if (q("[data-tdone]")) return userAction({ type: "toggleTask", ref: q("[data-tdone]")!.dataset.tdone! });
@@ -1139,6 +1404,20 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   const onKey = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
     if (el.matches("[data-desk-sc]")) return recordShortcut(e, el as HTMLInputElement);
+    if (el.matches("[data-resize]") && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      e.preventDefault();
+      e.stopPropagation();
+      return setPanelW(panelW + (e.key === "ArrowLeft" ? 20 : -20), true);
+    }
+    const ed = el.closest?.<HTMLElement>("[data-editing]");
+    if (ed && !e.isComposing && (e.key === "Enter" || e.key === "Escape")) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Enter") return saveEdit(ed.dataset.editing!);
+      editing = null;
+      render();
+      return root.querySelector<HTMLInputElement>("#bhIn")?.focus();
+    }
     if (e.key === "Escape") {
       if (!printRoot.hidden) printRoot.hidden = true;
       else if (guideOpen) {
@@ -1270,6 +1549,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   /* chat sheet: pull the handle up to open, down to close; click toggles */
   let drag: { y: number; open: boolean } | null = null;
   function setChat(open: boolean): void {
+    if (side || (sideCapable && !sidePref && root.clientWidth >= SIDE_MIN)) return setSidePref(open && !side);
     chatOpen = open;
     const el = root.querySelector<HTMLElement>("#bhChat");
     el?.classList.toggle("open", open);
@@ -1279,13 +1559,31 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       root.querySelector<HTMLInputElement>("#bhChatIn")?.focus();
     }
   }
+  let resizing: { x: number; w: number } | null = null;
+  const setPanelW = (w: number, keep: boolean) => {
+    panelW = Math.max(PANEL_MIN, Math.min(PANEL_MAX, Math.round(w), Math.max(PANEL_MIN, root.clientWidth - 740)));
+    root.style.setProperty("--panel-w", `${panelW}px`);
+    if (keep) {
+      try {
+        localStorage.setItem("bh-panel-w", String(panelW));
+      } catch {
+        /* not kept */
+      }
+    }
+  };
   const onDown = (e: PointerEvent) => {
+    if (side && (e.target as HTMLElement).closest("[data-resize]")) {
+      resizing = { x: e.clientX, w: panelW };
+      e.preventDefault();
+      return;
+    }
     const g = (e.target as HTMLElement).closest<HTMLElement>("[data-drag]");
     if (!g) return;
     drag = { y: e.clientY, open: g.dataset.drag === "close" };
     e.preventDefault();
   };
   const onMove = (e: PointerEvent) => {
+    if (resizing) return setPanelW(resizing.w + resizing.x - e.clientX, false);
     if (!drag) return;
     const dy = e.clientY - drag.y;
     const el = root.querySelector<HTMLElement>("#bhChat")!;
@@ -1294,6 +1592,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     else if (drag.open && dy > 0) el.style.transform = `translateY(${dy}px)`;
   };
   const onUp = (e: PointerEvent) => {
+    if (resizing) {
+      setPanelW(panelW, true);
+      resizing = null;
+      if (view !== "day") render();
+      return;
+    }
     if (!drag) return;
     const dy = e.clientY - drag.y;
     const el = root.querySelector<HTMLElement>("#bhChat")!;
@@ -1415,6 +1719,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   let lastWidthCompact = false;
   const onResize = () => {
+    if (sideOn() !== side) relayout();
     const compact = root.clientWidth < COMPACT;
     if (compact !== lastWidthCompact) {
       lastWidthCompact = compact;
@@ -1504,6 +1809,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("focus", onFocus);
+      mainObserver?.disconnect();
     }
   };
 }

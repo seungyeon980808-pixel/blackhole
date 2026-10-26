@@ -3,7 +3,7 @@ import { holiday } from "../holidays";
 import { addDays, diffDays, fdDoc, fdDocLong, mins, parseDay, weekDays, ymd } from "../dates";
 import type { CalEvent, ChatMessage, Period, Task } from "../model";
 import { alarmsOn, dueOn, eventsOn, findEntry, liveEvents, livePeriods, liveTasks, pending, periodsOn, taskGroups, type Alarm } from "../store";
-import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, inputHint, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
+import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, chatCards, inputHint, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
 
 const fd = fdDoc;
 const ROMAN = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"];
@@ -95,20 +95,6 @@ function docInbox(ctx: Ctx, k: string, n: number): string {
   </div>`;
 }
 
-function refCard(ctx: Ctx, id: string): string {
-  const x = findEntry(ctx.s, id);
-  if (!x) return "";
-  const kind = { event: "일정", task: "할 일", period: "기간", note: "기억" }[x.kind];
-  const when =
-    x.kind === "event" ? `${fd(x.date)} ${x.start ?? "종일"}` :
-    x.kind === "task" ? `${fd(x.due)}${x.dueTime ? " " + x.dueTime : ""}까지${x.subs.length ? ` · 하위 ${x.subs.length}` : ""}` :
-    x.kind === "period" ? `${fd(x.from)} ~ ${fd(x.to)}` : (x.details ?? "");
-  const review = x.review?.length ? `<div class="rm2 warn">※ ${esc(x.review.join(" · "))}</div>` : "";
-  const act = x.gone ? '<div class="rm2">취소됨</div>' :
-    x.kind === "event" && x.provisional ? `<div class="ra"><button class="mini" data-ok="${x.id}">확정</button><button class="mini" data-no="${x.id}">취소</button></div>` :
-    `<div class="ra"><button class="mini" data-no="${x.id}">되돌리기</button></div>`;
-  return `<div class="rc ${x.gone ? "gone" : ""}"><b>${esc(x.title)}</b><div class="rm2">${kind}${when ? " · " + esc(when) : ""}</div>${review}${act}</div>`;
-}
 
 export const doc: ThemeView = {
   fd,
@@ -159,13 +145,13 @@ export const doc: ThemeView = {
       </div></div>`;
   },
   week: (ctx) => `<div class="colx full">${weekTable(ctx, weekDays(ctx.cur))}</div>`,
-  composer: (ctx, id, inSheet) => `${inSheet ? "" : `<div class="grab" data-drag="open" title="끌어 올리면 대화 기록" role="button" tabindex="0" aria-label="대화 기록 열기"><i></i></div><div class="last" id="bhLast"></div>`}<div class="form"><span class="lab">입력</span><input id="${id}" autocomplete="off" aria-label="입력" placeholder="${esc(inputHint(ctx, inSheet))}"><button class="ic" data-photo title="사진·파일" aria-label="사진·파일">${ICON.cam}</button><button class="ic ${ctx.recording ? "rec" : ""}" data-voice title="${ctx.recording ? "말하기 끝" : "말하기"}" aria-label="${ctx.recording ? "말하기 끝" : "말하기"}" aria-pressed="${ctx.recording}">${ICON.mic}</button><button class="ic go" data-go="${id}" title="넣기" aria-label="넣기">${ICON.send}</button></div>`,
+  composer: (ctx, id, inSheet) => `${inSheet ? "" : `<div class="grab" data-drag="open" title="끌어 올리면 대화 기록" role="button" tabindex="0" aria-label="대화 기록 열기"><i></i></div><div class="last" id="bhLast"></div>`}<div class="form"><span class="lab">입력</span><input id="${id}" autocomplete="off" aria-label="입력" placeholder="${esc(inputHint(ctx, id !== "bhIn"))}"><button class="ic" data-photo title="사진·파일" aria-label="사진·파일">${ICON.cam}</button><button class="ic ${ctx.recording ? "rec" : ""}" data-voice title="${ctx.recording ? "말하기 끝" : "말하기"}" aria-label="${ctx.recording ? "말하기 끝" : "말하기"}" aria-pressed="${ctx.recording}">${ICON.mic}</button><button class="ic go" data-go="${id}" title="넣기" aria-label="넣기">${ICON.send}</button></div>`,
   bubble: (ctx, m: ChatMessage) => {
     if (m.who === "me") {
       const body = m.kind === "photo" || m.kind === "file" ? `<div class="photo">${esc(m.fileName ?? "파일")}</div>${m.text ? `<div>${esc(m.text)}</div>` : ""}` : m.kind === "voice" ? `<div class="voice">▶ 음성 메모</div>${m.text ? `<div>${esc(m.text)}</div>` : ""}` : esc(m.text);
       return `<div class="bub me">${body}</div>${m.src ? `<div class="bsrc me">${esc(m.src)} · ${m.at.slice(11)}</div>` : ""}`;
     }
-    return `<div class="bub ai ${m.error ? "err" : ""}">${esc(m.text)}${(m.refs ?? []).map((r) => refCard(ctx, r)).join("")}</div>`;
+    return `<div class="bub ai ${m.error ? "err" : ""}">${esc(m.text)}${chatCards(ctx, m, fd)}</div>`;
   },
   alarm: (a: Alarm) => `<div class="al-in" role="alertdialog" aria-labelledby="alTitle"><div class="al-head"><span>블랙홀 알람</span><span>${a.at.slice(11)}</span></div><div class="al-pad"><div class="al-kind">□ ${a.kind === "event" ? "일정" : "할 일"}</div><div class="al-title" id="alTitle">${esc(a.title)}</div><div class="al-body">- ${esc(a.body)}</div><div class="al-btns"><button class="al-b" data-alarm="snooze">10분 뒤</button><button class="al-b ok" data-alarm="done">${a.kind === "task" ? "완료" : "확인"}</button></div><div class="al-hint">※ 누를 때까지 소리가 계속됩니다</div></div></div>`,
   more: (n) => `외 ${n}건`,
