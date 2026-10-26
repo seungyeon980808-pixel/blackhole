@@ -20,8 +20,8 @@ public final class BlackholeWiringTest {
 
         // 앱 정체성은 그대로.
         check(manifest.contains("package=\"com.malhaedwo.pttprobe\""), "패키지 이름 유지");
-        check(manifest.contains("android:versionCode=\"35\"") && manifest.contains("android:versionName=\"0.11.6\""),
-                "버전 0.11.6(35)");
+        check(manifest.contains("android:versionCode=\"37\"") && manifest.contains("android:versionName=\"0.11.8\""),
+                "버전 0.11.8(37)");
         check(manifest.contains("android.permission.USE_FULL_SCREEN_INTENT"), "전체 화면 알림 권한 선언");
         check(!manifest.contains("android.permission.CAMERA"), "CAMERA 권한 없음(카메라 앱에 맡김)");
 
@@ -102,6 +102,7 @@ public final class BlackholeWiringTest {
         check(alarms.contains("setFullScreenIntent(") && alarms.contains("CATEGORY_ALARM"), "전체 화면 알림");
         check(alarms.contains("\"확인\"") && alarms.contains("\"완료\"") && alarms.contains("\"10분 뒤\""), "확인/완료/10분 뒤 단추");
         check(alarms.contains("canUseFullScreenIntent()") && alarms.contains("SDK_INT < 34"), "안드로이드 14 전체 화면 권한 확인");
+        check(!manifest.contains("PTT 물리 버튼") && !read("apk-input/resources/package_1/res/values/strings.xml").contains("PTT"), "접근성 이름·설명에 PTT 없음");
         String setup = src("BlackholeAlarmSetupActivity");
         check(setup.contains("android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT") && setup.contains("ACTION_REQUEST_SCHEDULE_EXACT_ALARM")
                 && setup.contains("POST_NOTIFICATIONS"), "권한 안내: 알림·정확한 알람·전체 화면");
@@ -171,6 +172,17 @@ public final class BlackholeWiringTest {
                 && src("BlackholeAlarms").contains("alarmsFromShared(Blackhole.boardShared(app)") && src("CalendarWebActivity").contains("BlackholeAlarms.syncCalendar(CalendarWebActivity.this, json)"),
                 "Mac 사본을 받을 때마다 휴대폰 알람을 맞춤(달력 화면을 안 열어도)");
         check(src("BlackholeAlarms").contains("known.waiting() && known.at > now"), "울리는 중·미뤄 둔 알람은 목록 다시 맞추기에서 끄지 않음(실기기: 울린 지 2초 만에 꺼지던 버그)");
+        check(manifest.contains("android:icon=\"@drawable/ic_blackhole\"") && read("apk-input/resources/package_1/res/drawable/ic_blackhole.xml").contains("<adaptive-icon"),
+                "앱 아이콘 = 검은 판 위 일식(적응형)");
+        setup = src("BlackholeAlarmSetupActivity");
+        check(src("MainActivity").contains("BlackholeAlarmSetupActivity.shouldWelcome(this)") && setup.contains("PREF_WELCOME_SEEN, true")
+                && setup.contains("RECORD_AUDIO") && setup.contains("POST_NOTIFICATIONS") && setup.contains("ACTION_MANAGE_FULL_SCREEN")
+                && setup.contains("ACTION_REQUEST_SCHEDULE_EXACT_ALARM") && setup.contains("ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS")
+                && setup.contains("ACTION_APPLICATION_DETAILS_SETTINGS"), "첫 실행 안내: 권한 다섯 가지 순서대로, 거부 시 설정 바로가기, 한 번만 자동");
+        for (String name : new String[]{"MainActivity", "PttService", "ReminderScheduler", "ReminderReceiver", "InboxActivity", "BlackholeAlarmSetupActivity"}) {
+            String s = src(name);
+            check(!s.contains("\"말해둬") && !s.contains("PTT CHECK") && !s.contains("VOICE CAPTURE") && !s.contains("\"PTT 켜기\""), name + ": 옛 이름·개발용 영어 문구 없음");
+        }
         // 6. 잠금화면 알림: 할 일 「완료」·메모 적기, 잠금 상태에서 되는 것은 거기까지.
         check(!src("BlackholeQuickNotification").contains("setGroupSummary(true)"), "고정 입력 알림을 할 일 묶음 대표로 쓰지 않음(삼성이 숨김 — 실기기 확인)");
         quick = src("BlackholeQuickNotification");

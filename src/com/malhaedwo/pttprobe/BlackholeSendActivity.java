@@ -123,7 +123,7 @@ public final class BlackholeSendActivity extends Activity {
         quickToggle = smallButton("", INK);
         quickToggle.setOnClickListener(v -> toggleQuick());
         tools.addView(quickToggle, weight());
-        Button alarm = smallButton("알람 설정·시험", INK);
+        Button alarm = smallButton("권한·알람·위젯", INK);
         alarm.setOnClickListener(v -> startActivity(new Intent(this, BlackholeAlarmSetupActivity.class)));
         tools.addView(alarm, weight());
         head.addView(tools);

@@ -96,12 +96,12 @@ public final class PttService extends Service {
             return START_NOT_STICKY;
         }
         try {
-            startForegroundCompat(buildNotification("PTT 대기 유지 · 녹음은 버튼을 누를 때만 시작", false));
+            startForegroundCompat(buildNotification("녹음은 버튼을 누르는 동안만 해요", false));
             armed = true; // Never report ready before Android accepts foreground promotion.
             PowerManager powerManager = getSystemService(PowerManager.class);
             if (screenOffBridge != null) screenOffBridge.setEnabled(!powerManager.isInteractive());
             PttStore.append(this, "PTT_ARMED", "service", "foreground_service_started");
-            publish("PTT 대기 유지 중");
+            publish("녹음 대기 중");
             return START_STICKY;
         } catch (RuntimeException error) {
             restoreFailed("대기 복구 필요 · 앱을 열어주세요: " + safeMessage(error));
@@ -111,7 +111,7 @@ public final class PttService extends Service {
 
     public static void arm(Context context) {
         if (!PttReadiness.setEnabled(context, true)) {
-            PttStore.markError(context, "service", "PTT 대기 설정 저장 실패");
+            PttStore.markError(context, "service", "녹음 대기 설정을 저장하지 못했어요");
             return;
         }
         restoreIfEnabled(context);
@@ -133,7 +133,7 @@ public final class PttService extends Service {
 
     public static void disarm(Context context) {
         if (!PttReadiness.setEnabled(context, false)) {
-            PttStore.markError(context, "service", "PTT 종료 설정 저장 실패 · 다시 종료해주세요");
+            PttStore.markError(context, "service", "녹음 대기 끄기를 저장하지 못했어요 · 다시 눌러 주세요");
         }
         PttService service = instance;
         if (service != null) {
@@ -226,13 +226,13 @@ public final class PttService extends Service {
             fail(source, "녹음 저장 실패: " + safeMessage(error));
         } finally {
             releaseWakeLock();
-            if (armed) startForegroundCompat(buildNotification("PTT 준비됨, 최근 녹음 저장 완료", false));
+            if (armed) startForegroundCompat(buildNotification("녹음 대기 중 · 방금 녹음 저장함", false));
         }
     }
 
     private void disarmInternal() {
         if (!PttReadiness.setEnabled(this, false)) {
-            PttStore.markError(this, "service", "PTT 종료 설정 저장 실패 · 다시 종료해주세요");
+            PttStore.markError(this, "service", "녹음 대기 끄기를 저장하지 못했어요 · 다시 눌러 주세요");
         }
         stopReadiness();
     }
@@ -245,10 +245,10 @@ public final class PttService extends Service {
 
     private void stopReadiness() {
         armed = false;
-        if (recording) stopRecording(false, "PTT 종료");
+        if (recording) stopRecording(false, "녹음 대기 꺼짐");
         if (screenOffBridge != null) screenOffBridge.setEnabled(false);
         PttStore.append(this, "PTT_NOT_READY", "service", "readiness_stopped");
-        publish("PTT 대기 종료");
+        publish("녹음 대기 꺼짐");
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
     }
@@ -283,7 +283,7 @@ public final class PttService extends Service {
                 .setOnlyAlertOnce(true)
                 .addAction(new Notification.Action.Builder(
                         android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_media_pause),
-                        "PTT 종료", stopIntent).build());
+                        "녹음 대기 꺼짐", stopIntent).build());
         if (activeRecording) builder.setUsesChronometer(true).setWhen(System.currentTimeMillis());
         return builder.build();
     }

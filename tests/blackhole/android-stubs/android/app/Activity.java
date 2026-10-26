@@ -9,4 +9,5 @@ public class Activity extends Context { public static final int RESULT_OK=-1;
   public void setTitle(CharSequence title) { throw new RuntimeException("stub"); } public Intent getIntent() { throw new RuntimeException("stub"); } public void setIntent(Intent i) { throw new RuntimeException("stub"); } public void finish() { throw new RuntimeException("stub"); }
   public void startActivityForResult(Intent intent, int requestCode) { throw new RuntimeException("stub"); } public void setContentView(View view) { throw new RuntimeException("stub"); } public Window getWindow() { throw new RuntimeException("stub"); }
   public void setShowWhenLocked(boolean b) { throw new RuntimeException("stub"); } public void setTurnScreenOn(boolean b) { throw new RuntimeException("stub"); }
-  public final void requestPermissions(String[] permissions, int requestCode) { throw new RuntimeException("stub"); } }
+  public final void requestPermissions(String[] permissions, int requestCode) { throw new RuntimeException("stub"); }
+  public boolean shouldShowRequestPermissionRationale(String permission) { throw new RuntimeException("stub"); } }

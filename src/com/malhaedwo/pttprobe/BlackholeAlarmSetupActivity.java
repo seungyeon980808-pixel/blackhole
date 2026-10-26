@@ -18,8 +18,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 /**
- * 알람 권한 안내: 알림 / 알람 및 리마인더(정확한 알람) / 전체 화면 알림(안드로이드 14부터 따로 허용).
- * 각 줄에 지금 상태와 설정을 여는 단추, 맨 아래 「1분 뒤 시험 알람」.
+ * 「블랙홀 시작하기」: 설치 직후 한 번 자동으로 뜨는 안내(이후 보내기 화면·주 화면에서 다시 열 수 있음).
+ * 필요한 권한을 한 화면에서 순서대로 — 마이크, 알림, 전체 화면 알림, 정확한 알람, 배터리 최적화 제외 —
+ * 각 줄에 지금 상태와 허용·설정 바로가기. 그 아래 잠금화면 입력 알림, 홈 화면 위젯 추가, 1분 뒤 시험 알람.
  */
 public final class BlackholeAlarmSetupActivity extends Activity {
     private static final int BG = Color.rgb(216, 221, 218);
@@ -30,13 +31,22 @@ public final class BlackholeAlarmSetupActivity extends Activity {
     private static final int ACCENT = Color.rgb(33, 104, 73);
     private static final int DANGER = Color.rgb(155, 51, 44);
     private static final int REQUEST_NOTIFY = 51;
+    private static final int REQUEST_MIC = 52;
+    /** 첫 실행 안내를 본 적이 있음(다시 자동으로 띄우지 않음). */
+    static final String PREF_WELCOME_SEEN = "welcome_seen_v1";
+
+    /** 주 화면이 처음 열릴 때 한 번만. */
+    static boolean shouldWelcome(android.content.Context context) {
+        return !Blackhole.prefs(context).getBoolean(PREF_WELCOME_SEEN, false);
+    }
     static final String ACTION_MANAGE_FULL_SCREEN = "android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT";
 
     private LinearLayout body;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
-        setTitle("블랙홀 알람 설정");
+        setTitle("블랙홀 시작하기");
+        Blackhole.prefs(this).edit().putBoolean(PREF_WELCOME_SEEN, true).apply();
     }
 
     @Override protected void onResume() {
@@ -54,28 +64,57 @@ public final class BlackholeAlarmSetupActivity extends Activity {
         body.setPadding(dp(16), dp(16), dp(16), dp(24));
         scroll.addView(body);
 
-        TextView title = text("전화처럼 울리는 알람", 22, INK);
+        TextView title = text("블랙홀 시작하기", 22, INK);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         body.addView(title);
-        body.addView(text("정해 둔 시각에 잠금화면 위로 화면을 켜고 뜨며, 「확인 / 완료 / 10분 뒤」를 누를 때까지 알람 소리와 진동이 반복됩니다. "
-                + "아래 세 가지가 모두 「허용됨」이어야 잠금 상태에서도 제대로 뜹니다.", 14, MUTED));
+        body.addView(text("아래가 모두 「허용됨」이면 바로 쓸 수 있습니다. 말하거나 적은 것은 바로 달력에 초안으로 들어가고, Mac이 정리해 다듬습니다.", 14, MUTED));
 
+        boolean mic = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+        row("1. 마이크", mic, "「말하기」와 음량 버튼 녹음에 씁니다.", mic ? "" : "허용", v -> {
+            if (shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO) || !mic) requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_MIC);
+        });
         boolean notify = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
-        row("1. 알림", notify, "알림이 꺼져 있으면 소리도 화면도 나오지 않습니다.", "알림 허용", v -> {
+        row("2. 알림", notify, "알람·잠금화면 할 일·보내기 상태를 알림으로 보입니다.", notify ? "알림 설정" : "허용", v -> {
             if (!notify) requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_NOTIFY);
             else open(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName()));
         });
-        boolean exact = BlackholeAlarms.canExact(this);
-        row("2. 알람 및 리마인더", exact, "정확한 시각에 깨우는 권한입니다. 꺼져 있으면 알람을 걸 수 없습니다.", "설정 열기",
-                v -> open(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + getPackageName()))));
         boolean fullScreen = BlackholeAlarms.canFullScreen(this);
         String fullHelp = Build.VERSION.SDK_INT >= 34
-                ? "안드로이드 14부터는 전화·알람 앱이 아니면 직접 켜야 합니다. 꺼져 있으면 잠금화면 위로 뜨지 않고 위쪽 알림으로만 울립니다."
-                : "이 휴대폰(안드로이드 13 이하)에서는 따로 켤 필요가 없습니다.";
+                ? "알람이 잠금화면 위로 전화처럼 뜹니다. 꺼져 있으면 위쪽 알림으로만 울립니다."
+                : "이 휴대폰에서는 따로 켤 필요가 없습니다.";
         row("3. 전체 화면 알림", fullScreen, fullHelp, "설정 열기", v -> {
             if (Build.VERSION.SDK_INT >= 34) open(new Intent(ACTION_MANAGE_FULL_SCREEN, Uri.parse("package:" + getPackageName())));
             else toast("이 휴대폰에서는 따로 켤 필요가 없습니다");
         });
+        boolean exact = BlackholeAlarms.canExact(this);
+        row("4. 알람 및 리마인더", exact, "정해 둔 시각에 정확히 울리게 합니다. 꺼져 있으면 알람을 걸 수 없습니다.", "설정 열기",
+                v -> open(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + getPackageName()))));
+        android.os.PowerManager power = getSystemService(android.os.PowerManager.class);
+        boolean battery = power != null && power.isIgnoringBatteryOptimizations(getPackageName());
+        row("5. 배터리 최적화 제외", battery, "녹음 대기와 Mac 달력 받기가 잠자는 동안 멈추지 않게 합니다. 목록에서 블랙홀을 「제한 없음」으로 바꿔 주세요.", "설정 열기",
+                v -> open(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)));
+
+        TextView extra = text("고르면 더 편한 것", 16, INK);
+        extra.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        extra.setPadding(0, dp(18), 0, dp(2));
+        body.addView(extra);
+        boolean quick = BlackholeQuickNotification.isEnabled(this);
+        Button quickButton = button(quick ? "잠금화면 입력 알림 켜짐 · 끄기" : "잠금화면 입력 알림 켜기 (말하기·적기·사진)", INK, SURFACE);
+        quickButton.setOnClickListener(v -> {
+            String why = BlackholeQuickNotification.setEnabled(this, !BlackholeQuickNotification.isEnabled(this));
+            if (why != null) toast(why);
+            build();
+        });
+        body.addView(quickButton);
+        body.addView(text("잠금을 풀지 않고 말하거나 적어 보낼 수 있습니다. 오늘 할 일의 「완료」는 이 설정과 상관없이 알림에 나옵니다.", 12, MUTED));
+        Button widget = button("홈 화면에 블랙홀 위젯 추가", INK, SURFACE);
+        widget.setOnClickListener(v -> {
+            android.appwidget.AppWidgetManager manager = android.appwidget.AppWidgetManager.getInstance(this);
+            boolean asked = manager != null && manager.isRequestPinAppWidgetSupported()
+                    && manager.requestPinAppWidget(new android.content.ComponentName(this, CalendarWidgetProvider.class), null, null);
+            if (!asked) toast("홈 화면을 길게 누르고 위젯 › 블랙홀을 골라 주세요");
+        });
+        body.addView(widget);
 
         Button test = button("1분 뒤 시험 알람 걸기", Color.WHITE, ACCENT);
         test.setOnClickListener(v -> {
@@ -102,7 +141,7 @@ public final class BlackholeAlarmSetupActivity extends Activity {
         head.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         card.addView(head);
         card.addView(text(help, 13, MUTED));
-        if (!ok || label.startsWith("1")) {
+        if (!action.isEmpty() && (!ok || label.startsWith("2"))) {
             Button button = button(action, INK, SURFACE);
             button.setOnClickListener(click);
             card.addView(button);
@@ -114,6 +153,14 @@ public final class BlackholeAlarmSetupActivity extends Activity {
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
+        // 거부했고 다시 묻지 않음으로 막혔으면 앱 설정으로 보낸다.
+        for (int i = 0; i < permissions.length && i < results.length; i++) {
+            if (results[i] != PackageManager.PERMISSION_GRANTED && !shouldShowRequestPermissionRationale(permissions[i])) {
+                toast("휴대폰 설정에서 허용해 주세요 — 블랙홀 › 권한");
+                open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
+                break;
+            }
+        }
         build();
     }
 

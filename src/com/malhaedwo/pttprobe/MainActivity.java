@@ -79,7 +79,9 @@ public final class MainActivity extends Activity {
         super.onCreate(state);
         setTitle("블랙홀");
         buildUi();
-        requestNeededPermissions();
+        // 설치 직후 한 번: 권한·잠금화면 알림·위젯을 한 화면에서(이후엔 설정에서 다시 열기).
+        if (BlackholeAlarmSetupActivity.shouldWelcome(this)) startActivity(new Intent(this, BlackholeAlarmSetupActivity.class));
+        else requestNeededPermissions();
         TranscriptionManager.retryPending(this);
         runLocalReconciliation();
         SyncScheduler.ensurePeriodic(this);
@@ -117,8 +119,8 @@ public final class MainActivity extends Activity {
         TextView title = text("블랙홀", 22, INK);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         head.addView(title, weight());
-        liveView = text("PTT CHECK", 11, ACCENT);
-        liveView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        liveView = text("녹음 대기 확인", 11, ACCENT);
+        liveView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         liveView.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         head.addView(liveView, new LinearLayout.LayoutParams(dp(125), dp(36)));
         root.addView(head);
@@ -157,11 +159,12 @@ public final class MainActivity extends Activity {
         permissionButton = outlinedButton("마이크·알림 권한 허용", ACCENT, SURFACE);
         permissionButton.setOnClickListener(v -> requestNeededPermissions());
         root.addView(permissionButton);
-        armButton = filledButton("PTT 켜기", ACCENT);
+        armButton = filledButton("녹음 대기 켜기", ACCENT);
         armButton.setOnClickListener(v -> toggleArmState());
         root.addView(armButton);
 
-        TextView pttLabel = text("VOICE CAPTURE / HOLD TO TALK", 11, MUTED);
+        TextView pttLabel = text("", 11, MUTED);
+        pttLabel.setVisibility(View.GONE);
         pttLabel.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         pttLabel.setPadding(dp(13), dp(13), dp(13), dp(5));
         root.addView(pttLabel);
@@ -171,7 +174,7 @@ public final class MainActivity extends Activity {
         holdButton.setTextSize(18);
         holdButton.setOnTouchListener((v, event) -> handleHoldTouch(event));
         root.addView(holdButton);
-        disarmButton = outlinedButton("PTT 끄기", DANGER, SURFACE);
+        disarmButton = outlinedButton("녹음 대기 끄기", DANGER, SURFACE);
         disarmButton.setTextSize(13);
         disarmButton.setVisibility(View.GONE);
         disarmButton.setOnClickListener(v -> { PttService.disarm(this); refresh(); });
@@ -207,7 +210,7 @@ public final class MainActivity extends Activity {
         calendarRow.addView(calendarArrow, new LinearLayout.LayoutParams(dp(42), dp(48)));
         root.addView(calendarRow);
 
-        settingsToggle = text("설정 · 진단  /  펼치기", 14, INK);
+        settingsToggle = text("설정 · 진단 펼치기", 14, INK);
         settingsToggle.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         settingsToggle.setGravity(Gravity.CENTER_VERTICAL);
         settingsToggle.setPadding(dp(13), 0, dp(13), 0);
@@ -235,6 +238,10 @@ public final class MainActivity extends Activity {
     }
 
     private void addSettingsActions() {
+        Button welcome = outlinedButton("블랙홀 시작하기 · 권한과 위젯", ACCENT, SURFACE);
+        welcome.setOnClickListener(v -> startActivity(new Intent(this, BlackholeAlarmSetupActivity.class)));
+        settingsBody.addView(welcome);
+
         Button accessibility = outlinedButton("물리 버튼 접근성 설정", INK, SURFACE);
         accessibility.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
         settingsBody.addView(accessibility);
@@ -296,7 +303,7 @@ public final class MainActivity extends Activity {
         copy.setOnClickListener(v -> {
             String diagnostic = readinessText() + "\n" + PttStore.summary(this);
             ClipboardManager clipboard = getSystemService(ClipboardManager.class);
-            clipboard.setPrimaryClip(ClipData.newPlainText("PTT 진단", diagnostic));
+            clipboard.setPrimaryClip(ClipData.newPlainText("녹음 대기 진단", diagnostic));
             toast("진단 요약을 복사했습니다");
         });
         settingsBody.addView(copy);
@@ -322,7 +329,7 @@ public final class MainActivity extends Activity {
                 return;
             }
             PttService.arm(this);
-            toast("PTT 서비스를 준비합니다");
+            toast("녹음 대기를 준비합니다");
             handler.postDelayed(this::refresh, 500);
         } else {
             PttService.disarm(this);
@@ -332,7 +339,7 @@ public final class MainActivity extends Activity {
 
     private boolean handleHoldTouch(MotionEvent event) {
         if (!PttService.isArmed()) {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) toast("먼저 PTT 켜기를 눌러주세요");
+            if (event.getAction() == MotionEvent.ACTION_DOWN) toast("먼저 「녹음 대기 켜기」를 눌러 주세요");
             return true;
         }
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
@@ -438,7 +445,7 @@ public final class MainActivity extends Activity {
         permissionButton.setVisibility(allPermissionsGranted ? View.GONE : View.VISIBLE);
         // Alarm readiness is intentionally separate from PTT readiness; settings may be changed outside the app.
         armButton.setVisibility(armed ? View.GONE : View.VISIBLE);
-        armButton.setText(PttReadiness.isEnabled(this) ? "PTT 복구" : "PTT 켜기");
+        armButton.setText(PttReadiness.isEnabled(this) ? "녹음 대기 다시 켜기" : "녹음 대기 켜기");
         disarmButton.setVisibility(PttReadiness.isEnabled(this) ? View.VISIBLE : View.GONE);
         disarmButton.setEnabled(!recording);
         disarmButton.setAlpha(recording ? 0.45f : 1f);
@@ -485,10 +492,10 @@ public final class MainActivity extends Activity {
                 : "기록을 시작하기 전에 마이크 권한을 확인해주세요.";
         if (PttService.isRecording()) return "기록하고 있어요. 말을 마치면 화면에서 손을 떼세요.";
         if (PttService.isArmed()) return isAccessibilityEnabled()
-                ? "PTT 대기 유지 중 · 상시 알림 표시 · 화면 꺼짐 물리 버튼은 접근성과 시스템 상태에 의존해요."
-                : "화면 PTT 대기 중 · 물리 버튼은 접근성을 켜야 해요. 상시 알림이 유지됩니다.";
-        if (PttReadiness.isEnabled(this)) return "대기 복구 필요 · 설정은 유지돼요. 마이크 권한 확인 후 PTT 복구를 눌러주세요. 시스템 제한으로 중단될 수 있어요.";
-        return "한 번 PTT 켜기를 누르면 대기 설정을 기억해요. 상시 알림이 유지되며, 종료하면 자동 복구도 꺼져요.";
+                ? "녹음 대기 중 · 화면이 꺼져 있을 때 음량 버튼 녹음은 접근성 설정과 휴대폰 상태에 따라 달라요."
+                : "녹음 대기 중 · 음량 버튼으로 녹음하려면 접근성에서 블랙홀을 켜 주세요.";
+        if (PttReadiness.isEnabled(this)) return "녹음 대기가 멈췄어요 · 마이크 권한을 확인한 뒤 「녹음 대기 다시 켜기」를 눌러 주세요.";
+        return "「녹음 대기 켜기」를 한 번 누르면 기억해요. 끄면 자동으로 다시 켜지지 않아요.";
     }
 
     private String compactSyncText() {
@@ -535,7 +542,7 @@ public final class MainActivity extends Activity {
                 (reminder.message.isEmpty() ? "" : " (" + reminder.message + ")") +
                 "\n정확한 알람 특별 접근: " + (exactAlarm ? "허용" : "정시 알림 불가") +
                 "\n물리 버튼 접근성: " + yesNo(accessibility) +
-                "\nPTT 서비스: " + (PttService.isArmed() ? "대기 유지 중" : PttReadiness.isEnabled(this) ? "복구 필요 (설정 유지)" : "꺼짐") +
+                "\n녹음 대기: " + (PttService.isArmed() ? "대기 유지 중" : PttReadiness.isEnabled(this) ? "복구 필요 (설정 유지)" : "꺼짐") +
                 "\n현재 녹음: " + (PttService.isRecording() ? "진행 중" : "아님") +
                 "\n음성 정리: " + (TranscriptionManager.isBusy() ? "처리 중" : "대기");
     }
