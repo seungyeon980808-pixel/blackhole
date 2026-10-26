@@ -1,3 +1,4 @@
+import { holiday } from "./holidays";
 /**
  * Month (both themes) and glass week on FullCalendar (MIT: core, daygrid, timegrid,
  * interaction). Premium plugins are not used.
@@ -87,7 +88,12 @@ export class FcHost {
       expandRows: false,
       slotLabelContent: (arg) => String(arg.date.getHours()),
       dayHeaderContent: (arg) => (fcView === "dayGridMonth" ? DOW[arg.date.getDay()] : { html: `${DOW[arg.date.getDay()]} <b>${arg.date.getDate()}</b>` }),
-      dayCellContent: (arg) => (fcView === "dayGridMonth" ? String(arg.date.getDate()) : ""),
+      // Month: the date, and a public holiday's name in red.
+      dayCellContent: (arg) => {
+        if (fcView !== "dayGridMonth") return "";
+        const h = holiday(ymd(arg.date));
+        return h ? { html: `<span class="hol">${arg.date.getDate()} ${h}</span>` } : String(arg.date.getDate());
+      },
       moreLinkContent: (arg) => view.more(arg.num),
       eventOrder: "order,start,title",
       eventContent: (arg) => {

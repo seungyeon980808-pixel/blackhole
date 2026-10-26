@@ -32,6 +32,20 @@ export interface ThemeView {
   monthChip(ctx: Ctx, kind: string, x: Record<string, unknown>): string;
 }
 
+/** What came in today, as results: entries made today (not fake data), newest first. */
+export function todayResults(ctx: Ctx): Entry[] {
+  const all: Entry[] = [...ctx.s.events, ...ctx.s.tasks, ...ctx.s.periods, ...ctx.s.notes];
+  return all.filter((x) => !x.sample && !x.gone && x.createdAt.slice(0, 10) === ctx.today).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** Needs the user: entries of the last 7 days with a review note (not done, not cancelled). */
+export function needsReview(ctx: Ctx): Entry[] {
+  const all: Entry[] = [...ctx.s.events, ...ctx.s.tasks, ...ctx.s.periods, ...ctx.s.notes];
+  return all.filter((x) => !x.sample && !x.gone && !(x.kind === "task" && x.done) && x.review?.length && diffDays(x.createdAt.slice(0, 10), ctx.today) <= 7 && !x.review.every((r) => r === "마감 날짜가 없어 오늘로 둠"));
+}
+
+export const KIND_WORD: Record<Entry["kind"], string> = { event: "일정", task: "할 일", period: "기간", note: "기억" };
+
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 export const esc = (v: unknown): string => String(v ?? "").replace(/[&<>"']/g, (c) => ESC[c]);
 

@@ -28,7 +28,16 @@ sha2 = "0.10"
 ureq = { version = "2", default-features = false, features = ["json", "tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri = { version = "2", features = ["macos-private-api"] }
+tauri = { version = "2", features = ["image-png", "macos-private-api", "tray-icon"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-window-state = "2"
 
 [dev-dependencies]
 tempfile = "3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# Alarm window above full-screen apps and on every Space (window level, collection behavior).
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder", "NSGraphics", "NSEvent", "NSApplication", "block2"] }
+block2 = "0.6"

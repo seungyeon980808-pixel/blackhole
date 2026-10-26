@@ -21,5 +21,13 @@ fn main() {
     if !built {
         std::fs::write(&out, b"").unwrap();
     }
+    // Touch ID helper for secrets (mac-auth/main.swift), embedded the same way.
+    let auth = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("blackhole-auth");
+    println!("cargo:rerun-if-changed=mac-auth/main.swift");
+    let auth_built = target == "macos"
+        && std::process::Command::new("swiftc").args(["-O", "mac-auth/main.swift", "-o"]).arg(&auth).status().map(|s| s.success()).unwrap_or(false);
+    if !auth_built {
+        std::fs::write(&auth, b"").unwrap();
+    }
     tauri_build::build()
 }

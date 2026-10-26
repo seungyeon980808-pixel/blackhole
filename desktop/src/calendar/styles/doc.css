@@ -209,3 +209,7 @@
 :is(.bh.doc, .bh-print) .tt .du.hot span { color: var(--red); font-weight: 700; }
 :is(.bh.doc, .bh-print) .aio { font-family: var(--sans); font-size: 11px; margin-left: 6px; white-space: nowrap; }
 .bh.doc .fc .bh-due { background: none; border: 0; border-top: 2px solid var(--ink); }
+
+/* 접수 결과: 검토 필요는 빨강, 나머지는 접힘 */
+.bh.doc details.fold > summary { cursor: pointer; font-size: 12px; padding: 3px 0; }
+.bh.doc details.fold.tech > summary { color: #777; font-size: 11px; }

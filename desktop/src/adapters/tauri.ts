@@ -4,7 +4,8 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { AnalyzeError, type BlackholeAdapter, type ClaudeStatus, type InboxDraft, type InboxResult, type InboxStatus, type MessengerStatus } from "../calendar/adapter";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { AnalyzeError, type BlackholeAdapter, type ClaudeStatus, type DeskStatus, type InboxDraft, type InboxResult, type InboxStatus, type MessengerStatus, type PutItem } from "../calendar/adapter";
 import { isoWithOffset } from "../calendar/dates";
 import type { CalendarState, UserAction } from "../calendar/model";
 import type { Alarm } from "../calendar/store";
@@ -19,17 +20,23 @@ function workerError(e: unknown): AnalyzeError {
 }
 
 function checked(p: unknown): Proposal {
-  if (!isProposal(p)) throw new AnalyzeError("INVALID_MODEL_OUTPUT", "작업기 결과 형식이 맞지 않습니다.");
+  if (!isProposal(p)) throw new AnalyzeError("INVALID_MODEL_OUTPUT", "AI 결과 형식이 맞지 않습니다.");
   return p;
 }
 
 export function tauriAdapter(): BlackholeAdapter {
   let alarmHandler: ((a: Alarm) => void) | null = null;
   const scheduled = new Map<string, Alarm>();
+  /** Alarms handed to the alarm window, by key (the answer comes back with the key). */
+  const shown = new Map<string, Alarm>();
   void listen<{ key: string }>("bh-alarm", (e) => {
     const a = scheduled.get(e.payload.key);
-    if (a) alarmHandler?.(a);
+    if (a) {
+      shown.set(a.key, a);
+      alarmHandler?.(a);
+    }
   });
+  const spec = (a: Alarm, missed = false) => ({ key: a.key, atMs: a.atMs, title: a.title, body: a.body, kind: a.kind, ref: a.ref, at: a.at, missed });
   return {
     origin: "데스크톱",
     connection: {
@@ -61,8 +68,41 @@ export function tauriAdapter(): BlackholeAdapter {
     async scheduleAlarms(alarms) {
       scheduled.clear();
       alarms.forEach((a) => scheduled.set(a.key, a));
-      await invoke("alarms_schedule", { alarms: alarms.map((a) => ({ key: a.key, atMs: a.atMs, title: a.title })) });
+      await invoke("alarms_schedule", { alarms: alarms.map((a) => spec(a)) });
     },
+    nativeAlarms: true,
+    onAlarmAnswer(h) {
+      void listen<{ alarm: { key: string }; answer: "done" | "snooze" | "ok" }>("bh-alarm-answer", (e) => {
+        const a = shown.get(e.payload.alarm.key) ?? scheduled.get(e.payload.alarm.key);
+        if (a) h(a, e.payload.answer);
+      });
+    },
+    async showMissed(alarms) {
+      alarms.forEach((a) => shown.set(a.key, a));
+      await invoke("alarm_missed", { alarms: alarms.map((a) => spec(a, true)) });
+    },
+    onPut(handler) {
+      const take = () => void invoke<PutItem[]>("put_take").then((list) => list.forEach(handler), () => undefined);
+      void listen("bh-put", take).then(take);
+    },
+    inboxPut: (path) => invoke<string>("inbox_put", { path }),
+    putBytes: (name, bytes, via) => invoke("quick_put_bytes", bytes, { headers: { "x-file-name": encodeURIComponent(name), "x-via": encodeURIComponent(via) } }),
+    putPath: (path, via) => invoke("quick_put_path", { path, via }),
+    inboxDrafted: (skip) => invoke("inbox_drafted", { skip }),
+    secretIntake: (text, secret) => invoke<"put" | "secret" | "ask">("secret_intake", { text, secret }),
+    raycastInstall: () => invoke<string>("raycast_install"),
+    openQuick: () => void invoke("quick_action", { action: "quick" }),
+    onMenu(h) {
+      void listen<string>("bh-menu", (e) => h(e.payload));
+    },
+    aiSkipped: (reason) => void invoke("ai_skipped", { reason }).catch(() => undefined),
+    setClaudeOptions: (budgetUsd, skipSimple) => invoke<ClaudeStatus>("claude_set_options", { budgetUsd, skipSimple }),
+    desk: () => invoke<DeskStatus>("desk_status"),
+    setDesk: (settings) => invoke<DeskStatus>("desk_set", { settings }),
+    trySound: (sound) => void invoke("alarm_sound_try", { sound }),
+    speechPermission: () => invoke<string>("speech_permission"),
+    openPrivacy: (pane) => void invoke("open_privacy", { pane }).catch(() => undefined),
+    notifyTest: () => void invoke("notify_test"),
     onAlarm(h) {
       alarmHandler = h;
     },
@@ -78,7 +118,10 @@ export function tauriAdapter(): BlackholeAdapter {
     publishShared: (shared) => invoke<string>("share_calendar", { shared }),
     phoneActions: () => invoke<UserAction[]>("phone_actions"),
     onFileDrop(handler) {
-      void listen<{ paths: string[] }>("tauri://drag-drop", (e) => handler(e.payload.paths ?? []));
+      // This window only (the quick window handles its own drops).
+      void getCurrentWebviewWindow().onDragDropEvent((e) => {
+        if (e.payload.type === "drop") handler(e.payload.paths ?? []);
+      });
     }
   };
 }

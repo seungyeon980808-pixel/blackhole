@@ -421,6 +421,17 @@ export function upcomingAlarms(s: CalendarState, now: Date, graceMinutes = 10): 
   return allAlarms(s).filter((a) => a.atMs > from && !fired.has(a.key));
 }
 
+/**
+ * Alarms that passed while the app was not running (older than the ringing grace, newer than
+ * `hours`), not rung or answered: shown once at start as 「놓친 알람」.
+ */
+export function missedAlarms(s: CalendarState, now: Date, hours = 24, graceMinutes = 10): Alarm[] {
+  const to = now.getTime() - graceMinutes * 60e3;
+  const from = now.getTime() - hours * 3600e3;
+  const fired = new Set(s.firedAlarms);
+  return allAlarms(s).filter((a) => a.atMs > from && a.atMs <= to && !fired.has(a.key));
+}
+
 export function markFired(s: CalendarState, key: string): void {
   if (!s.firedAlarms.includes(key)) s.firedAlarms.push(key);
   if (s.firedAlarms.length > 2000) s.firedAlarms.splice(0, s.firedAlarms.length - 2000);

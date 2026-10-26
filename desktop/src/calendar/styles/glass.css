@@ -276,3 +276,14 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .g { backdrop-filter: blur(var(--bh-blur, 26px)) saturate(180%); -webkit-backdrop-filter: blur(var(--bh-blur, 26px)) saturate(180%); }
 .bh .set-row input[type="range"] { flex: 1; min-width: 90px; }
 .bh .set-v { min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink2); }
+
+/* inbox results: 검토 필요 stands out, the rest folds */
+.bh.glass .inbox h4.warn { color: var(--hot, #ff5a5f); }
+.bh.glass .inb .k { color: var(--ink3); width: 36px; flex: none; font-size: 11px; }
+.bh.glass .inb .evt { overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.bh.glass .inb.rv { align-items: center; }
+.bh.glass .inb.rv .s { color: var(--hot, #ff5a5f); }
+.bh.glass details.fold > summary { cursor: pointer; font-size: 12px; color: var(--ink2); padding: 3px 0; list-style: none; }
+.bh.glass details.fold > summary::before { content: "▸ "; }
+.bh.glass details.fold[open] > summary::before { content: "▾ "; }
+.bh.glass details.fold.tech > summary { color: var(--ink3); font-size: 11px; }

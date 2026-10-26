@@ -112,7 +112,9 @@ describe("calendar app", () => {
     expect(root.querySelector(".tt")).not.toBeNull();
     expect(root.querySelectorAll(".tt .h")).toHaveLength(17);
     expect(root.textContent).toContain("할 일");
-    expect(root.textContent).toContain("확인 대기");
+    // No 「확인 대기 0 / 없음 / 오늘 들어온 것」 lines: fake data only, nothing came in today.
+    expect(root.textContent).not.toContain("확인 대기");
+    expect(root.textContent).not.toContain("오늘 들어온 것");
     expect(root.querySelector("#bhIn")).not.toBeNull();
   });
 

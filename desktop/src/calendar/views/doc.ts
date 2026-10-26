@@ -1,8 +1,9 @@
+import { holiday } from "../holidays";
 /** 공문서 테마 and the A4 print sheet. Markup follows design/calendar-glass/prototype-doc.html. */
 import { addDays, diffDays, fdDoc, fdDocLong, mins, weekDays, ymd } from "../dates";
 import type { CalEvent, ChatMessage, Period, Task } from "../model";
 import { alarmsOn, dueOn, eventsOn, findEntry, liveEvents, livePeriods, liveTasks, pending, periodsOn, taskGroups, type Alarm } from "../store";
-import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, nextReminder, pct, type Ctx, type ThemeView } from "./common";
+import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
 
 const fd = fdDoc;
 const ROMAN = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"];
@@ -73,7 +74,23 @@ function weekTable(ctx: Ctx, days: string[]): string {
 export function docSummary(ctx: Ctx, k: string): string {
   const G = taskGroups(ctx.s, k);
   const all = [...G.today, ...G.week];
-  return `일정 ${eventsOn(ctx.s, k).length}건 · 할 일 ${all.length}건(완료 ${all.filter((t) => t.done).length}건) · 확인 대기 ${pending(ctx.s).length}건 · 진행 중 기간 ${periodsOn(ctx.s, k).length}건`;
+  return `일정 ${eventsOn(ctx.s, k).length}건 · 할 일 ${all.length}건(완료 ${all.filter((t) => t.done).length}건)${pending(ctx.s).length ? ` · 확정 대기 ${pending(ctx.s).length}건` : ""}${periodsOn(ctx.s, k).length ? ` · 진행 중 기간 ${periodsOn(ctx.s, k).length}건` : ""}`;
+}
+
+/** 검토 필요(빨강) · 확정 대기 · 오늘 처리 결과(접힘). Nothing → no section. */
+function docInbox(ctx: Ctx, k: string, n: number): string {
+  const review = needsReview(ctx);
+  const failed = ctx.s.inbox.filter((x) => x.at.slice(0, 10) === ctx.today && x.state === "실패");
+  const pend = pending(ctx.s).filter((e) => e.date !== k);
+  const done = todayResults(ctx);
+  const raw = ctx.s.inbox.filter((x) => x.at.slice(0, 10) === ctx.today);
+  if (!review.length && !failed.length && !pend.length && !done.length) return "";
+  return `<div class="blk">${sec(n, "접수 결과")}
+    ${review.length || failed.length ? `<div class="grp red">검토 필요 ${review.length + failed.length}건</div>${review.map((x) => `<div class="li l2" data-ev="${x.id}">○ [${KIND_WORD[x.kind]}] ${esc(x.title)} <span class="muted sm">${esc(x.review!.join(" · "))}</span></div>`).join("")}${failed.map((x) => `<div class="li l2">○ [실패] ${esc(x.out || x.title)}</div>`).join("")}` : ""}
+    ${pend.length ? `<div class="grp">확정 대기 ${pend.length}건</div>${evTable(ctx, pend, { date: true })}` : ""}
+    ${done.length ? `<details class="fold"><summary>오늘 처리 ${done.length}건</summary>${done.map((x) => `<div class="li l2" data-ev="${x.id}">○ [${KIND_WORD[x.kind]}] ${esc(x.title)}</div>`).join("")}
+      ${raw.length ? `<details class="fold tech"><summary>자세히</summary><table class="tb mt6"><thead><tr><th style="width:48px">시각</th><th>접수 자료</th><th style="width:70px">상태</th></tr></thead><tbody>${raw.slice().reverse().map((x) => `<tr><td class="c">${x.at.slice(11)}</td><td>${esc(x.title)} <span class="muted sm">(${esc(x.src)})</span></td><td class="c">${x.state}</td></tr>`).join("")}</tbody></table></details>` : ""}</details>` : ""}
+  </div>`;
 }
 
 function refCard(ctx: Ctx, id: string): string {
@@ -115,17 +132,16 @@ export const doc: ThemeView = {
       const w = weekDays(c);
       return {
         title: `주간 업무 계획 (${fd(w[0])} ~ ${fd(w[6])})`,
-        summary: `일정 ${w.reduce((n, x) => n + eventsOn(ctx.s, x).length, 0)}건 · 마감 ${w.reduce((n, x) => n + dueOn(ctx.s, x).length, 0)}건 · 확인 대기 ${pending(ctx.s).length}건`
+        summary: `일정 ${w.reduce((n, x) => n + eventsOn(ctx.s, x).length, 0)}건 · 마감 ${w.reduce((n, x) => n + dueOn(ctx.s, x).length, 0)}건${pending(ctx.s).length ? ` · 확정 대기 ${pending(ctx.s).length}건` : ""}`
       };
     }
-    return { title: `${fdDocLong(k)} 일일 현황`, summary: docSummary(ctx, k) };
+    return { title: `${fdDocLong(k)}${holiday(k) ? `(${holiday(k)})` : ""} 일일 현황`, summary: docSummary(ctx, k) };
   },
   day: (ctx) => {
     const k = ymd(ctx.cur);
     const G = taskGroups(ctx.s, k);
     const ps = periodsOn(ctx.s, k);
     const tom = ymd(addDays(ctx.cur, 1));
-    const inbox = ctx.s.inbox.filter((x) => x.at.slice(0, 10) === ctx.today);
     const none = '<div class="li l3">- 없음</div>';
     return `<div class="day">
       <div class="colx">${sec(0, "시간표", "10분 단위")}${docTimetable(ctx, k)}</div>
@@ -137,8 +153,7 @@ export const doc: ThemeView = {
         <div class="blk">${sec(2, "일정")}${evTable(ctx, eventsOn(ctx.s, k))}</div>
         <div class="blk">${sec(3, "내일 일정", fd(tom))}${evTable(ctx, eventsOn(ctx.s, tom), { act: false })}</div>
         ${ps.length ? `<div class="blk">${sec(4, "진행 중 기간")}${perTable(ps, k)}</div>` : ""}
-        <div class="blk">${sec(ps.length ? 5 : 4, "확인 대기 · 접수", esc(ctx.inboxLine))}${evTable(ctx, pending(ctx.s).filter((e) => e.date !== k), { date: true })}
-          ${k === ctx.today && inbox.length ? `<table class="tb mt6"><thead><tr><th style="width:48px">시각</th><th>접수 자료</th><th style="width:70px">상태</th></tr></thead><tbody>${inbox.slice().reverse().map((x) => `<tr><td class="c">${x.at.slice(11)}</td><td>${esc(x.title)} <span class="muted sm">(${esc(x.src)})</span></td><td class="c ${x.state === "검토 필요" || x.state === "실패" ? "red" : ""}">${x.state}</td></tr>`).join("")}</tbody></table>` : ""}</div>
+        ${docInbox(ctx, k, ps.length ? 5 : 4)}
       </div></div>`;
   },
   week: (ctx) => `<div class="colx full">${weekTable(ctx, weekDays(ctx.cur))}</div>`,

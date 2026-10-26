@@ -322,6 +322,21 @@ pub struct AlarmSpec {
     pub key: String,
     pub at_ms: i64,
     pub title: String,
+    /// What the alarm window shows and sends back (the page's Alarm, as is).
+    #[serde(default)]
+    pub body: String,
+    /// "event" | "task"
+    #[serde(default)]
+    pub kind: String,
+    /// Entry id ("" for a test alarm).
+    #[serde(default, rename = "ref")]
+    pub entry: String,
+    /// "YYYY-MM-DDTHH:MM"
+    #[serde(default)]
+    pub at: String,
+    /// Passed while the app was not running: shown once, rung once.
+    #[serde(default)]
+    pub missed: bool,
 }
 
 /// Remove and return the alarms due at `now_ms`.
@@ -338,6 +353,10 @@ pub fn now_ms() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn spec() -> AlarmSpec {
+        serde_json::from_value(serde_json::json!({"key":"","atMs":0,"title":""})).unwrap()
+    }
     use serde_json::json;
 
     #[test]
@@ -457,8 +476,8 @@ mod tests {
     #[test]
     fn due_alarms_are_taken_once() {
         let mut list = vec![
-            AlarmSpec { key: "a".into(), at_ms: 100, title: "A".into() },
-            AlarmSpec { key: "b".into(), at_ms: 300, title: "B".into() },
+            AlarmSpec { key: "a".into(), at_ms: 100, title: "A".into(), ..spec() },
+            AlarmSpec { key: "b".into(), at_ms: 300, title: "B".into(), ..spec() },
         ];
         assert!(take_due(&mut list, 50).is_empty());
         assert_eq!(take_due(&mut list, 200).iter().map(|a| a.key.as_str()).collect::<Vec<_>>(), ["a"]);
