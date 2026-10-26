@@ -65,6 +65,9 @@ button { cursor: pointer; }
 .bh .settings .set-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .bh .settings .set-row > :is(select, input[type="password"]) { flex: 1 1 auto; min-width: 0; max-width: 100%; }
 .bh .settings .set-row { white-space: nowrap; }
+/* A check box with a long sentence wraps instead of being cut (Mac 「간단한 문장은 AI 생략(…)」). */
+.bh .settings .set-row:has(> input[type="checkbox"]), .bh .settings label.set-row:has(input[type="checkbox"]) { white-space: normal; align-items: flex-start; }
+.bh .settings .set-row:has(input[type="checkbox"]) input[type="checkbox"] { flex: none; margin-top: 2px; }
 .bh .settings .set-note { white-space: normal; overflow-wrap: anywhere; }
 .bh .settings { max-height: calc(100% - 56px); overflow-y: auto; }
 /* short confirmation at the bottom (넣음 · 되돌리기) */

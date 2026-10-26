@@ -45,6 +45,21 @@ const WAITING_CODES = ["API_KEY_MISSING", "API_BILLING", "RUNNER_UNAVAILABLE", "
 /** Minimum time between two writes of the Drive 「달력.json」. */
 export const SHARE_GAP_MS = 10_000;
 
+/**
+ * A failure shown to the user as one Korean line, 「원인 · 할 일」. Messages that are already Korean
+ * stay; raw OS / network errors (English) are explained; anything else gets a short detail.
+ */
+export function friendlyError(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e ?? "");
+  if (/[가-힣]/.test(raw)) return raw;
+  if (/permission denied|operation not permitted|not authorized|os error (1|13)\b/i.test(raw)) return "권한이 없음 · 시스템 설정 › 개인정보 보호 및 보안에서 블랙홀을 허용해 주세요";
+  if (/no space left|os error 28\b/i.test(raw)) return "디스크 공간이 부족함 · 공간을 비우고 다시 해 주세요";
+  if (/no such file|not found|os error 2\b/i.test(raw)) return "파일이나 폴더를 찾지 못함 · 설정에서 폴더를 다시 골라 주세요";
+  if (/dns|resolve|network|offline|timed out|timeout|connection (refused|reset)|failed to fetch/i.test(raw)) return "인터넷 연결 없음 · 연결되면 자동으로 다시 합니다";
+  const detail = raw.length > 60 ? `${raw.slice(0, 60)}…` : raw;
+  return `처리하지 못함 · 다시 해 보고, 계속되면 블랙홀을 다시 열어 주세요${detail ? ` (${detail})` : ""}`;
+}
+
 export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapter, options: MountOptions = {}): Promise<BlackholeApp> {
   const clock = options.now ?? (() => new Date());
   const stored = normalizeState(await adapter.load().catch(() => null));
@@ -131,7 +146,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     lastShared = body;
     lastSharedAt = Date.now();
     void adapter.publishShared!(shared).then((line) => (shareLine = line), (e: unknown) => {
-      shareLine = String(e);
+      shareLine = friendlyError(e);
       lastShared = "";
     });
   };
@@ -408,7 +423,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         claudeLine = await adapter.checkClaude!();
       }
     } catch (e) {
-      claudeLine = e instanceof Error ? e.message : String(e);
+      claudeLine = friendlyError(e);
     }
     if (settingsOpen) renderSettings();
   }
@@ -436,7 +451,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       desk = await adapter.setDesk(next);
       deskLine = "";
     } catch (e) {
-      deskLine = e instanceof Error ? e.message : String(e);
+      deskLine = friendlyError(e);
     }
     if (settingsOpen) renderSettings();
     if (guideOpen) renderGuide();
@@ -488,7 +503,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         adapter.openPrivacy?.(what);
       }
     } catch (e) {
-      guideLines[what] = e instanceof Error ? e.message : String(e);
+      guideLines[what] = friendlyError(e);
       if (what === "mic") adapter.openPrivacy?.("microphone");
     }
     renderGuide();
@@ -664,7 +679,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         render();
         return;
       }
-      const msg = e instanceof AnalyzeError ? e.message : e instanceof Error ? e.message : String(e);
+      const msg = e instanceof AnalyzeError ? e.message : friendlyError(e);
       const kept = draftsOf(s, key);
       // No key, no balance, API busy: not a failure of the input. The draft stays as it is.
       const waiting = e instanceof AnalyzeError && WAITING_CODES.includes(e.code);
@@ -820,7 +835,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     try {
       recording = await startRecording();
     } catch (e) {
-      s.chat.push({ id: newId(s, "c"), at: stamp(clock()), who: "ai", text: `마이크를 열지 못했어요: ${e instanceof Error ? e.message : String(e)}`, error: true });
+      s.chat.push({ id: newId(s, "c"), at: stamp(clock()), who: "ai", text: `마이크를 열지 못했어요 — ${/permission|notallowed|denied/i.test(String(e)) ? "마이크 권한이 꺼져 있음 · 시스템 설정 › 개인정보 보호 및 보안 › 마이크에서 블랙홀을 켜 주세요" : friendlyError(e)}`, error: true });
       chatOpen = true;
       render();
     }
@@ -974,7 +989,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         deskLine = `Raycast 스크립트를 만들었습니다: ${dir}`;
         renderSettings();
       }, (e: unknown) => {
-        deskLine = String(e);
+        deskLine = friendlyError(e);
         renderSettings();
       });
     }

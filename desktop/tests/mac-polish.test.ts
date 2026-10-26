@@ -218,3 +218,14 @@ describe("Korean holidays and the Mac menu", () => {
     expect(root.querySelector<HTMLElement>("#bhSettings")!.hidden).toBe(false);
   });
 });
+
+describe("failure lines (원인 · 할 일)", () => {
+  it("explains raw macOS / network errors in Korean and keeps Korean ones", async () => {
+    const { friendlyError } = await import("../src/calendar/app");
+    expect(friendlyError(new Error("Permission denied (os error 13)"))).toMatch(/^권한이 없음 · /);
+    expect(friendlyError("No such file or directory (os error 2)")).toMatch(/^파일이나 폴더를 찾지 못함 · /);
+    expect(friendlyError(new Error("dns error: failed to lookup address"))).toMatch(/^인터넷 연결 없음 · /);
+    expect(friendlyError(new Error("인박스 폴더가 없습니다"))).toBe("인박스 폴더가 없습니다");
+    expect(friendlyError(new Error("weird"))).toBe("처리하지 못함 · 다시 해 보고, 계속되면 블랙홀을 다시 열어 주세요 (weird)");
+  });
+});

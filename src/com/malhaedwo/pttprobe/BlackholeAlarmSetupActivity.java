@@ -115,6 +115,8 @@ public final class BlackholeAlarmSetupActivity extends Activity {
             if (!asked) toast("홈 화면을 길게 누르고 위젯 › 블랙홀을 골라 주세요");
         });
         body.addView(widget);
+        body.addView(text("위젯은 크기를 바꿔도 되고, 줄을 누르면 그날 달력이 열립니다. 잠금화면 위젯: 잠금화면을 길게 누르거나 설정 › 잠금화면 › 위젯에서 "
+                + "「블랙홀」이 보이면 넣을 수 있습니다(삼성은 허용한 앱만 보여 줄 수 있음). 보이지 않으면 잠금화면 알림의 할 일 「완료」를 써 주세요.", 12, MUTED));
 
         Button test = button("1분 뒤 시험 알람 걸기", Color.WHITE, ACCENT);
         test.setOnClickListener(v -> {
