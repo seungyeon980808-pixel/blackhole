@@ -1,9 +1,9 @@
 import { holiday } from "../holidays";
 /** 공문서 테마 and the A4 print sheet. Markup follows design/calendar-glass/prototype-doc.html. */
-import { addDays, diffDays, fdDoc, fdDocLong, mins, weekDays, ymd } from "../dates";
+import { addDays, diffDays, fdDoc, fdDocLong, mins, parseDay, weekDays, ymd } from "../dates";
 import type { CalEvent, ChatMessage, Period, Task } from "../model";
 import { alarmsOn, dueOn, eventsOn, findEntry, liveEvents, livePeriods, liveTasks, pending, periodsOn, taskGroups, type Alarm } from "../store";
-import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
+import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, inputHint, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
 
 const fd = fdDoc;
 const ROMAN = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"];
@@ -81,7 +81,9 @@ export function docSummary(ctx: Ctx, k: string): string {
 function docInbox(ctx: Ctx, k: string, n: number): string {
   const review = needsReview(ctx);
   const failed = ctx.s.inbox.filter((x) => x.at.slice(0, 10) === ctx.today && x.state === "실패");
-  const pend = pending(ctx.s).filter((e) => e.date !== k);
+  // Today's and tomorrow's provisional events already sit in their own tables with 확정/취소.
+  const tom = ymd(addDays(parseDay(k), 1));
+  const pend = pending(ctx.s).filter((e) => e.date !== k && e.date !== tom);
   const done = todayResults(ctx);
   const raw = ctx.s.inbox.filter((x) => x.at.slice(0, 10) === ctx.today);
   if (!review.length && !failed.length && !pend.length && !done.length) return "";
@@ -157,7 +159,7 @@ export const doc: ThemeView = {
       </div></div>`;
   },
   week: (ctx) => `<div class="colx full">${weekTable(ctx, weekDays(ctx.cur))}</div>`,
-  composer: (ctx, id, inSheet) => `${inSheet ? "" : `<div class="grab" data-drag="open" title="끌어 올리면 대화 기록" role="button" tabindex="0" aria-label="대화 기록 열기"><i></i></div><div class="last" id="bhLast"></div>`}<div class="form"><span class="lab">입력</span><input id="${id}" autocomplete="off" aria-label="입력" placeholder="${ctx.busy ? "분석 중…" : ""}"><button class="ic" data-photo title="사진·파일" aria-label="사진·파일">${ICON.cam}</button><button class="ic ${ctx.recording ? "rec" : ""}" data-voice title="${ctx.recording ? "말하기 끝" : "말하기"}" aria-label="${ctx.recording ? "말하기 끝" : "말하기"}" aria-pressed="${ctx.recording}">${ICON.mic}</button><button class="ic go" data-go="${id}" title="넣기" aria-label="넣기">${ICON.send}</button></div>`,
+  composer: (ctx, id, inSheet) => `${inSheet ? "" : `<div class="grab" data-drag="open" title="끌어 올리면 대화 기록" role="button" tabindex="0" aria-label="대화 기록 열기"><i></i></div><div class="last" id="bhLast"></div>`}<div class="form"><span class="lab">입력</span><input id="${id}" autocomplete="off" aria-label="입력" placeholder="${esc(inputHint(ctx, inSheet))}"><button class="ic" data-photo title="사진·파일" aria-label="사진·파일">${ICON.cam}</button><button class="ic ${ctx.recording ? "rec" : ""}" data-voice title="${ctx.recording ? "말하기 끝" : "말하기"}" aria-label="${ctx.recording ? "말하기 끝" : "말하기"}" aria-pressed="${ctx.recording}">${ICON.mic}</button><button class="ic go" data-go="${id}" title="넣기" aria-label="넣기">${ICON.send}</button></div>`,
   bubble: (ctx, m: ChatMessage) => {
     if (m.who === "me") {
       const body = m.kind === "photo" || m.kind === "file" ? `<div class="photo">${esc(m.fileName ?? "파일")}</div>${m.text ? `<div>${esc(m.text)}</div>` : ""}` : m.kind === "voice" ? `<div class="voice">▶ 음성 메모</div>${m.text ? `<div>${esc(m.text)}</div>` : ""}` : esc(m.text);

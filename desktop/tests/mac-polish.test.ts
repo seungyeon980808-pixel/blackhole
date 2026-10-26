@@ -200,8 +200,13 @@ describe("secrets, 기억, undo", () => {
     put!({ memo: "되돌리기 시험 메모", via: "빠른 입력" });
     await vi.waitFor(() => expect(app!.state.notes.some((n) => n.title === "되돌리기 시험 메모")).toBe(true));
     const memo = app!.state.notes.find((n) => n.title === "되돌리기 시험 메모")!;
-    root.querySelector<HTMLElement>("#bhToast [data-undo]")!.click();
+    // The line above the input says it once (no second copy in a toast) and carries 되돌리기.
+    expect(root.querySelector<HTMLElement>("#bhToast")!.hidden).toBe(true);
+    root.querySelector<HTMLElement>("#bhLast [data-no]")!.click();
     await vi.waitFor(() => expect(memo.gone).toBe(true));
+    expect(root.querySelector("#bhToast")!.textContent).toContain("지웠어요");
+    root.querySelector<HTMLElement>("#bhToast [data-undo]")!.click();
+    await vi.waitFor(() => expect(memo.gone).toBeFalsy());
     expect(root.querySelector("#bhToast")!.textContent).toContain("되돌렸어요");
   });
 });

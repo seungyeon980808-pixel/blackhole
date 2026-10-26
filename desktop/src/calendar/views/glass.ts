@@ -3,10 +3,13 @@ import { holiday } from "../holidays";
 import { addDays, DOW, fdShort, mins, parseDay, ymd, diffDays } from "../dates";
 import type { CalEvent, ChatMessage, Period, Task } from "../model";
 import { alarmsOn, dueOn, eventsOn, findEntry, pending, periodsOn, taskGroups, type Alarm } from "../store";
-import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
+import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, inputHint, lazyFold, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
 
 const fd = fdShort;
 const none = '<div class="none">없음</div>';
+/** 「나중」 shows the nearest few; the rest fold (a long list pushes nothing useful into view). */
+const LATER_SHOWN = 8;
+const OVERDUE_SHOWN = 5;
 
 export function timetable(ctx: Ctx, k: string, H0 = 7, H1 = 24, rowH = 28): string {
   const evs = eventsOn(ctx.s, k);
@@ -47,6 +50,18 @@ function taskHTML(ctx: Ctx, t: Task, showSubAdd = true): string {
     ${meta || t.suggest?.length ? `<div class="tm2">${esc(meta)}${aiOffer(t, fd)}</div>` : ""}
     ${t.subs.length || showSubAdd ? `<div class="subs">${subs}${showSubAdd ? `<input class="subadd" data-subadd="${t.id}" placeholder="+ 하위 할 일" aria-label="${esc(t.title)} 하위 할 일 추가">` : ""}</div>` : ""}
   </div>`;
+}
+
+/**
+ * 오늘까지: today's to-dos and the recent overdue ones in full; overdue ones older than the last
+ * few fold away (a pile of old misses would push today's out of view).
+ */
+function todayTasks(ctx: Ctx, list: Task[], k: string): string {
+  const old = list.filter((t) => t.due < k);
+  const keep = old.slice(-OVERDUE_SHOWN);
+  const hidden = old.slice(0, Math.max(0, old.length - OVERDUE_SHOWN));
+  return (hidden.length ? lazyFold(ctx, "overdue", `오래 지난 것 ${hidden.length}개`, () => hidden.map((t) => taskHTML(ctx, t, false)).join("")) : "") +
+    [...keep, ...list.filter((t) => t.due >= k)].map((t) => taskHTML(ctx, t)).join("");
 }
 
 function okNo(id: string): string {
@@ -126,14 +141,16 @@ export const glass: ThemeView = {
     const G = taskGroups(ctx.s, k);
     const ps = periodsOn(ctx.s, k);
     const tom = ymd(addDays(ctx.cur, 1));
-    const pend = pending(ctx.s).filter((e) => e.date !== k);
+    // Today's and tomorrow's provisional events are listed under 일정 with 확정/취소 already.
+    const pend = pending(ctx.s).filter((e) => e.date !== k && e.date !== tom);
     return `<div class="day">
       <div class="ttwrap">${timetable(ctx, k)}</div>
       <div class="col2"><div class="box g grow">
         <h4>할 일</h4>
-        <div class="grp">오늘까지 ${G.today.length}</div>${G.today.map((t) => taskHTML(ctx, t)).join("") || none}
-        <div class="grp">7일 안 마감 ${G.week.length}</div>${G.week.map((t) => taskHTML(ctx, t)).join("") || none}
-        <div class="grp">나중 ${G.later.length}</div>${G.later.map((t) => taskHTML(ctx, t, false)).join("")}
+        ${G.today.length + G.week.length + G.later.length === 0 ? `<div class="none">없음 · 「금요일까지 보고서」처럼 쓰면 들어갑니다</div>` : `
+        <div class="grp">오늘까지 ${G.today.length}</div>${todayTasks(ctx, G.today, k) || none}
+        ${G.week.length ? `<div class="grp">7일 안 마감 ${G.week.length}</div>${G.week.map((t) => taskHTML(ctx, t)).join("")}` : ""}
+        ${G.later.length ? `<div class="grp">나중 ${G.later.length}</div>${G.later.slice(0, LATER_SHOWN).map((t) => taskHTML(ctx, t, false)).join("")}${G.later.length > LATER_SHOWN ? lazyFold(ctx, "later", `${G.later.length - LATER_SHOWN}개 더`, () => G.later.slice(LATER_SHOWN).map((t) => taskHTML(ctx, t, false)).join("")) : ""}` : ""}`}
       </div></div>
       <div class="col2">
         ${ps.length ? `<div class="box g"><h4>기간</h4>${ps.map((p) => perRow(p, k)).join("")}</div>` : ""}
@@ -143,7 +160,7 @@ export const glass: ThemeView = {
       </div></div>`;
   },
   week: () => null,
-  composer: (ctx, id, inSheet) => `${inSheet ? "" : `<div class="grab" data-drag="open" title="끌어 올리면 대화 기록" role="button" tabindex="0" aria-label="대화 기록 열기"><i></i></div><div class="last" id="bhLast"></div>`}<div class="inp g"><input id="${id}" autocomplete="off" aria-label="입력" placeholder="${ctx.busy ? "분석 중…" : ""}"><button class="ic" data-photo title="사진·파일" aria-label="사진·파일">${ICON.cam}</button><button class="ic ${ctx.recording ? "rec" : ""}" data-voice title="${ctx.recording ? "말하기 끝" : "말하기"}" aria-label="${ctx.recording ? "말하기 끝" : "말하기"}" aria-pressed="${ctx.recording}">${ICON.mic}</button><button class="ic go" data-go="${id}" title="넣기" aria-label="넣기">${ICON.send}</button></div>`,
+  composer: (ctx, id, inSheet) => `${inSheet ? "" : `<div class="grab" data-drag="open" title="끌어 올리면 대화 기록" role="button" tabindex="0" aria-label="대화 기록 열기"><i></i></div><div class="last" id="bhLast"></div>`}<div class="inp g"><input id="${id}" autocomplete="off" aria-label="입력" placeholder="${esc(inputHint(ctx, inSheet))}"><button class="ic" data-photo title="사진·파일" aria-label="사진·파일">${ICON.cam}</button><button class="ic ${ctx.recording ? "rec" : ""}" data-voice title="${ctx.recording ? "말하기 끝" : "말하기"}" aria-label="${ctx.recording ? "말하기 끝" : "말하기"}" aria-pressed="${ctx.recording}">${ICON.mic}</button><button class="ic go" data-go="${id}" title="넣기" aria-label="넣기">${ICON.send}</button></div>`,
   bubble: (ctx, m: ChatMessage) => {
     if (m.who === "me") {
       const body = m.kind === "photo" || m.kind === "file" ? `<div class="photo">${esc(m.fileName ?? "파일")}</div>${m.text ? `<div>${esc(m.text)}</div>` : ""}` : m.kind === "voice" ? `<div class="voice">▶ 음성 메모</div>${m.text ? `<div>${esc(m.text)}</div>` : ""}` : esc(m.text);

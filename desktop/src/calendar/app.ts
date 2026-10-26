@@ -8,7 +8,7 @@ import { addDays, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
-import { isSimpleCertain, parseRule } from "./rules";
+import { isSimpleCertain, parseDraft } from "./rules";
 import { seedState } from "./samples";
 import {
   applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
@@ -85,6 +85,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let audio: AudioContext | null = null;
   let lastNowMinute = -1;
   let lastDraftMs: number | null = null;
+  /** The day view last drawn: lists keep their scroll only while it stays the same day. */
+  let lastRendered = "";
+  /** Lazy folds the user opened (「N개 더」, 「오래 지난 것」); kept for this session. */
+  const openFolds = new Set<string>();
   const fcHost = new FcHost();
   const timers: number[] = [];
 
@@ -167,7 +171,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       connection: adapter.connection,
       inboxLine: inbox.available ? (inbox.enabled ? `인박스 처리 켜짐${inbox.lastError ? " · 오류" : ""}` : "인박스 처리 꺼짐") : "",
       recording: !!recording,
-      busy: busy > 0
+      busy: busy > 0,
+      open: openFolds,
+      hint: adapter.origin === "휴대폰" ? "쓰고 보내기 — 「내일 3시 치과」" : adapter.onPut ? "쓰고 Enter — 「내일 3시 치과」, 「금요일까지 보고서」 · 파일은 끌어 놓기, 사진은 ⌘V" : "쓰고 Enter — 「내일 3시 치과」"
     };
   }
 
@@ -242,6 +248,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const x = findEntry(s, undoRef);
       if (x) undoStack.push({ label: `「${x.title}」 넣기`, run: () => userAction({ type: "cancel", ref: undoRef }, true, false) });
       else canUndo = false;
+      // The line above the input already says it, with 확정·취소/되돌리기: no second copy.
+      if (x && !chatOpen && s.log[s.log.length - 1]?.ref === undoRef && root.querySelector("#bhLast")) {
+        renderLast();
+        return;
+      }
     }
     const el = root.querySelector<HTMLElement>("#bhToast");
     if (!el) return;
@@ -313,7 +324,16 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     } else {
       fcHost.destroy();
       const scroll = main.querySelector<HTMLElement>(".ttwrap, .colx")?.scrollTop;
+      // Folds the user opened (「N개 더」, 「오늘 정리한 것」) stay open across re-renders (checks, the minute tick).
+      const opened = new Set([...main.querySelectorAll("details[open] > summary")].map((x) => x.textContent?.replace(/\d+/g, "#")));
+      const colScroll = [...main.querySelectorAll<HTMLElement>(".box.grow, .col2")].map((x) => x.scrollTop);
       main.innerHTML = custom;
+      main.querySelectorAll("details > summary").forEach((x) => {
+        if (opened.has(x.textContent?.replace(/\d+/g, "#"))) x.parentElement!.setAttribute("open", "");
+      });
+      const here = `${view}|${ymd(cur)}|${s.settings.theme}`;
+      if (here === lastRendered) main.querySelectorAll<HTMLElement>(".box.grow, .col2").forEach((x, i) => (x.scrollTop = colScroll[i] ?? 0));
+      lastRendered = here;
       if (view === "day") {
         const tt = main.querySelector<HTMLElement>(".ttwrap, .colx");
         if (tt && scroll !== undefined) tt.scrollTop = scroll;
@@ -355,20 +375,21 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const el = root.querySelector<HTMLElement>("#bhSettings")!;
     const st = s.settings;
     el.innerHTML = `<div class="set-h">설정 <button class="mini" data-settings aria-label="설정 닫기">닫기</button></div>
-      <label class="set-row">화면 <select data-set="theme"><option value="glass" ${st.theme === "glass" ? "selected" : ""}>유리</option><option value="doc" ${st.theme === "doc" ? "selected" : ""}>공문서</option></select></label>
+      <div class="set-g">화면</div>
+      <label class="set-row">테마 <select data-set="theme"><option value="glass" ${st.theme === "glass" ? "selected" : ""}>유리</option><option value="doc" ${st.theme === "doc" ? "selected" : ""}>공문서</option></select></label>
       ${st.theme === "glass" ? `<label class="set-row">밝기 <select data-set="mode"><option value="dark" ${st.mode === "dark" ? "selected" : ""}>어둡게</option><option value="light" ${st.mode === "light" ? "selected" : ""}>밝게</option></select></label>
       <label class="set-row">흐림 <input type="range" min="0" max="40" step="1" value="${st.glassBlur}" data-set="glassBlur" aria-label="유리 흐림 정도"><span class="set-v">${st.glassBlur}</span></label>
       <label class="set-row">배경 밝기 <input type="range" min="-50" max="50" step="5" value="${st.glassBright}" data-set="glassBright" aria-label="배경·카드 밝기"><span class="set-v">${st.glassBright > 0 ? "+" : ""}${st.glassBright}</span></label>
       ${st.glassBlur !== 26 || st.glassBright !== 0 ? '<div class="set-row"><button class="mini" data-lookreset>처음 모습으로</button></div>' : ""}` : ""}
       ${adapter.recordAction ? "" : `<label class="set-row"><input type="checkbox" data-set="samples" ${st.showSamples ? "checked" : ""}> 가짜 자료 보이기</label>`}
       ${adapter.claude ? claudeBlock() : ""}
-      <div class="set-sep"></div>
+      <div class="set-sep"></div>${inbox.available || adapter.publishShared ? '<div class="set-g">인박스 · 휴대폰</div>' : ""}
       ${inbox.available ? `<label class="set-row"><input type="checkbox" data-set="inbox" ${inbox.enabled ? "checked" : ""}> 인박스 처리(휴대폰·드라이브에서 온 것 정리)</label>` : ""}
       ${inbox.available ? `<label class="set-row">폴더 <select data-set="inboxRoot"><option value="" ${st.inboxRoot ? "" : "selected"}>시험 폴더</option>${inbox.driveRoot ? `<option value="drive" ${st.inboxRoot ? "selected" : ""}>드라이브 「블랙홀」</option>` : ""}</select></label>` : ""}
-      <div class="set-note" ${inbox.available ? "" : "hidden"}>${inbox.available ? `${st.inboxRoot ? "드라이브 폴더(인박스 원본은 지우지 않고 원본/·노트/만 씀)" : "시험 폴더"}: <code>${escapeHtml(inbox.root)}</code><br>${inbox.running ? "분석 중 · " : ""}${inbox.lastScanAt ? `마지막 확인 ${escapeHtml(inbox.lastScanAt.slice(11, 16))}` : "아직 확인 안 함"}${inbox.lastError ? `<br><span class="warn">${escapeHtml(inbox.lastError)}</span>` : ""}` : "이 화면에서는 인박스 처리를 쓸 수 없습니다."}</div>
+      <div class="set-note" ${inbox.available ? "" : "hidden"}>${inbox.available ? `<span title="${escapeHtml(inbox.root)}">${st.inboxRoot ? "드라이브 「블랙홀」 폴더 · 넣은 원본은 지우지 않음" : "시험 폴더(이 Mac 안)"}</span> · ${inbox.running ? "정리하는 중" : inbox.lastScanAt ? `마지막 확인 ${escapeHtml(inbox.lastScanAt.slice(11, 16))}` : "아직 확인 안 함"}${inbox.lastError ? `<br><span class="warn">${escapeHtml(inbox.lastError)}</span>` : ""}` : "이 화면에서는 인박스 처리를 쓸 수 없습니다."}</div>
       ${adapter.publishShared ? `<label class="set-row"><input type="checkbox" data-set="sharePhone" ${st.sharePhone ? "checked" : ""} ${inbox.driveRoot ? "" : "disabled"}> 휴대폰과 달력 공유</label>
       <div class="set-note">${inbox.driveRoot ? `드라이브 「블랙홀/달력.json」에 일정 사본을 쓰고, 휴대폰에서 바꾼 것을 받아 반영합니다.${shareLine ? `<br>${escapeHtml(shareLine)}` : ""}` : "드라이브 「블랙홀」 폴더가 없어 쓸 수 없습니다."}</div>` : ""}
-      ${adapter.messenger && messenger ? `<div class="set-sep"></div>
+      ${adapter.messenger && messenger?.configured ? `<div class="set-sep"></div>
       <label class="set-row"><input type="checkbox" data-set="messenger" ${st.messengerEnabled ? "checked" : ""} ${messenger.configured ? "" : "disabled"}> 디스코드·슬랙 입력</label>
       <div class="set-note">${messenger.configured ? `지정한 채널의 내 메시지를 30초마다 인박스로 가져옵니다(인박스 처리가 켜져 있어야 분석). 지금까지 ${messenger.written}개${messenger.lastPollAt ? ` · 마지막 ${escapeHtml(messenger.lastPollAt.slice(11, 16))}` : ""}` : `설정 파일을 만들면 켤 수 있습니다: <code>${escapeHtml(messenger.configPath)}</code>`}${messenger.lastError ? `<br><span class="warn">${escapeHtml(messenger.lastError)}</span>` : ""}</div>` : ""}
       ${adapter.googleCalendars ? gcalBlock() : ""}
@@ -395,7 +416,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const won = Math.round(usd * 1400);
     const local = claude.analyzer === "local";
     return `<div class="set-sep"></div>
-      <div class="set-row"><b>AI 다듬기</b>&nbsp;${local ? "로컬 모델(선택)" : `Claude · ${escapeHtml(claude.model)}`}</div>
+      <div class="set-g">AI 다듬기 · ${local ? "로컬 모델" : escapeHtml(modelName(claude.model))}</div>
       ${local ? "" : claude.hasKey
         ? `<div class="set-row">Claude API 키 저장됨(키체인) <button class="mini" data-claude="check">연결 확인</button><button class="mini" data-claude="clear">키 지우기</button></div>`
         : `<label class="set-row">Claude API 키 <input type="password" data-claude-key autocomplete="off" spellcheck="false" placeholder="sk-ant-…" aria-label="Claude API 키 붙여넣기"></label>
@@ -432,15 +453,42 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   function deskBlock(): string {
     if (!desk) return '<div class="set-sep"></div><div class="set-note">Mac 설정을 읽는 중…</div>';
     const d = desk.settings;
+    // A key field like System Settings: click it, press the new keys; Delete turns it off.
     const sc = (k: "quick" | "clipboard" | "capture", label: string) =>
-      `<label class="set-row">${label} <input data-desk-sc="${k}" value="${escapeHtml(d.shortcuts[k])}" spellcheck="false" autocomplete="off" aria-label="${label} 단축키" style="width:150px"><span class="set-v">${escapeHtml(desk!.pretty[k])}</span></label>`;
-    return `<div class="set-sep"></div>
+      `<label class="set-row">${label} <input class="kbd push" data-desk-sc="${k}" value="${escapeHtml(d.shortcuts[k] ? desk!.pretty[k] : "끔")}" readonly aria-label="${label} 단축키. 누른 뒤 새 키를 누르면 바뀌고, Delete는 끄기" title="눌러서 새 단축키 누르기 · Delete 끄기"></label>`;
+    return `<div class="set-sep"></div><div class="set-g">Mac</div>
       <label class="set-row"><input type="checkbox" data-desk="autostart" ${desk.autostartOn ? "checked" : ""}> 로그인하면 블랙홀 켜기(메뉴 막대에만)</label>
       <label class="set-row"><input type="checkbox" data-desk="rightCmd" ${d.rightCmdTwice ? "checked" : ""}> 오른쪽 ⌘ 두 번: 빠른 입력·찾기${d.rightCmdTwice && !desk.accessibility ? ' <button class="mini" data-perm="accessibility">손쉬운 사용 허용</button>' : ""}</label>
       ${sc("quick", "빠른 입력·찾기")}${sc("clipboard", "클립보드 보내기")}${sc("capture", "화면 캡처해 넣기")}
       <label class="set-row">알람 소리 <select data-desk="sound">${desk.sounds.map((x) => `<option ${x === d.alarmSound ? "selected" : ""}>${x}</option>`).join("")}</select><button class="mini" data-desk-try>들어 보기</button></label>
       <div class="set-row">Raycast <button class="mini" data-raycast>스크립트 만들기</button></div>
-      <div class="set-note">Raycast 설정 → Extensions → Script Commands → Add Directories에서 만든 폴더를 고르면 「블랙홀 넣기·찾기·기억·클립보드」가 생깁니다.<br>단축키 예: Ctrl+Alt+Super+Space(⌃⌥⌘Space). 비우면 끕니다. 창을 닫아도 메뉴 막대의 블랙홀이 인박스·알람을 계속 돌립니다.${desk.problems.length || deskLine ? `<br><span class="warn">${escapeHtml([...desk.problems, deskLine].filter(Boolean).join(" · "))}</span>` : ""}</div>`;
+      <div class="set-note">Raycast 설정 → Extensions → Script Commands → Add Directories에서 만든 폴더를 고르면 「블랙홀 넣기·찾기·기억·클립보드」가 생깁니다.<br>창을 닫아도 메뉴 막대의 블랙홀이 인박스·알람을 계속 돌립니다.${desk.problems.length || deskLine ? `<br><span class="warn">${escapeHtml([...desk.problems, deskLine].filter(Boolean).join(" · "))}</span>` : ""}</div>`;
+  }
+
+  /** The key field in 설정: the pressed combination becomes the shortcut (Tauri form, by key code). */
+  function recordShortcut(e: KeyboardEvent, el: HTMLInputElement): void {
+    if (e.key === "Tab") return;
+    e.preventDefault();
+    e.stopPropagation();
+    const k = el.dataset.deskSc as "quick" | "clipboard" | "capture";
+    const mods = [e.ctrlKey && "Ctrl", e.altKey && "Alt", e.shiftKey && "Shift", e.metaKey && "Super"].filter(Boolean) as string[];
+    const glyph = [e.ctrlKey && "⌃", e.altKey && "⌥", e.shiftKey && "⇧", e.metaKey && "⌘"].filter(Boolean).join("");
+    if (e.key === "Escape") return el.blur();
+    if (!mods.length && (e.key === "Backspace" || e.key === "Delete")) {
+      el.blur();
+      return void saveDesk((d) => (d.shortcuts[k] = ""));
+    }
+    const key = shortcutKey(e.code);
+    if (!key) {
+      el.value = glyph ? `${glyph}…` : "키를 누르세요";
+      return;
+    }
+    if (!mods.some((m) => m !== "Shift")) {
+      el.value = "⌃·⌥·⌘ 중 하나와 함께";
+      return;
+    }
+    el.blur();
+    void saveDesk((d) => (d.shortcuts[k] = [...mods, key].join("+")));
   }
 
   async function saveDesk(change: (d: DeskStatus["settings"]) => void): Promise<void> {
@@ -711,7 +759,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   /** 「간단한 문장은 AI 생략」: only where the AI costs money (the Mac), and only when it is on. */
   function skipsAi(text: string, at: Date): boolean {
-    return !!adapter.aiSkipped && claude?.skipSimple !== false && claude?.analyzer !== "local" && isSimpleCertain(text, parseRule(text, at));
+    return !!adapter.aiSkipped && claude?.skipSimple !== false && claude?.analyzer !== "local" && isSimpleCertain(text, parseDraft(text, at));
   }
 
   async function submitText(text: string, src = adapter.origin, checked = false): Promise<void> {
@@ -1090,6 +1138,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   const onKey = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
+    if (el.matches("[data-desk-sc]")) return recordShortcut(e, el as HTMLInputElement);
     if (e.key === "Escape") {
       if (!printRoot.hidden) printRoot.hidden = true;
       else if (guideOpen) {
@@ -1099,6 +1148,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         settingsOpen = false;
         root.querySelector<HTMLElement>("#bhSettings")!.hidden = true;
       } else if (chatOpen) setChat(false);
+      else return;
+      // Back to the always-open input, like closing a sheet in a Mac app.
+      root.querySelector<HTMLInputElement>("#bhIn")?.focus();
       return;
     }
     if (e.key !== "Enter" || e.isComposing) {
@@ -1186,10 +1238,6 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       adapter.trySound?.(el.value);
       return void saveDesk((d) => (d.alarmSound = el.value));
     }
-    if (el.dataset.deskSc) {
-      const k = el.dataset.deskSc as "quick" | "clipboard" | "capture";
-      return void saveDesk((d) => (d.shortcuts[k] = el.value.trim()));
-    }
     const key = el.dataset.set;
     if (!key) return;
     if (key === "theme") s.settings.theme = el.value as ThemeName;
@@ -1271,6 +1319,29 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       s.settings[key] = Number(el.value);
       applyLook();
     }
+  });
+  // A lazy fold draws its rows when opened.
+  root.addEventListener("toggle", (e) => {
+    const d = e.target as HTMLDetailsElement;
+    const key = d.dataset?.fold;
+    if (!key || d.open === openFolds.has(key)) return;
+    if (d.open) openFolds.add(key);
+    else openFolds.delete(key);
+    render();
+  }, true);
+  root.addEventListener("focusin", (e) => {
+    const el = e.target as HTMLInputElement;
+    if (el.matches?.("[data-desk-sc]")) {
+      el.classList.add("rec");
+      el.value = "키를 누르세요";
+    }
+  });
+  root.addEventListener("focusout", (e) => {
+    const el = e.target as HTMLInputElement;
+    if (!el.matches?.("[data-desk-sc]")) return;
+    el.classList.remove("rec");
+    const k = el.dataset.deskSc as "quick" | "clipboard" | "capture";
+    if (desk) el.value = desk.settings.shortcuts[k] ? desk.pretty[k] : "끔";
   });
   root.addEventListener("pointerdown", onDown);
   window.addEventListener("pointermove", onMove);
@@ -1435,6 +1506,20 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       window.removeEventListener("focus", onFocus);
     }
   };
+}
+
+/** 「claude-haiku-5-5」 → 「Claude Haiku 5.5」 (the id stays in the tooltip-free API config). */
+export function modelName(id: string): string {
+  const m = /^claude-([a-z]+)-(\d+)(?:-(\d+))?/.exec(id);
+  return m ? `Claude ${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ""}` : id;
+}
+
+/** KeyboardEvent.code → the key part of a Tauri shortcut (「KeyV」 → 「V」); null for modifiers. */
+export function shortcutKey(code: string): string | null {
+  const m = /^(?:Key([A-Z])|Digit(\d))$/.exec(code);
+  if (m) return m[1] ?? m[2];
+  if (/^F([1-9]|1[0-9]|20)$/.test(code) || /^(Space|Enter|Backquote|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Comma|Period|Slash|ArrowUp|ArrowDown|ArrowLeft|ArrowRight)$/.test(code)) return code;
+  return null;
 }
 
 function escapeHtml(v: string): string {

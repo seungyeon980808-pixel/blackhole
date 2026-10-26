@@ -16,7 +16,20 @@ export interface Ctx {
   inboxLine: string;
   recording: boolean;
   busy: boolean;
+  /** What the empty input says (the Mac adds drop · ⌘V; the phone keeps it short). */
+  hint?: string;
+  /** Folds the user opened (by key): their rows are drawn only then, so long lists stay light. */
+  open?: Set<string>;
 }
+
+/** A fold whose rows are drawn only while open (data-fold: the app re-renders on toggle). */
+export function lazyFold(ctx: Ctx, key: string, label: string, rows: () => string): string {
+  const on = !!ctx.open?.has(key);
+  return `<details class="fold" data-fold="${key}" ${on ? "open" : ""}><summary>${label}</summary>${on ? rows() : ""}</details>`;
+}
+
+/** Placeholder of the always-open input. While the AI refines, typing on is fine (drafts go in at once). */
+export const inputHint = (ctx: Ctx, inSheet: boolean): string => (ctx.busy ? "다듬는 중… 계속 넣어도 됩니다" : inSheet ? "더 넣기 · 고칠 것 쓰기" : ctx.hint ?? "");
 
 export interface ThemeView {
   fd: (k: string) => string;

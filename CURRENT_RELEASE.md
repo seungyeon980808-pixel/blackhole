@@ -1,74 +1,41 @@
-# Current release baseline
+# 지금 쓰는 판 (Current release)
 
-Updated: 2026-09-15 KST
+갱신: 2026-10-27 KST
 
-## Android 0.9.0 / code 25
+## Mac 앱 Blackhole 0.2.0
 
-Implemented:
+설치: `/Applications/Blackhole.app` (서명·공증 없음, 개인 Mac). 브랜치 `feature/blackhole-mac-polish2-20261027`(통합본 `feature/blackhole-unified-20261026` 68af223에서 시작) 빌드.
 
-- Persistent user opt-in for PTT readiness
-- Best-effort sticky foreground service recreation without automatic recording
-- Explicit stop disables restoration even when the service instance is absent
-- System-bar inset handling for native scrolling screens
-- Existing reminder, Calendar, sync, DB, WAV, and approval boundaries retained
+들어 있는 것:
 
-Verified:
+- 월·주·일 달력, 유리(반투명 창)·공문서 테마, A4 출력(공문서 양식)
+- 항상 열린 입력칸 → 규칙 초안이 바로 → Claude Haiku 5.5가 다듬음 → 확정·취소·완료·되돌리기(⌘Z)
+- 「3시」처럼 오전·오후 없이 1~6시는 오후로 초안(「6시」만 AI가 판단)
+- 빠른 입력·찾기 창(오른쪽 ⌘ 두 번, ⌃⌥⌘Space), 클립보드 보내기(⌃⌥⌘V), 화면 캡처해 넣기(⌃⌥⌘S), 끌어 놓기, ⌘V 사진, Raycast 주소
+- 인박스: 드라이브 「블랙홀」 폴더(휴대폰에서 보낸 것), 원본은 지우지 않음
+- 휴대폰과 달력 공유(드라이브 「블랙홀/달력.json」, 내용이 바뀔 때만, 10초 간격 이상)
+- 화면 전체 알람(소리 반복, 10분 뒤/확인/완료), 놓친 알람, 메뉴 막대 아이콘, 로그인 시 켜기
+- 비밀(비밀번호·카드번호 등)은 macOS 키체인에만, Touch ID 뒤 복사
+- AI 비용 줄이기: 같은 요청 캐시, 간단한 문장 AI 생략, 월 예산(기본 $3), 사용 기록(내용 없이 토큰만)
 
-- Android host wiring: 45 cases / 376 assertions
-- PTT lifecycle harness: 39 assertions
-- System-bar inset harness: 28 assertions
-- Manual Java/D8/APK pipeline and same-signature update were previously exercised with the private toolchain
-- Galaxy S25 screen-off physical-button recording passed in the verified environment
-- Installed operational APK SHA-256: `488e687dd9c6ec3f536a1d18e2876ef39e539913190456a8dfce864158b72025`
-- Public-placeholder source rebuilt successfully on 2026-09-15; its local verification APK SHA-256 was `92135cb75de8f2e35799c226edc2915d4caa0b4285a56a22709663de30b9132f` and is not an install/update deliverable
+확인한 것(2026-10-27):
 
-Not guaranteed or still separate:
+- `npm test` 138개, `npm run build`, `npm run acceptance`, `cargo test --locked` 통과
+- 가짜 자료 미리보기로 월·주·일, 두 테마, 설정, 대화 기록, 출력, 빈 상태, 키 없음, 예산 초과, 오프라인, 인박스 오류, 처음 쓰기 안내, 빠른 입력창, 알람 창 화면 확인
+- 가짜 항목 2,000개에서 화면 전환·날짜 넘김·초안 표시가 모두 0.05초 안
+- 가만히 있을 때 앱 전체 CPU 약 0.4%
 
-- Reboot and force-stop automatic microphone foreground-service recovery
-- Natural long-duration Doze and OEM process reclaim
-- Actual sound, vibration, and heads-up observation
-- Posted-notification cleanup through a currently reachable UI path
-- Network-failure recovery regression
+사람 손으로 아직 확인할 것: 오른쪽 ⌘ 두 번(손쉬운 사용 허용 뒤), 전역 단축키, Touch ID 복사, Dock 끌어 놓기, 화면 캡처, 1분 뒤 시험 알람 소리, 새 단축키 칸(눌러서 키 누르기).
 
-No APK, signing material, user DB, WAV, OAuth token, or private device evidence is committed.
+## 휴대폰 Android 0.11.10 (versionCode 39)
 
-## Windows Desktop 0.1.1
+- 패키지 `com.malhaedwo.pttprobe`, 처음 설치(2026-08-31) 위 같은 서명으로 업데이트
+- 보내기(말하기·적기·사진), 기기 안 받아쓰기, 휴대폰 초안, Mac 달력 사본 보기·체크, 홈·잠금화면 위젯, 알람(알람 음량), 잠금화면 「완료」
+- 실기기(갤럭시 S25) 확인 기록: `docs/plan-blackhole.md`의 「실기기 확인」·「통합본 설치」 절
+- 재부팅 뒤 한 번도 잠금을 풀지 않은 동안에는 알람이 울리지 않음(직접 부팅 미지원)
 
-Implemented:
+APK, 서명 자료, 사용자 DB, 음성, OAuth 토큰, 개인 기기 기록은 저장소에 없습니다.
 
-- Read-only Tauri shell
-- Local fixture/cache model
-- 23-column Items contract
-- Approval-document workspace with fixed navigation, review queue, and detail surface
-- Explicit non-live data state
+## 지난 판
 
-Verified locally:
-
-- UI tests: 5/5
-- TypeScript/Vite build
-- Acceptance checks
-- Major text/background contrast at least 5.26:1
-
-Verified in GitHub Actions:
-
-- Rust tests
-- NSIS installer build
-- MSI installer build
-- CI run: https://github.com/seungyeon980808-pixel/blackhole/actions/runs/34576134317
-
-Installer hashes from the successful CI artifacts:
-
-- NSIS EXE: `1c7c9ce5aaa7ea53f30dc51441e280729ad2d4e82c7a939f5aa1f432e80b0776`
-- MSI: `fa920cfc9e1a924882da49fe2b1f940cde24044808bcdfd9890e2904ce4f1f6b`
-
-Blocked:
-
-- Actual Windows install, launch, remove, WebView2, SmartScreen, and 100/125/150% scaling checks
-- Live Google read-only OAuth/cache validation
-- Wiki provider selection and integration
-
-## Branch map
-
-- `main`: older public Android baseline
-- `desktop/windows-0.1.1-visibility`: Desktop 0.1.1 only
-- `handoff/codex-20260915`: combined continuation baseline
+- Android 0.9.0 / Windows Desktop 0.1.1(읽기 전용 승인 문서함): `handoff/codex-20260915` 브랜치에 기록. Windows 승인 문서함은 2단계에서 끝났고 지금 데스크톱은 Mac 블랙홀 앱입니다.

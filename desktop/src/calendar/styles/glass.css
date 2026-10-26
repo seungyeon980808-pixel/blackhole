@@ -91,7 +91,7 @@
 .bh.glass .fc .fc-daygrid-body .bh-per .pbw { display: block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 .bh.glass .fc .bh-per.school .pbw { background: color-mix(in srgb, var(--school) 40%, transparent); }
 .bh.glass .fc .bh-per.personal .pbw { background: color-mix(in srgb, var(--personal) 40%, transparent); }
-.bh.glass .fc .fc-bg-event.bh-bell { background: none; opacity: 1; border-top: 1px dashed var(--ink3); z-index: 2; }
+.bh.glass .fc .fc-bg-event.bh-bell { background: none; opacity: 1; border-top: 1px dashed var(--ink3); z-index: 1; }
 .bh.glass .fc .fc-bg-event.bh-bell .fc-event-title, .bh.glass .fc .fc-bg-event.bh-bell span { position: absolute; right: 2px; top: -7px; font-size: 9px; font-style: normal; color: var(--ink3); background: var(--page); padding: 0 2px; margin: 0; line-height: 12px; }
 .bh.glass .fc .fc-timegrid-now-indicator-line { border-width: 2px 0 0; }
 
@@ -213,6 +213,13 @@
 .bh.glass .settings { background: color-mix(in srgb, var(--page) 90%, transparent); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); }
 .bh.glass .settings select { background: var(--glass2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 4px; }
 .bh.glass .settings select option { color: #111; }
+/* Text, number and key fields follow the theme (dark mode had white boxes with white text). */
+.bh.glass .settings input:is([type="text"], [type="number"], [type="password"], :not([type])) { background: var(--glass2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; color: var(--ink); outline: 0; }
+.bh.glass .settings input::placeholder { color: var(--ink3); }
+.bh.glass .settings input:focus { border-color: #6f8dff; }
+.bh.glass .settings .kbd.rec { border-color: #6f8dff; color: #9db7ff; }
+.bh.glass .fc .fc-bg-event.bh-bell .fc-event-title, .bh.glass .fc .fc-bg-event.bh-bell span { background: none; }
+.bh.glass[data-mode="dark"] .fc .hol { color: #ff8a8e; }
 
 /* phone width (WebView) */
 @media (max-width: 760px) {

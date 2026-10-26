@@ -76,7 +76,7 @@ describe("draft first, AI later (Mac input)", () => {
     ai.resolve(proposal);
     await done;
     const kept = app!.state.events.find((e) => e.id === draft.id)!;
-    expect(kept.start).toBe("03:00"); // the user's (rule) version stays
+    expect(kept.start).toBe("15:00"); // the user's (rule) version stays (「3시」 alone = afternoon)
     expect(kept.provisional).toBe(false);
     expect(kept.suggest?.length).toBe(3);
     expect(app!.state.events.filter((e) => !e.gone)).toHaveLength(1);

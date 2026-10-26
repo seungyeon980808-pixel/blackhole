@@ -1,39 +1,67 @@
 # Blackhole · 블랙홀
 
-문장·음성·사진·링크를 던져 두기만 하면 바로 초안으로 들어가고, Mac의 AI(Claude API, 키를 넣은 경우)가 일정·할 일·기억으로 다듬는 개인용 Android 앱과 데스크톱입니다. 이전 이름은 Ya(야), 그 전은 말해둬입니다(2026-10-25 이름 변경).
+개인 일정·기억 비서입니다. 문장·음성·사진·PDF·링크를 던져 두면 곧바로 초안으로 달력에 들어가고, Mac 앱이 AI(Claude Haiku 5.5 API)로 일정·할 일·기간·기억으로 다듬습니다. Mac과 휴대폰(갤럭시)이 같은 달력을 나눠 씁니다. 이전 이름은 Ya(야), 그 전은 말해둬입니다.
 
-## 구성
+기존 설치 위 업데이트를 위해 Android 패키지 `com.malhaedwo.pttprobe`, 서명, DB 이름 같은 내부 식별자에는 옛 이름을 그대로 둡니다.
 
-- 음량 버튼/화면 버튼 PTT, WAV 원본 보존, 한국어 인식·파싱
-- 승인함에서 검토·편집·승인 후 일정 알림 생성
-- 명시적으로 선택한 Calendar에만 파생 일정 생성
-- Google Sheets/Drive 동기화와 Apps Script 웹 승인함
-- Windows Tauri 읽기 전용 승인 문서함과 로컬 fixture/cache 계약
-- package: `com.malhaedwo.pttprobe` (기존 업데이트 호환을 위해 유지)
+## 지금 상태 (2026-10-27)
 
-저장소·제품 이름은 블랙홀(blackhole)입니다. 기존 설치 위 업데이트를 위해 Android 패키지 `com.malhaedwo.pttprobe`, 서명, DB 이름 등 내부 식별자에는 이전 이름 “말해둬”를 그대로 둡니다.
+| 부분 | 판 | 하는 일 |
+|---|---|---|
+| Mac 앱 `desktop/` | Blackhole 0.2.0 (Tauri 2) | 월·주·일 달력, 유리/공문서 테마, 항상 열린 입력칸, 초안 먼저·AI 다듬기, 인박스(드라이브 「블랙홀」 폴더), 휴대폰과 달력 공유, 화면 전체 알람, 단축키·메뉴 막대·Raycast, 비밀은 키체인에만, 월 AI 예산, A4 출력 |
+| 휴대폰 `src/`, `apk-input/` | Android 0.11.10 (versionCode 39) | 말하기·적기·사진으로 보내기, 기기 안 받아쓰기, 휴대폰 초안, Mac 달력 사본 보기·체크, 홈·잠금화면 위젯, 알람 |
+| AI | `claude-haiku-5-5` | Mac 앱만 부름. 키는 macOS 키체인에만. 같은 요청 다시 안 부름, 간단한 문장은 AI 생략, 월 예산 넘으면 초안만 |
 
-## 현재 상태
+구글 캘린더에는 쓰지 않습니다(화면에 「로컬·미연결」). 자세한 진행 기록은 `docs/plan-blackhole.md`, Mac 앱 쓰는 법은 `docs/desktop-app.md`, AI 설정은 `docs/local-worker.md`, 화면 규칙은 `desktop/DESIGN.md`, 작업 규칙은 `AGENTS.md`.
 
-이 브랜치는 다른 세션이나 Codex에서 바로 이어갈 수 있도록 다음 기준선을 한곳에 모읍니다.
+## 흐름
 
-- Android `0.9.0` / versionCode `25`: 지속 PTT opt-in, sticky service recreation, 시스템 바 inset 수정
-- Windows Desktop `0.1.1`: Tauri 기반 읽기 전용 승인 문서함, 로컬 fixture/cache, 23열 Items 계약
-- Android wiring 45 cases / 376 assertions, PTT 39 assertions, system inset 28 assertions
-- Desktop UI test 5개, TypeScript/Vite build, acceptance 검사
-- Windows Rust/NSIS/MSI는 GitHub Actions에서 통과했지만 실제 Windows 설치·제거·배율 검증은 별도 게이트
+```text
+넣기 (Mac 입력칸·빠른 입력창·끌어 놓기·⌘V·Raycast / 휴대폰 보내기)
+  → 규칙 초안이 바로 달력에 (「초안」 표시, 일정은 가승인 「가」)
+  → Claude가 다듬어 같은 항목을 고침 (키가 없거나 예산을 넘으면 초안 그대로)
+  → 확정·취소·완료, 되돌리기(⌘Z)
+  → 드라이브 「블랙홀/달력.json」 사본 → 휴대폰 달력·위젯
+```
 
-상세 인계는 `CODEX_HANDOFF.md`, 현재 검증 범위는 `CURRENT_RELEASE.md`, 에이전트 작업 규칙은 `AGENTS.md`를 먼저 읽으세요.
+휴대폰에서 보낸 것은 드라이브 「블랙홀/인박스」를 거쳐 Mac이 정리합니다. 원본은 지우지 않습니다.
 
-### Android 0.9.0 주의점
+## 개인 설정은 저장소 밖에
 
-사용자의 PTT 선택은 보존하지만 명시적 종료는 자동 복구도 끕니다. `START_STICKY`는 시스템의 재생성 시도를 요청할 뿐 무중단을 보장하지 않습니다. 재부팅·강제 중지 후 microphone foreground service 자동 복구는 보장하지 않습니다. 표준 Gradle 프로젝트가 아니라 기존 수동 Java/D8 빌드 구조입니다.
+저장소에는 자리표시 값만 있습니다. 실제 값은 모두 저장소 밖에 둡니다.
 
-### DB 최초 접근 보호
+- Claude API 키: macOS 키체인(앱 설정에서 붙여 넣기)
+- AI 설정: `~/.local/share/blackhole-models/worker-config.json`(예시 `tools/worker-config.example.json`)
+- APK 빌드용 계정·시트 값: `~/.config/blackhole/private.env`, 서명: `~/.config/blackhole/signing`
+- 앱 자료: `~/Library/Application Support/com.malhaedwo.blackhole.desktop/`, `~/.local/share/blackhole/`
 
-기존 `before-v5` 사본을 보존하면서 `before-app-0.9.0`에 현재 DB와 존재하는 WAL/SHM/journal을 별도 복사·검증합니다. 복사나 검증에 실패하면 DB helper를 생성하지 않습니다. 이는 APK 교체 전 백업이 아니라 새 코드의 최초 DB 접근 전 보호입니다.
+이메일, 시트 ID, OAuth 클라이언트 ID, 키, 토큰, 개인 기록이 담긴 스크린샷은 커밋하지 않습니다.
 
-## 공개용 설정
+## Mac 앱 실행·빌드·검사
+
+```sh
+cd desktop
+npm ci
+npm run dev                                # 브라우저 미리보기(http://127.0.0.1:1420, 작업기·인박스 없음)
+npm run tauri dev                          # 개발 실행
+npm run tauri build -- --bundles app       # src-tauri/target/release/bundle/macos/Blackhole.app
+```
+
+검사(모두 통과해야 함):
+
+```sh
+cd desktop
+npm test
+npm run build
+npm run acceptance
+cargo test --locked --manifest-path src-tauri/Cargo.toml
+```
+
+설치는 만든 `Blackhole.app`으로 `/Applications/Blackhole.app`을 교체합니다. 덮기 전에 기존 앱을 `~/.local/share/blackhole/app-backup/`에 복사해 둡니다. 앱 자료 폴더는 그대로 이어 씁니다.
+
+## 휴대폰(Android) 빌드
+
+### 공개용 설정
 
 운영 계정/프로젝트/문서 식별자와 개인 경로는 예시 값으로 교체했습니다. **그대로는 Google 연결이 작동하지 않습니다.**
 
@@ -51,7 +79,7 @@ APK 빌드(`build.sh`)는 위 값을 저장소 밖 `~/.config/blackhole/private.
 
 웹 코드는 사용할 Google Sheet에 연결된 Apps Script 프로젝트의 `Code.gs`, `Index.html`로 구성합니다. 개인 설정을 채운 사본은 공개 커밋하지 말고 로컬 또는 별도 비공개 저장소에서 관리하세요. OAuth client secret이나 토큰을 소스에 넣지 마세요.
 
-## 호스트 테스트
+### 호스트 테스트
 
 JDK 11 이상이 필요합니다. 이 테스트는 Android 기기 시험의 대체물이 아닙니다.
 
@@ -62,7 +90,7 @@ bash tests/insets/run.sh
 bash tests/ptt/run.sh
 ```
 
-## 수동 APK 빌드
+### 수동 APK 빌드
 
 블랙홀 달력 화면(데스크톱과 같은 `desktop/src/calendar`)이 APK의 `assets/calendar/`로 들어갑니다. 빌드 전에 웹 묶음을 만들어 두세요(Git에는 없음). 위치가 다르면 `BLACKHOLE_CALENDAR_WEB`으로 지정합니다. 없으면 `build.sh`가 멈춥니다(종료 코드 6).
 
@@ -90,41 +118,18 @@ export PTT_SIGNING_HOME=/private/path/to/signing
 bash build.sh
 ```
 
-서명 디렉터리는 `ptt-probe.jks`(alias `pttprobe`)와 비밀번호 파일 `password`를 로컬에서 제공해야 합니다. 기본 위치는 `~/.config/blackhole/signing`입니다. 기존 설치 위 업데이트에는 반드시 원래 서명키가 필요합니다. 빌드는 키를 자동 생성하거나 교체하지 않습니다. 출력은 `build/malhaedwo-ptt-probe-0.9.0.apk`이며 서명 검증·Manifest 검사·ZIP 무결성·SHA-256 확인을 실행합니다.
+서명 디렉터리는 `ptt-probe.jks`(alias `pttprobe`)와 비밀번호 파일 `password`를 로컬에서 제공해야 합니다. 기본 위치는 `~/.config/blackhole/signing`입니다. 기존 설치 위 업데이트에는 반드시 원래 서명키가 필요합니다. 빌드는 키를 자동 생성하거나 교체하지 않습니다. 출력은 `build/malhaedwo-ptt-probe-<버전>.apk`(지금 0.11.10)이며 서명 검증·Manifest 검사·ZIP 무결성·SHA-256 확인을 실행합니다.
 
-## 데스크톱 블랙홀 앱 (2단계, Mac)
+## 휴대폰 화면
 
-월·주·일 달력, 유리/공문서 테마, 항상 열린 입력칸과 대화 기록, 초안 먼저·AI 다듬기(Claude API, `docs/local-worker.md`; 로컬 모델은 선택·기본 꺼짐), 시험 폴더 인박스, 데스크톱 알람, A4 출력. 지금은 이 Mac에만 저장하고 구글에는 쓰지 않습니다(「로컬·미연결」). 자세한 내용은 `docs/desktop-app.md`.
-
-```sh
-cd desktop
-npm run tauri dev
-npm run tauri build -- --bundles app
-```
-
-## Windows Desktop
-
-```sh
-cd desktop
-npm ci
-npm test
-npm run build
-npm run acceptance
-cargo test --locked --manifest-path src-tauri/Cargo.toml
-```
-
-실제 Google OAuth와 운영 데이터 연결은 아직 구현하지 않았습니다. 화면은 fixture/cache 상태를 명확히 표시하며, 운영 데이터에 쓰지 않습니다. Windows 설치본은 CI artifact로만 생성하고 Git에는 커밋하지 않습니다.
-
-## 예정: LLM Wiki 연동
-
-아직 특정 Wiki 서비스나 API를 선택하지 않았습니다. 첫 구현은 Desktop의 읽기 전용 adapter, 로컬 cache, fixture fallback으로 제한합니다. 승인된 문서만 검색 대상으로 삼고 DB·WAV·OAuth token·개인 로그는 전송하지 않습니다. 자세한 경계는 `CODEX_HANDOFF.md`에 기록했습니다.
+휴대폰 달력 화면은 Mac과 같은 `desktop/src/calendar`를 씁니다(`npm run build:phone` → APK의 `assets/calendar/`). 그래서 `desktop/src/calendar`를 고치면 다음 APK 빌드 때 휴대폰 화면에도 들어갑니다.
 
 ## 데이터 안전 원칙
 
-- 승인 전 알림/Calendar 생성 금지
-- 음성인식·동기화 실패 시 WAV 원본 보존
-- 기존 앱 제거/데이터 초기화 없이 동일 서명 업데이트
-- Calendar 삭제 실패 시 연결 정보와 재시도 상태 보존
-- 운영 데이터, 음성, DB, 토큰, 서명키, 개인 로그, 기존 Git 이력은 이 공개 복사본에 포함하지 않음
+- 지우기·취소·되돌리기는 표시만 바꾸고 기록을 지우지 않음
+- 음성·파일 원본 보존, 인박스 원본은 지우거나 옮기지 않음
+- 기존 앱 제거/데이터 초기화 없이 같은 서명으로 업데이트
+- 비밀번호 같은 값은 키체인에만, AI·드라이브·달력·로그로 보내지 않음
+- 운영 데이터, 음성, DB, 토큰, 서명키, 개인 로그는 이 공개 저장소에 넣지 않음
 
 라이선스는 아직 지정하지 않았습니다. 공개 저장소라는 사실만으로 재배포·변경 허가를 부여하지 않습니다.

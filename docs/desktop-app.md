@@ -1,6 +1,6 @@
-# 블랙홀 데스크톱 앱 (2단계, Mac)
+# 블랙홀 데스크톱 앱 (Mac)
 
-Tauri 2 + TypeScript. 같은 달력 화면(`desktop/src/calendar/`)을 나중에 휴대폰 앱이 WebView로 띄웁니다.
+Tauri 2 + TypeScript. 같은 달력 화면(`desktop/src/calendar/`)을 휴대폰 앱이 WebView로 띄웁니다.
 
 ## 실행
 
@@ -11,8 +11,8 @@ npm run tauri dev                         # 개발 실행
 npm run tauri build -- --bundles app      # src-tauri/target/release/bundle/macos/Blackhole.app
 ```
 
-- 서명·공증은 하지 않습니다. `/Applications`에 넣지 않고 빌드 폴더에서 바로 엽니다.
-- 작업기는 1단계와 같은 설정을 씁니다: `~/.local/share/blackhole-models`, Ollama(`127.0.0.1:11434`)의 `gemma4:e2b-it-q4_K_M`, 환경 변수 `BLACKHOLE_*`, `worker-config.json`. Ollama가 꺼져 있으면 대화창에 「분석하지 못했어요」가 뜨고 아무것도 넣지 않습니다.
+- 서명·공증은 하지 않습니다. 만든 앱으로 `/Applications/Blackhole.app`을 교체합니다(덮기 전에 `~/.local/share/blackhole/app-backup/`에 복사).
+- AI 다듬기는 Claude Haiku 5.5 API(키는 키체인, `docs/local-worker.md`). 키가 없거나 예산을 넘으면 초안만 넣습니다. 로컬 모델(Ollama)은 `"analyzer": "local"`일 때만 씁니다.
 - 브라우저(`npm run dev` → http://127.0.0.1:1420)로 열면 「미리보기·미연결」 모드: 작업기·인박스 없이 화면만 봅니다.
 
 ## 저장 위치 (로컬·미연결)

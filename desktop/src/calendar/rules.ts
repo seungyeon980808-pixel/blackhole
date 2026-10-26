@@ -187,6 +187,36 @@ export function parseRule(raw: string, now: Date): RuleResult {
   return { kind, title, date: date ? ymd(date) : null, time: date ? time : null, hasTime: hasTime && date !== null, needsReview: review, explanation };
 }
 
+/** 「3시」 said with no 오전/오후/아침/저녁… (and not 13시~): the hour alone does not say which half of the day. */
+function bareHour(raw: string): number | null {
+  const m = TIME.exec(normalize(raw));
+  if (!m || m[1]) return null;
+  if (/오전|오후|아침|점심|낮|저녁|밤|새벽|AM|PM/i.test(raw)) return null;
+  return Number(m[2]);
+}
+
+/**
+ * The draft for the calendar: parseRule (kept line for line with the phone's Java parser), then
+ * one human guess on top — 「3시 치과」 means 15:00, not 03:00. Hours 1–6 said alone are taken as
+ * afternoon (nobody books a dentist at 3 a.m.); 7–12 stay as said. The AI still refines it.
+ */
+export function parseDraft(raw: string, now: Date): RuleResult {
+  const r = parseRule(raw, now);
+  const h = bareHour(raw);
+  if (!r.hasTime || !r.time || !r.date || h === null || h < 1 || h > 6) return r;
+  const [hh, mm] = r.time.split(":").map(Number);
+  if (hh !== h) return r;
+  const time = `${pad(hh + 12)}:${pad(mm)}`;
+  let date = r.date;
+  // No day said: parseRule moved 03:00 to tomorrow because it had passed; 15:00 may still be today.
+  if (r.explanation === "시간을 찾고 다음 시점으로 날짜를 추정함" && !/(?<!\d)24시/.test(raw)) {
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const at = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hh + 12, mm);
+    date = ymd(at > now ? today : addDays(today, 1));
+  }
+  return { ...r, time, date };
+}
+
 /** Words that make a sentence more than 「one appointment」: lists, order, reminders, memory, school. */
 const NOT_SIMPLE = /[,，、:;·\n~]|그리고|그 ?전에|전에|후에|다음에|끝나고|하고 |랑 |이랑|및|까지|부터|알려|알림|기억|챙기|준비|하위|매주|매일|격주|반복|마다|학교|학년|학부모|학생|교무|교실|수업|담임|연수|공문|결재|출석|수행평가|방과후|교감|교장|동아리|시험|평가|회의|조회|입학|졸업|면담|운동장|급식|학급|방학|개학/;
 /** Conversational endings the rule title keeps (「치과 예약 있어」): the AI writes a cleaner title. */
@@ -203,6 +233,8 @@ export function isSimpleCertain(raw: string, r: RuleResult): boolean {
   if (r.kind !== "SCHEDULE" || !r.hasTime || r.needsReview || r.explanation !== "날짜와 시간을 찾음") return false;
   if (text.length > 30 || NOT_SIMPLE.test(text)) return false;
   if (/(아침|저녁|밤|새벽|낮)(?!\s*\d)/.test(text)) return false;
+  // 「6시」 alone may be morning or evening: let the AI decide.
+  if (bareHour(raw) === 6) return false;
   const title = r.title.trim();
   return title !== "음성 메모" && title.length >= 2 && title.length <= 15 && !TITLE_TAIL.test(title) && /^[가-힣A-Za-z0-9 ]+$/.test(title);
 }

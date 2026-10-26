@@ -1,116 +1,54 @@
-# Codex handoff
+# 이어서 일하는 사람에게 (handoff)
 
-Updated: 2026-09-15 KST
+갱신: 2026-10-27 KST
 
-## Start here
+## 어디서 시작하나
 
-Use branch `handoff/codex-20260915`. It combines the public-safe Android 0.9.0 source and the Windows Desktop 0.1.1 source in one working tree.
+- 최신 작업: `feature/blackhole-mac-polish2-20261027` (Mac 앱 다듬기 2차). 그 바탕은 통합본 `feature/blackhole-unified-20261026`(Mac + 휴대폰 0.11.10).
+- `main`과 `handoff/codex-20260915`는 옛 기준(Android 0.9.0, Windows 0.1.1)입니다. 여기서 시작하지 마세요.
+- 먼저 읽기: `AGENTS.md`, `README.md`, `CURRENT_RELEASE.md`, `docs/plan-blackhole.md`(끝부분 진행 기록), `desktop/DESIGN.md`.
 
-```sh
-git clone https://github.com/seungyeon980808-pixel/blackhole.git
-cd blackhole
-git switch --track origin/handoff/codex-20260915
+## 구조
+
+```text
+desktop/src/calendar/        달력 화면 (Mac 창과 휴대폰 WebView가 같이 씀, Tauri import 없음)
+  app.ts                     mountBlackhole: 화면·입력·설정·알람·되돌리기
+  rules.ts                   규칙 초안(휴대폰 Java 해석기와 줄마다 같음) + parseDraft(「3시」=오후)
+  store.ts / model.ts        자료 형식, 초안 → AI 결과 반영, 휴대폰 동작 적용
+  views/glass.ts, doc.ts     유리·공문서 테마
+desktop/src/adapters/tauri.ts   Mac 어댑터
+desktop/src/mac/             빠른 입력창, 알람 창
+desktop/src-tauri/src/       Rust: 저장, 인박스, Claude 호출, 키체인, 단축키, 메뉴 막대, 알람
+src/, apk-input/, build.sh   휴대폰 앱(수동 Java/D8 빌드)
 ```
 
-This branch is the continuation baseline. Do not start from `main`, which remains at the older public Android snapshot, or from `desktop/windows-0.1.1-visibility`, which does not contain Android 0.9.0.
+## 지켜야 할 계약
 
-## Current product boundaries
+- 드라이브 「블랙홀/달력.json」과 인박스 파일 형식은 Mac·휴대폰이 함께 씁니다. 한쪽만 바꾸지 마세요.
+- `rules.ts`의 `parseRule`은 휴대폰 Java 해석기와 같은 결과를 내야 합니다(`tests/fixtures/rule-cases.json`). 사람 쪽 추정은 `parseDraft`에만 더합니다.
+- 지우기·취소는 표시만 바꿉니다(`gone`). 되돌리기는 반대 동작(`restore`)을 보내 휴대폰도 따라옵니다.
+- AI는 Claude Haiku 5.5(`claude-haiku-5-5`)만. 키는 키체인에만. 시험 호출은 최소로.
+- 구글 캘린더 쓰기, 디스코드·슬랙 실제 연결은 켜지 않습니다.
+- 개인 정보(이메일, 시트 ID, 클라이언트 ID), 개인 기록이 담긴 스크린샷은 커밋하지 않습니다.
 
-### Android
+## 화면 다듬기 방법
 
-- Package: `com.malhaedwo.pttprobe`
-- Version: 0.9.0 / code 25
-- Manual Java/D8 build, minSdk 31, targetSdk 35
-- Persistent PTT is opt-in. Explicit stop disables automatic restoration.
-- Foreground-service recreation is best effort. Reboot and force-stop restoration are not guaranteed.
-- Approval records are authoritative. Notifications and Calendar records are derived only after approval.
-- Existing DB, WAV, OAuth state, and signing continuity must be preserved.
+개발 미리보기(`npm run dev`)에 가짜 Tauri 내부(`window.__TAURI_INTERNALS__`)를 넣으면 Mac 어댑터가 가짜 자료로 돕니다. 키 없음·예산 초과·인박스 오류·처음 쓰기 같은 상태도 가짜 응답으로 띄워 Playwright로 찍습니다. 실제 앱 화면은 사용자 자료가 보이므로 저장소에 넣지 않습니다.
 
-The 0.9.0 public-safe snapshot was imported from the verified local implementation commit `e20fd29`, without its private Git history, production configuration, device logs, or user-data evidence.
-
-### Windows Desktop
-
-- Version: 0.1.1
-- Tauri 2 + Vanilla TypeScript + Vite
-- Current function: read-only approval-document workspace using fixture/local cache contracts
-- Google OAuth and live records are intentionally not connected
-- The UI must visibly distinguish fixture, cached, and future connected states
-- Windows CI produced NSIS and MSI installers; actual Windows install/remove/WebView2/scaling checks remain open
-
-Relevant files:
-
-- `desktop/src/domain.ts`: shared item model and 23-column contract
-- `desktop/src/bridge.ts`: Tauri/web boundary
-- `desktop/src/fixtures.ts`: non-production sample data
-- `desktop/src/ui.ts`: view rendering
-- `desktop/src/styles.css`: visual system
-- `desktop/src-tauri/src/`: cache and command layer
-- `desktop/DESIGN.md`: approved design principles
-
-## Next proposed milestone: LLM Wiki read-only context
-
-The Wiki provider is not selected yet. Confirm the exact service and API before implementation.
-
-### First vertical slice
-
-1. Add a provider-neutral `WikiSource` interface under `desktop/src/wiki/`.
-2. Implement a fixture source and local cache before any network connection.
-3. Add read-only article search and article retrieval.
-4. Show related Wiki context in the item detail area, not as a new generic dashboard.
-5. Display connection state and cache freshness beside every result.
-6. Link from a result to its canonical Wiki page.
-7. Add unit tests for offline, stale-cache, empty, and provider-error states.
-
-Suggested states:
-
-- `fixture`
-- `cached`
-- `connected-read-only`
-- `error`
-
-### Data boundary
-
-Allowed inputs:
-
-- Explicitly approved public or team Wiki pages
-- Search text intentionally entered by the user
-- Non-sensitive item categories or tags after approval
-
-Forbidden inputs:
-
-- WAV or transcript originals without explicit approval
-- SQLite DB or backups
-- OAuth tokens, authorization codes, PKCE verifiers, cookies, or signing data
-- Raw device logs or screenshots containing personal records
-- Automatic Wiki writes, edits, or publication in the first milestone
-
-### Completion condition
-
-The first Wiki milestone is complete only when fixture and cache modes work offline, every result shows provenance/state/freshness, no writes are possible, tests cover error states, and a sensitive-data scan is clean.
-
-## Design workflow
-
-The user rejected generic template-like concepts. Do not begin with a polish-only pass because that preserves the incumbent frame.
-
-1. Read `desktop/DESIGN.md` and the real information architecture.
-2. Produce three structurally different visual directions before implementation.
-3. Keep motion low and information density appropriate for a document-review desktop app.
-4. Wait for explicit direction selection.
-5. Implement one selected direction, then audit accessibility, keyboard operation, scaling, and empty/error states.
-
-## Verification commands
+## 검사
 
 ```sh
-bash tests/wiring/run.sh
-bash tests/insets/run.sh
-bash tests/ptt/run.sh
-
 cd desktop
 npm ci
 npm test
 npm run build
 npm run acceptance
 cargo test --locked --manifest-path src-tauri/Cargo.toml
+
+# 휴대폰 호스트 시험(JDK 필요)
+bash tests/wiring/run.sh
+bash tests/insets/run.sh
+bash tests/ptt/run.sh
 ```
 
-See `CURRENT_RELEASE.md` for what has and has not been verified. Do not convert a blocked gate into a passing claim.
+확인하지 않은 것을 확인했다고 쓰지 마세요. 사람 손이 필요한 것은 `CURRENT_RELEASE.md`에 적어 둡니다.
