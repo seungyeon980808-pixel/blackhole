@@ -27,7 +27,7 @@ public final class BlackholeReplyReceiver extends BroadcastReceiver {
                 Blackhole.sendText(app, text.toString(), BlackholeOutbox.SOURCE_LOCK);
                 line = "보냈습니다 " + new SimpleDateFormat("HH:mm", Locale.KOREA).format(new Date()) + " · 이어서 말하기·적기·사진";
             } catch (Exception error) {
-                line = "보내지 못했습니다: " + error.getMessage();
+                line = "보내지 못했습니다 — " + Blackhole.localError(error);
             }
         }
         // 다시 걸어야 답장 입력칸의 「보내는 중」 표시가 사라진다.

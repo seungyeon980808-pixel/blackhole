@@ -34,7 +34,7 @@ final class BlackholeUploader {
         boolean hasFailures() { return failed > 0; }
         String message() {
             String text = "블랙홀 보냄 " + (uploaded + reused);
-            if (failed > 0) text += " · 실패 " + failed + " (" + firstError + ")";
+            if (failed > 0) text += " · 못 보낸 것 " + failed + " — " + firstError;
             return text;
         }
     }
@@ -121,8 +121,37 @@ final class BlackholeUploader {
         outbox.markUploaded(entry.id, fileId, clock.now());
     }
 
+    /**
+     * 실패를 「원인 · 할 일」 한국어 한 줄로. 인터넷·드라이브 잠시 문제는 저절로 다시 하므로 기다리라고만,
+     * Google 연결이 끊긴 것·저장 공간처럼 사람이 해야 하는 것은 할 일을 적는다. 모르는 오류는 끝에 짧게 붙인다.
+     */
+    static String explain(Throwable error, String retryWord) {
+        String raw = error == null || error.getMessage() == null ? (error == null ? "" : error.getClass().getSimpleName()) : error.getMessage();
+        for (Throwable t = error; t != null; t = t.getCause()) {
+            if (t instanceof java.net.UnknownHostException || t instanceof java.net.ConnectException
+                    || t instanceof java.net.SocketTimeoutException || t instanceof java.net.NoRouteToHostException
+                    || t instanceof javax.net.ssl.SSLException || t instanceof java.net.SocketException) {
+                return "인터넷 연결 없음 · 연결되면 자동으로 " + retryWord;
+            }
+        }
+        if (raw.contains("Google 연결이 필요") || raw.contains("허용된 Google 계정") || raw.contains("invalid_grant")
+                || raw.contains("Google 연결 갱신 실패") || raw.contains("연결 권한을 받지 못")) {
+            return "Google 연결이 끊김 · 블랙홀 첫 화면에서 「Google 연결」을 다시 눌러 주세요";
+        }
+        if (error instanceof DriveTransfer.HttpFailure) {
+            int code = ((DriveTransfer.HttpFailure) error).code;
+            if (code == 401) return "Google 연결이 끊김 · 블랙홀 첫 화면에서 「Google 연결」을 다시 눌러 주세요";
+            if (code == 403 && raw.contains("storageQuotaExceeded")) return "구글 드라이브 저장 공간이 가득 참 · 공간을 비우면 자동으로 " + retryWord;
+            if (code == 403) return "드라이브가 이 앱의 접근을 막음 · Google 연결을 다시 해 주세요";
+            if (code == 429 || code >= 500 || code == 408) return "구글 드라이브가 잠시 응답하지 않음 · 잠시 뒤 자동으로 " + retryWord;
+        }
+        if (raw.contains("「블랙홀」 폴더를 찾지 못")) return "드라이브에 「블랙홀」 폴더가 없음 · Mac 블랙홀에서 휴대폰 공유를 켜 주세요";
+        String detail = raw.length() > 60 ? raw.substring(0, 60) + "…" : raw;
+        return "드라이브에 올리지 못함 · 잠시 뒤 자동으로 " + retryWord + (detail.isEmpty() ? "" : " (" + detail + ")");
+    }
+
     private void fail(BlackholeOutbox.Entry entry, Exception error, Report report) {
-        String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+        String message = explain(error, "다시 보냅니다");
         try { outbox.markFailed(entry.id, message); } catch (Exception ignored) {}
         if (report.firstError.isEmpty()) report.firstError = message;
         report.failed++;

@@ -202,7 +202,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   /** Quiet but clear: offline, no key, budget used up, inbox trouble (no pop-ups). */
   function quietState(): string {
-    if (typeof navigator !== "undefined" && navigator.onLine === false) return "오프라인 · 초안만";
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return adapter.origin === "휴대폰" ? "오프라인 · 연결되면 자동으로 보냄" : "오프라인 · 초안만";
     if (claude && claude.analyzer !== "local") {
       if (!claude.hasKey) return "AI 키 없음 · 초안만";
       if ((claude.budgetUsd ?? 0) > 0 && claude.monthUsd >= (claude.budgetUsd ?? 0)) return "AI 예산 다 씀 · 초안만";

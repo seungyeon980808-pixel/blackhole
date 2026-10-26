@@ -110,6 +110,26 @@ final class Blackhole {
         return new BlackholeUploader(outbox(app), new DriveTransfer(), tokens(app), folderCache(app), System::currentTimeMillis);
     }
 
+    /**
+     * 휴대폰 안에서 생긴 실패(저장·녹음·파일 읽기)를 「원인 · 할 일」 한 줄로. 이미 한국어 설명이면 그대로 둔다.
+     */
+    static String localError(Throwable error) {
+        String raw = error == null || error.getMessage() == null ? "" : error.getMessage();
+        if (raw.matches(".*[가-힣].*")) return raw;
+        if (raw.contains("ENOSPC") || raw.contains("No space left")) return "휴대폰 저장 공간이 부족함 · 공간을 비우고 다시 보내 주세요";
+        if (error instanceof SecurityException) return "권한이 없음 · 블랙홀 시작하기 화면에서 권한을 허용해 주세요";
+        if (error instanceof OutOfMemoryError) return "파일이 너무 큼 · 더 작은 파일로 보내 주세요";
+        return "휴대폰에 저장하지 못함 · 다시 해 보고, 계속되면 블랙홀을 닫았다 열어 주세요";
+    }
+
+    /** 인터넷에 닿는 연결이 있는지(오프라인 표시용, 비행기 모드·데이터 꺼짐이면 false). */
+    static boolean online(Context context) {
+        android.net.ConnectivityManager manager = context.getSystemService(android.net.ConnectivityManager.class);
+        if (manager == null) return true;
+        android.net.NetworkCapabilities caps = manager.getNetworkCapabilities(manager.getActiveNetwork());
+        return caps != null && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET);
+    }
+
     static BlackholeUploader.TokenSource tokens(Context context) {
         Context app = context.getApplicationContext();
         return new BlackholeUploader.TokenSource() {

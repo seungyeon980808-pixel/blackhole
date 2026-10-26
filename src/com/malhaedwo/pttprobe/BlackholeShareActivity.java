@@ -86,7 +86,7 @@ public final class BlackholeShareActivity extends Activity {
                     ok++;
                 } catch (Throwable error) {
                     failed++;
-                    if (firstError.isEmpty()) firstError = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                    if (firstError.isEmpty()) firstError = Blackhole.localError(error);
                 }
             }
             if (text != null && !text.trim().isEmpty()) {
@@ -95,7 +95,7 @@ public final class BlackholeShareActivity extends Activity {
                     ok++;
                 } catch (Throwable error) {
                     failed++;
-                    if (firstError.isEmpty()) firstError = String.valueOf(error.getMessage());
+                    if (firstError.isEmpty()) firstError = Blackhole.localError(error);
                 }
             }
             if (ok > 0) Blackhole.requestUpload(app);

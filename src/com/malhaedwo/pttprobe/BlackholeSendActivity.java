@@ -191,7 +191,8 @@ public final class BlackholeSendActivity extends Activity {
         for (BlackholeOutbox.Entry entry : recent) if (!BlackholeVoiceText.hidden(entry)) messages.addView(bubble(outbox, entry, time));
         int waiting = 0;
         for (BlackholeOutbox.Entry entry : recent) if (!entry.uploaded()) waiting++;
-        String connection = GoogleOAuth.isConnected(this) ? "" : "Google 연결 필요 · ";
+        String connection = !Blackhole.online(this) ? "오프라인 · 연결되면 자동으로 보냄 · "
+                : GoogleOAuth.isConnected(this) ? "" : "Google 연결 필요(첫 화면 「Google 연결」) · ";
         String last = Blackhole.prefs(this).getString(Blackhole.PREF_LAST_UPLOAD, "");
         statusView.setText(connection + (waiting == 0 ? "모두 보냄" : "올릴 것 " + waiting + "개")
                 + (last == null || last.isEmpty() ? "" : " · 최근: " + last));
@@ -212,7 +213,7 @@ public final class BlackholeSendActivity extends Activity {
         int color = MUTED;
         if (entry.uploaded()) state = "인박스에 올림";
         else if (BlackholeOutbox.STATE_FAILED.equals(entry.state)) {
-            state = "다시 시도 예정 · " + entry.lastError;
+            state = entry.lastError.contains("자동으로") ? entry.lastError : "다시 시도 예정 · " + entry.lastError;
             color = DANGER;
         } else state = "올릴 차례";
         TextView meta = text(time.format(new Date(entry.createdAt)) + " · " + sourceLabel(entry.source) + " · " + state, 11, color);
@@ -249,7 +250,7 @@ public final class BlackholeSendActivity extends Activity {
             Blackhole.sendText(this, text, BlackholeOutbox.SOURCE_CHAT);
             input.setText("");
         } catch (Exception error) {
-            toast("보내지 못했습니다: " + error.getMessage());
+            toast("보내지 못했습니다 — " + Blackhole.localError(error));
         }
         refresh();
     }

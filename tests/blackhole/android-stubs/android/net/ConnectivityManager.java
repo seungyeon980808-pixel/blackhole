@@ -1,0 +1,1 @@
+package android.net; public class ConnectivityManager { public Network getActiveNetwork() { throw new RuntimeException("stub"); } public NetworkCapabilities getNetworkCapabilities(Network n) { throw new RuntimeException("stub"); } }

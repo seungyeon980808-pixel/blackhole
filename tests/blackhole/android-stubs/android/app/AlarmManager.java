@@ -1,3 +1,3 @@
 package android.app;
-public class AlarmManager { public boolean canScheduleExactAlarms() { throw new RuntimeException("stub"); } public void setAlarmClock(AlarmClockInfo info, PendingIntent operation) { throw new RuntimeException("stub"); }
+public class AlarmManager { public static final int RTC_WAKEUP=0; public void setExactAndAllowWhileIdle(int t, long at, PendingIntent p) { throw new RuntimeException("stub"); } public void setAndAllowWhileIdle(int t, long at, PendingIntent p) { throw new RuntimeException("stub"); } public boolean canScheduleExactAlarms() { throw new RuntimeException("stub"); } public void setAlarmClock(AlarmClockInfo info, PendingIntent operation) { throw new RuntimeException("stub"); }
   public void cancel(PendingIntent operation) { throw new RuntimeException("stub"); } public static final class AlarmClockInfo { public AlarmClockInfo(long triggerTime, PendingIntent showIntent) {} } }

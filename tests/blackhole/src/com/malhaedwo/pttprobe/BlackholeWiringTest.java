@@ -20,8 +20,8 @@ public final class BlackholeWiringTest {
 
         // 앱 정체성은 그대로.
         check(manifest.contains("package=\"com.malhaedwo.pttprobe\""), "패키지 이름 유지");
-        check(manifest.contains("android:versionCode=\"38\"") && manifest.contains("android:versionName=\"0.11.9\""),
-                "버전 0.11.9(38)");
+        check(manifest.contains("android:versionCode=\"39\"") && manifest.contains("android:versionName=\"0.11.10\""),
+                "버전 0.11.10(39)");
         check(manifest.contains("android.permission.USE_FULL_SCREEN_INTENT"), "전체 화면 알림 권한 선언");
         check(!manifest.contains("android.permission.CAMERA"), "CAMERA 권한 없음(카메라 앱에 맡김)");
 
@@ -160,9 +160,33 @@ public final class BlackholeWiringTest {
         // 4. 홈 위젯: 새 사본·보내기·녹음·체크 직후 다시 그림, 누르면 달력, 재부팅 뒤 유지.
         check(refresh.contains("CalendarWidgetProvider.updateAll(app)") && src("Blackhole").contains("CalendarRefreshJob.publish(app)")
                 && src("BlackholeTaskReceiver").contains("CalendarRefreshJob.publish(app)"), "위젯: 사본 받기·초안·잠금화면 체크 직후 다시 그림");
-        check(src("CalendarWidgetProvider").contains("new Intent(app, CalendarWebActivity.class)") && src("CalendarWidgetProvider").contains("setOnClickPendingIntent(boardView, open)"),
+        String widgetSrc = src("CalendarWidgetProvider");
+        check(widgetSrc.contains("new Intent(app, CalendarWebActivity.class)") && widgetSrc.contains("setOnClickPendingIntent(boardView,"),
                 "위젯을 누르면 블랙홀 달력");
+        check(widgetSrc.contains("putExtra(CalendarWebActivity.EXTRA_DAY, day)") && widgetSrc.contains("setOnClickPendingIntent(hitView,")
+                && widgetSrc.contains("setViewLayoutMargin(hitView, RemoteViews.MARGIN_TOP") && src("CalendarWebActivity").contains("blackholeOpenDay")
+                && read("desktop/src/phone/main.ts").contains("blackholeOpenDay") && manifest.contains("android:launchMode=\"singleTop\""),
+                "위젯 줄을 누르면 그 날짜 일 보기로 열림(열려 있으면 그 날짜로 옮김)");
+        check(widgetSrc.contains("OPTION_APPWIDGET_SIZES") && widgetSrc.contains("new RemoteViews(bySize)"),
+                "위젯: 홈 화면이 알려 준 실제 크기마다 그대로 그림(늘이지 않아 글자가 찌그러지지 않음)");
+        check(widgetSrc.contains("setIcon(boardView, \"setImageIcon\", Icon.createWithBitmap(light.bitmap), Icon.createWithBitmap(dark.bitmap))")
+                && widgetSrc.contains("setColorInt(sendView, \"setTextColor\""), "위젯: 라이트·다크 두 장을 넘겨 다크 모드를 바꾸면 홈 화면이 바로 고름");
+        for (int i = 0; i < 10; i++) {
+            check(read("apk-input/resources/package_1/res/values/public.xml").contains("name=\"widget_hit" + i + "\"")
+                    && read("apk-input/resources/package_1/res/layout/blackhole_widget.xml").contains("@+id/widget_hit" + i + "\""), "위젯 누를 자리 " + i);
+        }
         check(boot.contains("CalendarRefreshJob.publish(app)"), "재부팅·업데이트 뒤 위젯·잠금화면 다시 그림");
+        String alarmSrc = alarms;
+        check(alarmSrc.contains("ACTION_TIMEOUT") && src("BlackholeAlarmReceiver").contains("BlackholeAlarms.timeout(context, id)")
+                && alarmSrc.contains("showMissed(app, alarm)") && alarmSrc.contains("book.restore(System.currentTimeMillis(), missed)"),
+                "알람: 아무도 안 누르면 5분 뒤 「놓친 알람」, 꺼져 있던 동안 지난 알람도 「놓친 알람」");
+        check(alarmSrc.contains("USAGE_ALARM") && alarmSrc.contains("STREAM_ALARM") && alarmSrc.contains("PRIORITY_CATEGORY_ALARMS")
+                && src("BlackholeAlarmSetupActivity").contains("BlackholeAlarms.soundProblem(this)"),
+                "알람: 알람 음량으로 울리고, 음량 0·방해 금지에서 막힘을 시작하기 화면에 알림");
+        check(boot.contains("BlackholeAlarms.restoreAll(app)") && manifest.contains("android.intent.action.BOOT_COMPLETED")
+                && manifest.contains("android.intent.action.MY_PACKAGE_REPLACED"), "알람: 재부팅·업데이트 뒤 다시 걸림");
+        check(src("BlackholeTaskReceiver").contains("ACTION_UNDO") && src("BlackholeTaskReceiver").contains("\"되돌리기\"")
+                && src("BlackholeQuickNotification").contains("EXTRA_TITLE, title"), "잠금화면 「완료」 뒤 되돌리기 알림");
         check(ptt.contains("CalendarRefreshJob.onScreenOn(context)") && refresh.contains("now - lastScreenOn < 60_000L"),
                 "화면을 켤 때 바로 받기(1분에 한 번, 실기기에서 위젯이 15분 늦던 문제)");
         check(read("apk-input/res/xml/blackhole_widget_info.xml").contains("home_screen|keyguard")

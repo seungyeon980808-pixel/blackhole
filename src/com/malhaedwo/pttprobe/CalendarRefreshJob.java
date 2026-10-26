@@ -146,7 +146,10 @@ public final class CalendarRefreshJob extends JobService {
                 status = "Mac이 아직 사본을 쓰지 않았습니다(Mac 블랙홀 설정 「휴대폰과 달력 공유」)";
             }
         } catch (Exception error) {
-            status = "사본 받기 실패: " + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+            String last = prefs.getString(BlackholeCalendarStore.PREF_STATUS, "");
+            String kept = last.startsWith("Mac 사본 받음 ") ? " · 마지막으로 받은 때 " + last.substring("Mac 사본 받음 ".length())
+                    : last.contains("마지막으로 받은 때 ") ? last.substring(last.indexOf(" · 마지막으로 받은 때 ")) : "";
+            status = "Mac 달력 받기 실패 — " + BlackholeUploader.explain(error, "받습니다") + kept;
         }
         prefs.edit().putString(BlackholeCalendarStore.PREF_STATUS, status).apply();
         publish(app);
@@ -174,7 +177,7 @@ public final class CalendarRefreshJob extends JobService {
             WallpaperManager.getInstance(app).setBitmap(bitmap, null, true, WallpaperManager.FLAG_LOCK);
             prefs.edit().putString(PREF_LOCK_DRAWN, signature).putString(BlackholeBoard.PREF_STATUS, "잠금화면 배경 " + clock()).apply();
         } catch (Exception error) {
-            prefs.edit().putString(BlackholeBoard.PREF_STATUS, "잠금화면 배경 실패: " + error.getMessage()).apply();
+            prefs.edit().putString(BlackholeBoard.PREF_STATUS, "잠금화면 배경을 바꾸지 못함 · 설정에서 껐다 켜 보세요").apply();
         }
     }
 

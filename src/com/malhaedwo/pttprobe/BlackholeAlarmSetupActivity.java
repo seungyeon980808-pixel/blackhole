@@ -125,7 +125,11 @@ public final class BlackholeAlarmSetupActivity extends Activity {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         params.setMargins(0, dp(20), 0, 0);
         body.addView(test, params);
-        body.addView(text("소리 크기는 휴대폰의 「알람」 음량을 따릅니다. 방해 금지 모드에서 알람이 허용되어 있어야 울립니다.", 12, MUTED));
+        String sound = BlackholeAlarms.soundProblem(this);
+        body.addView(text(sound == null
+                ? "알람 소리 · 괜찮음 — 소리 크기는 휴대폰의 「알람」 음량을 따르고, 무음·진동 모드에서도 울립니다. 방해 금지 모드에서는 「알람 허용」(기본 켜짐)일 때 울립니다."
+                : "알람 소리 · 확인 필요 — " + sound, 12, sound == null ? MUTED : DANGER));
+        body.addView(text("아무도 누르지 않으면 5분 뒤 그치고 「놓친 알람」 알림으로 남습니다. 휴대폰이 꺼져 있던 동안 지난 알람도 켜면 「놓친 알람」으로 보입니다.", 12, MUTED));
         SystemBarInsets.setContentView(this, scroll, BG);
     }
 

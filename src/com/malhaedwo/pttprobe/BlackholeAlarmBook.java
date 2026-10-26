@@ -24,6 +24,8 @@ final class BlackholeAlarmBook {
     /** 재부팅 등으로 늦게 깨어났을 때 이만큼 지난 알람까지는 바로 울린다. 더 지난 것은 놓친 알람. */
     static final long LATE_GRACE_MS = 10 * 60_000L;
     static final int MAX_KEPT = 200;
+    /** 이보다 오래된 놓친 알람은 알림으로 띄우지 않는다(며칠 꺼 둔 휴대폰이 알림을 쏟아내지 않게). */
+    static final long MISSED_SHOWN_MS = 24 * 3600_000L;
 
     static final class Alarm {
         final String id;
@@ -103,16 +105,30 @@ final class BlackholeAlarmBook {
 
     Alarm cancel(String id) { return alarms.remove(id); }
 
+    /** 울리다가 아무도 누르지 않고 시간이 다 됨: 놓친 알람. 이미 누른 것은 그대로 둔다. */
+    boolean miss(String id) {
+        Alarm alarm = alarms.get(id);
+        if (alarm == null || !RINGING.equals(alarm.state)) return false;
+        alarm.state = MISSED;
+        return true;
+    }
+
     /**
      * 재부팅·시간 변경 뒤: 다시 걸어야 할 알람(아직 안 울렸고, 늦어도 LATE_GRACE_MS 안쪽)을 돌려주고,
      * 너무 지난 것은 놓친 알람으로 바꾼다. 울리던 중 꺼진 알람도 다시 울린다.
      */
-    List<Alarm> restore(long now) {
+    List<Alarm> restore(long now) { return restore(now, null); }
+
+    /** missed에는 이번에 놓친 알람으로 바뀐 것(하루 안)을 담는다: 「놓친 알람」 알림으로 한 번 보인다. */
+    List<Alarm> restore(long now, List<Alarm> missed) {
         List<Alarm> out = new ArrayList<>();
         for (Alarm alarm : alarms.values()) {
             if (RINGING.equals(alarm.state)) alarm.state = SNOOZED;
             if (!alarm.waiting()) continue;
-            if (alarm.at < now - LATE_GRACE_MS) alarm.state = MISSED;
+            if (alarm.at < now - LATE_GRACE_MS) {
+                alarm.state = MISSED;
+                if (missed != null && alarm.at >= now - MISSED_SHOWN_MS) missed.add(alarm);
+            }
             else out.add(alarm);
         }
         Collections.sort(out, (a, b) -> Long.compare(a.at, b.at));

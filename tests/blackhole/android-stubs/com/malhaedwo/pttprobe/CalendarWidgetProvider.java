@@ -1,1 +1,1 @@
-package com.malhaedwo.pttprobe; /** 컴파일 검사용 모양(실제는 src/CalendarWidgetProvider.java). */ public final class CalendarWidgetProvider {}
+package com.malhaedwo.pttprobe; /** 컴파일 검사용 모양(실제는 src/CalendarWidgetProvider.java). */ public final class CalendarWidgetProvider { static android.content.Intent openDay(android.content.Context c, String day) { throw new RuntimeException("stub"); } }

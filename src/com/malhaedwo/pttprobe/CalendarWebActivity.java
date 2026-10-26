@@ -49,6 +49,8 @@ import java.util.concurrent.Executors;
 public final class CalendarWebActivity extends Activity {
     static final String ORIGIN_HOST = "appassets.androidplatform.net";
     static final String START_URL = "https://" + ORIGIN_HOST + "/calendar/phone.html";
+    /** 위젯 줄을 눌렀을 때 열 날짜(yyyy-MM-dd): 그날 일 보기로 연다. */
+    static final String EXTRA_DAY = "blackhole_day";
     private static final int REQUEST_MIC = 41;
     private static final int REQUEST_CALENDAR = 42;
 
@@ -90,8 +92,23 @@ public final class CalendarWebActivity extends Activity {
         });
         web.addJavascriptInterface(new Bridge(), "BlackholeAndroid");
         SystemBarInsets.setContentView(this, web, Color.rgb(13, 15, 32));
-        web.loadUrl(START_URL);
+        String day = day(getIntent());
+        web.loadUrl(day.isEmpty() ? START_URL : START_URL + "#day=" + day);
         CalendarRefreshJob.schedule(this);
+    }
+
+    /** 이미 열려 있을 때 위젯 줄을 누르면 그 날짜로 옮긴다. 날짜 없이 열면 그대로 둔다. */
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String day = day(intent);
+        if (web != null && !day.isEmpty()) web.evaluateJavascript("window.blackholeOpenDay&&window.blackholeOpenDay('" + day + "')", null);
+    }
+
+    /** 날짜 모양(yyyy-MM-dd)만 받는다(자바스크립트에 그대로 넣으므로). */
+    static String day(Intent intent) {
+        String day = intent == null ? null : intent.getStringExtra(EXTRA_DAY);
+        return day != null && day.matches("\\d{4}-\\d{2}-\\d{2}") ? day : "";
     }
 
     @Override protected void onStart() {
@@ -224,7 +241,7 @@ public final class CalendarWebActivity extends Activity {
                 Blackhole.requestUpload(CalendarWebActivity.this);
                 return reply(true, "", BlackholeDrafts.jobId(entry.sha256));
             } catch (IOException error) {
-                return reply(false, error.getMessage());
+                return reply(false, Blackhole.localError(error));
             }
         }
 
@@ -247,7 +264,7 @@ public final class CalendarWebActivity extends Activity {
                 BlackholeVoiceText.transcribe(CalendarWebActivity.this, entry);
                 return reply(true, "", BlackholeDrafts.jobId(entry.sha256));
             } catch (Exception error) {
-                return reply(false, error.getMessage());
+                return reply(false, Blackhole.localError(error));
             }
         }
 

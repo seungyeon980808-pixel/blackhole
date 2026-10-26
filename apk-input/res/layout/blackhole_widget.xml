@@ -9,6 +9,71 @@
         android:layout_height="match_parent"
         android:scaleType="fitXY"
         android:contentDescription="@string/widget_description" />
+    <FrameLayout
+        android:id="@+id/widget_hits"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <FrameLayout
+            android:id="@+id/widget_hit0"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:visibility="gone" />
+        <FrameLayout
+            android:id="@+id/widget_hit1"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:visibility="gone" />
+        <FrameLayout
+            android:id="@+id/widget_hit2"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:visibility="gone" />
+        <FrameLayout
+            android:id="@+id/widget_hit3"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:visibility="gone" />
+        <FrameLayout
+            android:id="@+id/widget_hit4"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:visibility="gone" />
+        <FrameLayout
+            android:id="@+id/widget_hit5"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:visibility="gone" />
+        <FrameLayout
+            android:id="@+id/widget_hit6"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:visibility="gone" />
+        <FrameLayout
+            android:id="@+id/widget_hit7"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:visibility="gone" />
+        <FrameLayout
+            android:id="@+id/widget_hit8"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:visibility="gone" />
+        <FrameLayout
+            android:id="@+id/widget_hit9"
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:visibility="gone" />
+    </FrameLayout>
     <TextView
         android:id="@+id/widget_send"
         android:layout_width="wrap_content"

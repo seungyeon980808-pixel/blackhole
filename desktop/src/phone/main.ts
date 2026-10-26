@@ -12,6 +12,14 @@ document.documentElement.classList.add("phone");
 
 // No fake data on the phone: it shows the Mac's copy (or nothing yet).
 const bridge = window.BlackholeAndroid;
-mountBlackhole(root, bridge ? androidAdapter(bridge) : memoryAdapter(), { seed: !bridge }).catch((error: unknown) => {
+/** 「#day=2026-10-27」(홈 위젯에서 그 줄을 누름): 그날 일 보기로 연다. */
+const dayOf = (text: string) => /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
+mountBlackhole(root, bridge ? androidAdapter(bridge) : memoryAdapter(), { seed: !bridge }).then((app) => {
+  const open = (day: string) => {
+    if (dayOf(day)) app.setView("day", day);
+  };
+  (window as unknown as { blackholeOpenDay?: (day: string) => void }).blackholeOpenDay = open;
+  open(new URLSearchParams(location.hash.slice(1)).get("day") ?? "");
+}).catch((error: unknown) => {
   root.textContent = `블랙홀 달력을 시작하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`;
 });

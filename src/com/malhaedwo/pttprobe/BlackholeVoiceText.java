@@ -42,7 +42,7 @@ final class BlackholeVoiceText {
                     "받아쓰기." + EXT, "application/json", System.currentTimeMillis());
             Blackhole.requestUpload(app);
         } catch (Exception error) {
-            Blackhole.prefs(app).edit().putString(BlackholePttHandoff.LAST_ERROR, "받아쓰기 보내기 실패: " + error.getMessage()).apply();
+            Blackhole.prefs(app).edit().putString(BlackholePttHandoff.LAST_ERROR, "받아쓰기 보내기 실패 — " + Blackhole.localError(error)).apply();
         }
     }
 

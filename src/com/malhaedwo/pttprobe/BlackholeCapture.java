@@ -47,7 +47,7 @@ final class BlackholeCapture {
             Blackhole.requestUpload(context);
             return null;
         } catch (Exception error) {
-            return "사진을 보내지 못했습니다: " + error.getMessage();
+            return "사진을 보내지 못했습니다 — " + Blackhole.localError(error);
         }
     }
 
@@ -77,7 +77,7 @@ final class BlackholeCapture {
                     next.abort();
                     //noinspection ResultOfMethodCallIgnored
                     target.delete();
-                    error = "녹음을 시작하지 못했습니다: " + failure.getMessage();
+                    error = "녹음을 시작하지 못함 · 통화나 다른 앱의 녹음을 끝내고 다시 눌러 주세요";
                 }
                 String message = error;
                 main.post(() -> {
@@ -116,7 +116,7 @@ final class BlackholeCapture {
                 } catch (Throwable failure) {
                     //noinspection ResultOfMethodCallIgnored
                     target.delete();
-                    message = "음성을 보내지 못했습니다: " + failure.getMessage();
+                    message = "음성을 보내지 못했습니다 — " + Blackhole.localError(failure);
                 }
                 boolean sent = ok;
                 String text = message;

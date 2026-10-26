@@ -29,6 +29,9 @@ final class BlackholeAlarms {
     static final String ACTION_DONE = "com.malhaedwo.pttprobe.BLACKHOLE_ALARM_DONE";
     static final String ACTION_SNOOZE = "com.malhaedwo.pttprobe.BLACKHOLE_ALARM_SNOOZE";
     static final String ACTION_CLOSED = "com.malhaedwo.pttprobe.BLACKHOLE_ALARM_CLOSED";
+    /** 울린 지 RING_TIMEOUT_MS가 지나도 아무도 안 누름 → 놓친 알람. */
+    static final String ACTION_TIMEOUT = "com.malhaedwo.pttprobe.BLACKHOLE_ALARM_TIMEOUT";
+    static final String MISSED_CHANNEL_ID = "blackhole_alarm_missed_v1";
     static final String EXTRA_ID = "alarm_id";
     static final long[] VIBRATION = {0, 900, 600, 900, 600};
     /** 아무도 안 누르면 이만큼 울린 뒤 그친다(전화 수신과 비슷하게). */
@@ -127,12 +130,85 @@ final class BlackholeAlarms {
     static void restoreAll(Context context) {
         Context app = context.getApplicationContext();
         List<BlackholeAlarmBook.Alarm> again;
+        List<BlackholeAlarmBook.Alarm> missed = new java.util.ArrayList<>();
         synchronized (LOCK) {
             BlackholeAlarmBook book = load(app);
-            again = book.restore(System.currentTimeMillis());
+            again = book.restore(System.currentTimeMillis(), missed);
             save(app, book);
         }
         for (BlackholeAlarmBook.Alarm alarm : again) arm(app, alarm.id, alarm.at);
+        // 휴대폰이 꺼져 있던 동안 지난 알람: 소리 없이 「놓친 알람」으로 한 번.
+        for (BlackholeAlarmBook.Alarm alarm : missed) showMissed(app, alarm);
+    }
+
+    /** 울리던 알람의 시간이 다 됨: 소리를 그치고 「놓친 알람」으로 남긴다(누르면 확인·완료·10분 뒤). */
+    static void timeout(Context context, String id) {
+        Context app = context.getApplicationContext();
+        BlackholeAlarmBook.Alarm alarm;
+        synchronized (LOCK) {
+            BlackholeAlarmBook book = load(app);
+            if (!book.miss(id)) return;
+            save(app, book);
+            alarm = book.get(id);
+        }
+        stopRinging(app, id);
+        showMissed(app, alarm);
+    }
+
+    static String missedTitle(String title, long at) {
+        return "놓친 알람 · " + new SimpleDateFormat("M월 d일 HH:mm", Locale.KOREA).format(new Date(at));
+    }
+
+    static void showMissed(Context app, BlackholeAlarmBook.Alarm alarm) {
+        NotificationManager manager = app.getSystemService(NotificationManager.class);
+        if (manager == null || alarm == null) return;
+        if (manager.getNotificationChannel(MISSED_CHANNEL_ID) == null) {
+            NotificationChannel channel = new NotificationChannel(MISSED_CHANNEL_ID, "블랙홀 놓친 알람", NotificationManager.IMPORTANCE_DEFAULT);
+            channel.setDescription("아무도 누르지 않았거나 휴대폰이 꺼져 있던 동안 지난 알람 (소리 없음)");
+            channel.setSound(null, null);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            manager.createNotificationChannel(channel);
+        }
+        PendingIntent open = PendingIntent.getActivity(app, BlackholeAlarmBook.requestCode(alarm.id) ^ 4,
+                CalendarWidgetProvider.openDay(app, new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(new Date(alarm.at))),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Notification notification = new Notification.Builder(app, MISSED_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle(alarm.title.isEmpty() ? "블랙홀 알람" : alarm.title)
+                .setContentText(missedTitle(alarm.title, alarm.at))
+                .setWhen(alarm.at)
+                .setShowWhen(true)
+                .setCategory(Notification.CATEGORY_REMINDER)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .addAction(action(app, alarm.id, ACTION_ACK, "확인"))
+                .addAction(action(app, alarm.id, ACTION_DONE, "완료"))
+                .addAction(action(app, alarm.id, ACTION_SNOOZE, "10분 뒤"))
+                .build();
+        try { manager.notify(notificationId(alarm.id), notification); }
+        catch (SecurityException ignored) {}
+    }
+
+    /** 알람 소리가 실제로 날지: 알람 음량 0, 방해 금지에서 알람 막힘이면 이유를 돌려준다(괜찮으면 null). */
+    static String soundProblem(Context context) {
+        android.media.AudioManager audio = context.getSystemService(android.media.AudioManager.class);
+        if (audio != null && audio.getStreamVolume(android.media.AudioManager.STREAM_ALARM) == 0) {
+            return "알람 음량이 0입니다 — 음량 버튼 › 설정(⋮) › 알람 음량을 올려 주세요";
+        }
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager == null) return null;
+        int filter = manager.getCurrentInterruptionFilter();
+        if (filter == NotificationManager.INTERRUPTION_FILTER_NONE) {
+            return "방해 금지(모두 차단)가 켜져 있어 알람이 울리지 않습니다 — 방해 금지에서 「알람」을 허용해 주세요";
+        }
+        if (filter == NotificationManager.INTERRUPTION_FILTER_PRIORITY) {
+            NotificationManager.Policy policy = manager.getNotificationPolicy();
+            if (policy != null && (policy.priorityCategories & NotificationManager.Policy.PRIORITY_CATEGORY_ALARMS) == 0) {
+                return "방해 금지에서 알람이 막혀 있습니다 — 설정 › 알림 › 방해 금지 › 알람 허용을 켜 주세요";
+            }
+        }
+        return null;
     }
 
     private static Result arm(Context app, String id, long at) {
@@ -191,6 +267,15 @@ final class BlackholeAlarms {
         notification.flags |= Notification.FLAG_INSISTENT;
         try { manager.notify(notificationId(id), notification); }
         catch (SecurityException ignored) {}
+        // 시간이 다 되면 놓친 알람으로(알림의 setTimeoutAfter는 소리만 그칠 뿐 알려 주지 않는다).
+        AlarmManager alarms = app.getSystemService(AlarmManager.class);
+        if (alarms != null) {
+            PendingIntent timeout = PendingIntent.getBroadcast(app, BlackholeAlarmBook.requestCode(id) ^ 8,
+                    new Intent(app, BlackholeAlarmReceiver.class).setAction(ACTION_TIMEOUT).putExtra(EXTRA_ID, id),
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            try { alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + RING_TIMEOUT_MS, timeout); }
+            catch (SecurityException denied) { alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + RING_TIMEOUT_MS, timeout); }
+        }
     }
 
     private static Notification.Action action(Context app, String id, String action, String label) {

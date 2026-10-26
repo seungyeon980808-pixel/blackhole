@@ -3,4 +3,15 @@
     <item type="id" name="widget_root" />
     <item type="id" name="widget_board" />
     <item type="id" name="widget_send" />
+    <item type="id" name="widget_hits" />
+    <item type="id" name="widget_hit0" />
+    <item type="id" name="widget_hit1" />
+    <item type="id" name="widget_hit2" />
+    <item type="id" name="widget_hit3" />
+    <item type="id" name="widget_hit4" />
+    <item type="id" name="widget_hit5" />
+    <item type="id" name="widget_hit6" />
+    <item type="id" name="widget_hit7" />
+    <item type="id" name="widget_hit8" />
+    <item type="id" name="widget_hit9" />
 </resources>

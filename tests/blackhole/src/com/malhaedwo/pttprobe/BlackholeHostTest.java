@@ -193,9 +193,15 @@ public final class BlackholeHostTest {
             drive.failSessionCreate = true;
             BlackholeOutbox.Entry stuck = outbox.addText("계속 실패", BlackholeOutbox.SOURCE_CHAT, T0 + 8);
             report = uploader.run();
-            check(report.failed == 1 && report.message().contains("실패 1") && BlackholeOutbox.STATE_FAILED.equals(outbox.get(stuck.id).state),
+            check(report.failed == 1 && report.message().contains("못 보낸 것 1 — ") && report.message().contains("자동으로 다시 보냅니다") && BlackholeOutbox.STATE_FAILED.equals(outbox.get(stuck.id).state),
                     "서버 오류는 실패로 기록해 다음에 다시");
             drive.failSessionCreate = false;
+            check(BlackholeUploader.explain(new java.net.UnknownHostException("www.googleapis.com"), "다시 보냅니다").equals("인터넷 연결 없음 · 연결되면 자동으로 다시 보냅니다")
+                    && BlackholeUploader.explain(new Exception("x", new java.net.SocketTimeoutException()), "받습니다").startsWith("인터넷 연결 없음")
+                    && BlackholeUploader.explain(new Exception("Google 연결 갱신 실패 (HTTP 400): invalid_grant"), "다시 보냅니다").startsWith("Google 연결이 끊김 · ")
+                    && BlackholeUploader.explain(new DriveTransfer.HttpFailure(403, "storageQuotaExceeded"), "다시 보냅니다").startsWith("구글 드라이브 저장 공간이 가득 참")
+                    && BlackholeUploader.explain(new DriveTransfer.HttpFailure(503, "backend"), "다시 보냅니다").startsWith("구글 드라이브가 잠시 응답하지 않음"),
+                    "실패 문구: 원인 · 할 일 한국어 한 줄(인터넷·Google 연결·저장 공간·드라이브 잠시)");
             check(uploader.run().uploaded == 1 && outbox.pending().isEmpty(), "다음 실행에서 성공");
 
             // 휴대폰에 둔 원본이 바뀌면 올리지 않는다.
@@ -413,6 +419,24 @@ public final class BlackholeHostTest {
                 "재부팅 뒤: 미래·조금 늦은·울리던 알람은 다시 걸기(시각 순)");
         check(BlackholeAlarmBook.MISSED.equals(boot.get("old").state), "10분 넘게 지난 알람은 놓친 알람");
         check(BlackholeAlarmBook.SNOOZED.equals(boot.get("ring").state), "울리던 알람은 다시 울릴 대기");
+        BlackholeAlarmBook off = new BlackholeAlarmBook();
+        off.schedule("yesterday", "어제 아침", T0 - 20 * 3600_000L);
+        off.schedule("lastweek", "지난주", T0 - 7 * 24 * 3600_000L);
+        off.schedule("soon", "곧", T0 + 60_000);
+        List<BlackholeAlarmBook.Alarm> missed = new java.util.ArrayList<>();
+        off.restore(T0, missed);
+        check(missed.size() == 1 && missed.get(0).id.equals("yesterday") && BlackholeAlarmBook.MISSED.equals(off.get("lastweek").state),
+                "꺼져 있던 동안 지난 알람: 하루 안 것만 「놓친 알람」 알림으로(지난주 것은 기록만)");
+        missed.clear();
+        off.restore(T0 + 1000, missed);
+        check(missed.isEmpty(), "놓친 알람 알림은 한 번만");
+        off.startRinging("soon", T0 + 60_000);
+        check(off.miss("soon") && BlackholeAlarmBook.MISSED.equals(off.get("soon").state) && !off.miss("soon"),
+                "울리다 아무도 안 누르면 놓친 알람(한 번만)");
+        off.schedule("answered", "누름", T0);
+        off.startRinging("answered", T0);
+        off.acknowledge("answered");
+        check(!off.miss("answered"), "이미 누른 알람은 놓친 알람이 되지 않음");
 
         int code = BlackholeAlarmBook.requestCode("a1");
         check(code == BlackholeAlarmBook.requestCode("a1") && (code & 0xFF000000) == 0x5B000000, "요청 번호는 고정·전용 띠");

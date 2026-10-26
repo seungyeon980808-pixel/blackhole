@@ -41,6 +41,8 @@ final class BlackholeBoard {
         /** 항목 id와 원본 작업 id(잠금화면 「완료」가 Mac에 보낼 때 씀). */
         String id = "";
         String srcKey = "";
+        /** 위젯에서 이 줄을 누르면 열 날짜(yyyy-MM-dd). */
+        String day = "";
         boolean school;
         Line(String time, String text, boolean provisional, boolean past, String badge) {
             this.time = time;
@@ -80,8 +82,10 @@ final class BlackholeBoard {
             String start = text(e, "start", "");
             String end = text(e, "end", "");
             boolean past = !end.isEmpty() && !end.equals("null") && parse(end) != null && parse(end).isBefore(now);
-            board.events.add(new Line(start.isEmpty() ? "종일" : start, title(e, hideSchool, "학교 일정"),
-                    e.optBoolean("provisional", false), past, ""));
+            Line line = new Line(start.isEmpty() ? "종일" : start, title(e, hideSchool, "학교 일정"),
+                    e.optBoolean("provisional", false), past, "");
+            line.day = key;
+            board.events.add(line);
         }
 
         List<JSONObject> week = live(shared.optJSONArray("events"));
@@ -93,8 +97,10 @@ final class BlackholeBoard {
             try {
                 LocalDate d = LocalDate.parse(e.optString("date", ""));
                 String start = text(e, "start", "");
-                board.week.add(new Line(dow[d.getDayOfWeek().getValue() - 1] + " " + (start.isEmpty() ? "종일" : start),
-                        title(e, hideSchool, "학교 일정"), e.optBoolean("provisional", false), false, ""));
+                Line line = new Line(dow[d.getDayOfWeek().getValue() - 1] + " " + (start.isEmpty() ? "종일" : start),
+                        title(e, hideSchool, "학교 일정"), e.optBoolean("provisional", false), false, "");
+                line.day = d.toString();
+                board.week.add(line);
             } catch (Exception skip) {}
         }
 
@@ -117,6 +123,7 @@ final class BlackholeBoard {
             line.id = t.optString("id", "");
             line.srcKey = t.optString("srcKey", "");
             line.school = "school".equals(t.optString("area", ""));
+            line.day = due.toString();
             board.tasks.add(line);
         }
 

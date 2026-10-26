@@ -32,7 +32,7 @@ public final class BlackholeUploadJob extends JobService {
                 running = true;
                 try {
                     if (!GoogleOAuth.isConnected(app)) {
-                        message = "Google 연결이 없어 보내기를 기다립니다";
+                        message = "Google 연결이 없어 보내기를 기다림 · 블랙홀 첫 화면에서 「Google 연결」을 눌러 주세요";
                     } else {
                         message = "";
                         do {
@@ -46,7 +46,7 @@ public final class BlackholeUploadJob extends JobService {
                             } catch (InterruptedException interrupted) {
                                 return;
                             } catch (Throwable error) {
-                                message = "블랙홀 보내기 실패: " + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+                                message = "보내기 실패 — " + BlackholeUploader.explain(error, "다시 보냅니다");
                                 retry = true;
                             }
                         } while (again && !retry);
