@@ -153,8 +153,28 @@ public final class BlackholeWiringTest {
                 "위젯·달력 화면에서도 등록");
         check(refresh.contains("sendBroadcast(new Intent(ACTION_SHARED)") && src("CalendarWebActivity").contains("CalendarRefreshJob.ACTION_SHARED")
                 && src("CalendarWebActivity").contains("Blackhole.ACTION_DRAFTS"), "새 사본·새 초안이 오면 열린 달력이 바로 다시 그림");
-        check(refresh.contains("BlackholeDrafts.overlay(") && src("CalendarWidgetProvider").contains("BlackholeDrafts.overlay("),
-                "위젯·잠금화면에도 휴대폰 초안이 보임");
+        check(src("Blackhole").contains("BlackholeDrafts.overlay(") && src("Blackhole").contains("BlackholeCalendarStore.withPending(")
+                && refresh.contains("Blackhole.boardShared(app)") && src("CalendarWidgetProvider").contains("Blackhole.boardShared(app)"),
+                "위젯·잠금화면에도 휴대폰 초안과 막 누른 체크가 보임");
+        // 4. 홈 위젯: 새 사본·보내기·녹음·체크 직후 다시 그림, 누르면 달력, 재부팅 뒤 유지.
+        check(refresh.contains("CalendarWidgetProvider.updateAll(app)") && src("Blackhole").contains("CalendarRefreshJob.publish(app)")
+                && src("BlackholeTaskReceiver").contains("CalendarRefreshJob.publish(app)"), "위젯: 사본 받기·초안·잠금화면 체크 직후 다시 그림");
+        check(src("CalendarWidgetProvider").contains("new Intent(app, CalendarWebActivity.class)") && src("CalendarWidgetProvider").contains("setOnClickPendingIntent(boardView, open)"),
+                "위젯을 누르면 블랙홀 달력");
+        check(boot.contains("CalendarRefreshJob.publish(app)"), "재부팅·업데이트 뒤 위젯·잠금화면 다시 그림");
+        check(read("apk-input/res/xml/blackhole_widget_info.xml").contains("home_screen|keyguard")
+                && read("apk-input/resources/package_1/res/xml/blackhole_widget_info.xml").contains("home_screen|keyguard"),
+                "위젯을 잠금화면 위젯 목록에도 내놓음(지원하는 기기에서)");
+        // 6. 잠금화면 알림: 할 일 「완료」·메모 적기, 잠금 상태에서 되는 것은 거기까지.
+        quick = src("BlackholeQuickNotification");
+        String taskReceiver = component(manifest, "receiver", ".BlackholeTaskReceiver");
+        check(taskReceiver.contains("android:exported=\"false\""), "완료 수신기는 이 앱 안에서만");
+        check(quick.contains("\"완료\"") && quick.contains("setAuthenticationRequired(false)") && quick.contains("BlackholeTaskReceiver.ACTION_DONE")
+                && quick.contains("PendingIntent.FLAG_IMMUTABLE"), "잠금화면 할 일마다 「완료」(잠금 해제 없이)");
+        check(quick.contains("PREF_LOCK_TASKS, true") && quick.contains("PREF_LOCK_HIDE_TITLES, false") && quick.contains("PREF_HIDE_SCHOOL, false"),
+                "잠금화면 할 일: 기본 켬, 제목 가리기·학교 가리기 설정");
+        check(src("BlackholeTaskReceiver").contains("BlackholeCalendarActions.record(app, action)") && !src("BlackholeTaskReceiver").contains("\"cancel\""),
+                "완료는 기존 휴대폰→Mac 동작 길로, 지우기·취소는 없음");
         check(refresh.contains("Blackhole.pruneDrafts(app, text)"), "Mac 사본을 받으면 다룬 원본의 휴대폰 초안을 정리");
         // 초안 먼저: 보내기 경로마다 규칙 파서 초안.
         check(src("BlackholeSendActivity").contains("Blackhole.sendText(this, text") && src("BlackholeReplyReceiver").contains("Blackhole.sendText(app,")

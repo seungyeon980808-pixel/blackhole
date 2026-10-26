@@ -59,6 +59,53 @@ final class BlackholeCalendarStore {
         return list.toString();
     }
 
+    /**
+     * 위젯·잠금화면용: Mac이 아직 반영하지 않은 휴대폰 체크(toggleTask)를 사본에 미리 얹는다.
+     * 항목 id가 없으면 같은 원본(src)의 항목에 얹는다(휴대폰 초안 → Mac 항목).
+     */
+    static String withPending(String shared, String pending) {
+        JSONArray list = array(pending);
+        if (list.length() == 0 || shared == null || shared.isEmpty()) return shared == null ? "" : shared;
+        try {
+            JSONObject copy = new JSONObject(shared);
+            JSONArray tasks = copy.optJSONArray("tasks");
+            for (int i = 0; tasks != null && i < list.length(); i++) {
+                JSONObject a = list.optJSONObject(i);
+                if (a == null || !"toggleTask".equals(a.optString("type", ""))) continue;
+                JSONObject hit = null;
+                for (int j = 0; j < tasks.length() && hit == null; j++) {
+                    JSONObject t = tasks.optJSONObject(j);
+                    if (t != null && a.optString("ref", "").equals(t.optString("id", ""))) hit = t;
+                }
+                String src = a.optString("src", "");
+                for (int j = 0; j < tasks.length() && hit == null && !src.isEmpty(); j++) {
+                    JSONObject t = tasks.optJSONObject(j);
+                    if (t != null && src.equals(t.optString("srcKey", "")) && !t.optBoolean("gone", false)) hit = t;
+                }
+                if (hit != null) hit.put("done", !hit.optBoolean("done", false));
+            }
+            return copy.toString();
+        } catch (Exception error) {
+            return shared;
+        }
+    }
+
+    /** 잠금화면 「완료」: 할 일 끝내기 동작(Mac에 보내는 것과 같은 형식). */
+    static String completeAction(String actionId, String at, String ref, String src) {
+        try {
+            JSONObject a = new JSONObject().put("id", actionId).put("at", at).put("type", "toggleTask").put("ref", ref);
+            if (src != null && !src.isEmpty()) a.put("src", src);
+            return a.toString();
+        } catch (Exception error) {
+            return null;
+        }
+    }
+
+    /** 시험·한 개짜리 대기 목록. */
+    static String addPendingSafe(String actionJson) {
+        try { return addPending("[]", actionJson); } catch (Exception error) { return "[]"; }
+    }
+
     /** Mac 사본의 appliedActions에 들어간 동작은 대기 목록에서 뺀다. */
     static String prune(String pending, String shared) {
         Set<String> applied = new HashSet<>();

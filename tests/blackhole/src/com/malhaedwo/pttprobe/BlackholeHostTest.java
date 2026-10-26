@@ -33,6 +33,7 @@ public final class BlackholeHostTest {
         board();
         drafts(args.length > 0 ? args[0] : ".");
         mirrorDeadlines();
+        widgetAndLock();
         System.out.println("BlackholeHostTest PASS: " + checks + " assertions (가짜 드라이브·호스트 시험, 기기 증거 아님)");
     }
 
@@ -493,6 +494,39 @@ public final class BlackholeHostTest {
         check(new org.json.JSONArray(BlackholeDrafts.prune(list, shared, at + BlackholeDrafts.KEEP_MS + 120_000L, SEOUL)).length() == 0,
                 "사흘 지난 초안은 정리");
         check(BlackholeDrafts.overlay(macHas, list).split("job-b", -1).length == 2, "Mac에 이미 있는 원본은 위젯에 두 번 나오지 않음");
+    }
+
+    private static void widgetAndLock() {
+        java.time.LocalDate today = java.time.LocalDate.of(2026, 10, 26);
+        String shared = "{\"kind\":\"blackhole-calendar\",\"schemaVersion\":1,\"periods\":[],\"notes\":[],\"events\":["
+                + "{\"id\":\"e-1\",\"title\":\"오늘 회의\",\"date\":\"2026-10-26\",\"start\":\"15:00\",\"end\":\"16:00\"},"
+                + "{\"id\":\"e-2\",\"title\":\"수요 상담\",\"date\":\"2026-10-28\",\"start\":\"10:00\",\"end\":\"11:00\",\"area\":\"school\"},"
+                + "{\"id\":\"e-3\",\"title\":\"다음 달\",\"date\":\"2026-11-20\",\"start\":null}],\"tasks\":["
+                + "{\"id\":\"t-1\",\"title\":\"출석부\",\"due\":\"2026-10-26\",\"dueTime\":\"17:00\",\"done\":false,\"area\":\"school\",\"srcKey\":\"job-a\"},"
+                + "{\"id\":\"t-2\",\"title\":\"보고서\",\"due\":\"2026-10-24\",\"dueTime\":null,\"done\":false},"
+                + "{\"id\":\"t-3\",\"title\":\"먼 마감\",\"due\":\"2026-10-31\",\"dueTime\":null,\"done\":false},"
+                + "{\"id\":\"t-4\",\"title\":\"마감 없음\",\"due\":\"2026-10-26\",\"dueTime\":null,\"done\":false,\"noDue\":true}]}";
+        BlackholeBoard.Board b = BlackholeBoard.build(shared, today, java.time.LocalTime.of(9, 0), false);
+        check(!b.noCopy && b.events.size() == 1 && b.week.size() == 1 && "수 10:00".equals(b.week.get(0).time),
+                "위젯: 오늘 일정 + 이번 주(내일~엿새, 「수 10:00」)");
+        check(b.tasks.size() == 4 && "오늘 17:00".equals(b.tasks.get(b.tasks.size() - 2).badge) || containsBadge(b, "오늘 17:00"), "위젯: 오늘 마감은 시각과 함께");
+        check(BlackholeBoard.build("", today, java.time.LocalTime.NOON, false).noCopy, "사본을 아직 못 받았으면 빈 위젯과 구별");
+        List<BlackholeBoard.Line> lock = BlackholeBoard.lockTasks(b, 4);
+        check(lock.size() == 2 && "t-2".equals(lock.get(0).id) && "t-1".equals(lock.get(1).id) && "job-a".equals(lock.get(1).srcKey),
+                "잠금화면 할 일: 지난·오늘·이틀 안 마감만(먼 마감·마감 없음 뺌), id·원본 작업 id 함께");
+        check("학교 할 일".equals(BlackholeBoard.lockTasks(BlackholeBoard.build(shared, today, java.time.LocalTime.NOON, true), 4).get(1).text),
+                "학교 가리기를 켜면 잠금화면 알림에도 「학교 할 일」");
+        String action = BlackholeCalendarStore.completeAction("lock-1", "2026-10-26T09:00", "t-1", "job-a");
+        String pending = BlackholeCalendarStore.addPendingSafe(action);
+        BlackholeBoard.Board after = BlackholeBoard.build(BlackholeCalendarStore.withPending(shared, pending), today, java.time.LocalTime.of(9, 0), false);
+        check(BlackholeBoard.lockTasks(after, 4).size() == 1, "잠금화면 「완료」는 Mac 반영 전에도 위젯·알림에서 바로 빠짐");
+        String draftPending = BlackholeCalendarStore.addPendingSafe(BlackholeCalendarStore.completeAction("lock-2", "x", "t-dphone", "job-a"));
+        check(BlackholeCalendarStore.withPending(shared, draftPending).contains("\"done\":true"), "휴대폰 초안 id로 누른 완료도 같은 원본의 Mac 항목에 얹음");
+    }
+
+    private static boolean containsBadge(BlackholeBoard.Board b, String badge) {
+        for (BlackholeBoard.Line t : b.tasks) if (badge.equals(t.badge)) return true;
+        return false;
     }
 
     private static void mirrorDeadlines() {

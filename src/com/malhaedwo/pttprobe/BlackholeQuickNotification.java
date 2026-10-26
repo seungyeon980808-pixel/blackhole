@@ -10,17 +10,27 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * 잠금화면에서 쓰는 고정 입력 알림: [말하기] [적기(바로 답장)] [사진].
- * 잠금 상태에서는 보내기만 된다. 알림에는 지난 내용이 한 글자도 들어가지 않으며(공개 판도 같은 문구),
- * 알림을 눌러 여는 대화 화면은 잠금을 풀어야 열린다.
+ * 잠금화면에서 쓰는 고정 입력 알림: [말하기] [적기(바로 답장 = 메모 추가)] [사진].
+ * 그 아래 묶음으로 오늘까지·이틀 안 마감 할 일을 몇 개(설정, 기본 켬) 보이고 항목마다 「완료」를 받는다.
+ * 잠금 상태에서 되는 것은 보내기·완료 체크·메모 추가까지다. 지우기·고치기와 대화 화면은 잠금을 풀어야 열린다.
+ * 할 일 제목은 위젯·잠금화면 배경과 같은 규칙(학교 일정 가리기)을 따르고, 「제목 가리기」를 켜면 「할 일 1」로만 보인다.
  */
 final class BlackholeQuickNotification {
     static final String CHANNEL_ID = "blackhole_quick_v1";
     static final int NOTIFICATION_ID = 0x5B10;
     static final String KEY_TEXT = "blackhole_text";
     static final String TITLE = "블랙홀";
-    static final String IDLE_TEXT = "말하기 · 적기 · 사진 — 잠금 중에는 보내기만 됩니다";
+    static final String IDLE_TEXT = "말하기 · 적기 · 사진 — 잠금 중에는 보내기·완료 체크만 됩니다";
+    static final String TASK_GROUP = "blackhole_lock_tasks";
+    /** 할 일 알림 번호: TASK_BASE + 0..MAX_TASKS-1. */
+    static final int TASK_BASE = 0x5B40;
+    static final int MAX_TASKS = 4;
 
     private BlackholeQuickNotification() {}
 
@@ -45,6 +55,54 @@ final class BlackholeQuickNotification {
     /** 앱 시작·재부팅·보낸 뒤에 다시 건다(안드로이드 14부터는 사용자가 밀어서 지울 수 있다). */
     static void refresh(Context context) {
         if (isEnabled(context)) show(context, IDLE_TEXT);
+        else showTasks(context, false);
+    }
+
+    /** 잠금화면에 보일 할 일: 끝내지 않은, 오늘까지(지난 것 포함)와 이틀 안 마감. */
+    static List<BlackholeBoard.Line> lockTasks(String boardShared, LocalDate today, boolean hideSchool) {
+        return BlackholeBoard.lockTasks(BlackholeBoard.build(boardShared, today, LocalTime.now(), hideSchool), MAX_TASKS);
+    }
+
+    /** 잠금화면에 보일 제목(가리기 설정). */
+    static String lockTitle(BlackholeBoard.Line t, int index, boolean hideTitles) {
+        return hideTitles ? "할 일 " + (index + 1) : t.text;
+    }
+
+    private static void showTasks(Context context, boolean on) {
+        Context app = context.getApplicationContext();
+        NotificationManager manager = app.getSystemService(NotificationManager.class);
+        if (manager == null) return;
+        android.content.SharedPreferences prefs = Blackhole.prefs(app);
+        List<BlackholeBoard.Line> tasks = on && prefs.getBoolean(BlackholeBoard.PREF_LOCK_TASKS, true)
+                ? lockTasks(Blackhole.boardShared(app), LocalDate.now(), prefs.getBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, false))
+                : new ArrayList<>();
+        boolean hideTitles = prefs.getBoolean(BlackholeBoard.PREF_LOCK_HIDE_TITLES, false);
+        for (int i = 0; i < MAX_TASKS; i++) {
+            if (i >= tasks.size()) {
+                manager.cancel(TASK_BASE + i);
+                continue;
+            }
+            BlackholeBoard.Line t = tasks.get(i);
+            PendingIntent done = PendingIntent.getBroadcast(app, TASK_BASE + i,
+                    new Intent(app, BlackholeTaskReceiver.class).setAction(BlackholeTaskReceiver.ACTION_DONE)
+                            .putExtra(BlackholeTaskReceiver.EXTRA_ID, t.id).putExtra(BlackholeTaskReceiver.EXTRA_SRC, t.srcKey),
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            Notification.Action check = new Notification.Action.Builder(null, "완료", done).setAuthenticationRequired(false).build();
+            String title = lockTitle(t, i, hideTitles);
+            Notification item = new Notification.Builder(app, CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.checkbox_off_background)
+                    .setContentTitle(title)
+                    .setContentText(t.badge.isEmpty() ? "할 일" : "마감 " + t.badge)
+                    .setGroup(TASK_GROUP)
+                    .setOnlyAlertOnce(true)
+                    .setShowWhen(false)
+                    .setVisibility(Notification.VISIBILITY_PUBLIC)
+                    .setCategory(Notification.CATEGORY_REMINDER)
+                    .setSortKey("t" + i)
+                    .addAction(check)
+                    .build();
+            try { manager.notify(TASK_BASE + i, item); } catch (SecurityException ignored) {}
+        }
     }
 
     static void show(Context context, String line) {
@@ -70,7 +128,7 @@ final class BlackholeQuickNotification {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
         PendingIntent open = PendingIntent.getActivity(app, 0x5B14, new Intent(app, BlackholeSendActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        RemoteInput input = new RemoteInput.Builder(KEY_TEXT).setLabel("블랙홀에 적기").build();
+        RemoteInput input = new RemoteInput.Builder(KEY_TEXT).setLabel("메모·할 일 적기").build();
         Notification.Action write = new Notification.Action.Builder(null, "적기", reply)
                 .addRemoteInput(input)
                 .setAllowGeneratedReplies(false)
@@ -82,6 +140,8 @@ final class BlackholeQuickNotification {
                 .setAuthenticationRequired(false).build();
         Notification publicVersion = base(app, line).build();
         Notification notification = base(app, line)
+                .setGroup(TASK_GROUP)
+                .setGroupSummary(true)
                 .setContentIntent(open)
                 .addAction(speak)
                 .addAction(write)
@@ -90,6 +150,7 @@ final class BlackholeQuickNotification {
                 .build();
         try { manager.notify(NOTIFICATION_ID, notification); }
         catch (SecurityException ignored) {}
+        showTasks(app, true);
     }
 
     private static Notification.Builder base(Context app, String line) {

@@ -322,3 +322,54 @@ describe("Drive 「달력.json」 is written only when it changes, at most every
     }
   });
 });
+
+describe("glass look sliders (설정)", () => {
+  it("defaults keep the approved look, sliders change blur and brightness and are saved, 공문서 is untouched", async () => {
+    const adapter = memoryAdapter();
+    const root = await mount(adapter, true);
+    expect(app!.state.settings.glassBlur).toBe(26);
+    expect(app!.state.settings.glassBright).toBe(0);
+    expect(root.style.getPropertyValue("--bh-blur")).toBe("26px");
+    root.querySelector<HTMLButtonElement>("[data-settings]")!.click();
+    const blur = root.querySelector<HTMLInputElement>('[data-set="glassBlur"]')!;
+    blur.value = "10";
+    blur.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(root.style.getPropertyValue("--bh-blur")).toBe("10px");
+    blur.dispatchEvent(new Event("change", { bubbles: true }));
+    const bright = root.querySelector<HTMLInputElement>('[data-set="glassBright"]')!;
+    bright.value = "-25";
+    bright.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(root.style.getPropertyValue("--bh-veil")).toContain("rgba(0,0,0,");
+    const stored = normalizeState(await adapter.load())!;
+    expect(stored.settings.glassBlur).toBe(10);
+    expect(stored.settings.glassBright).toBe(-25);
+    app!.setTheme("doc");
+    expect(root.querySelector('[data-set="glassBlur"]')).toBeNull();
+  });
+
+  it("phone settings offer widget·lock-screen brightness/opacity and lock-screen to-dos", async () => {
+    const calls: unknown[][] = [];
+    const b: AndroidBridge = {
+      loadState: () => "", saveState: () => undefined, sendText: () => "{}", sendFile: () => "{}", scheduleAlarms: () => undefined,
+      sharedCopy: () => "", refreshShared: () => undefined, recordAction: () => undefined, pendingActions: () => "[]", syncStatus: () => "",
+      boardOptions: () => JSON.stringify({ lock: false, hideSchool: false, status: "", bright: 0, opacity: 100, lockTasks: true, lockHideTitles: false }),
+      setBoardOptions: () => undefined,
+      setBoardLook: (x, y) => void calls.push(["look", x, y]),
+      setLockTasks: (x, y) => void calls.push(["lock", x, y])
+    };
+    document.body.innerHTML = '<div id="app"></div>';
+    app = await mountBlackhole(document.querySelector<HTMLElement>("#app")!, androidAdapter(b), { now: () => new Date(NOW), seed: false });
+    document.querySelector<HTMLButtonElement>("[data-settings]")!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    const op = document.querySelector<HTMLInputElement>('[data-board="opacity"]')!;
+    op.value = "60";
+    op.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    const hide = document.querySelector<HTMLInputElement>('[data-board="lockHideTitles"]')!;
+    hide.checked = true;
+    hide.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls).toEqual([["look", 0, 60], ["lock", true, true]]);
+  });
+});

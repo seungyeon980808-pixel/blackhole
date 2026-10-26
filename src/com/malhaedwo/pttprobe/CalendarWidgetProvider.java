@@ -31,12 +31,15 @@ public final class CalendarWidgetProvider extends AppWidgetProvider {
         update(context, manager, manager.getAppWidgetIds(new ComponentName(context, CalendarWidgetProvider.class)));
     }
 
+    static CalendarBoardRenderer.Look look(SharedPreferences prefs) {
+        return new CalendarBoardRenderer.Look(prefs.getInt(BlackholeBoard.PREF_BRIGHT, 0), prefs.getInt(BlackholeBoard.PREF_OPACITY, 100));
+    }
+
     static void update(Context context, AppWidgetManager manager, int[] ids) {
         if (ids == null || ids.length == 0) return;
         Context app = context.getApplicationContext();
         SharedPreferences prefs = Blackhole.prefs(app);
-        BlackholeBoard.Board board = BlackholeBoard.build(
-                BlackholeDrafts.overlay(prefs.getString(BlackholeCalendarStore.PREF_SHARED, ""), prefs.getString(BlackholeDrafts.PREF, "[]")),
+        BlackholeBoard.Board board = BlackholeBoard.build(Blackhole.boardShared(app),
                 LocalDate.now(), LocalTime.now(), prefs.getBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, false));
         String pkg = app.getPackageName();
         int layout = app.getResources().getIdentifier("blackhole_widget", "layout", pkg);
@@ -54,7 +57,7 @@ public final class CalendarWidgetProvider extends AppWidgetProvider {
             int hDp = Math.max(100, options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 160));
             // RemoteViews로 넘기는 그림 크기 제한(약 2MB) 안에서.
             float scale = Math.min(density, (float) Math.sqrt(500_000.0 / (wDp * hDp)));
-            Bitmap bitmap = CalendarBoardRenderer.widget(board, Math.round(wDp * scale), Math.round(hDp * scale), scale);
+            Bitmap bitmap = CalendarBoardRenderer.widget(board, Math.round(wDp * scale), Math.round(hDp * scale), scale, look(prefs));
             RemoteViews views = new RemoteViews(pkg, layout);
             views.setImageViewBitmap(boardView, bitmap);
             views.setOnClickPendingIntent(boardView, open);

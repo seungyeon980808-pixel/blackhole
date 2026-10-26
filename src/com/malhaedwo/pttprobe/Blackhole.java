@@ -94,6 +94,13 @@ final class Blackhole {
         }
     }
 
+    /** 위젯·잠금화면·잠금화면 알림이 그리는 사본: Mac 사본 + 휴대폰 초안 + 아직 Mac이 반영 안 한 휴대폰 체크. */
+    static String boardShared(Context context) {
+        SharedPreferences p = prefs(context);
+        String shared = BlackholeDrafts.overlay(p.getString(BlackholeCalendarStore.PREF_SHARED, ""), p.getString(BlackholeDrafts.PREF, "[]"));
+        return BlackholeCalendarStore.withPending(shared, p.getString(BlackholeCalendarStore.PREF_PENDING, "[]"));
+    }
+
     static String drafts(Context context) {
         return prefs(context).getString(BlackholeDrafts.PREF, "[]");
     }

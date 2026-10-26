@@ -94,8 +94,12 @@ export interface BlackholeAdapter {
   /** Phone: a hand-made change to send to the Mac. */
   recordAction?(action: UserAction): void;
   /** Phone (stage 5): lock-screen calendar wallpaper and hiding school titles (widget + lock screen). */
-  board?(): Promise<{ lock: boolean; hideSchool: boolean; status: string }>;
+  board?(): Promise<BoardOptions>;
   setBoard?(lock: boolean, hideSchool: boolean): Promise<void>;
+  /** Phone: widget·lock-screen picture brightness (-50…50) and panel opacity (0…150 %). */
+  setBoardLook?(bright: number, opacity: number): Promise<void>;
+  /** Phone: today's to-dos in the lock-screen notification (완료 there), and hiding their titles. */
+  setLockTasks?(show: boolean, hideTitles: boolean): Promise<void>;
   /** Phone (stage 4): calendars to mirror into, and the current choice. */
   googleCalendars?(): Promise<GoogleCalendars>;
   setGoogleCalendars?(enabled: boolean, provisional: string, main: string): Promise<void>;
@@ -106,6 +110,16 @@ export interface BlackholeAdapter {
   localDrafts?(): Entry[];
   /** Phone: keep drafts made in this page until the Mac's copy covers their job. */
   keepDrafts?(entries: Entry[]): void;
+}
+
+export interface BoardOptions {
+  lock: boolean;
+  hideSchool: boolean;
+  status: string;
+  bright?: number;
+  opacity?: number;
+  lockTasks?: boolean;
+  lockHideTitles?: boolean;
 }
 
 /** Stage 4: provisional events go to `provisional`, confirmed events and periods to `main`. */

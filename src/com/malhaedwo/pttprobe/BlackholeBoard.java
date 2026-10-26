@@ -19,6 +19,14 @@ final class BlackholeBoard {
     static final String PREF_LOCK = "board_lock_enabled";
     static final String PREF_HIDE_SCHOOL = "board_hide_school";
     static final String PREF_STATUS = "board_status";
+    /** 위젯·잠금화면 그림의 밝기(-50~50, 0 = 지금 모습)와 판 불투명도(0~150%, 100 = 지금 모습). */
+    static final String PREF_BRIGHT = "board_bright";
+    static final String PREF_OPACITY = "board_opacity";
+    /** 잠금화면 알림에 오늘 할 일·마감을 보이고 「완료」를 받는다. */
+    static final String PREF_LOCK_TASKS = "lock_tasks_enabled";
+    /** 잠금화면 알림의 할 일 제목을 가린다(「할 일 1」). */
+    static final String PREF_LOCK_HIDE_TITLES = "lock_hide_titles";
+    static final int MAX_WEEK = 6;
     static final int MAX_EVENTS = 8;
     static final int MAX_TASKS = 8;
 
@@ -30,6 +38,10 @@ final class BlackholeBoard {
         final boolean provisional;
         final boolean past;
         final String badge;
+        /** 항목 id와 원본 작업 id(잠금화면 「완료」가 Mac에 보낼 때 씀). */
+        String id = "";
+        String srcKey = "";
+        boolean school;
         Line(String time, String text, boolean provisional, boolean past, String badge) {
             this.time = time;
             this.text = text;
@@ -44,7 +56,11 @@ final class BlackholeBoard {
         final List<Line> events = new ArrayList<>();
         final List<Line> tasks = new ArrayList<>();
         final List<String> periods = new ArrayList<>();
-        boolean empty() { return events.isEmpty() && tasks.isEmpty() && periods.isEmpty(); }
+        /** 내일부터 엿새 안 일정(「화 15:00」). */
+        final List<Line> week = new ArrayList<>();
+        /** Mac 사본을 아직 한 번도 받지 못함(빈 위젯과 구별). */
+        boolean noCopy;
+        boolean empty() { return events.isEmpty() && tasks.isEmpty() && periods.isEmpty() && week.isEmpty(); }
     }
 
     static Board build(String sharedJson, LocalDate today, LocalTime now, boolean hideSchool) {
@@ -52,7 +68,8 @@ final class BlackholeBoard {
         String[] dow = {"월", "화", "수", "목", "금", "토", "일"};
         board.date = today.getMonthValue() + "월 " + today.getDayOfMonth() + "일 " + dow[today.getDayOfWeek().getValue() - 1] + "요일";
         JSONObject shared;
-        try { shared = new JSONObject(sharedJson == null || sharedJson.isEmpty() ? "{}" : sharedJson); } catch (Exception error) { return board; }
+        try { shared = new JSONObject(sharedJson == null || sharedJson.isEmpty() ? "{}" : sharedJson); } catch (Exception error) { board.noCopy = true; return board; }
+        board.noCopy = shared.optJSONArray("events") == null;
         String key = today.toString();
 
         List<JSONObject> events = live(shared.optJSONArray("events"));
@@ -65,6 +82,20 @@ final class BlackholeBoard {
             boolean past = !end.isEmpty() && !end.equals("null") && parse(end) != null && parse(end).isBefore(now);
             board.events.add(new Line(start.isEmpty() ? "종일" : start, title(e, hideSchool, "학교 일정"),
                     e.optBoolean("provisional", false), past, ""));
+        }
+
+        List<JSONObject> week = live(shared.optJSONArray("events"));
+        String weekEnd = today.plusDays(MAX_WEEK).toString();
+        week.removeIf(e -> e.optString("date", "").compareTo(key) <= 0 || e.optString("date", "").compareTo(weekEnd) > 0);
+        week.sort(Comparator.comparing((JSONObject e) -> e.optString("date", "")).thenComparing(e -> text(e, "start", "00:00")));
+        for (JSONObject e : week) {
+            if (board.week.size() >= MAX_WEEK) break;
+            try {
+                LocalDate d = LocalDate.parse(e.optString("date", ""));
+                String start = text(e, "start", "");
+                board.week.add(new Line(dow[d.getDayOfWeek().getValue() - 1] + " " + (start.isEmpty() ? "종일" : start),
+                        title(e, hideSchool, "학교 일정"), e.optBoolean("provisional", false), false, ""));
+            } catch (Exception skip) {}
         }
 
         List<JSONObject> tasks = live(shared.optJSONArray("tasks"));
@@ -81,8 +112,12 @@ final class BlackholeBoard {
             String badge = t.optBoolean("done", false) || t.optBoolean("noDue", false) ? ""
                     : days < 0 ? (-days) + "일 지남" : days == 0 ? (dueTime.isEmpty() ? "오늘" : "오늘 " + dueTime) : "D-" + days;
             String subs = subCount(t.optJSONArray("subs"));
-            board.tasks.add(new Line(t.optBoolean("done", false) ? "☑" : "☐", title(t, hideSchool, "학교 할 일") + subs, false,
-                    t.optBoolean("done", false), badge));
+            Line line = new Line(t.optBoolean("done", false) ? "☑" : "☐", title(t, hideSchool, "학교 할 일") + subs, false,
+                    t.optBoolean("done", false), badge);
+            line.id = t.optString("id", "");
+            line.srcKey = t.optString("srcKey", "");
+            line.school = "school".equals(t.optString("area", ""));
+            board.tasks.add(line);
         }
 
         for (JSONObject p : live(shared.optJSONArray("periods"))) {
@@ -96,6 +131,17 @@ final class BlackholeBoard {
             } catch (Exception ignored) {}
         }
         return board;
+    }
+
+    /** 잠금화면 알림의 할 일: 끝내지 않은 것 중 지난·오늘·이틀 안 마감(마감 없는 할 일은 뺌), 많아야 max개. */
+    static List<Line> lockTasks(Board board, int max) {
+        List<Line> out = new ArrayList<>();
+        for (Line t : board.tasks) {
+            if (out.size() >= max) break;
+            if (t.past || t.id.isEmpty()) continue;
+            if (t.badge.startsWith("오늘") || t.badge.endsWith("지남") || "D-1".equals(t.badge) || "D-2".equals(t.badge)) out.add(t);
+        }
+        return out;
     }
 
     private static List<JSONObject> live(JSONArray list) {

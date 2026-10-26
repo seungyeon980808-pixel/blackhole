@@ -121,6 +121,9 @@
             android:name=".BlackholeReplyReceiver"
             android:exported="false" />
         <receiver
+            android:name=".BlackholeTaskReceiver"
+            android:exported="false" />
+        <receiver
             android:name=".BlackholeAlarmReceiver"
             android:exported="false" />
         <provider

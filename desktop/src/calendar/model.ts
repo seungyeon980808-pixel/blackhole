@@ -127,6 +127,10 @@ export interface Settings {
   sharePhone: boolean;
   /** Mac: take Discord·Slack messages into the inbox. */
   messengerEnabled: boolean;
+  /** Glass theme: card blur in px (26 = the approved look). */
+  glassBlur: number;
+  /** Glass theme: background and card brightness, -50 … 50 (0 = the approved look). */
+  glassBright: number;
 }
 
 export interface CalendarState {
@@ -157,7 +161,9 @@ export const DEFAULT_SETTINGS: Settings = {
   inboxEnabled: false,
   inboxRoot: null,
   sharePhone: false,
-  messengerEnabled: false
+  messengerEnabled: false,
+  glassBlur: 26,
+  glassBright: 0
 };
 
 export function emptyState(): CalendarState {

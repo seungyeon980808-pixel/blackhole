@@ -3,7 +3,7 @@
  * Platform work goes through the adapter, so this module runs unchanged in the desktop
  * window, a browser and the phone WebView.
  */
-import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type GoogleCalendars, type InboxStatus, type MessengerStatus } from "./adapter";
+import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type BoardOptions, type GoogleCalendars, type InboxStatus, type MessengerStatus } from "./adapter";
 import { addDays, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
@@ -81,7 +81,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   let shareLine = "";
   let gcal: GoogleCalendars | null = null;
-  let board: { lock: boolean; hideSchool: boolean; status: string } | null = null;
+  let board: BoardOptions | null = null;
   let messenger: MessengerStatus | null = null;
   const loadCalendars = () =>
     Promise.all([adapter.googleCalendars?.(), adapter.board?.(), adapter.messenger?.()]).then(([g, b, m]) => {
@@ -138,6 +138,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const c = ctx();
     root.className = `bh ${s.settings.theme}`;
     root.dataset.mode = s.settings.theme === "glass" ? s.settings.mode : "light";
+    applyLook();
     void adapter.setLook?.(s.settings.theme, s.settings.mode).catch(() => undefined);
     root.innerHTML = `${theme().shell(c)}
       <section class="chatsheet" id="bhChat" aria-label="대화 기록"><div class="grab" data-drag="close" role="button" tabindex="0" aria-label="대화 기록 닫기"><i></i></div><div class="sheethead">대화 기록</div><div class="thread" id="bhThread" aria-live="polite"></div><div class="sheetcomp" id="bhChatComp"></div></section>
@@ -146,6 +147,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <input type="file" id="bhFile" hidden accept="image/*,.pdf,.hwp,.hwpx,.docx,.xlsx,.txt,.wav">`;
     renderComposer();
     render();
+  }
+
+  /** Glass blur and brightness from 설정 (CSS variables; the 공문서 theme does not use them). */
+  function applyLook(): void {
+    const { glassBlur, glassBright } = s.settings;
+    root.style.setProperty("--bh-blur", `${Math.max(0, Math.min(40, glassBlur))}px`);
+    const b = Math.max(-50, Math.min(50, glassBright));
+    root.style.setProperty("--bh-veil", b >= 0 ? `rgba(255,255,255,${((b / 50) * 0.35).toFixed(3)})` : `rgba(0,0,0,${((-b / 50) * 0.55).toFixed(3)})`);
   }
 
   function renderComposer(): void {
@@ -253,7 +262,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const st = s.settings;
     el.innerHTML = `<div class="set-h">설정 <button class="mini" data-settings aria-label="설정 닫기">닫기</button></div>
       <label class="set-row">화면 <select data-set="theme"><option value="glass" ${st.theme === "glass" ? "selected" : ""}>유리</option><option value="doc" ${st.theme === "doc" ? "selected" : ""}>공문서</option></select></label>
-      ${st.theme === "glass" ? `<label class="set-row">밝기 <select data-set="mode"><option value="dark" ${st.mode === "dark" ? "selected" : ""}>어둡게</option><option value="light" ${st.mode === "light" ? "selected" : ""}>밝게</option></select></label>` : ""}
+      ${st.theme === "glass" ? `<label class="set-row">밝기 <select data-set="mode"><option value="dark" ${st.mode === "dark" ? "selected" : ""}>어둡게</option><option value="light" ${st.mode === "light" ? "selected" : ""}>밝게</option></select></label>
+      <label class="set-row">흐림 <input type="range" min="0" max="40" step="1" value="${st.glassBlur}" data-set="glassBlur" aria-label="유리 흐림 정도"><span class="set-v">${st.glassBlur}</span></label>
+      <label class="set-row">배경 밝기 <input type="range" min="-50" max="50" step="5" value="${st.glassBright}" data-set="glassBright" aria-label="배경·카드 밝기"><span class="set-v">${st.glassBright > 0 ? "+" : ""}${st.glassBright}</span></label>
+      ${st.glassBlur !== 26 || st.glassBright !== 0 ? '<div class="set-row"><button class="mini" data-lookreset>처음 모습으로</button></div>' : ""}` : ""}
       <label class="set-row"><input type="checkbox" data-set="samples" ${st.showSamples ? "checked" : ""}> 가짜 자료 보이기</label>
       <div class="set-sep"></div>
       <label class="set-row"><input type="checkbox" data-set="inbox" ${inbox.enabled ? "checked" : ""} ${inbox.available ? "" : "disabled"}> 인박스 처리 (작업기)</label>
@@ -268,7 +280,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       ${adapter.board && board ? `<div class="set-sep"></div>
       <label class="set-row"><input type="checkbox" data-board="lock" ${board.lock ? "checked" : ""}> 잠금화면 배경을 블랙홀 달력으로</label>
       <label class="set-row"><input type="checkbox" data-board="hideSchool" ${board.hideSchool ? "checked" : ""}> 위젯·잠금화면에서 학교 일정 제목 가리기</label>
-      <div class="set-note">잠금화면 배경은 켜면 지금 배경을 바꿉니다(되돌리려면 휴대폰 배경 설정에서 다시 고름).${board.status ? `<br>${escapeHtml(board.status)}` : ""}</div>` : ""}
+      ${adapter.setBoardLook ? `<label class="set-row">위젯·잠금화면 밝기 <input type="range" min="-50" max="50" step="5" value="${board.bright ?? 0}" data-board="bright" aria-label="위젯·잠금화면 밝기"><span class="set-v">${board.bright ?? 0}</span></label>
+      <label class="set-row">판 불투명도 <input type="range" min="0" max="150" step="10" value="${board.opacity ?? 100}" data-board="opacity" aria-label="위젯·잠금화면 판 불투명도"><span class="set-v">${board.opacity ?? 100}%</span></label>` : ""}
+      ${adapter.setLockTasks ? `<label class="set-row"><input type="checkbox" data-board="lockTasks" ${board.lockTasks !== false ? "checked" : ""}> 잠금화면 알림에 오늘 할 일·마감(「완료」 체크)</label>
+      <label class="set-row"><input type="checkbox" data-board="lockHideTitles" ${board.lockHideTitles ? "checked" : ""}> 잠금화면 알림에서 할 일 제목 가리기</label>` : ""}
+      <div class="set-note">잠금화면 배경은 켜면 지금 배경을 바꿉니다(되돌리려면 휴대폰 배경 설정에서 다시 고름). 잠금 상태에서는 「완료」 체크와 「적기」(메모 추가)까지만 됩니다.${board.status ? `<br>${escapeHtml(board.status)}` : ""}</div>` : ""}
       <div class="set-sep"></div>
       <div class="set-row"><button class="mini" data-testalarm>알람 시험 (10초 뒤)</button></div>
       <div class="set-note">${escapeHtml(adapter.connection.detail)}</div>`;
@@ -625,6 +641,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       else root.querySelector<HTMLElement>("#bhSettings")!.hidden = true;
       return;
     }
+    if (q("[data-lookreset]")) {
+      s.settings.glassBlur = 26;
+      s.settings.glassBright = 0;
+      applyLook();
+      void save();
+      renderSettings();
+      return;
+    }
     if (q("[data-testalarm]")) {
       const at = new Date(clock().getTime() + 10_000);
       const a: Alarm = { key: `test@${at.getTime()}`, ref: "", kind: "event", at: stamp(at), atMs: at.getTime(), title: "알람 시험", body: "10초 뒤 시험 알람입니다" };
@@ -703,9 +727,19 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return;
     }
     if (el.dataset.board && board && adapter.setBoard) {
-      if (el.dataset.board === "lock") board.lock = (el as HTMLInputElement).checked;
-      if (el.dataset.board === "hideSchool") board.hideSchool = (el as HTMLInputElement).checked;
-      await adapter.setBoard(board.lock, board.hideSchool);
+      const k = el.dataset.board;
+      const on = (el as HTMLInputElement).checked;
+      if (k === "bright" || k === "opacity") {
+        board[k] = Number(el.value);
+        await adapter.setBoardLook?.(board.bright ?? 0, board.opacity ?? 100);
+      } else if (k === "lockTasks" || k === "lockHideTitles") {
+        board[k] = on;
+        await adapter.setLockTasks?.(board.lockTasks !== false, !!board.lockHideTitles);
+      } else {
+        if (k === "lock") board.lock = on;
+        if (k === "hideSchool") board.hideSchool = on;
+        await adapter.setBoard(board.lock, board.hideSchool);
+      }
       void loadCalendars();
       return;
     }
@@ -729,6 +763,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (key === "theme") s.settings.theme = el.value as ThemeName;
     if (key === "mode") s.settings.mode = el.value as "dark" | "light";
     if (key === "samples") s.settings.showSamples = (el as HTMLInputElement).checked;
+    if (key === "glassBlur" || key === "glassBright") {
+      s.settings[key] = Number(el.value);
+      applyLook();
+    }
     if (key === "sharePhone") s.settings.sharePhone = (el as HTMLInputElement).checked;
     if (key === "messenger") {
       s.settings.messengerEnabled = (el as HTMLInputElement).checked;
@@ -790,6 +828,18 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   root.addEventListener("click", onClick);
   root.addEventListener("keydown", onKey);
   root.addEventListener("change", (e) => void onChange(e));
+  // Sliders: show the look while dragging; it is saved on 「change」.
+  root.addEventListener("input", (e) => {
+    const el = e.target as HTMLInputElement;
+    const key = el.dataset.set;
+    if (el.type !== "range") return;
+    const v = el.nextElementSibling;
+    if (v?.classList.contains("set-v")) v.textContent = el.dataset.board === "opacity" ? `${el.value}%` : el.value;
+    if (key === "glassBlur" || key === "glassBright") {
+      s.settings[key] = Number(el.value);
+      applyLook();
+    }
+  });
   root.addEventListener("pointerdown", onDown);
   window.addEventListener("pointermove", onMove);
   window.addEventListener("pointerup", onUp);

@@ -269,3 +269,10 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .aio .mini { margin-left: 3px; }
 .bh.glass .fc .bh-due { background: none; border: 0; border-top: 2px solid var(--todo); border-radius: 0; }
 .bh.glass .fc .wbt.due.hot { color: var(--now); font-weight: 700; }
+
+/* 설정의 흐림·배경 밝기 (기본 26px · 0 = 승인된 모습). 공문서 테마는 쓰지 않는다. */
+.bh.glass { position: relative; isolation: isolate; }
+.bh.glass::before { content: ""; position: absolute; inset: 0; background: var(--bh-veil, transparent); pointer-events: none; z-index: -1; }
+.bh.glass .g { backdrop-filter: blur(var(--bh-blur, 26px)) saturate(180%); -webkit-backdrop-filter: blur(var(--bh-blur, 26px)) saturate(180%); }
+.bh .set-row input[type="range"] { flex: 1; min-width: 90px; }
+.bh .set-v { min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink2); }

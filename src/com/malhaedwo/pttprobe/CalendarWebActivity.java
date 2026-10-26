@@ -286,7 +286,11 @@ public final class CalendarWebActivity extends Activity {
             try {
                 return new JSONObject().put("lock", prefs().getBoolean(BlackholeBoard.PREF_LOCK, false))
                         .put("hideSchool", prefs().getBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, false))
-                        .put("status", prefs().getString(BlackholeBoard.PREF_STATUS, "")).toString();
+                        .put("status", prefs().getString(BlackholeBoard.PREF_STATUS, ""))
+                        .put("bright", prefs().getInt(BlackholeBoard.PREF_BRIGHT, 0))
+                        .put("opacity", prefs().getInt(BlackholeBoard.PREF_OPACITY, 100))
+                        .put("lockTasks", prefs().getBoolean(BlackholeBoard.PREF_LOCK_TASKS, true))
+                        .put("lockHideTitles", prefs().getBoolean(BlackholeBoard.PREF_LOCK_HIDE_TITLES, false)).toString();
             } catch (Exception error) {
                 return "{}";
             }
@@ -296,6 +300,20 @@ public final class CalendarWebActivity extends Activity {
             prefs().edit().putBoolean(BlackholeBoard.PREF_LOCK, lock).putBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, hideSchool).apply();
             CalendarRefreshJob.forgetLock(CalendarWebActivity.this);
             io.execute(() -> CalendarRefreshJob.publish(CalendarWebActivity.this));
+        }
+
+        /** 위젯·잠금화면 그림의 밝기(-50~50)·판 불투명도(0~150%). */
+        @JavascriptInterface public void setBoardLook(int bright, int opacity) {
+            prefs().edit().putInt(BlackholeBoard.PREF_BRIGHT, Math.max(-50, Math.min(50, bright)))
+                    .putInt(BlackholeBoard.PREF_OPACITY, Math.max(0, Math.min(150, opacity))).apply();
+            CalendarRefreshJob.forgetLock(CalendarWebActivity.this);
+            io.execute(() -> CalendarRefreshJob.publish(CalendarWebActivity.this));
+        }
+
+        /** 잠금화면 알림의 할 일 목록(「완료」)과 제목 가리기. */
+        @JavascriptInterface public void setLockTasks(boolean show, boolean hideTitles) {
+            prefs().edit().putBoolean(BlackholeBoard.PREF_LOCK_TASKS, show).putBoolean(BlackholeBoard.PREF_LOCK_HIDE_TITLES, hideTitles).apply();
+            io.execute(() -> BlackholeQuickNotification.refresh(CalendarWebActivity.this));
         }
 
         /** 손으로 바꾼 것: Mac이 반영할 때까지 들고 있고, 인박스로 동작 파일을 보낸다. */

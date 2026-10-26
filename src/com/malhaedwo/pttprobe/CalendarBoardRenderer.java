@@ -21,12 +21,38 @@ final class CalendarBoardRenderer {
 
     private CalendarBoardRenderer() {}
 
-    /** 위젯: 반투명 판(홈 화면 배경이 비침) 위에 오늘 일정과 할 일. */
+    /** 설정의 밝기(-50~50)·불투명도(0~150%). 기본 0·100이면 지금 모습 그대로. */
+    static final class Look {
+        final int bright;
+        final int opacity;
+        Look(int bright, int opacity) {
+            this.bright = Math.max(-50, Math.min(50, bright));
+            this.opacity = Math.max(0, Math.min(150, opacity));
+        }
+        static final Look DEFAULT = new Look(0, 100);
+        int alpha(int base) { return Math.max(0, Math.min(255, Math.round(base * opacity / 100f))); }
+        /** 밝게: 흰색 쪽으로, 어둡게: 검은색 쪽으로(최대 35%). */
+        int tone(int rgb) {
+            float k = Math.abs(bright) / 50f * 0.35f;
+            int to = bright >= 0 ? 255 : 0;
+            int r = Math.round(Color.red(rgb) + (to - Color.red(rgb)) * k);
+            int g = Math.round(Color.green(rgb) + (to - Color.green(rgb)) * k);
+            int b = Math.round(Color.blue(rgb) + (to - Color.blue(rgb)) * k);
+            return Color.rgb(r, g, b);
+        }
+    }
+
     static Bitmap widget(BlackholeBoard.Board board, int width, int height, float density) {
+        return widget(board, width, height, density, Look.DEFAULT);
+    }
+
+    /** 위젯: 반투명 판(홈 화면 배경이 비침) 위에 오늘 일정, 이번 주, 마감 순 할 일. */
+    static Bitmap widget(BlackholeBoard.Board board, int width, int height, float density, Look look) {
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         Paint panel = new Paint(Paint.ANTI_ALIAS_FLAG);
-        panel.setColor(Color.argb(150, 13, 15, 32));
+        int base = look.tone(Color.rgb(13, 15, 32));
+        panel.setColor(Color.argb(look.alpha(150), Color.red(base), Color.green(base), Color.blue(base)));
         float r = 20 * density;
         canvas.drawRoundRect(new RectF(0, 0, width, height), r, r, panel);
         Paint edge = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -40,10 +66,14 @@ final class CalendarBoardRenderer {
 
     /** 잠금화면 배경: 위쪽은 시계 자리로 비우고, 아래쪽 판에 오늘 일정·할 일을 크게. */
     static Bitmap lock(BlackholeBoard.Board board, int width, int height, float density) {
+        return lock(board, width, height, density, Look.DEFAULT);
+    }
+
+    static Bitmap lock(BlackholeBoard.Board board, int width, int height, float density, Look look) {
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         Paint wall = new Paint();
-        wall.setShader(new LinearGradient(0, 0, width, height, Color.rgb(26, 29, 58), Color.rgb(51, 32, 63), Shader.TileMode.CLAMP));
+        wall.setShader(new LinearGradient(0, 0, width, height, look.tone(Color.rgb(26, 29, 58)), look.tone(Color.rgb(51, 32, 63)), Shader.TileMode.CLAMP));
         canvas.drawRect(0, 0, width, height, wall);
         Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
         glow.setShader(new RadialGradient(width * 0.2f, height * 0.25f, width * 0.8f, Color.argb(110, 124, 92, 255), Color.TRANSPARENT, Shader.TileMode.CLAMP));
@@ -52,7 +82,7 @@ final class CalendarBoardRenderer {
         canvas.drawRect(0, 0, width, height, glow);
         float top = height * 0.38f;
         Paint panel = new Paint(Paint.ANTI_ALIAS_FLAG);
-        panel.setColor(Color.argb(95, 10, 10, 20));
+        panel.setColor(Color.argb(look.alpha(95), 10, 10, 20));
         float r = 22 * density;
         canvas.drawRoundRect(new RectF(16 * density, top, width - 16 * density, height - 120 * density), r, r, panel);
         content(canvas, board, 30 * density, top + 14 * density, width - 60 * density, height - 120 * density - top - 28 * density, density, 1.25f);
@@ -74,6 +104,10 @@ final class CalendarBoardRenderer {
             canvas.drawText(ellipsize(period, dim, w), x, cy, dim);
             cy += line * 0.85f;
         }
+        if (board.noCopy && board.empty()) {
+            canvas.drawText("Mac 달력을 아직 받지 못했습니다", x, cy + line * 0.3f, dim);
+            return;
+        }
         if (board.empty()) {
             canvas.drawText("오늘 일정과 할 일이 없습니다", x, cy + line * 0.3f, dim);
             return;
@@ -87,7 +121,11 @@ final class CalendarBoardRenderer {
             cy += line;
         }
         if (!board.tasks.isEmpty()) cy += line * 0.2f;
+        int tasksDrawn = 0;
         for (BlackholeBoard.Line t : board.tasks) {
+            // 이번 주 일정 자리도 남긴다(할 일이 많아도 두 줄은 이번 주).
+            if (!board.week.isEmpty() && tasksDrawn >= 3 && cy + line * 2.6f > bottom) break;
+            tasksDrawn++;
             if (cy > bottom) return;
             TextPaint p = t.past ? text(INK3, body.getTextSize(), false) : body;
             float bw = t.badge.isEmpty() ? 0 : badge.measureText(t.badge) + 8 * density;
@@ -97,6 +135,15 @@ final class CalendarBoardRenderer {
                 canvas.drawText(t.badge, x + w - b.measureText(t.badge), cy, b);
             }
             cy += line;
+        }
+        if (board.week.isEmpty()) return;
+        cy += line * 0.2f;
+        for (BlackholeBoard.Line e : board.week) {
+            if (cy > bottom) return;
+            canvas.drawText(e.time, x, cy, dim);
+            float tx = x + 76 * density * scale;
+            canvas.drawText(ellipsize(e.text + (e.provisional ? "  [가]" : ""), dim, w - (tx - x)), tx, cy, dim);
+            cy += line * 0.9f;
         }
     }
 

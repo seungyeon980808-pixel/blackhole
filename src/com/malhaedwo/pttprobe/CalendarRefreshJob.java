@@ -142,19 +142,21 @@ public final class CalendarRefreshJob extends JobService {
     }
 
     /** 가진 사본으로 위젯과 잠금화면 배경을 다시 그린다(내용이 같으면 배경은 그대로). */
-    static void publish(Context context) {
+    static synchronized void publish(Context context) {
         Context app = context.getApplicationContext();
         CalendarWidgetProvider.updateAll(app);
+        BlackholeQuickNotification.refresh(app);
         SharedPreferences prefs = Blackhole.prefs(app);
         if (!prefs.getBoolean(BlackholeBoard.PREF_LOCK, false)) return;
         boolean hide = prefs.getBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, false);
-        String shared = BlackholeDrafts.overlay(prefs.getString(BlackholeCalendarStore.PREF_SHARED, ""), Blackhole.drafts(app));
+        String shared = Blackhole.boardShared(app);
         BlackholeBoard.Board board = BlackholeBoard.build(shared, LocalDate.now(), LocalTime.now(), hide);
-        String signature = LocalDate.now() + "|" + hide + "|" + shared.hashCode();
+        CalendarBoardRenderer.Look look = CalendarWidgetProvider.look(prefs);
+        String signature = LocalDate.now() + "|" + hide + "|" + look.bright + "|" + look.opacity + "|" + shared.hashCode();
         if (signature.equals(prefs.getString(PREF_LOCK_DRAWN, ""))) return;
         try {
             DisplayMetrics metrics = app.getResources().getDisplayMetrics();
-            Bitmap bitmap = CalendarBoardRenderer.lock(board, metrics.widthPixels, metrics.heightPixels, metrics.density);
+            Bitmap bitmap = CalendarBoardRenderer.lock(board, metrics.widthPixels, metrics.heightPixels, metrics.density, look);
             WallpaperManager.getInstance(app).setBitmap(bitmap, null, true, WallpaperManager.FLAG_LOCK);
             prefs.edit().putString(PREF_LOCK_DRAWN, signature).putString(BlackholeBoard.PREF_STATUS, "잠금화면 배경 " + clock()).apply();
         } catch (Exception error) {

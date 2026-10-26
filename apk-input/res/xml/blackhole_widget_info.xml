@@ -8,4 +8,4 @@
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/blackhole_widget"
     android:description="@string/widget_description"
-    android:widgetCategory="home_screen" />
+    android:widgetCategory="home_screen|keyguard" />
