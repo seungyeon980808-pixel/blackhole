@@ -4,7 +4,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { AnalyzeError, type BlackholeAdapter, type InboxResult, type InboxStatus, type MessengerStatus } from "../calendar/adapter";
+import { AnalyzeError, type BlackholeAdapter, type InboxDraft, type InboxResult, type InboxStatus, type MessengerStatus } from "../calendar/adapter";
 import { isoWithOffset } from "../calendar/dates";
 import type { CalendarState, UserAction } from "../calendar/model";
 import type { Alarm } from "../calendar/store";
@@ -57,6 +57,7 @@ export function tauriAdapter(): BlackholeAdapter {
     inboxStatus: () => invoke<InboxStatus>("inbox_status"),
     setInbox: (enabled, root) => invoke<InboxStatus>("inbox_set", { enabled, root }),
     inboxResults: () => invoke<InboxResult[]>("inbox_results"),
+    inboxDrafts: () => invoke<InboxDraft[]>("inbox_drafts"),
     async scheduleAlarms(alarms) {
       scheduled.clear();
       alarms.forEach((a) => scheduled.set(a.key, a));

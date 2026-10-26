@@ -77,7 +77,9 @@ final class BlackholeBoard {
             LocalDate due;
             try { due = LocalDate.parse(t.optString("due", "")); } catch (Exception error) { continue; }
             long days = ChronoUnit.DAYS.between(today, due);
-            String badge = t.optBoolean("done", false) ? "" : days < 0 ? (-days) + "일 지남" : days == 0 ? "오늘" : "D-" + days;
+            String dueTime = text(t, "dueTime", "");
+            String badge = t.optBoolean("done", false) || t.optBoolean("noDue", false) ? ""
+                    : days < 0 ? (-days) + "일 지남" : days == 0 ? (dueTime.isEmpty() ? "오늘" : "오늘 " + dueTime) : "D-" + days;
             String subs = subCount(t.optJSONArray("subs"));
             board.tasks.add(new Line(t.optBoolean("done", false) ? "☑" : "☐", title(t, hideSchool, "학교 할 일") + subs, false,
                     t.optBoolean("done", false), badge));

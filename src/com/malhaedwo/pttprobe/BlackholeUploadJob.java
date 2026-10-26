@@ -41,6 +41,8 @@ public final class BlackholeUploadJob extends JobService {
                                 BlackholeUploader.Report report = Blackhole.uploader(app).run();
                                 message = report.message();
                                 retry = report.hasFailures();
+                                // 올린 것이 있으면 Mac 정리 결과를 곧바로 몇 번 더 받는다.
+                                if (report.uploaded > 0) CalendarRefreshJob.soon(app);
                             } catch (InterruptedException interrupted) {
                                 return;
                             } catch (Throwable error) {

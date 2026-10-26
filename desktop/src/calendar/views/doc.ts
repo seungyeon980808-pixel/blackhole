@@ -2,7 +2,7 @@
 import { addDays, diffDays, fdDoc, fdDocLong, mins, weekDays, ymd } from "../dates";
 import type { CalEvent, ChatMessage, Period, Task } from "../model";
 import { alarmsOn, dueOn, eventsOn, findEntry, liveEvents, livePeriods, liveTasks, pending, periodsOn, taskGroups, type Alarm } from "../store";
-import { dday, esc, hourSegments, ICON, nextReminder, pct, type Ctx, type ThemeView } from "./common";
+import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, nextReminder, pct, type Ctx, type ThemeView } from "./common";
 
 const fd = fdDoc;
 const ROMAN = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"];
@@ -18,16 +18,16 @@ function taskHTML(ctx: Ctx, t: Task, subAdd = true): string {
     t.subs.length ? `하위 ${sd}/${t.subs.length}` : ""
   ].filter(Boolean).join(", ");
   return `<div class="task ${t.done ? "done" : ""}">
-    <div class="li l1 ${t.done ? "done" : ""}"><span class="mk" data-tdone="${t.id}" role="checkbox" aria-checked="${t.done}" tabindex="0" aria-label="${esc(t.title)} 완료">${t.done ? "■" : "□"}</span><span class="tx">${esc(t.title)}</span>${dday(ctx.today, t)}</div>
+    <div class="li l1 ${t.done ? "done" : ""}"><span class="mk" data-tdone="${t.id}" role="checkbox" aria-checked="${t.done}" tabindex="0" aria-label="${esc(t.title)} 완료">${t.done ? "■" : "□"}</span><span class="tx">${esc(t.title)}${draftTag(t)}</span>${t.noDue ? "" : dday(ctx.today, t)}</div>
     ${t.subs.map((x, i) => `<div class="li l2 ${x.done ? "done" : ""}"><span class="mk" data-sub="${t.id}:${i}" role="checkbox" aria-checked="${x.done}" tabindex="0">${x.done ? "●" : "○"}</span><span class="tx">${esc(x.title)}</span></div>`).join("")}
-    ${meta && !t.done ? `<div class="li l3">- ${esc(meta)}</div>` : ""}
+    ${(meta || t.suggest?.length) && !t.done ? `<div class="li l3">- ${esc(meta)}${aiOffer(t, fd)}</div>` : ""}
     ${subAdd && !t.done ? `<input class="subadd" data-subadd="${t.id}" placeholder="○ 하위 할 일 추가" aria-label="${esc(t.title)} 하위 할 일 추가">` : ""}
   </div>`;
 }
 
 function evTable(ctx: Ctx, list: CalEvent[], { act = true, date = false } = {}): string {
   if (!list.length) return '<table class="tb"><tr><td class="muted center">해당 없음</td></tr></table>';
-  return `<table class="tb"><thead><tr><th style="width:${date ? 92 : 82}px">${date ? "일시" : "시간"}</th><th>내용</th><th style="width:${act ? 110 : 70}px">비고</th></tr></thead><tbody>${list.map((e) => `<tr class="${e.date === ctx.today && e.end && mins(e.end) <= ctx.nowM ? "past" : ""}" data-ev="${e.id}"><td class="c">${date ? fd(e.date) + " " : ""}${e.start ?? "종일"}${date || !e.end ? "" : "~" + e.end}</td><td>${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</td><td class="c">${e.provisional && act ? `<button class="mini" data-ok="${e.id}">확정</button><button class="mini" data-no="${e.id}">취소</button>` : e.reminders.length ? `알림 ${e.reminders.map((r) => r.slice(11)).join(", ")}` : ""}</td></tr>`).join("")}</tbody></table>`;
+  return `<table class="tb"><thead><tr><th style="width:${date ? 92 : 82}px">${date ? "일시" : "시간"}</th><th>내용</th><th style="width:${act ? 110 : 70}px">비고</th></tr></thead><tbody>${list.map((e) => `<tr class="${e.date === ctx.today && e.end && mins(e.end) <= ctx.nowM ? "past" : ""}" data-ev="${e.id}"><td class="c">${date ? fd(e.date) + " " : ""}${e.start ?? "종일"}${date || !e.end ? "" : "~" + e.end}</td><td>${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}${draftTag(e)}${aiOffer(e, fd)}</td><td class="c">${e.provisional && act ? `<button class="mini" data-ok="${e.id}">확정</button><button class="mini" data-no="${e.id}">취소</button>` : e.reminders.length ? `알림 ${e.reminders.map((r) => r.slice(11)).join(", ")}` : ""}</td></tr>`).join("")}</tbody></table>`;
 }
 
 function perTable(ps: Period[], k: string): string {
@@ -39,7 +39,9 @@ function perTable(ps: Period[], k: string): string {
 export function docTimetable(ctx: Ctx, k: string, H0 = 7, H1 = 24, rowH = 24): string {
   const evs = eventsOn(ctx.s, k);
   const rems = alarmsOn(ctx.s, k, fd);
-  let h = `<div class="mh0">시</div>${[10, 20, 30, 40, 50, 60].map((x) => `<div class="mh">${x}</div>`).join("")}`;
+  const dues = dueOn(ctx.s, k);
+  const allDayDue = dues.filter((t) => !t.dueTime);
+  let h = `${allDayDue.length ? `<div class="dueday">마감 ${allDayDue.map((t) => `<span class="${dueBadge(ctx.today, t)?.hot ? "red" : ""} ${t.done ? "done" : ""}" data-ev="${t.id}">${esc(t.title)}</span>`).join(", ")}</div>` : ""}<div class="mh0">시</div>${[10, 20, 30, 40, 50, 60].map((x) => `<div class="mh">${x}</div>`).join("")}`;
   for (let H = H0; H < H1; H++) {
     const A = H * 60;
     const B = A + 60;
@@ -51,6 +53,7 @@ export function docTimetable(ctx: Ctx, k: string, H0 = 7, H1 = 24, rowH = 24): s
       const m = mins(x.at.slice(11));
       if (m >= A && m < B) r += `<div class="rm" style="left:${pct(m, A)}" title="${esc(`알림 ${x.at.slice(11)} ${x.title}`)}"></div>`;
     }
+    r += dueMarks(ctx.today, dues, A, B);
     if (k === ctx.today && ctx.nowM >= A && ctx.nowM < B) r += `<div class="now" style="left:${pct(ctx.nowM, A)}"></div>`;
     h += `<div class="h" style="height:${rowH}px">${H}</div><div class="row ${k === ctx.today && B <= ctx.nowM ? "past" : ""}" style="height:${rowH}px">${r}</div>`;
   }
@@ -63,7 +66,7 @@ function weekTable(ctx: Ctx, days: string[]): string {
     const ts = dueOn(ctx.s, k);
     const ps = periodsOn(ctx.s, k);
     const rs = alarmsOn(ctx.s, k, fd);
-    return `<tr class="${k === ctx.today ? "today" : ""}" data-day="${k}"><td class="c b">${fd(k)}</td><td>${evs.map((e) => `<div data-ev="${e.id}"><span class="t">${e.start ?? "종일"}</span> ${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</div>`).join("") || '<span class="muted">-</span>'}</td><td>${ts.map((t) => `<div class="${t.done ? "done" : ""}"><span class="tx">${t.done ? "■" : "□"} ${esc(t.title)}</span>${t.subs.length ? ` <span class="muted">(${t.subs.filter((x) => x.done).length}/${t.subs.length})</span>` : ""}</div>`).join("") || '<span class="muted">-</span>'}</td><td class="sm">${ps.map((p) => `${esc(p.title)}(${diffDays(p.from, k) + 1}/${diffDays(p.from, p.to) + 1}일)`).join("<br>")}${rs.length ? `${ps.length ? "<br>" : ""}알림 ${rs.map((r) => r.at.slice(11)).join(", ")}` : ""}</td></tr>`;
+    return `<tr class="${k === ctx.today ? "today" : ""}" data-day="${k}"><td class="c b">${fd(k)}</td><td>${evs.map((e) => `<div data-ev="${e.id}"><span class="t">${e.start ?? "종일"}</span> ${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</div>`).join("") || '<span class="muted">-</span>'}</td><td>${ts.map((t) => { const b = dueBadge(ctx.today, t); return `<div class="${t.done ? "done" : ""}" data-ev="${t.id}"><span class="tx">${t.done ? "■" : "□"} ${t.dueTime ? `<span class="t">${t.dueTime}</span> ` : ""}${esc(t.title)}</span>${t.subs.length ? ` <span class="muted">(${t.subs.filter((x) => x.done).length}/${t.subs.length})</span>` : ""}${b?.hot ? ` <span class="red sm">${b.text}</span>` : ""}</div>`; }).join("") || '<span class="muted">-</span>'}</td><td class="sm">${ps.map((p) => `${esc(p.title)}(${diffDays(p.from, k) + 1}/${diffDays(p.from, p.to) + 1}일)`).join("<br>")}${rs.length ? `${ps.length ? "<br>" : ""}알림 ${rs.map((r) => r.at.slice(11)).join(", ")}` : ""}</td></tr>`;
   }).join("")}</tbody></table>`;
 }
 
@@ -149,14 +152,15 @@ export const doc: ThemeView = {
   },
   alarm: (a: Alarm) => `<div class="al-in" role="alertdialog" aria-labelledby="alTitle"><div class="al-head"><span>블랙홀 알람</span><span>${a.at.slice(11)}</span></div><div class="al-pad"><div class="al-kind">□ ${a.kind === "event" ? "일정" : "할 일"}</div><div class="al-title" id="alTitle">${esc(a.title)}</div><div class="al-body">- ${esc(a.body)}</div><div class="al-btns"><button class="al-b" data-alarm="snooze">10분 뒤</button><button class="al-b ok" data-alarm="done">${a.kind === "task" ? "완료" : "확인"}</button></div><div class="al-hint">※ 누를 때까지 소리가 계속됩니다</div></div></div>`,
   more: (n) => `외 ${n}건`,
-  monthChip: (_ctx, kind, x) => {
+  monthChip: (ctx, kind, x) => {
     if (kind === "event") {
       const e = x as unknown as CalEvent;
-      return `<div class="e ${e.provisional ? "prov" : ""}"><span class="t">${e.start ?? "종일"}</span> ${esc(e.title)}</div>`;
+      return `<div class="e ${e.provisional ? "prov" : ""} ${e.draft ? "draft" : ""}"><span class="t">${e.start ?? "종일"}</span> ${esc(e.title)}</div>`;
     }
     if (kind === "task") {
       const t = x as unknown as Task;
-      return `<div class="e ${t.done ? "done" : ""}">${t.done ? "■" : "□"} ${esc(t.title)}</div>`;
+      const b = dueBadge(ctx.today, t);
+      return `<div class="e due ${t.done ? "done" : ""} ${b?.hot ? "red" : ""} ${t.draft ? "draft" : ""}">${t.done ? "■" : "□"} <span class="t">마감${t.dueTime ? " " + t.dueTime : ""}</span> ${esc(t.title)}${b ? ` <b>${b.text}</b>` : ""}</div>`;
     }
     const p = x as unknown as Period;
     return `<div class="pb" title="${esc(p.title)}">${esc(p.title)}</div>`;

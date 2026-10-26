@@ -30,6 +30,8 @@ final class BlackholeCalendarMirror {
     static final String PREF_STATUS = "mirror_status";
     /** 한 번에 반영하는 일정 수 상한(사본이 커져도 캘린더를 한꺼번에 흔들지 않게). */
     static final int MAX_EVENTS = 1000;
+    /** 구글 캘린더에 넣는 마감 할 일 제목 앞머리. */
+    static final String DUE_PREFIX = "[마감] ";
 
     private BlackholeCalendarMirror() {}
 
@@ -67,7 +69,7 @@ final class BlackholeCalendarMirror {
         }
     }
 
-    /** Mac 사본에서 캘린더에 둘 것: 지워지지 않은 일정(가승인/확정)과 기간. 가짜 자료는 사본에 없다. */
+    /** Mac 사본에서 캘린더에 둘 것: 지워지지 않은 일정(가승인/확정), 마감 있는 할 일, 기간. 가짜 자료는 사본에 없다. */
     static List<Want> wanted(String sharedJson, ZoneId zone) {
         List<Want> out = new ArrayList<>();
         JSONObject shared;
@@ -101,6 +103,31 @@ final class BlackholeCalendarMirror {
             } catch (Exception skip) {
                 // 날짜 형식이 틀린 일정은 캘린더에 두지 않는다.
             }
+        }
+        // 마감 있는 할 일: 본 캘린더에 「[마감] 제목」. 시각이 있으면 그 시각 30분, 없으면 그날 종일. 끝낸 것·마감 없는 것은 뺀다.
+        JSONArray tasks = shared.optJSONArray("tasks");
+        for (int i = 0; tasks != null && i < tasks.length() && out.size() < MAX_EVENTS; i++) {
+            JSONObject t = tasks.optJSONObject(i);
+            if (t == null || t.optBoolean("gone", false) || t.optBoolean("sample", false) || t.optBoolean("done", false)
+                    || t.optBoolean("noDue", false)) continue;
+            try {
+                LocalDate due = LocalDate.parse(t.optString("due", ""));
+                Want w = new Want();
+                w.entryId = t.optString("id", "");
+                w.title = DUE_PREFIX + t.optString("title", "");
+                String time = t.optString("dueTime", "");
+                if (time.isEmpty() || "null".equals(time)) {
+                    w.allDay = true;
+                    w.start = due.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
+                    w.end = due.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
+                } else {
+                    w.start = due.atTime(LocalTime.parse(time)).atZone(zone).toInstant().toEpochMilli();
+                    w.end = w.start + 30 * 60_000L;
+                }
+                if (w.entryId.isEmpty() || t.optString("title", "").isEmpty()) continue;
+                w.hash = hash(w);
+                out.add(w);
+            } catch (Exception skip) {}
         }
         JSONArray periods = shared.optJSONArray("periods");
         for (int i = 0; periods != null && i < periods.length() && out.size() < MAX_EVENTS; i++) {

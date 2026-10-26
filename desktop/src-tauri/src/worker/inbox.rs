@@ -26,6 +26,9 @@ use std::{
 pub const MAX_ATTEMPTS: u32 = 3;
 /// Extension of phone action files in 인박스/ (read by the desktop app, skipped by the scanner).
 pub const PHONE_ACTION_EXT: &str = "bhact";
+/// Extension of the phone's own transcript beside a recording (read by the desktop app for a
+/// quick draft, skipped by the scanner: the recording itself is analyzed).
+pub const PHONE_STT_EXT: &str = "bhstt";
 
 /// The 블랙홀 folder (e.g. on the synced Google Drive).
 #[derive(Debug, Clone)]
@@ -131,7 +134,7 @@ where
     for path in entries {
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         // Phone actions (확정·체크…) for the desktop app: not analyzed, never touched.
-        if path.extension().is_some_and(|e| e == PHONE_ACTION_EXT) {
+        if path.extension().is_some_and(|e| e == PHONE_ACTION_EXT || e == PHONE_STT_EXT) {
             continue;
         }
         if source_type_for(&path).is_err() {

@@ -1,0 +1,502 @@
+{
+ "note": "Android KoreanCommandParser가 만든 정답(Asia/Seoul). 가상 문장. TS 규칙(desktop/src/calendar/rules.ts)과 Java 시험이 같이 쓴다.",
+ "referenceLocal": "2026-10-21T09:00",
+ "cases": [
+  {
+   "text": "내일 오후 3시에 학부모 상담 일정 추가해 줘",
+   "kind": "SCHEDULE",
+   "title": "학부모 상담",
+   "start": "2026-10-22T15:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "모레 오전 10시 치과 예약 있어",
+   "kind": "SCHEDULE",
+   "title": "치과 예약 있어",
+   "start": "2026-10-23T10:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "다음 주 화요일 오후 2시에 학년 협의회",
+   "kind": "SCHEDULE",
+   "title": "학년 협의회",
+   "start": "2026-10-27T14:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "금요일까지 수행평가 채점 끝내기",
+   "kind": "TODO",
+   "title": "수행평가 채점 끝내기",
+   "start": "2026-10-23T09:00",
+   "needsReview": true,
+   "explanation": "시간 없는 항목을 날짜가 있는 할 일로 분류"
+  },
+  {
+   "text": "오늘 저녁 7시에 엄마랑 저녁 식사",
+   "kind": "SCHEDULE",
+   "title": "엄마랑 저녁 식사",
+   "start": "2026-10-21T19:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "11월 3일 오후 4시 교직원 연수",
+   "kind": "SCHEDULE",
+   "title": "교직원 연수",
+   "start": "2026-11-03T16:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "세탁소에 맡긴 코트 찾아오기",
+   "kind": "TODO",
+   "title": "세탁소에 맡긴 코트 찾아오기",
+   "start": "",
+   "needsReview": false,
+   "explanation": "날짜와 시간이 없어 할 일로 분류"
+  },
+  {
+   "text": "내일 아침 8시 반에 운동장 조회",
+   "kind": "SCHEDULE",
+   "title": "운동장 조회",
+   "start": "2026-10-22T08:30",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "글피 오후 1시에 미용실 예약",
+   "kind": "SCHEDULE",
+   "title": "미용실 예약",
+   "start": "2026-10-24T13:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "다음 주 월요일까지 생활기록부 입력 마감",
+   "kind": "TODO",
+   "title": "생활기록부 입력 마감",
+   "start": "2026-10-26T09:00",
+   "needsReview": true,
+   "explanation": "시간 없는 항목을 날짜가 있는 할 일로 분류"
+  },
+  {
+   "text": "오후 5시에 은행에 전화하기",
+   "kind": "TODO",
+   "title": "은행에 전화하기",
+   "start": "2026-10-21T17:00",
+   "needsReview": false,
+   "explanation": "날짜·시간이 있는 행동을 할 일로 분류"
+  },
+  {
+   "text": "목요일 오전 11시 학생 진로 상담",
+   "kind": "SCHEDULE",
+   "title": "학생 진로 상담",
+   "start": "2026-10-22T11:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "자동차 보험 갱신 확인해야 돼",
+   "kind": "TODO",
+   "title": "자동차 보험 갱신 확인해야 돼",
+   "start": "",
+   "needsReview": false,
+   "explanation": "날짜와 시간이 없어 할 일로 분류"
+  },
+  {
+   "text": "내일 오전 9시 반 과학실 실험 준비",
+   "kind": "TODO",
+   "title": "과학실 실험 준비",
+   "start": "2026-10-22T09:30",
+   "needsReview": false,
+   "explanation": "날짜·시간이 있는 행동을 할 일로 분류"
+  },
+  {
+   "text": "토요일 오후 6시 친구 결혼식",
+   "kind": "SCHEDULE",
+   "title": "친구 결혼식",
+   "start": "2026-10-24T18:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "3월 2일 오전 9시 입학식",
+   "kind": "SCHEDULE",
+   "title": "입학식",
+   "start": "2027-03-02T09:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "모레까지 가정통신문 회신 걷기",
+   "kind": "TODO",
+   "title": "가정통신문 회신 걷기",
+   "start": "2026-10-23T09:00",
+   "needsReview": true,
+   "explanation": "시간 없는 항목을 날짜가 있는 할 일로 분류"
+  },
+  {
+   "text": "오늘 밤 10시에 택배 반품 신청하기",
+   "kind": "TODO",
+   "title": "택배 반품 신청하기",
+   "start": "2026-10-21T22:00",
+   "needsReview": false,
+   "explanation": "날짜·시간이 있는 행동을 할 일로 분류"
+  },
+  {
+   "text": "다음 주 금요일 오후 3시 동아리 발표회",
+   "kind": "SCHEDULE",
+   "title": "동아리 발표회",
+   "start": "2026-10-30T15:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "내일 점심 12시에 교감 선생님과 면담",
+   "kind": "SCHEDULE",
+   "title": "점심 교감 선생님과 면담",
+   "start": "2026-10-22T12:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "관리비 납부하기",
+   "kind": "TODO",
+   "title": "관리비 납부하기",
+   "start": "",
+   "needsReview": false,
+   "explanation": "날짜와 시간이 없어 할 일로 분류"
+  },
+  {
+   "text": "수요일 오후 4시 반에 피아노 레슨",
+   "kind": "SCHEDULE",
+   "title": "피아노 레슨",
+   "start": "2026-10-28T16:30",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "내일 오후 2시 시험 감독",
+   "kind": "SCHEDULE",
+   "title": "시험 감독",
+   "start": "2026-10-22T14:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "오전 8시에 약 먹기",
+   "kind": "SCHEDULE",
+   "title": "약 먹기",
+   "start": "2026-10-22T08:00",
+   "needsReview": false,
+   "explanation": "시간을 찾고 다음 시점으로 날짜를 추정함"
+  },
+  {
+   "text": "금요일 오후 7시 동창 모임",
+   "kind": "SCHEDULE",
+   "title": "동창 모임",
+   "start": "2026-10-23T19:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "다음 주 화요일까지 연수 결과 보고서 제출",
+   "kind": "TODO",
+   "title": "연수 결과 보고서 제출",
+   "start": "2026-10-27T09:00",
+   "needsReview": false,
+   "explanation": "시간 없는 항목을 날짜가 있는 할 일로 분류"
+  },
+  {
+   "text": "모레 오후 3시 반에 안과 진료",
+   "kind": "SCHEDULE",
+   "title": "안과 진료",
+   "start": "2026-10-23T15:30",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "오늘 오후 4시 교과 협의회 회의",
+   "kind": "SCHEDULE",
+   "title": "교과 협의회 회의",
+   "start": "2026-10-21T16:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "학급 문고 책 정리하기",
+   "kind": "TODO",
+   "title": "학급 문고 책 정리하기",
+   "start": "",
+   "needsReview": false,
+   "explanation": "날짜와 시간이 없어 할 일로 분류"
+  },
+  {
+   "text": "내일 오전 10시에 부동산 계약",
+   "kind": "SCHEDULE",
+   "title": "부동산 계약",
+   "start": "2026-10-22T10:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "11월 15일 수학여행 출발",
+   "kind": "SCHEDULE",
+   "title": "수학여행 출발",
+   "start": "2026-11-15T09:00",
+   "needsReview": true,
+   "explanation": "날짜만 있는 일정이라 오전 9시로 임시 지정"
+  },
+  {
+   "text": "이번 주 토요일 오전 11시 조카 돌잔치",
+   "kind": "SCHEDULE",
+   "title": "조카 돌잔치",
+   "start": "2026-10-24T11:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "월요일 오후 2시 학부모 공개수업",
+   "kind": "SCHEDULE",
+   "title": "학부모 공개수업",
+   "start": "2026-10-26T14:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "엄마 생신 선물 주문하기",
+   "kind": "TODO",
+   "title": "엄마 생신 선물 주문하기",
+   "start": "",
+   "needsReview": false,
+   "explanation": "날짜와 시간이 없어 할 일로 분류"
+  },
+  {
+   "text": "내일 오후 2시에 학년 회의 있고 회의 전에 출석부 정리해야 돼",
+   "kind": "SCHEDULE",
+   "title": "학년 회의 있고 회의 전에 출석부 정리해야 돼",
+   "start": "2026-10-22T14:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "금요일 오후 6시 가족 외식하고 토요일에 세차하기",
+   "kind": "TODO",
+   "title": "가족 외식하고 세차하기",
+   "start": "2026-10-23T18:00",
+   "needsReview": false,
+   "explanation": "날짜·시간이 있는 행동을 할 일로 분류"
+  },
+  {
+   "text": "학교 복사기 비밀번호는 교무실 게시판에 붙어 있다는 거 기억해 줘",
+   "kind": "TODO",
+   "title": "학교 복사기 비밀번호는 교무실 게시판에 붙어 있다는 거 줘",
+   "start": "",
+   "needsReview": false,
+   "explanation": "날짜와 시간이 없어 할 일로 분류"
+  },
+  {
+   "text": "우리 반 지민이는 땅콩 알레르기가 있다는 거 기억해 둬",
+   "kind": "TODO",
+   "title": "우리 반 지민이는 땅콩 알레르기가 있다는 거 둬",
+   "start": "",
+   "needsReview": false,
+   "explanation": "날짜와 시간이 없어 할 일로 분류"
+  },
+  {
+   "text": "자동차 타이어 교체는 3만 킬로미터마다 하면 된대",
+   "kind": "TODO",
+   "title": "자동차 타이어 교체는 3만 킬로미터마다 하면 된대",
+   "start": "",
+   "needsReview": false,
+   "explanation": "날짜와 시간이 없어 할 일로 분류"
+  },
+  {
+   "text": "오늘 저녁에 친구랑 갈 식당 좀 알아봐 줘",
+   "kind": "SCHEDULE",
+   "title": "저녁에 친구랑 갈 식당 좀 알아봐 줘",
+   "start": "2026-10-21T09:00",
+   "needsReview": true,
+   "explanation": "날짜만 있는 일정이라 오전 9시로 임시 지정"
+  },
+  {
+   "text": "내일 점심에 학년 협의회 있어",
+   "kind": "SCHEDULE",
+   "title": "점심에 학년 협의회 있어",
+   "start": "2026-10-22T09:00",
+   "needsReview": true,
+   "explanation": "날짜만 있는 일정이라 오전 9시로 임시 지정"
+  },
+  {
+   "text": "금요일 밤에 엄마랑 통화하기",
+   "kind": "TODO",
+   "title": "밤에 엄마랑 통화하기",
+   "start": "2026-10-23T09:00",
+   "needsReview": false,
+   "explanation": "시간 없는 항목을 날짜가 있는 할 일로 분류"
+  },
+  {
+   "text": "열두 시 반에 점심 약속",
+   "kind": "SCHEDULE",
+   "title": "점심 약속",
+   "start": "2026-10-21T12:30",
+   "needsReview": false,
+   "explanation": "시간을 찾고 다음 시점으로 날짜를 추정함"
+  },
+  {
+   "text": "세시 사십분 병원",
+   "kind": "SCHEDULE",
+   "title": "사십분 병원",
+   "start": "2026-10-22T03:00",
+   "needsReview": false,
+   "explanation": "시간을 찾고 다음 시점으로 날짜를 추정함"
+  },
+  {
+   "text": "11/27 학부모 상담",
+   "kind": "SCHEDULE",
+   "title": "학부모 상담",
+   "start": "2026-11-27T09:00",
+   "needsReview": true,
+   "explanation": "날짜만 있는 일정이라 오전 9시로 임시 지정"
+  },
+  {
+   "text": "2/30 회의",
+   "kind": "TODO",
+   "title": "회의",
+   "start": "",
+   "needsReview": true,
+   "explanation": "날짜가 올바르지 않아 확인이 필요함"
+  },
+  {
+   "text": "13월 5일 출장",
+   "kind": "TODO",
+   "title": "출장",
+   "start": "",
+   "needsReview": true,
+   "explanation": "날짜가 올바르지 않아 확인이 필요함"
+  },
+  {
+   "text": "오늘 24시 마감 확인",
+   "kind": "TODO",
+   "title": "마감 확인",
+   "start": "2026-10-22T00:00",
+   "needsReview": false,
+   "explanation": "날짜·시간이 있는 행동을 할 일로 분류"
+  },
+  {
+   "text": "다음주 월요일 오전 9시 교무회의",
+   "kind": "SCHEDULE",
+   "title": "교무회의",
+   "start": "2026-10-26T09:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "이번 일요일 예배",
+   "kind": "SCHEDULE",
+   "title": "예배",
+   "start": "2026-10-25T09:00",
+   "needsReview": true,
+   "explanation": "날짜만 있는 일정이라 오전 9시로 임시 지정"
+  },
+  {
+   "text": "수요일까지 보고서 제출하기",
+   "kind": "TODO",
+   "title": "보고서 제출하기",
+   "start": "2026-10-28T09:00",
+   "needsReview": false,
+   "explanation": "시간 없는 항목을 날짜가 있는 할 일로 분류"
+  },
+  {
+   "text": "민수 연락처 기억해 줘",
+   "kind": "TODO",
+   "title": "민수 연락처 줘",
+   "start": "",
+   "needsReview": false,
+   "explanation": "날짜와 시간이 없어 할 일로 분류"
+  },
+  {
+   "text": "퇴근하고 마트 가는 시간은 저녁 7시",
+   "kind": "SCHEDULE",
+   "title": "퇴근하고 마트",
+   "start": "2026-10-21T19:00",
+   "needsReview": false,
+   "explanation": "시간을 찾고 다음 시점으로 날짜를 추정함"
+  },
+  {
+   "text": "2027년 1월 3일 오후 2시 공연",
+   "kind": "SCHEDULE",
+   "title": "공연",
+   "start": "2027-01-03T14:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "새벽 12시 출발",
+   "kind": "SCHEDULE",
+   "title": "출발",
+   "start": "2026-10-22T00:00",
+   "needsReview": false,
+   "explanation": "시간을 찾고 다음 시점으로 날짜를 추정함"
+  },
+  {
+   "text": "아침 7시 반 운동 모임",
+   "kind": "SCHEDULE",
+   "title": "운동 모임",
+   "start": "2026-10-22T07:30",
+   "needsReview": false,
+   "explanation": "시간을 찾고 다음 시점으로 날짜를 추정함"
+  },
+  {
+   "text": "금요일 6시까지 연수 보고서 제출: 자료 정리, 소감 작성, 결재",
+   "kind": "TODO",
+   "title": "연수 보고서 제출: 자료 정리, 소감 작성, 결재",
+   "start": "2026-10-23T06:00",
+   "needsReview": false,
+   "explanation": "날짜·시간이 있는 행동을 할 일로 분류"
+  },
+  {
+   "text": "10.30 오후 4시 면담",
+   "kind": "SCHEDULE",
+   "title": "면담",
+   "start": "2026-10-30T16:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "내일 할 일 추가해줘 우유 사기",
+   "kind": "TODO",
+   "title": "우유 사기",
+   "start": "2026-10-22T09:00",
+   "needsReview": false,
+   "explanation": "시간 없는 항목을 날짜가 있는 할 일로 분류"
+  },
+  {
+   "text": "월요일 오전 10시",
+   "kind": "SCHEDULE",
+   "title": "음성 메모",
+   "start": "2026-10-26T10:00",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  },
+  {
+   "text": "3시",
+   "kind": "SCHEDULE",
+   "title": "음성 메모",
+   "start": "2026-10-22T03:00",
+   "needsReview": false,
+   "explanation": "시간을 찾고 다음 시점으로 날짜를 추정함"
+  },
+  {
+   "text": "글피 저녁 6시 반에 친구 만나기",
+   "kind": "SCHEDULE",
+   "title": "친구 만나기",
+   "start": "2026-10-24T18:30",
+   "needsReview": false,
+   "explanation": "날짜와 시간을 찾음"
+  }
+ ]
+}

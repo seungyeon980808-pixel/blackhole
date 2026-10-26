@@ -35,7 +35,8 @@ public final class CalendarWidgetProvider extends AppWidgetProvider {
         if (ids == null || ids.length == 0) return;
         Context app = context.getApplicationContext();
         SharedPreferences prefs = Blackhole.prefs(app);
-        BlackholeBoard.Board board = BlackholeBoard.build(prefs.getString(BlackholeCalendarStore.PREF_SHARED, ""),
+        BlackholeBoard.Board board = BlackholeBoard.build(
+                BlackholeDrafts.overlay(prefs.getString(BlackholeCalendarStore.PREF_SHARED, ""), prefs.getString(BlackholeDrafts.PREF, "[]")),
                 LocalDate.now(), LocalTime.now(), prefs.getBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, false));
         String pkg = app.getPackageName();
         int layout = app.getResources().getIdentifier("blackhole_widget", "layout", pkg);

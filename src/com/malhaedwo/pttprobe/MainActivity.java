@@ -366,6 +366,7 @@ public final class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         PttService.restoreIfEnabled(this);
+        CalendarRefreshJob.refreshAsync(this);
         refresh();
         runLocalReconciliation();
     }

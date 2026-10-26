@@ -20,8 +20,8 @@ public final class BlackholeWiringTest {
 
         // 앱 정체성은 그대로.
         check(manifest.contains("package=\"com.malhaedwo.pttprobe\""), "패키지 이름 유지");
-        check(manifest.contains("android:versionCode=\"29\"") && manifest.contains("android:versionName=\"0.11.0\""),
-                "버전은 이 브랜치에서 올리지 않음(설치 승인 때 정함)");
+        check(manifest.contains("android:versionCode=\"30\"") && manifest.contains("android:versionName=\"0.11.1\""),
+                "버전 0.11.1(30): 빠른 동기화·초안·마감 표시");
         check(manifest.contains("android.permission.USE_FULL_SCREEN_INTENT"), "전체 화면 알림 권한 선언");
         check(!manifest.contains("android.permission.CAMERA"), "CAMERA 권한 없음(카메라 앱에 맡김)");
 
@@ -137,6 +137,32 @@ public final class BlackholeWiringTest {
                 && engine.contains("DRIVE.resumableUpload(token, file, file.getName(), \"audio/wav\", folderId, appProperties, \"WAV\")")
                 && engine.contains("\"drive_folder_id\""), "기존 WAV 업로드는 같은 폴더·캐시 키로 공용 업로드 코드를 씀");
         check(src("BlackholeUploader").contains("\"블랙홀\"") && src("BlackholeUploader").contains("\"인박스\""), "블랙홀/인박스 폴더 이름");
+
+        // 2026-10-26: 휴대폰 달력 받기(CalendarRefreshJob) 등록·즉시 갱신 배선.
+        check(refresh.contains("PERIOD_MS = 15 * 60_000L") && refresh.contains("setPeriodic(PERIOD_MS, FLEX_MS)"),
+                "달력 받기 주기 = 안드로이드 최소 15분(+여유 5분)");
+        check(refresh.contains("pending.getIntervalMillis() == PERIOD_MS") && !refresh.contains("getPendingJob(JOB_ID) != null) return"),
+                "예전(30분) 등록이 남아 있으면 새 간격으로 다시 등록");
+        check(refresh.contains("SOON_JOB_ID") && refresh.contains("setMinimumLatency(SOON_DELAYS_MS[step])"),
+                "보낸 직후 15초·30초·1분·2분·5분 뒤 다시 받기");
+        check(src("BlackholeUploadJob").contains("if (report.uploaded > 0) CalendarRefreshJob.soon(app)"), "업로드가 끝나면 다시 받기 시작");
+        check(boot.contains("CalendarRefreshJob.schedule(app)"), "재부팅·앱 업데이트 뒤 달력 받기 등록");
+        check(src("MainActivity").contains("CalendarRefreshJob.refreshAsync(this)") && src("BlackholeSendActivity").contains("CalendarRefreshJob.refreshAsync(this)"),
+                "앱·보내기 화면을 열면 바로 받기(등록 확인 포함)");
+        check(src("CalendarWidgetProvider").contains("CalendarRefreshJob.schedule(context)") && src("CalendarWebActivity").contains("CalendarRefreshJob.schedule(this)"),
+                "위젯·달력 화면에서도 등록");
+        check(refresh.contains("sendBroadcast(new Intent(ACTION_SHARED)") && src("CalendarWebActivity").contains("CalendarRefreshJob.ACTION_SHARED")
+                && src("CalendarWebActivity").contains("Blackhole.ACTION_DRAFTS"), "새 사본·새 초안이 오면 열린 달력이 바로 다시 그림");
+        check(refresh.contains("BlackholeDrafts.overlay(") && src("CalendarWidgetProvider").contains("BlackholeDrafts.overlay("),
+                "위젯·잠금화면에도 휴대폰 초안이 보임");
+        check(refresh.contains("Blackhole.pruneDrafts(app, text)"), "Mac 사본을 받으면 다룬 원본의 휴대폰 초안을 정리");
+        // 초안 먼저: 보내기 경로마다 규칙 파서 초안.
+        check(src("BlackholeSendActivity").contains("Blackhole.sendText(this, text") && src("BlackholeReplyReceiver").contains("Blackhole.sendText(app,")
+                && src("BlackholeShareActivity").contains("Blackhole.sendText(app, text, source)"), "보내기·잠금화면 적기·공유 문장 → 휴대폰 초안");
+        check(src("BlackholeCapture").contains("BlackholeVoiceText.transcribe(app, entry)") && src("TranscriptionManager").contains("BlackholeVoiceText.onPttTranscript(")
+                && src("CalendarWebActivity").contains("BlackholeVoiceText.transcribe(CalendarWebActivity.this, entry)"),
+                "녹음(보내기·잠금화면·PTT·달력 말하기) → 기기 안 받아쓰기 → 초안 + Mac용 받아쓰기 파일");
+        check(src("BlackholeVoiceText").contains("\"blackhole-stt\"") && src("BlackholeVoiceText").contains("EXT = \"bhstt\""), "받아쓰기 파일 형식(Mac DraftScan과 같음)");
 
         System.out.println("BlackholeWiringTest PASS: " + checks + " assertions (source wiring, not device evidence)");
     }

@@ -22,6 +22,10 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager, UserAttentionType};
 
 const INBOX_EVERY: Duration = Duration::from_secs(15);
+/// A Drive upload is usually complete within this; the scan leaves newer files for later.
+const INBOX_SETTLE: Duration = Duration::from_secs(3);
+/// Drafts are offered for inbox files this recent (older ones were handled before).
+const DRAFT_WINDOW: Duration = Duration::from_secs(3 * 24 * 3600);
 const RING_LIMIT: Duration = Duration::from_secs(10 * 60);
 
 #[derive(Default)]
@@ -37,6 +41,10 @@ struct InboxRun {
 #[derive(Default)]
 pub struct Desk {
     inbox: Arc<Mutex<InboxRun>>,
+    drafts: Mutex<calendar::DraftScan>,
+    /// Set when a new inbox file was seen: the scanner runs now instead of waiting.
+    kick: Arc<AtomicBool>,
+    drafted: Mutex<std::collections::HashSet<String>>,
     messenger: Arc<Mutex<MessengerRun>>,
     alarms: Arc<Mutex<Vec<AlarmSpec>>>,
     ringing: Arc<AtomicBool>,
@@ -244,6 +252,26 @@ pub fn inbox_results(desk: tauri::State<'_, Desk>) -> Result<Vec<InboxResult>, S
     calendar::inbox_results(&Layout::new(root).state()).map_err(|e| e.to_string())
 }
 
+/// Inbox files that can be drafted at once (phone text, phone transcripts). Cheap: polled
+/// every 2 s. A file seen for the first time wakes the scanner, so the AI starts sooner too.
+#[tauri::command]
+pub fn inbox_drafts(desk: tauri::State<'_, Desk>) -> Vec<calendar::InboxDraft> {
+    let (enabled, root) = {
+        let run = desk.inbox.lock().unwrap();
+        (run.enabled, run.root.clone())
+    };
+    if !enabled || root.as_os_str().is_empty() {
+        return Vec::new();
+    }
+    let since = std::time::SystemTime::now() - DRAFT_WINDOW;
+    let list = desk.drafts.lock().unwrap().scan(&root, since);
+    let mut drafted = desk.drafted.lock().unwrap();
+    if list.iter().any(|d| drafted.insert(d.job_id.clone())) {
+        desk.kick.store(true, Ordering::SeqCst);
+    }
+    list
+}
+
 fn drive_root() -> Result<PathBuf, String> {
     let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
     calendar::find_drive_blackhole(&home).ok_or_else(|| "드라이브 「블랙홀」 폴더가 없습니다.".to_string())
@@ -376,27 +404,35 @@ pub fn start(app: &AppHandle) {
         }
     });
 
-    let inbox = desk.inbox.clone();
+    let (inbox, kick) = (desk.inbox.clone(), desk.kick.clone());
     std::thread::spawn(move || {
         let mut last = Instant::now() - INBOX_EVERY;
         loop {
             std::thread::sleep(Duration::from_secs(1));
             let root = {
                 let run = inbox.lock().unwrap();
-                if !run.enabled || last.elapsed() < INBOX_EVERY {
+                let kicked = kick.load(Ordering::SeqCst) && last.elapsed() >= INBOX_SETTLE;
+                if !run.enabled || (last.elapsed() < INBOX_EVERY && !kicked) {
                     continue;
                 }
                 run.root.clone()
             };
+            kick.store(false, Ordering::SeqCst);
             last = Instant::now();
             inbox.lock().unwrap().running = true;
             let now = chrono::Local::now().fixed_offset();
-            let result = scan_once(&Layout::new(&root), EngineId::TextFirst, now, Duration::from_secs(5), |input, _| run_analysis(input, now));
+            let result = scan_once(&Layout::new(&root), EngineId::TextFirst, now, INBOX_SETTLE, |input, _| run_analysis(input, now));
             let mut run = inbox.lock().unwrap();
             run.running = false;
             run.last_scan_at = Some(now.format("%Y-%m-%dT%H:%M:%S").to_string());
             run.last_error = match result {
-                Ok(report) => report.failed.first().map(|f| format!("{}: {}", f.original, f.error.message)),
+                Ok(report) => {
+                    // A file still uploading: look again in a few seconds, not in 15.
+                    if !report.waiting.is_empty() {
+                        kick.store(true, Ordering::SeqCst);
+                    }
+                    report.failed.first().map(|f| format!("{}: {}", f.original, f.error.message))
+                }
                 Err(e) => Some(e.message),
             };
         }

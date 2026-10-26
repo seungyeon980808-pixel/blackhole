@@ -124,21 +124,27 @@ describe("calendar app", () => {
     expect(root.querySelector("#bhLast")?.textContent).toContain("기간");
     const chat = app!.state.chat.slice(-2);
     expect(chat[0].who).toBe("me");
-    expect(chat[1].text).toBe("3건 넣었어요.");
+    // The rule draft (가승인 「학부모 상담」) is refined in place by the AI; two more items are added.
+    expect(chat[1].text).toBe("초안 1건을 AI가 다듬었어요. 2건 더 넣었어요.");
+    expect(app!.state.events.filter((e) => !e.sample && !e.gone)).toHaveLength(1);
     app!.setView("day", ev.date);
     root.querySelector<HTMLButtonElement>(`[data-ok="${ev.id}"]`)!.click();
     await Promise.resolve();
     expect(app!.state.events.find((e) => e.id === ev.id)!.provisional).toBe(false);
   });
 
-  it("reports worker failures in the chat without adding anything", async () => {
+  it("reports worker failures in the chat and keeps the rule draft", async () => {
     await mount(fakeAdapter(new AnalyzeError("RUNNER_UNAVAILABLE", "Ollama가 꺼져 있습니다.")));
     const before = app!.state.events.length;
-    await app!.submitText("내일 회의");
-    expect(app!.state.events.length).toBe(before);
+    await app!.submitText("내일 3시 회의");
+    expect(app!.state.events.length).toBe(before + 1);
+    const kept = app!.state.events[app!.state.events.length - 1];
+    expect(kept.draft).toBe(false);
+    expect(kept.review?.join()).toContain("AI 분석 실패");
     const last = app!.state.chat[app!.state.chat.length - 1];
     expect(last.error).toBe(true);
     expect(last.text).toContain("Ollama가 꺼져 있습니다.");
+    expect(last.text).toContain("초안은 그대로");
   });
 
   it("renders month on FullCalendar and the 공문서 week table", async () => {

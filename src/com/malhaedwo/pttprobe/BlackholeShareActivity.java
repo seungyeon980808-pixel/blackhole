@@ -91,7 +91,7 @@ public final class BlackholeShareActivity extends Activity {
             }
             if (text != null && !text.trim().isEmpty()) {
                 try {
-                    outbox.addText(text, source, now);
+                    Blackhole.sendText(app, text, source);
                     ok++;
                 } catch (Throwable error) {
                     failed++;

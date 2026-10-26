@@ -93,6 +93,11 @@ public final class KoreanCommandParser {
         return new ParsedCommand(kind, title, startAt, endAt, reminderAt, review, explanation);
     }
 
+    /** 시각(「3시」, 「오후 2시 반」)을 실제로 말했는지. 날짜만 있는 항목의 09:00 대신 값과 구별한다. */
+    public static boolean hasClockTime(String raw) {
+        return parseTime(normalize(raw)) != null;
+    }
+
     private static String normalize(String text) {
         String value = text == null ? "" : text.trim().replaceAll("\\s+", " ");
         String[][] replacements = {

@@ -7,8 +7,10 @@ import android.app.job.JobScheduler;
 import android.app.job.JobService;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.os.PersistableBundle;
 import android.util.DisplayMetrics;
 
 import java.io.File;
@@ -19,30 +21,87 @@ import java.util.Date;
 import java.util.Locale;
 
 /**
- * 30분마다(네트워크가 있을 때): Mac 사본 받기 → 구글 캘린더 반영(켜 둔 경우) → 홈 위젯 → 잠금화면 배경(켜 둔 경우).
+ * Mac 사본 받기 → 구글 캘린더 반영(켜 둔 경우) → 홈 위젯 → 잠금화면 배경(켜 둔 경우).
  * 앱을 열지 않아도 위젯·잠금화면·캘린더가 새 내용을 따라가게 한다.
+ *  - 주기 작업: 안드로이드 최소 간격 15분(+여유 5분). 앱 시작·업데이트·재부팅·위젯·달력 화면에서 등록하고,
+ *    예전(30분) 등록이 남아 있으면 새 간격으로 바꾼다.
+ *  - 보낸 직후: 업로드가 끝나면 15초·30초·1분·2분·5분 뒤 한 번씩 더 받는다(Mac이 정리해 사본을 쓸 시간).
+ *  - 앱·보내기 화면을 열 때와 달력 화면이 보이는 동안(30초마다)은 바로 받는다.
  */
 public final class CalendarRefreshJob extends JobService {
     static final int JOB_ID = 491752;
-    private static final long PERIOD_MS = 30 * 60_000L;
+    static final int SOON_JOB_ID = 491753;
+    static final long PERIOD_MS = 15 * 60_000L;
+    static final long FLEX_MS = 5 * 60_000L;
+    /** 보낸 뒤 다시 받는 간격(앞 단계에서 이어서). */
+    static final long[] SOON_DELAYS_MS = {15_000L, 30_000L, 60_000L, 120_000L, 300_000L};
+    /** 새 사본을 받았음: 열린 블랙홀 달력이 바로 반영한다. */
+    static final String ACTION_SHARED = "com.malhaedwo.pttprobe.BLACKHOLE_SHARED";
     private static final String PREF_LOCK_DRAWN = "board_lock_drawn";
+    private static final String STEP = "step";
+    private static volatile boolean soonRunning;
+    private static volatile boolean soonAgain;
     private Thread worker;
 
+    /** 주기 작업 등록. 같은 간격으로 이미 있으면 그대로 둔다(돌던 작업을 멈추지 않게). */
     static void schedule(Context context) {
         Context app = context.getApplicationContext();
         JobScheduler scheduler = app.getSystemService(JobScheduler.class);
-        if (scheduler == null || scheduler.getPendingJob(JOB_ID) != null) return;
+        if (scheduler == null) return;
+        JobInfo pending = scheduler.getPendingJob(JOB_ID);
+        if (pending != null && pending.getIntervalMillis() == PERIOD_MS && pending.getFlexMillis() == FLEX_MS) return;
         scheduler.schedule(new JobInfo.Builder(JOB_ID, new ComponentName(app, CalendarRefreshJob.class))
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-                .setPeriodic(PERIOD_MS)
+                .setPeriodic(PERIOD_MS, FLEX_MS)
                 .setPersisted(true)
                 .build());
     }
 
+    /** 보낸 직후: 짧은 간격으로 몇 번 더 받기(처음 단계부터). */
+    static void soon(Context context) {
+        if (soonRunning) {
+            soonAgain = true;
+            return;
+        }
+        soonStep(context.getApplicationContext(), 0);
+    }
+
+    private static void soonStep(Context app, int step) {
+        if (step >= SOON_DELAYS_MS.length) return;
+        JobScheduler scheduler = app.getSystemService(JobScheduler.class);
+        if (scheduler == null) return;
+        PersistableBundle extras = new PersistableBundle();
+        extras.putInt(STEP, step);
+        scheduler.schedule(new JobInfo.Builder(SOON_JOB_ID, new ComponentName(app, CalendarRefreshJob.class))
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .setMinimumLatency(SOON_DELAYS_MS[step])
+                .setExtras(extras)
+                .build());
+    }
+
+    /** 화면을 열 때: 기다리지 않고 지금 한 번 받기(작업 등록도 확인). */
+    static void refreshAsync(Context context) {
+        Context app = context.getApplicationContext();
+        schedule(app);
+        new Thread(() -> refresh(app), "blackhole-calendar-now").start();
+    }
+
     @Override public boolean onStartJob(JobParameters params) {
+        boolean soonJob = params.getJobId() == SOON_JOB_ID;
+        int step = soonJob ? params.getExtras().getInt(STEP, 0) : -1;
+        if (soonJob) soonRunning = true;
         worker = new Thread(() -> {
-            refresh(this);
-            jobFinished(params, false);
+            try {
+                refresh(this);
+            } finally {
+                jobFinished(params, false);
+                if (soonJob) {
+                    soonRunning = false;
+                    boolean restart = soonAgain;
+                    soonAgain = false;
+                    soonStep(getApplicationContext(), restart ? 0 : step + 1);
+                }
+            }
         }, "blackhole-calendar-refresh");
         worker.start();
         return true;
@@ -64,8 +123,11 @@ public final class CalendarRefreshJob extends JobService {
             String text = sync.fetch();
             if (BlackholeCalendarStore.isShared(text)) {
                 String pending = BlackholeCalendarStore.prune(prefs.getString(BlackholeCalendarStore.PREF_PENDING, "[]"), text);
+                boolean changed = !text.equals(prefs.getString(BlackholeCalendarStore.PREF_SHARED, ""));
                 prefs.edit().putString(BlackholeCalendarStore.PREF_SHARED, text)
-                        .putString(BlackholeCalendarStore.PREF_PENDING, pending).apply();
+                        .putString(BlackholeCalendarStore.PREF_PENDING, pending).commit();
+                Blackhole.pruneDrafts(app, text);
+                if (changed) app.sendBroadcast(new Intent(ACTION_SHARED).setPackage(app.getPackageName()));
                 prefs.edit().putString(BlackholeCalendarMirror.PREF_STATUS, CalendarMirrorWriter.sync(app, text)).apply();
                 status = "Mac 사본 받음 " + clock();
             } else {
@@ -86,7 +148,7 @@ public final class CalendarRefreshJob extends JobService {
         SharedPreferences prefs = Blackhole.prefs(app);
         if (!prefs.getBoolean(BlackholeBoard.PREF_LOCK, false)) return;
         boolean hide = prefs.getBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, false);
-        String shared = prefs.getString(BlackholeCalendarStore.PREF_SHARED, "");
+        String shared = BlackholeDrafts.overlay(prefs.getString(BlackholeCalendarStore.PREF_SHARED, ""), Blackhole.drafts(app));
         BlackholeBoard.Board board = BlackholeBoard.build(shared, LocalDate.now(), LocalTime.now(), hide);
         String signature = LocalDate.now() + "|" + hide + "|" + shared.hashCode();
         if (signature.equals(prefs.getString(PREF_LOCK_DRAWN, ""))) return;

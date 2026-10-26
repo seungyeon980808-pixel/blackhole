@@ -1,8 +1,8 @@
 /** 유리 테마 (기본). Markup follows design/calendar-glass/prototype-glass.html. */
 import { addDays, DOW, fdShort, mins, parseDay, ymd, diffDays } from "../dates";
 import type { CalEvent, ChatMessage, Period, Task } from "../model";
-import { alarmsOn, eventsOn, findEntry, pending, periodsOn, taskGroups, type Alarm } from "../store";
-import { dday, esc, hourSegments, ICON, nextReminder, pct, subCount, type Ctx, type ThemeView } from "./common";
+import { alarmsOn, dueOn, eventsOn, findEntry, pending, periodsOn, taskGroups, type Alarm } from "../store";
+import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, nextReminder, pct, type Ctx, type ThemeView } from "./common";
 
 const fd = fdShort;
 const none = '<div class="none">없음</div>';
@@ -10,7 +10,9 @@ const none = '<div class="none">없음</div>';
 export function timetable(ctx: Ctx, k: string, H0 = 7, H1 = 24, rowH = 28): string {
   const evs = eventsOn(ctx.s, k);
   const rems = alarmsOn(ctx.s, k, fd);
-  let h = `<div class="mh0"></div>${[10, 20, 30, 40, 50, 60].map((x) => `<div class="mh">${x}</div>`).join("")}`;
+  const dues = dueOn(ctx.s, k);
+  const allDayDue = dues.filter((t) => !t.dueTime);
+  let h = `${allDayDue.length ? `<div class="dueday">마감 ${allDayDue.map((t) => { const b = dueBadge(ctx.today, t); return `<span class="${b?.hot ? "hot" : ""} ${t.done ? "done" : ""}" data-ev="${t.id}">${esc(t.title)}</span>`; }).join("")}</div>` : ""}<div class="mh0"></div>${[10, 20, 30, 40, 50, 60].map((x) => `<div class="mh">${x}</div>`).join("")}`;
   for (let H = H0; H < H1; H++) {
     const A = H * 60;
     const B = A + 60;
@@ -22,6 +24,7 @@ export function timetable(ctx: Ctx, k: string, H0 = 7, H1 = 24, rowH = 28): stri
       const m = mins(x.at.slice(11));
       if (m >= A && m < B) r += `<div class="rm" style="left:${pct(m, A)}" title="${esc(`알림 ${x.at.slice(11)} ${x.title}`)}"></div>`;
     }
+    r += dueMarks(ctx.today, dues, A, B);
     if (k === ctx.today && ctx.nowM >= A && ctx.nowM < B) r += `<div class="now" style="left:${pct(ctx.nowM, A)}"></div>`;
     h += `<div class="h" style="height:${rowH}px">${H}</div><div class="row ${k === ctx.today && B <= ctx.nowM ? "past" : ""}" style="height:${rowH}px">${r}</div>`;
   }
@@ -39,8 +42,8 @@ function taskHTML(ctx: Ctx, t: Task, showSubAdd = true): string {
   ].filter(Boolean).join(" · ");
   const subs = t.subs.map((x, i) => `<div class="sub ${x.done ? "done" : ""}" data-sub="${t.id}:${i}" role="checkbox" aria-checked="${x.done}" tabindex="0"><span class="bx">${x.done ? "✓" : ""}</span><span>${esc(x.title)}</span></div>`).join("");
   return `<div class="task ${t.done ? "done" : ""}">
-    <div class="th"><span class="bx" data-tdone="${t.id}" role="checkbox" aria-checked="${t.done}" tabindex="0" aria-label="${esc(t.title)} 완료">${t.done ? "✓" : ""}</span><span class="t">${esc(t.title)}</span><span class="ml">${dday(ctx.today, t)}</span></div>
-    ${meta ? `<div class="tm2">${esc(meta)}</div>` : ""}
+    <div class="th"><span class="bx" data-tdone="${t.id}" role="checkbox" aria-checked="${t.done}" tabindex="0" aria-label="${esc(t.title)} 완료">${t.done ? "✓" : ""}</span><span class="t">${esc(t.title)}${draftTag(t)}</span><span class="ml">${t.noDue ? "" : dday(ctx.today, t)}</span></div>
+    ${meta || t.suggest?.length ? `<div class="tm2">${esc(meta)}${aiOffer(t, fd)}</div>` : ""}
     ${t.subs.length || showSubAdd ? `<div class="subs">${subs}${showSubAdd ? `<input class="subadd" data-subadd="${t.id}" placeholder="+ 하위 할 일" aria-label="${esc(t.title)} 하위 할 일 추가">` : ""}</div>` : ""}
   </div>`;
 }
@@ -50,7 +53,7 @@ function okNo(id: string): string {
 }
 
 function evRow(e: CalEvent): string {
-  return `<div class="ev" data-ev="${e.id}"><span class="dot d-${e.area}"></span><span class="tm">${e.start ? `${e.start}–${e.end}` : "종일"}</span><span class="evt">${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}${e.reminders.length ? ` <span class="rem">알림 ${esc(e.reminders.map((r) => r.slice(11)).join(", "))}</span>` : ""}</span>${e.provisional ? okNo(e.id) : ""}</div>`;
+  return `<div class="ev" data-ev="${e.id}"><span class="dot d-${e.area}"></span><span class="tm">${e.start ? `${e.start}–${e.end}` : "종일"}</span><span class="evt">${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}${draftTag(e)}${aiOffer(e, fd)}${e.reminders.length ? ` <span class="rem">알림 ${esc(e.reminders.map((r) => r.slice(11)).join(", "))}</span>` : ""}</span>${e.provisional ? okNo(e.id) : ""}</div>`;
 }
 
 function perRow(p: Period, k: string): string {
@@ -134,11 +137,12 @@ export const glass: ThemeView = {
   monthChip: (ctx, kind, x) => {
     if (kind === "event") {
       const e = x as unknown as CalEvent;
-      return `<span class="c ${e.area} ${e.provisional ? "prov" : ""}">${e.start ? `<span class="ct">${e.start.replace(/^0/, "")} </span>` : ""}${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</span>`;
+      return `<span class="c ${e.area} ${e.provisional ? "prov" : ""} ${e.draft ? "draft" : ""}">${e.start ? `<span class="ct">${e.start.replace(/^0/, "")} </span>` : ""}${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</span>`;
     }
     if (kind === "task") {
       const t = x as unknown as Task;
-      return `<span class="c task ${t.done ? "done" : ""}">☐ ${esc(t.title)}${t.subs.length ? " " + subCount(t) : ""}</span>`;
+      const b = dueBadge(ctx.today, t);
+      return `<span class="c task due ${b?.hot ? "hot" : ""} ${t.done ? "done" : ""} ${t.draft ? "draft" : ""}">마감 ${t.dueTime ? `<span class="ct">${t.dueTime} </span>` : ""}${esc(t.title)}${b ? ` <b class="dd ${b.hot ? "hot" : "soon"}">${b.text}</b>` : ""}</span>`;
     }
     const p = x as unknown as Period;
     return `<span class="pb ${p.area}" title="${esc(`${p.title} ${fd(p.from)}–${fd(p.to)}`)}">${esc(p.title)}</span>`;

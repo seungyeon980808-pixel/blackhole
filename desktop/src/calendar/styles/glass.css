@@ -250,3 +250,22 @@ html.native-glass .bh.glass[data-mode="light"] .fc-timeGridWeek-view .fc-col-hea
 /* title bar is transparent (overlay): leave room for the traffic lights and let it drag the window */
 html.native-glass .bh .bar, html.native-glass .bh .tool { padding-top: 30px; }
 html.native-glass .bh .bar .title { padding-left: 0; }
+
+/* Draft first, AI later · deadlines on the calendar (2026-10-26) */
+.bh.glass .dr { font-size: 9px; font-weight: 700; padding: 0 3px; border-radius: 3px; border: 1px dashed var(--ink3); color: var(--ink2); margin-left: 4px; vertical-align: 1px; }
+.bh.glass .c.draft, .bh.glass .bk.draft { font-style: italic; }
+.bh.glass .c.due { color: var(--ink); }
+.bh.glass .c.due.hot { color: var(--now); font-weight: 700; }
+.bh.glass .c.due .dd { font-size: 10px; margin-left: 2px; }
+.bh.glass .tt .dueday { grid-column: 1 / -1; font-size: 11px; color: var(--ink2); padding: 2px 4px 3px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bh.glass .tt .dueday span { color: var(--ink); margin-left: 8px; cursor: pointer; }
+.bh.glass .tt .dueday span.hot { color: var(--now); font-weight: 700; }
+.bh.glass .tt .dueday span.done, .bh.glass .tt .du.done { text-decoration: line-through; opacity: .45; }
+.bh.glass .tt .du { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--todo); z-index: 2; cursor: pointer; }
+.bh.glass .tt .du span { position: absolute; left: 3px; top: 50%; transform: translateY(-50%); font-size: 9.5px; line-height: 12px; white-space: nowrap; color: var(--ink); background: color-mix(in srgb, var(--page) 70%, transparent); padding: 0 2px; border-radius: 2px; }
+.bh.glass .tt .du.hot { border-left-color: var(--now); }
+.bh.glass .tt .du.hot span { color: var(--now); font-weight: 700; }
+.bh.glass .aio { font-size: 11px; color: var(--ink2); margin-left: 6px; white-space: nowrap; }
+.bh.glass .aio .mini { margin-left: 3px; }
+.bh.glass .fc .bh-due { background: none; border: 0; border-top: 2px solid var(--todo); border-radius: 0; }
+.bh.glass .fc .wbt.due.hot { color: var(--now); font-weight: 700; }

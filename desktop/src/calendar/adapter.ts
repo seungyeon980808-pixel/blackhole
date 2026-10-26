@@ -4,7 +4,7 @@
  * pass its own; the browser preview uses the memory adapter.
  */
 import type { Proposal } from "../worker/proposal";
-import type { CalendarState, SharedCalendar, UserAction } from "./model";
+import type { CalendarState, Entry, SharedCalendar, UserAction } from "./model";
 import type { Alarm } from "./store";
 
 export interface AnalyzeInput {
@@ -17,9 +17,22 @@ export interface AnalyzeInput {
 
 /** code "QUEUED": sent for analysis elsewhere (phone → Mac); not a failure. */
 export class AnalyzeError extends Error {
-  constructor(readonly code: string, message: string) {
+  /** QUEUED: the inbox job id the upload will get on the Mac ("job-" + SHA-256 prefix). */
+  constructor(readonly code: string, message: string, readonly job?: string) {
     super(message);
   }
+}
+
+/** A file in the Mac's inbox whose words are already known (a .txt, or a phone recording with
+ *  the phone's own transcript): drafted at once, before the AI result for the same job. */
+export interface InboxDraft {
+  jobId: string;
+  fileName: string;
+  text: string;
+  /** "text" (typed on the phone) or "voice" (phone speech recognition). */
+  kind: "text" | "voice";
+  /** When the phone made it (epoch ms), if known. */
+  at?: number;
 }
 
 export interface InboxStatus {
@@ -57,6 +70,8 @@ export interface BlackholeAdapter {
   inboxStatus(): Promise<InboxStatus>;
   setInbox(enabled: boolean, root: string | null): Promise<InboxStatus>;
   inboxResults(): Promise<InboxResult[]>;
+  /** Mac: inbox files that can be drafted right away (cheap; polled every 2 s). */
+  inboxDrafts?(): Promise<InboxDraft[]>;
   /** Replace the alarm schedule. The adapter calls onFire when one is due. */
   scheduleAlarms(alarms: Alarm[]): Promise<void>;
   onAlarm(handler: (alarm: Alarm) => void): void;
@@ -87,6 +102,10 @@ export interface BlackholeAdapter {
   /** Phone: called when a newer shared copy from the Mac arrives, with the phone's
    *  changes the Mac has not applied yet (to replay on top). */
   onShared?(handler: (shared: SharedCalendar, pending: UserAction[]) => void): void;
+  /** Phone: drafts made on the phone that the Mac has not answered yet (kept natively). */
+  localDrafts?(): Entry[];
+  /** Phone: keep drafts made in this page until the Mac's copy covers their job. */
+  keepDrafts?(entries: Entry[]): void;
 }
 
 /** Stage 4: provisional events go to `provisional`, confirmed events and periods to `main`. */

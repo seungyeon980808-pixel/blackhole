@@ -7,9 +7,9 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { addDays, DOW, fromStamp, parseDay, ymd } from "./dates";
-import type { CalendarState, ThemeName } from "./model";
+import type { CalendarState, Task, ThemeName } from "./model";
 import { allAlarms, liveEvents, livePeriods, liveTasks } from "./store";
-import type { Ctx, ThemeView } from "./views/common";
+import { dueBadge, type Ctx, type ThemeView } from "./views/common";
 
 export function fcEvents(s: CalendarState, withBells: boolean): EventInput[] {
   const out: EventInput[] = [];
@@ -21,7 +21,14 @@ export function fcEvents(s: CalendarState, withBells: boolean): EventInput[] {
       ? { id: e.id, title: e.title, start: `${e.date}T${e.start}`, end: e.end ? `${e.date}T${e.end}` : undefined, allDay: false, classNames: ["bh-ev", e.area, e.provisional ? "prov" : ""], extendedProps: { kind: "event", order: 1 } }
       : { id: e.id, title: e.title, start: e.date, allDay: true, classNames: ["bh-ev", e.area, e.provisional ? "prov" : ""], extendedProps: { kind: "event", order: 1 } });
   }
+  // Deadlines (not to-dos without one). In the week grid a timed deadline sits at its time.
   for (const t of liveTasks(s)) {
+    if (t.noDue) continue;
+    if (withBells && t.dueTime) {
+      const at = new Date(`${t.due}T${t.dueTime}`);
+      out.push({ id: t.id, title: t.title, start: at, end: new Date(at.getTime() + 20 * 60e3), allDay: false, classNames: ["bh-due", t.done ? "done" : ""], extendedProps: { kind: "task", order: 2 } });
+      continue;
+    }
     out.push({ id: t.id, title: t.title, start: t.due, allDay: true, classNames: ["bh-task", t.done ? "done" : ""], extendedProps: { kind: "task", order: 2 } });
   }
   if (withBells) {
@@ -89,8 +96,13 @@ export class FcHost {
         const x = byId(arg.event.id);
         if (!x) return true;
         if (fcView === "timeGridWeek" && kind === "event" && !arg.event.allDay) {
-          const e = x as { start: string | null; title: string };
-          return { html: `<div class="wbt">${e.start ?? ""} ${escapeText(e.title)}</div>` };
+          const e = x as { start: string | null; title: string; draft?: boolean };
+          return { html: `<div class="wbt">${e.start ?? ""} ${escapeText(e.title)}${e.draft ? '<span class="dr">초안</span>' : ""}</div>` };
+        }
+        if (fcView === "timeGridWeek" && kind === "task" && !arg.event.allDay) {
+          const t = x as unknown as Task;
+          const b = dueBadge(ctx.today, t);
+          return { html: `<div class="wbt due ${b?.hot ? "hot" : ""}">마감 ${t.dueTime ?? ""} ${escapeText(t.title)}${b ? ` <b>${b.text}</b>` : ""}</div>` };
         }
         if (fcView === "timeGridWeek" && kind === "period") {
           const p = x as { title: string; from: string; to: string };

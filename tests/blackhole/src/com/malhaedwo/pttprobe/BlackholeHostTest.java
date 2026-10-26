@@ -31,6 +31,8 @@ public final class BlackholeHostTest {
         calendar();
         mirror();
         board();
+        drafts(args.length > 0 ? args[0] : ".");
+        mirrorDeadlines();
         System.out.println("BlackholeHostTest PASS: " + checks + " assertions (가짜 드라이브·호스트 시험, 기기 증거 아님)");
     }
 
@@ -440,6 +442,73 @@ public final class BlackholeHostTest {
         try { body.run(); return false; }
         catch (java.io.IOException expected) { return true; }
         catch (Exception other) { return false; }
+    }
+
+    // ---------------------------------------------------------------- 휴대폰 초안 (2026-10-26)
+
+    private static void drafts(String root) throws Exception {
+        // 달력 화면(TS)과 같은 정답표: 규칙이 어긋나면 두 쪽 초안이 달라진다.
+        org.json.JSONObject golden = new org.json.JSONObject(new String(Files.readAllBytes(
+                new File(root, "desktop/tests/fixtures/rule-cases.json").toPath()), StandardCharsets.UTF_8));
+        long ref = java.time.LocalDateTime.parse(golden.optString("referenceLocal")).atZone(SEOUL).toInstant().toEpochMilli();
+        org.json.JSONArray cases = golden.optJSONArray("cases");
+        int same = 0;
+        for (int i = 0; i < cases.length(); i++) {
+            org.json.JSONObject c = cases.optJSONObject(i);
+            ParsedCommand p = KoreanCommandParser.parse(c.optString("text"), ref);
+            String start = p.startAt == 0 ? "" : java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
+                    .format(java.time.Instant.ofEpochMilli(p.startAt).atZone(SEOUL));
+            if (p.kind.equals(c.optString("kind")) && p.title.equals(c.optString("title")) && start.equals(c.optString("start"))) same++;
+        }
+        check(same == cases.length(), "규칙 파서가 공용 정답표 " + cases.length() + "문장과 같음(달력 화면 TS와 같은 규칙)");
+
+        long at = java.time.LocalDateTime.parse("2026-10-21T09:00").atZone(SEOUL).toInstant().toEpochMilli();
+        org.json.JSONObject ev = BlackholeDrafts.fromText("내일 오후 3시에 학부모 상담", at, "job-0123456789abcdef", SEOUL);
+        check("event".equals(ev.optString("kind")) && "2026-10-22".equals(ev.optString("date")) && "15:00".equals(ev.optString("start"))
+                && "16:00".equals(ev.optString("end")) && ev.optBoolean("provisional", false) && ev.optBoolean("draft", false)
+                && "job-0123456789abcdef".equals(ev.optString("srcKey")) && ev.optString("id").startsWith("e-d")
+                && "2026-10-22T14:30".equals(ev.optJSONArray("reminders").optString(0, "")),
+                "일정 초안: 가승인, 1시간, 30분 전 알림, 원본 작업 id로 연결");
+        org.json.JSONObject task = BlackholeDrafts.fromText("금요일까지 보고서 제출", at, "job-b", SEOUL);
+        check("task".equals(task.optString("kind")) && "2026-10-23".equals(task.optString("due")) && task.opt("dueTime") == org.json.JSONObject.NULL
+                && "2026-10-23T09:00".equals(task.optJSONArray("reminders").optString(0, "")) && !task.has("noDue"),
+                "할 일 초안: 날짜만 → 마감일, 시각 없음, 그날 09:00 알림");
+        org.json.JSONObject memo = BlackholeDrafts.fromText("민수 연락처 기억해 줘", at, "job-c", SEOUL);
+        check("task".equals(memo.optString("kind")) && memo.optBoolean("noDue", false) && memo.optJSONArray("reminders").length() == 0,
+                "날짜 없는 말은 마감 없는 할 일(달력에는 안 나옴)");
+        check(BlackholeDrafts.jobId("ABCDEF0123456789ffff").equals("job-abcdef0123456789"), "작업 id = Mac 작업기와 같은 규칙");
+
+        String list = BlackholeDrafts.addAll("[]", ev.toString());
+        list = BlackholeDrafts.addAll(list, "[" + task + "," + memo + "]");
+        list = BlackholeDrafts.addAll(list, ev.toString());
+        check(new org.json.JSONArray(list).length() == 3, "초안 보관: 같은 id는 한 번");
+        String shared = "{\"kind\":\"blackhole-calendar\",\"schemaVersion\":1,\"events\":[],\"tasks\":[],\"periods\":[],\"notes\":[]}";
+        String board = BlackholeDrafts.overlay(shared, list);
+        check(new org.json.JSONObject(board).optJSONArray("events").length() == 1 && new org.json.JSONObject(board).optJSONArray("tasks").length() == 2,
+                "위젯·잠금화면: Mac 사본 위에 휴대폰 초안을 얹음");
+        String macHas = shared.replace("\"notes\":[]", "\"notes\":[],\"sources\":[\"job-0123456789abcdef\"]")
+                .replace("\"tasks\":[]", "\"tasks\":[{\"id\":\"t-9\",\"kind\":\"task\",\"srcKey\":\"job-b\",\"due\":\"2026-10-23\"}]");
+        String pruned = BlackholeDrafts.prune(list, macHas, at + 60_000L, SEOUL);
+        check(new org.json.JSONArray(pruned).length() == 1 && pruned.contains("job-c"), "Mac 사본이 다룬 원본의 초안은 뺌(sources·srcKey)");
+        check(new org.json.JSONArray(BlackholeDrafts.prune(list, shared, at + BlackholeDrafts.KEEP_MS + 120_000L, SEOUL)).length() == 0,
+                "사흘 지난 초안은 정리");
+        check(BlackholeDrafts.overlay(macHas, list).split("job-b", -1).length == 2, "Mac에 이미 있는 원본은 위젯에 두 번 나오지 않음");
+    }
+
+    private static void mirrorDeadlines() {
+        String shared = "{\"kind\":\"blackhole-calendar\",\"schemaVersion\":1,\"events\":[],\"periods\":[],\"notes\":[],\"tasks\":["
+                + "{\"id\":\"t-1\",\"title\":\"보고서 제출\",\"due\":\"2026-10-23\",\"dueTime\":\"18:00\",\"done\":false},"
+                + "{\"id\":\"t-2\",\"title\":\"출석부\",\"due\":\"2026-10-24\",\"dueTime\":null,\"done\":false},"
+                + "{\"id\":\"t-3\",\"title\":\"끝낸 것\",\"due\":\"2026-10-24\",\"dueTime\":null,\"done\":true},"
+                + "{\"id\":\"t-4\",\"title\":\"마감 없음\",\"due\":\"2026-10-24\",\"dueTime\":null,\"done\":false,\"noDue\":true}]}";
+        List<BlackholeCalendarMirror.Want> wanted = BlackholeCalendarMirror.wanted(shared, SEOUL);
+        check(wanted.size() == 2, "구글 캘린더: 마감 있는 할 일만(끝낸 것·마감 없는 것 뺌)");
+        BlackholeCalendarMirror.Want t1 = wanted.get(0);
+        check("[마감] 보고서 제출".equals(t1.title) && !t1.allDay && !t1.provisional && t1.end - t1.start == 30 * 60_000L
+                && t1.start == ZonedDateTime.of(2026, 10, 23, 18, 0, 0, 0, SEOUL).toInstant().toEpochMilli(), "시각 있는 마감: 그 시각 30분, 본 캘린더");
+        check(wanted.get(1).allDay && "[마감] 출석부".equals(wanted.get(1).title), "시각 없는 마감: 그날 종일");
+        List<BlackholeCalendarMirror.Op> ops = BlackholeCalendarMirror.plan(wanted, new LinkedHashMap<>(), 7, 9);
+        check(ops.size() == 2 && ops.get(0).calendarId == 9 && ops.get(1).calendarId == 9, "마감은 본 캘린더(9)에");
     }
 
     private static void check(boolean condition, String label) {

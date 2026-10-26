@@ -4,7 +4,7 @@
  * Mac's shared copy 「블랙홀/달력.json」, with the phone's own changes sent back as action files.
  */
 import { AnalyzeError, type BlackholeAdapter, type GoogleCalendars, type InboxStatus } from "../calendar/adapter";
-import { isShared, type CalendarState, type SharedCalendar, type UserAction } from "../calendar/model";
+import { isShared, type CalendarState, type Entry, type SharedCalendar, type UserAction } from "../calendar/model";
 
 /** Methods the Android app adds with addJavascriptInterface (all synchronous strings). */
 export interface AndroidBridge {
@@ -22,6 +22,9 @@ export interface AndroidBridge {
   boardOptions?(): string;
   setBoardOptions?(lock: boolean, hideSchool: boolean): void;
   setGoogleCalendars?(enabled: boolean, provisional: string, main: string): void;
+  /** Drafts made on the phone (this page or the native send screens), JSON list of entries. */
+  localDrafts?(): string;
+  keepDrafts?(json: string): void;
 }
 
 declare global {
@@ -31,6 +34,8 @@ declare global {
     blackholeShared?: () => void;
     /** Called by the Android app after mirroring to the calendars. */
     blackholeCalendars?: () => void;
+    /** Called by the Android app when it made a draft natively (send screen, lock screen, voice). */
+    blackholeDrafts?: () => void;
   }
 }
 
@@ -53,9 +58,9 @@ const off: InboxStatus = { available: false, enabled: false, root: "", lastScanA
 export function androidAdapter(bridge: AndroidBridge): BlackholeAdapter {
   let lastShared = "";
   const sent = (reply: string) => {
-    const r = parse<{ ok: boolean; message: string }>(reply, { ok: false, message: "보내지 못했습니다." });
+    const r = parse<{ ok: boolean; message: string; job?: string }>(reply, { ok: false, message: "보내지 못했습니다." });
     if (!r.ok) throw new AnalyzeError("IO", r.message);
-    throw new AnalyzeError("QUEUED", "보냈어요. Mac이 정리하면 이 달력에 들어옵니다.");
+    throw new AnalyzeError("QUEUED", "보냈어요. Mac이 정리하면 이 달력에 들어옵니다.", r.job || undefined);
   };
   return {
     origin: "휴대폰",
@@ -89,20 +94,31 @@ export function androidAdapter(bridge: AndroidBridge): BlackholeAdapter {
       ? async () => parse<GoogleCalendars>(bridge.googleCalendars!(), { permission: false, enabled: false, provisional: "", main: "", status: "", calendars: [] })
       : undefined,
     setGoogleCalendars: bridge.setGoogleCalendars ? async (enabled, provisional, main) => bridge.setGoogleCalendars!(enabled, provisional, main) : undefined,
+    localDrafts: bridge.localDrafts ? () => parse<Entry[]>(bridge.localDrafts!(), []) : undefined,
+    keepDrafts: bridge.keepDrafts ? (entries) => bridge.keepDrafts!(JSON.stringify(entries)) : undefined,
     onShared(handler) {
-      const take = () => {
+      const empty: SharedCalendar = { kind: "blackhole-calendar", schemaVersion: 1, exportedAt: "", events: [], tasks: [], periods: [], notes: [], appliedActions: [] };
+      // force: the copy is the same but the phone's own drafts changed (made natively).
+      const take = (force = false) => {
         const text = bridge.sharedCopy();
-        if (!text || text === lastShared) return;
-        const shared = parse<SharedCalendar | null>(text, null);
-        if (!isShared(shared)) return;
+        if (!force && (!text || text === lastShared)) return;
+        const shared = text ? parse<SharedCalendar | null>(text, null) : empty;
+        if (!isShared(shared)) {
+          if (!force) return;
+        }
+        const copy = isShared(shared) ? shared : empty;
         lastShared = text;
-        const applied = new Set(shared.appliedActions);
-        handler(shared, parse<UserAction[]>(bridge.pendingActions(), []).filter((a) => !applied.has(a.id)));
+        const applied = new Set(copy.appliedActions);
+        handler(copy, parse<UserAction[]>(bridge.pendingActions(), []).filter((a) => !applied.has(a.id)));
       };
-      window.blackholeShared = take;
-      window.setTimeout(take, 0);
+      window.blackholeShared = () => take();
+      window.blackholeDrafts = () => take(true);
+      window.setTimeout(() => take(!!bridge.localDrafts), 0);
       bridge.refreshShared();
-      window.setInterval(() => bridge.refreshShared(), 60_000);
+      // While the calendar is on screen, ask for the Mac's copy every 30 s (a small file).
+      window.setInterval(() => {
+        if (document.visibilityState === "visible") bridge.refreshShared();
+      }, 30_000);
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") bridge.refreshShared();
       });

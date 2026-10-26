@@ -24,8 +24,10 @@ HOST=()
 while IFS= read -r f; do HOST+=("$f"); done < <(collect "$HERE/json" "$HERE/src")
 "$JAVA_HOME/bin/javac" -encoding UTF-8 --release 11 -d "$OUT/host" "${HOST[@]}" \
   "$SRC/BlackholeOutbox.java" "$SRC/DriveTransfer.java" "$SRC/BlackholeUploader.java" "$SRC/BlackholeAlarmBook.java" \
-  "$SRC/BlackholeCalendarStore.java" "$SRC/BlackholeCalendarSync.java" "$SRC/BlackholeCalendarMirror.java" "$SRC/BlackholeBoard.java"
-"$JAVA_HOME/bin/java" -ea -cp "$OUT/host" com.malhaedwo.pttprobe.BlackholeHostTest
+  "$SRC/BlackholeCalendarStore.java" "$SRC/BlackholeCalendarSync.java" "$SRC/BlackholeCalendarMirror.java" "$SRC/BlackholeBoard.java" \
+  "$SRC/BlackholeDrafts.java" "$SRC/KoreanCommandParser.java" "$SRC/ParsedCommand.java"
+# 규칙 파서 초안은 달력 화면(TS)과 같은 정답표를 쓰고, 날짜 계산은 서울 시간 기준이다.
+"$JAVA_HOME/bin/java" -ea -Duser.timezone=Asia/Seoul -cp "$OUT/host" com.malhaedwo.pttprobe.BlackholeHostTest "$ROOT"
 
 # 2) 안드로이드 쪽 컴파일 검사(스텁)
 STUBS=()
@@ -33,7 +35,8 @@ while IFS= read -r f; do STUBS+=("$f"); done < <(collect "$HERE/android-stubs" "
 ANDROID_SIDE=()
 while IFS= read -r f; do ANDROID_SIDE+=("$f"); done < <(find "$SRC" -name 'Blackhole*.java' -print | sort)
 "$JAVA_HOME/bin/javac" -encoding UTF-8 --release 11 -Xlint:-deprecation -d "$OUT/stubbed" "${STUBS[@]}" "${ANDROID_SIDE[@]}" \
-  "$SRC/DriveTransfer.java" "$SRC/WavRecorder.java" "$SRC/SystemBarInsets.java" "$SRC/BootReceiver.java"
+  "$SRC/DriveTransfer.java" "$SRC/WavRecorder.java" "$SRC/SystemBarInsets.java" "$SRC/BootReceiver.java" \
+  "$SRC/KoreanCommandParser.java" "$SRC/ParsedCommand.java"
 echo "Android side compile check PASS: ${#ANDROID_SIDE[@]} Blackhole files (stub API, not android.jar)"
 
 # 3) 배선 확인

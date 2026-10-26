@@ -36,6 +36,7 @@ pub fn run() {
             desk::inbox_status,
             desk::inbox_set,
             desk::inbox_results,
+            desk::inbox_drafts,
             desk::alarms_schedule,
             desk::alarm_ring,
             desk::print_page,

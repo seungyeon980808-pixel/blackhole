@@ -6,11 +6,11 @@
 import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type GoogleCalendars, type InboxStatus, type MessengerStatus } from "./adapter";
 import { addDays, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
-import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type ThemeName, type UserAction } from "./model";
+import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
 import { seedState } from "./samples";
 import {
-  applyAction, applyProposal, describe, findEntry, log, markFired, newId, upcomingAlarms, type Alarm
+  applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
 } from "./store";
 import type { Ctx, ThemeView, ViewName } from "./views/common";
 import { doc, printSheet } from "./views/doc";
@@ -24,11 +24,15 @@ export interface MountOptions {
 
 export interface BlackholeApp {
   readonly state: CalendarState;
+  /** Milliseconds from the last 「넣기」 to its draft being on screen. */
+  readonly lastDraftMs: number | null;
   submitText(text: string, src?: string): Promise<void>;
   submitFile(name: string, bytes: Uint8Array, kind?: ChatKind): Promise<void>;
   setView(view: ViewName, day?: string): void;
   setTheme(theme: ThemeName, mode?: "dark" | "light"): void;
   fireAlarm(alarm: Alarm): void;
+  /** Run the inbox/draft/phone pulls now (they also run on timers). */
+  poll(): Promise<void>;
   render(): void;
   destroy(): void;
 }
@@ -54,6 +58,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let ringTimer: number | undefined;
   let audio: AudioContext | null = null;
   let lastNowMinute = -1;
+  let lastDraftMs: number | null = null;
   const fcHost = new FcHost();
   const timers: number[] = [];
 
@@ -297,11 +302,16 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       s.ingestedJobs.push(r.jobId);
       const now = clock();
       if (r.proposal) {
-        const applied = applyProposal(s, r.proposal, "인박스", now);
-        afterApplied(applied.refs, applied.missing, "인박스", now);
+        const drafted = s.draftedJobs.includes(r.jobId);
+        const applied = refineDrafts(s, r.jobId, r.proposal, "인박스", now);
+        if (applied.duplicate) {
+          changed = true;
+          continue;
+        }
+        afterApplied(applied.refs, applied.missing, "인박스", now, applied.updated, applied.suggested);
         s.inbox.push({ at: stamp(now), title: r.fileName, src: "인박스", state: r.proposal.needsReview ? "검토 필요" : "완료", out: `${applied.refs.length}건` });
-        s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: "", kind: "file", fileName: r.fileName, src: "인박스" });
-        s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: aiText(applied.refs.length, applied.missing.length, r.proposal.reviewReasons), refs: applied.refs });
+        if (!drafted) s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: "", kind: "file", fileName: r.fileName, src: "인박스" });
+        s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: aiText(applied.refs.length, applied.missing.length, r.proposal.reviewReasons, applied), refs: applied.refs.length ? applied.refs : applied.suggested });
       } else {
         s.inbox.push({ at: stamp(now), title: r.fileName, src: "인박스", state: "실패", out: r.error ?? "" });
       }
@@ -314,49 +324,104 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
   }
 
-  /* ---------- input ---------- */
-
-  function aiText(n: number, miss: number, reasons: string[] = []): string {
-    if (!n && reasons.length) return `넣은 것이 없어요. ※ ${reasons.join(" · ")}`;
-    if (!n) return "찾은 것이 없어요. 언제인지 같이 보내 주세요.";
-    return `${n}건 넣었어요.${miss ? ` ${miss}건은 날짜를 못 찾아 기억으로 두었어요.` : ""}`;
+  /** Mac: inbox files whose words are known (phone text, phone transcript) become drafts at once. */
+  async function pullDrafts(): Promise<void> {
+    if (!adapter.inboxDrafts || !inbox.available || !s.settings.inboxEnabled) return;
+    const list = await adapter.inboxDrafts().catch(() => []);
+    let n = 0;
+    for (const d of list) {
+      if (s.draftedJobs.includes(d.jobId) || s.ingestedJobs.includes(d.jobId) || !d.text.trim()) continue;
+      s.draftedJobs.push(d.jobId);
+      if (s.draftedJobs.length > 2000) s.draftedJobs.splice(0, s.draftedJobs.length - 2000);
+      const now = clock();
+      const src = "휴대폰";
+      const x = draftFromText(s, d.text, src, d.at ? new Date(d.at) : now, d.jobId);
+      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: d.text, kind: d.kind === "voice" ? "voice" : "text", src });
+      const line = describe(s, x.id, theme().fd);
+      log(s, { label: "초안", msg: line.msg, src, ref: x.id }, now);
+      n++;
+    }
+    if (n) {
+      await save();
+      syncAlarms();
+      render();
+    }
   }
 
-  function afterApplied(refs: string[], missing: string[], src: string, now: Date): void {
+  /* ---------- input ---------- */
+
+  function aiText(n: number, miss: number, reasons: string[] = [], r?: { updated: string[]; suggested: string[] }): string {
+    if (r?.suggested.length && !n) return "손댄 항목이라 그대로 두고 AI 제안만 붙였어요.";
+    if (!n && reasons.length) return `넣은 것이 없어요. ※ ${reasons.join(" · ")}`;
+    if (!n) return "찾은 것이 없어요. 언제인지 같이 보내 주세요.";
+    const fresh = n - (r?.updated.length ?? 0);
+    const head = r?.updated.length ? `초안 ${r.updated.length}건을 AI가 다듬었어요.${fresh > 0 ? ` ${fresh}건 더 넣었어요.` : ""}` : `${n}건 넣었어요.`;
+    return `${head}${miss ? ` ${miss}건은 날짜를 못 찾아 기억으로 두었어요.` : ""}`;
+  }
+
+  function afterApplied(refs: string[], missing: string[], src: string, now: Date, updated: string[] = [], suggested: string[] = []): void {
     for (const id of refs) {
       const d = describe(s, id, theme().fd);
-      log(s, { label: d.label, msg: d.msg, src, ref: id }, now);
+      log(s, { label: updated.includes(id) ? "다듬음" : d.label, msg: d.msg, src, ref: id }, now);
     }
+    for (const id of suggested) log(s, { label: "AI 제안", msg: findEntry(s, id)?.title ?? "", src, ref: id }, now);
     for (const t of missing) log(s, { label: "확인 필요", msg: `「${t}」 날짜를 못 찾음`, src }, now);
   }
 
+  /**
+   * Draft first, AI later: a sentence goes on the calendar at once from the rule parser, then
+   * the AI result replaces that same entry (same id) when it arrives.
+   */
   async function analyze(input: AnalyzeInput, me: Omit<ChatMessage, "id" | "at" | "who">, src: string, inboxTitle: string): Promise<void> {
+    const t0 = performance.now();
     const now = clock();
     s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", ...me, src });
+    const key = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const drafted = input.text !== undefined;
+    if (drafted) {
+      const x = draftFromText(s, input.text!, src, now, key);
+      log(s, { label: "초안", msg: describe(s, x.id, theme().fd).msg, src, ref: x.id }, now);
+    }
     busy++;
     renderComposer();
     render();
+    if (drafted) {
+      lastDraftMs = performance.now() - t0;
+      syncAlarms();
+      void save();
+    }
     try {
       const proposal = await adapter.analyze(input);
       const at = clock();
-      const applied = applyProposal(s, proposal, src, at);
-      afterApplied(applied.refs, applied.missing, src, at);
+      const applied = refineDrafts(s, key, proposal, src, at);
+      afterApplied(applied.refs, applied.missing, src, at, applied.updated, applied.suggested);
       if (me.kind === "voice" && proposal.sourceText) s.chat[s.chat.length - 1].text = proposal.sourceText;
-      s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: aiText(applied.refs.length, applied.missing.length, proposal.reviewReasons), refs: applied.refs });
+      s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: aiText(applied.refs.length, applied.missing.length, proposal.reviewReasons, applied), refs: applied.refs.length ? applied.refs : applied.suggested });
       s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: proposal.needsReview ? "검토 필요" : "완료", out: `${applied.refs.length}건` });
     } catch (e) {
       const at = clock();
       if (e instanceof AnalyzeError && e.code === "QUEUED") {
-        s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: e.message });
+        // Phone: the Mac refines it later; the draft waits under the upload's job id.
+        if (drafted && e.job) {
+          rekey(s, key, e.job);
+          adapter.keepDrafts?.(draftsOf(s, e.job));
+        }
+        s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: drafted ? "초안으로 넣었어요. Mac이 정리하면 다듬어집니다." : e.message });
         s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: "분석 중", out: "" });
         busy--;
         await save();
+        syncAlarms();
         renderComposer();
         render();
         return;
       }
       const msg = e instanceof AnalyzeError ? e.message : e instanceof Error ? e.message : String(e);
-      s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: `분석하지 못했어요: ${msg}`, error: true });
+      const kept = draftsOf(s, key);
+      for (const x of kept) {
+        x.draft = false;
+        x.review = [...(x.review ?? []), "AI 분석 실패 · 규칙으로만 넣음"];
+      }
+      s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: `분석하지 못했어요: ${msg}${kept.length ? " 초안은 그대로 두었어요." : ""}`, error: true, refs: kept.map((x) => x.id) });
       log(s, { label: "실패", msg, src }, at);
       s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: "실패", out: msg });
     } finally {
@@ -491,7 +556,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   /** A hand-made change: applied here, and sent to the other device when the adapter shares. */
   function userAction(a: Omit<UserAction, "id" | "at"> & Record<string, unknown>, refresh = true): void {
     const now = clock();
-    const action = { ...a, id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, at: stamp(now) } as UserAction;
+    const src = findEntry(s, a.ref)?.srcKey;
+    const action = { ...a, ...(src ? { src } : {}), id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, at: stamp(now) } as UserAction;
     applyAction(s, action, now);
     adapter.recordAction?.(action);
     if (refresh) void act(() => undefined);
@@ -513,6 +579,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (q("[data-ok]")) return userAction({ type: "confirm", ref: q("[data-ok]")!.dataset.ok! });
     if (q("[data-no]")) return userAction({ type: "cancel", ref: q("[data-no]")!.dataset.no! });
     if (q("[data-tdone]")) return userAction({ type: "toggleTask", ref: q("[data-tdone]")!.dataset.tdone! });
+    if (q("[data-aiok]")) return userAction({ type: "aiAccept", ref: q("[data-aiok]")!.dataset.aiok! });
+    if (q("[data-aino]")) return userAction({ type: "aiDismiss", ref: q("[data-aino]")!.dataset.aino! });
     if (q("[data-sub]")) {
       const [id, i] = q("[data-sub]")!.dataset.sub!.split(":");
       return userAction({ type: "toggleSub", ref: id, index: Number(i) });
@@ -707,11 +775,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   window.addEventListener("pointerup", onUp);
   adapter.onAlarm((a) => fireAlarm(a));
   adapter.onShared?.((shared, pendingActions) => {
-    s.events = shared.events;
-    s.tasks = shared.tasks;
-    s.periods = shared.periods;
-    s.notes = shared.notes;
-    s.appliedActions = shared.appliedActions.slice();
+    takeShared(s, shared, adapter.localDrafts?.() ?? []);
     const now = clock();
     for (const a of pendingActions) applyAction(s, a, now);
     void adapter.save(s);
@@ -759,9 +823,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     void pullInbox();
     void pullPhoneActions();
   }, 5_000));
+  timers.push(window.setInterval(() => void pullDrafts(), 2_000));
 
   return {
     state: s,
+    get lastDraftMs() {
+      return lastDraftMs;
+    },
     submitText,
     submitFile,
     setView(v, day) {
@@ -775,6 +843,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       buildShell();
     },
     fireAlarm,
+    async poll() {
+      await pullDrafts();
+      await pullInbox();
+      await pullPhoneActions();
+    },
     render,
     destroy() {
       timers.forEach((x) => window.clearInterval(x));
@@ -793,4 +866,23 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
 function escapeHtml(v: string): string {
   return v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+/**
+ * Phone: the Mac's copy replaces the calendar, plus the phone's own drafts the Mac has not
+ * answered yet (its copy neither lists the job in `sources` nor has an entry for it).
+ */
+export function takeShared(s: CalendarState, shared: SharedCalendar, local: Entry[]): void {
+  s.events = shared.events;
+  s.tasks = shared.tasks;
+  s.periods = shared.periods;
+  s.notes = shared.notes;
+  s.appliedActions = shared.appliedActions.slice();
+  const known = new Set(shared.sources ?? []);
+  for (const x of [...shared.events, ...shared.tasks, ...shared.periods, ...shared.notes]) if (x.srcKey) known.add(x.srcKey);
+  const lists = { event: s.events, task: s.tasks, period: s.periods, note: s.notes } as Record<Entry["kind"], Entry[]>;
+  for (const d of local) {
+    if (!d.srcKey || known.has(d.srcKey) || lists[d.kind].some((x) => x.id === d.id)) continue;
+    lists[d.kind].push(d);
+  }
 }

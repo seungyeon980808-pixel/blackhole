@@ -2,6 +2,10 @@ package com.malhaedwo.pttprobe;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -51,6 +55,16 @@ public final class CalendarWebActivity extends Activity {
     private WebView web;
     private PermissionRequest waitingMic;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
+    private boolean listening;
+    /** 새 Mac 사본(주기 작업·보낸 뒤 받기) 또는 휴대폰 초안(보내기 화면·잠금화면·받아쓰기)이 생기면 바로 다시 그린다. */
+    private final BroadcastReceiver changed = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (web == null || intent == null) return;
+            String js = CalendarRefreshJob.ACTION_SHARED.equals(intent.getAction())
+                    ? "window.blackholeShared&&window.blackholeShared()" : "window.blackholeDrafts&&window.blackholeDrafts()";
+            web.post(() -> web.evaluateJavascript(js, null));
+        }
+    };
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -78,6 +92,22 @@ public final class CalendarWebActivity extends Activity {
         SystemBarInsets.setContentView(this, web, Color.rgb(13, 15, 32));
         web.loadUrl(START_URL);
         CalendarRefreshJob.schedule(this);
+    }
+
+    @Override protected void onStart() {
+        super.onStart();
+        IntentFilter filter = new IntentFilter(CalendarRefreshJob.ACTION_SHARED);
+        filter.addAction(Blackhole.ACTION_DRAFTS);
+        registerReceiver(changed, filter, Context.RECEIVER_NOT_EXPORTED);
+        listening = true;
+    }
+
+    @Override protected void onStop() {
+        if (listening) {
+            unregisterReceiver(changed);
+            listening = false;
+        }
+        super.onStop();
     }
 
     @Override public void onBackPressed() {
@@ -154,7 +184,12 @@ public final class CalendarWebActivity extends Activity {
     private File stateFile() { return new File(new File(getFilesDir(), "blackhole-calendar"), "state.json"); }
 
     private static String reply(boolean ok, String message) {
-        try { return new JSONObject().put("ok", ok).put("message", message == null ? "" : message).toString(); }
+        return reply(ok, message, "");
+    }
+
+    /** job: Mac 작업기가 이 원본에 줄 작업 id(초안과 Mac 결과를 잇는 열쇠). */
+    private static String reply(boolean ok, String message, String job) {
+        try { return new JSONObject().put("ok", ok).put("message", message == null ? "" : message).put("job", job).toString(); }
         catch (Exception error) { return "{\"ok\":false,\"message\":\"\"}"; }
     }
 
@@ -182,24 +217,35 @@ public final class CalendarWebActivity extends Activity {
             part.renameTo(file);
         }
 
+        /** 문장 보내기. 초안은 달력 화면이 같은 규칙으로 만들어 keepDrafts로 넘긴다(여기서 또 만들지 않음). */
         @JavascriptInterface public String sendText(String text) {
             try {
-                Blackhole.outbox(CalendarWebActivity.this).addText(text, BlackholeOutbox.SOURCE_CHAT, System.currentTimeMillis());
+                BlackholeOutbox.Entry entry = Blackhole.outbox(CalendarWebActivity.this).addText(text, BlackholeOutbox.SOURCE_CHAT, System.currentTimeMillis());
                 Blackhole.requestUpload(CalendarWebActivity.this);
-                return reply(true, "");
+                return reply(true, "", BlackholeDrafts.jobId(entry.sha256));
             } catch (IOException error) {
                 return reply(false, error.getMessage());
             }
+        }
+
+        @JavascriptInterface public void keepDrafts(String json) {
+            Blackhole.keepDrafts(CalendarWebActivity.this, json);
+        }
+
+        @JavascriptInterface public String localDrafts() {
+            return Blackhole.drafts(CalendarWebActivity.this);
         }
 
         @JavascriptInterface public String sendFile(String name, String mime, String base64) {
             try {
                 byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
                 String kind = mime.startsWith("image/") ? BlackholeOutbox.KIND_PHOTO : mime.startsWith("audio/") ? BlackholeOutbox.KIND_VOICE : BlackholeOutbox.KIND_FILE;
-                Blackhole.outbox(CalendarWebActivity.this).addStream(new ByteArrayInputStream(bytes), kind, BlackholeOutbox.SOURCE_CHAT,
+                BlackholeOutbox.Entry entry = Blackhole.outbox(CalendarWebActivity.this).addStream(new ByteArrayInputStream(bytes), kind, BlackholeOutbox.SOURCE_CHAT,
                         name, mime.endsWith("/*") ? "" : mime, System.currentTimeMillis());
                 Blackhole.requestUpload(CalendarWebActivity.this);
-                return reply(true, "");
+                // 「말하기」 녹음: 기기 안 받아쓰기로 초안(끝나면 blackholeDrafts로 화면에 알림).
+                BlackholeVoiceText.transcribe(CalendarWebActivity.this, entry);
+                return reply(true, "", BlackholeDrafts.jobId(entry.sha256));
             } catch (Exception error) {
                 return reply(false, error.getMessage());
             }

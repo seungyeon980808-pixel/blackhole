@@ -21,6 +21,8 @@ public final class BootReceiver extends BroadcastReceiver {
                 BlackholeAlarms.restoreAll(app);
                 BlackholeQuickNotification.refresh(app);
                 Blackhole.requestUpload(app);
+                // 업데이트·재부팅 뒤에도 휴대폰 달력 받기를 다시 건다(예전 30분 등록은 15분으로 바뀜).
+                CalendarRefreshJob.schedule(app);
             } finally { pending.finish(); }
         }, "MalhaedwoReschedule").start();
     }

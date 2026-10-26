@@ -24,8 +24,7 @@ public final class BlackholeReplyReceiver extends BroadcastReceiver {
             line = BlackholeQuickNotification.IDLE_TEXT;
         } else {
             try {
-                Blackhole.outbox(app).addText(text.toString(), BlackholeOutbox.SOURCE_LOCK, System.currentTimeMillis());
-                Blackhole.requestUpload(app);
+                Blackhole.sendText(app, text.toString(), BlackholeOutbox.SOURCE_LOCK);
                 line = "보냈습니다 " + new SimpleDateFormat("HH:mm", Locale.KOREA).format(new Date()) + " · 이어서 말하기·적기·사진";
             } catch (Exception error) {
                 line = "보내지 못했습니다: " + error.getMessage();

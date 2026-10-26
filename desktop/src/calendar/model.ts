@@ -7,6 +7,9 @@
  */
 export type Area = "school" | "personal";
 
+/** Review note on a to-do without a deadline (its `due` is the day it came in). */
+export const NO_DUE_NOTE = "마감 날짜가 없어 오늘로 둠";
+
 interface Base {
   id: string;
   title: string;
@@ -20,7 +23,22 @@ interface Base {
   sample?: boolean;
   details?: string;
   review?: string[];
+  /** Rule-parser draft: put in at once, the local AI has not refined it yet. */
+  draft?: boolean;
+  /** Links a draft to its AI result: inbox job id ("job-" + SHA-256 prefix of the original) or a local key. */
+  srcKey?: string;
+  /** Changed by hand (확정·체크·하위…) while it was a draft: the AI no longer overwrites it. */
+  touched?: boolean;
+  /** What the AI would have made, kept when the entry was touched (「AI 제안 있음」). */
+  suggest?: Suggestion[];
 }
+
+/** An AI version of an entry, offered instead of applied. */
+export type Suggestion =
+  | Omit<CalEvent, "id" | "suggest">
+  | Omit<Task, "id" | "suggest">
+  | Omit<Period, "id" | "suggest">
+  | Omit<Memo, "id" | "suggest">;
 
 /** A timed (or all-day) appointment. Provisional until 확정. */
 export interface CalEvent extends Base {
@@ -45,6 +63,8 @@ export interface Task extends Base {
   done: boolean;
   reminders: string[];
   subs: SubTask[];
+  /** No deadline was given ("due" is only the day it came in): kept off the calendar. */
+  noDue?: boolean;
 }
 
 /** Several whole days, inclusive. */
@@ -122,6 +142,8 @@ export interface CalendarState {
   firedAlarms: string[];
   /** Inbox job IDs already turned into calendar entries. */
   ingestedJobs: string[];
+  /** Inbox job IDs that already have a rule-parser draft (before the AI result). */
+  draftedJobs: string[];
   /** Phone actions (확정·취소·체크…) already applied, by action id. */
   appliedActions: string[];
   settings: Settings;
@@ -150,6 +172,7 @@ export function emptyState(): CalendarState {
     inbox: [],
     firedAlarms: [],
     ingestedJobs: [],
+    draftedJobs: [],
     appliedActions: [],
     settings: { ...DEFAULT_SETTINGS },
     nextId: 1
@@ -165,7 +188,8 @@ export function normalizeState(value: unknown): CalendarState | null {
   return {
     ...base,
     events: list<CalEvent>(v.events),
-    tasks: list<Task>(v.tasks),
+    // Tasks stored before `noDue` existed: the worker's 「오늘로 둠」 note marks a missing deadline.
+    tasks: list<Task>(v.tasks).map((t) => (t.noDue === undefined && t.review?.includes(NO_DUE_NOTE) ? { ...t, noDue: true } : t)),
     periods: list<Period>(v.periods),
     notes: list<Memo>(v.notes),
     chat: list<ChatMessage>(v.chat),
@@ -173,18 +197,22 @@ export function normalizeState(value: unknown): CalendarState | null {
     inbox: list<InboxEntry>(v.inbox),
     firedAlarms: list<string>(v.firedAlarms),
     ingestedJobs: list<string>(v.ingestedJobs),
+    draftedJobs: list<string>(v.draftedJobs),
     appliedActions: list<string>(v.appliedActions),
     settings: { ...DEFAULT_SETTINGS, ...(v.settings ?? {}) },
     nextId: typeof v.nextId === "number" && v.nextId > 0 ? v.nextId : 1
   };
 }
 
-/** A change made by hand on one device, replayed on the other (phone → Mac). */
-export type UserAction =
-  | { id: string; at: string; type: "confirm" | "cancel" | "toggleTask"; ref: string }
+/**
+ * A change made by hand on one device, replayed on the other (phone → Mac). `src` is the
+ * entry's srcKey: a phone draft has its own id, so the Mac finds its entry for the same job.
+ */
+export type UserAction = { src?: string } & (
+  | { id: string; at: string; type: "confirm" | "cancel" | "toggleTask" | "aiAccept" | "aiDismiss"; ref: string }
   | { id: string; at: string; type: "toggleSub"; ref: string; index: number }
   | { id: string; at: string; type: "addSub"; ref: string; title: string }
-  | { id: string; at: string; type: "alarm"; ref: string; key: string; answer: "done" | "snooze" | "ack" };
+  | { id: string; at: string; type: "alarm"; ref: string; key: string; answer: "done" | "snooze" | "ack" });
 
 /** What the Mac shares with the phone (Drive 「블랙홀/달력.json」). */
 export interface SharedCalendar {
@@ -196,12 +224,14 @@ export interface SharedCalendar {
   periods: Period[];
   notes: Memo[];
   appliedActions: string[];
+  /** Inbox jobs the Mac has drafted or analyzed: the phone drops its own drafts for these. */
+  sources?: string[];
 }
 
 export function sharedFrom(s: CalendarState, now: string): SharedCalendar {
   // Fake sample data stays on the Mac: it is never sent to Drive or the phone.
   const real = <T extends { sample?: boolean }>(list: T[]) => list.filter((x) => !x.sample);
-  return { kind: "blackhole-calendar", schemaVersion: 1, exportedAt: now, events: real(s.events), tasks: real(s.tasks), periods: real(s.periods), notes: real(s.notes), appliedActions: s.appliedActions.slice(-500) };
+  return { kind: "blackhole-calendar", schemaVersion: 1, exportedAt: now, events: real(s.events), tasks: real(s.tasks), periods: real(s.periods), notes: real(s.notes), appliedActions: s.appliedActions.slice(-500), sources: [...new Set([...s.ingestedJobs, ...s.draftedJobs])].slice(-500) };
 }
 
 export function isShared(v: unknown): v is SharedCalendar {

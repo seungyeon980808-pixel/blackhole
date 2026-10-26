@@ -1,5 +1,5 @@
 import { diffDays, hm, mins } from "../dates";
-import type { CalendarState, ChatMessage, Task } from "../model";
+import type { CalendarState, ChatMessage, Entry, Task } from "../model";
 import type { Alarm } from "../store";
 
 export type ViewName = "month" | "week" | "day";
@@ -53,6 +53,37 @@ export function dday(today: string, t: Task, soonClass = "soon"): string {
   if (n < 0) return `<span class="dd hot">${-n}일 지남</span>`;
   if (n === 0) return `<span class="dd hot">오늘${t.dueTime ? " " + t.dueTime : ""}</span>`;
   return `<span class="dd ${n <= 2 ? soonClass : ""}">D-${n}</span>`;
+}
+
+/** Month/week chip: urgency only ("3일 지남", "오늘", "D-1", "D-2"); further away the date says it. */
+export function dueBadge(today: string, t: Task): { text: string; hot: boolean } | null {
+  if (t.done) return null;
+  const n = diffDays(today, t.due);
+  if (n < 0) return { text: `${-n}일 지남`, hot: true };
+  if (n === 0) return { text: "오늘", hot: true };
+  if (n <= 2) return { text: `D-${n}`, hot: false };
+  return null;
+}
+
+/** Not refined by the AI yet. */
+export const draftTag = (x: Entry): string => (x.draft ? '<span class="dr" title="규칙으로 바로 넣은 초안 · AI가 다듬는 중">초안</span>' : "");
+
+/** A touched draft for which the AI made something else: offer it, never apply it silently. */
+export function aiOffer(x: Entry, fd: (k: string) => string): string {
+  if (!x.suggest?.length) return "";
+  const what = x.suggest.map((g) =>
+    g.kind === "event" ? `${fd(g.date)} ${g.start ?? "종일"} ${g.title}` :
+    g.kind === "task" ? `${g.title} ${g.noDue ? "" : fd(g.due) + (g.dueTime ? " " + g.dueTime : "") + "까지"}` :
+    g.kind === "period" ? `${g.title} ${fd(g.from)}–${fd(g.to)}` : g.title).join(" / ");
+  return `<span class="aio" title="${esc("AI: " + what)}">AI 제안 있음 <button class="mini" data-aiok="${x.id}">적용</button><button class="mini" data-aino="${x.id}">무시</button></span>`;
+}
+
+/** Deadlines with a time on day k, as markers in the 10-minute timetable. */
+export function dueMarks(today: string, tasks: Task[], A: number, B: number, dueClass = "du"): string {
+  return tasks.filter((t) => t.dueTime && mins(t.dueTime) >= A && mins(t.dueTime) < B).map((t) => {
+    const b = dueBadge(today, t);
+    return `<div class="${dueClass} ${b?.hot ? "hot" : ""} ${t.done ? "done" : ""}" data-ev="${t.id}" style="left:${pct(mins(t.dueTime!), A)}" title="${esc(`마감 ${t.dueTime} ${t.title}`)}"><span>마감 ${esc(t.title)}</span></div>`;
+  }).join("");
 }
 
 export function nextReminder(ctx: Ctx, t: Task): string | undefined {

@@ -82,6 +82,7 @@ public final class BlackholeSendActivity extends Activity {
 
     @Override protected void onStart() {
         super.onStart();
+        CalendarRefreshJob.refreshAsync(this);
         if (!receiverRegistered) {
             registerReceiver(changed, new IntentFilter(BlackholeUploadJob.ACTION_CHANGED), Context.RECEIVER_NOT_EXPORTED);
             receiverRegistered = true;
@@ -187,7 +188,7 @@ public final class BlackholeSendActivity extends Activity {
             messages.addView(empty);
         }
         SimpleDateFormat time = new SimpleDateFormat("M/d HH:mm", Locale.KOREA);
-        for (BlackholeOutbox.Entry entry : recent) messages.addView(bubble(outbox, entry, time));
+        for (BlackholeOutbox.Entry entry : recent) if (!BlackholeVoiceText.hidden(entry)) messages.addView(bubble(outbox, entry, time));
         int waiting = 0;
         for (BlackholeOutbox.Entry entry : recent) if (!entry.uploaded()) waiting++;
         String connection = GoogleOAuth.isConnected(this) ? "" : "Google 연결 필요 · ";
@@ -245,9 +246,8 @@ public final class BlackholeSendActivity extends Activity {
         String text = input.getText().toString();
         if (text.trim().isEmpty()) return;
         try {
-            Blackhole.outbox(this).addText(text, BlackholeOutbox.SOURCE_CHAT, System.currentTimeMillis());
+            Blackhole.sendText(this, text, BlackholeOutbox.SOURCE_CHAT);
             input.setText("");
-            Blackhole.requestUpload(this);
         } catch (Exception error) {
             toast("보내지 못했습니다: " + error.getMessage());
         }

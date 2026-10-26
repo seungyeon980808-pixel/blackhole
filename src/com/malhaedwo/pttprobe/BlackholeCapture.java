@@ -105,9 +105,11 @@ final class BlackholeCapture {
                         target.delete();
                         message = "너무 짧아서 보내지 않았습니다";
                     } else {
-                        Blackhole.outbox(app).addFile(target, BlackholeOutbox.KIND_VOICE, source, "", "audio/wav",
+                        BlackholeOutbox.Entry entry = Blackhole.outbox(app).addFile(target, BlackholeOutbox.KIND_VOICE, source, "", "audio/wav",
                                 System.currentTimeMillis());
                         Blackhole.requestUpload(app);
+                        // 기기 안 받아쓰기 → 휴대폰 초안 + Mac에 받아쓰기 파일(녹음은 그대로 Mac이 분석).
+                        BlackholeVoiceText.transcribe(app, entry);
                         ok = true;
                         message = "음성을 보냈습니다";
                     }

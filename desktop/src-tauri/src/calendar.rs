@@ -159,6 +159,99 @@ pub fn read_phone_actions(root: &Path) -> Vec<serde_json::Value> {
     out
 }
 
+/// An inbox file whose words are already known, drafted before the worker gets to it:
+/// a `.txt` (typed on the phone, a messenger line) or a phone recording's `.bhstt` transcript.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct InboxDraft {
+    /// The worker's job id for the original ("job-" + first 16 hex of its SHA-256).
+    pub job_id: String,
+    pub file_name: String,
+    pub text: String,
+    /// "text" or "voice".
+    pub kind: String,
+    /// When the phone made it (epoch ms), if the file says.
+    pub at: Option<i64>,
+}
+
+/// Phone transcript beside a recording (`인박스/<…>.bhstt`): the phone's own on-device speech
+/// recognition, so the Mac can draft without waiting for whisper.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PhoneTranscript {
+    kind: String,
+    sha256: String,
+    text: String,
+    #[serde(default)]
+    at: Option<i64>,
+}
+
+/// Remembers the job id of each small file by (name, size, modified), so polling every few
+/// seconds does not re-hash anything.
+#[derive(Default)]
+pub struct DraftScan {
+    seen: std::collections::HashMap<PathBuf, (u64, SystemTime, Option<InboxDraft>)>,
+}
+
+/// Small text inputs only; anything larger is left to the worker.
+const DRAFT_MAX_BYTES: u64 = 64 * 1024;
+
+impl DraftScan {
+    /// Drafts for `<root>/인박스` files modified after `since`. Reads only `.txt`/`.md` and
+    /// `.bhstt`; never writes, moves or deletes anything.
+    pub fn scan(&mut self, root: &Path, since: SystemTime) -> Vec<InboxDraft> {
+        let Ok(entries) = fs::read_dir(root.join("인박스")) else { return Vec::new() };
+        let mut paths: Vec<(PathBuf, fs::Metadata)> = entries
+            .filter_map(|e| e.ok())
+            .filter_map(|e| e.metadata().ok().map(|m| (e.path(), m)))
+            .filter(|(p, m)| {
+                m.is_file()
+                    && m.len() > 0
+                    && m.len() <= DRAFT_MAX_BYTES
+                    && !p.file_name().is_some_and(|n| n.to_string_lossy().starts_with('.'))
+                    && m.modified().is_ok_and(|t| t >= since)
+                    && p.extension().is_some_and(|e| {
+                        let e = e.to_string_lossy().to_lowercase();
+                        e == "txt" || e == "md" || e == crate::worker::inbox::PHONE_STT_EXT
+                    })
+            })
+            .collect();
+        paths.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut out = Vec::new();
+        for (path, meta) in paths {
+            let modified = meta.modified().unwrap_or(UNIX_EPOCH);
+            if let Some((len, at, draft)) = self.seen.get(&path) {
+                if *len == meta.len() && *at == modified {
+                    out.extend(draft.clone());
+                    continue;
+                }
+            }
+            let draft = fs::read(&path).ok().and_then(|bytes| draft_of(&path, &bytes));
+            self.seen.insert(path, (meta.len(), modified, draft.clone()));
+            out.extend(draft);
+        }
+        out
+    }
+}
+
+fn draft_of(path: &Path, bytes: &[u8]) -> Option<InboxDraft> {
+    let file_name = path.file_name()?.to_string_lossy().into_owned();
+    if path.extension().is_some_and(|e| e == crate::worker::inbox::PHONE_STT_EXT) {
+        let t: PhoneTranscript = serde_json::from_slice(bytes).ok()?;
+        let ok = t.kind == "blackhole-stt" && t.sha256.len() >= 16 && t.sha256.chars().all(|c| c.is_ascii_hexdigit());
+        if !ok || t.text.trim().is_empty() {
+            return None;
+        }
+        return Some(InboxDraft { job_id: format!("job-{}", &t.sha256[..16].to_lowercase()), file_name, text: t.text.trim().to_string(), kind: "voice".into(), at: t.at });
+    }
+    let text = std::str::from_utf8(bytes).ok()?.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let sha = crate::worker::source::sha256_hex(bytes);
+    Some(InboxDraft { job_id: format!("job-{}", &sha[..16]), file_name, text: text.to_string(), kind: "text".into(), at: None })
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct InboxResult {
@@ -294,6 +387,39 @@ mod tests {
         let actions = read_phone_actions(root.path());
         assert_eq!(actions.iter().map(|a| a["id"].as_str().unwrap()).collect::<Vec<_>>(), ["a1", "a2"]);
         assert!(inbox.join("20261025-1-폰-a-동작.bhact").exists(), "action files stay");
+    }
+
+    #[test]
+    fn inbox_drafts_read_phone_text_and_transcripts_without_touching_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let inbox = dir.path().join("인박스");
+        fs::create_dir_all(&inbox).unwrap();
+        let text = "내일 오후 3시에 학부모 상담\n";
+        fs::write(inbox.join("20261026-144221-폰-d9b148fe.txt"), text).unwrap();
+        let wav = b"RIFF....WAVEfmt fake";
+        let wav_sha = crate::worker::source::sha256_hex(wav);
+        fs::write(inbox.join("20261026-144200-폰-59ea29b6.wav"), wav).unwrap();
+        let stt = serde_json::json!({"kind":"blackhole-stt","sha256":wav_sha,"text":" 금요일까지 보고서 제출 ","at":1761457320000_i64});
+        fs::write(inbox.join("20261026-144200-폰-59ea29b6.bhstt"), stt.to_string()).unwrap();
+        fs::write(inbox.join("20261026-1-폰-a-동작.bhact"), br#"{"id":"a"}"#).unwrap();
+        fs::write(inbox.join("broken.bhstt"), b"{not json").unwrap();
+
+        let mut scan = DraftScan::default();
+        let drafts = scan.scan(dir.path(), UNIX_EPOCH);
+        assert_eq!(drafts.len(), 2, "{drafts:?}");
+        let voice = drafts.iter().find(|d| d.kind == "voice").unwrap();
+        assert_eq!(voice.job_id, format!("job-{}", &wav_sha[..16]));
+        assert_eq!(voice.text, "금요일까지 보고서 제출");
+        assert_eq!(voice.at, Some(1761457320000));
+        let typed = drafts.iter().find(|d| d.kind == "text").unwrap();
+        // Same job id the worker queue gives the same bytes.
+        assert_eq!(typed.job_id, format!("job-{}", &crate::worker::source::sha256_hex(text.as_bytes())[..16]));
+        assert_eq!(typed.text, "내일 오후 3시에 학부모 상담");
+        // Cached: same answer, files untouched.
+        assert_eq!(scan.scan(dir.path(), UNIX_EPOCH), drafts);
+        assert_eq!(fs::read_to_string(inbox.join("20261026-144221-폰-d9b148fe.txt")).unwrap(), text);
+        // Old files are skipped.
+        assert!(scan.scan(dir.path(), SystemTime::now() + std::time::Duration::from_secs(60)).is_empty());
     }
 
     #[test]
