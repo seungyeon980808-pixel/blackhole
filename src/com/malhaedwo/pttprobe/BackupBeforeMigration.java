@@ -27,7 +27,7 @@ import java.util.Set;
 final class BackupBeforeMigration {
     static final String BACKUP_ROOT = "migration-backup";
     static final String SNAPSHOT_NAME = "before-v5";
-    static final String RELEASE_SNAPSHOT_NAME = "before-app-0.11.8";
+    static final String RELEASE_SNAPSHOT_NAME = "before-app-0.11.9";
     static final String MANIFEST_NAME = "manifest.properties";
 
     private static final String DB_NAME = "malhaedwo.db";
