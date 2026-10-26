@@ -77,7 +77,7 @@ public final class CalendarSync {
         values.put(CalendarContract.Events.TITLE, safeTitle(item));
         values.put(CalendarContract.Events.DESCRIPTION,
                 CalendarReliability.descriptionWithMarker(
-                        "말해둬에서 음성으로 등록\n\n인식 문장: " + nullToEmpty(item.transcript),
+                        "블랙홀에서 음성으로 등록\n\n인식 문장: " + nullToEmpty(item.transcript),
                         item.uuid, CalendarReliability.stableKey(item.calendarIdempotencyKey, item.uuid)));
         values.put(CalendarContract.Events.DTSTART, item.startAt);
         values.put(CalendarContract.Events.DTEND, item.endAt > item.startAt ? item.endAt : item.startAt + 60 * 60_000L);

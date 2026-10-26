@@ -60,3 +60,10 @@ button { cursor: pointer; }
   .bh-print .mbar { display: none; }
   .bh-print .sheet { box-shadow: none !important; width: auto !important; min-height: auto !important; }
 }
+
+/* Settings on a narrow phone: labels stay on one line, selects shrink instead of overflowing. */
+.bh .settings .set-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.bh .settings .set-row > :is(select, input[type="password"]) { flex: 1 1 auto; min-width: 0; max-width: 100%; }
+.bh .settings .set-row { white-space: nowrap; }
+.bh .settings .set-note { white-space: normal; overflow-wrap: anywhere; }
+.bh .settings { max-height: calc(100% - 56px); overflow-y: auto; }

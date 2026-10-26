@@ -271,12 +271,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <label class="set-row">흐림 <input type="range" min="0" max="40" step="1" value="${st.glassBlur}" data-set="glassBlur" aria-label="유리 흐림 정도"><span class="set-v">${st.glassBlur}</span></label>
       <label class="set-row">배경 밝기 <input type="range" min="-50" max="50" step="5" value="${st.glassBright}" data-set="glassBright" aria-label="배경·카드 밝기"><span class="set-v">${st.glassBright > 0 ? "+" : ""}${st.glassBright}</span></label>
       ${st.glassBlur !== 26 || st.glassBright !== 0 ? '<div class="set-row"><button class="mini" data-lookreset>처음 모습으로</button></div>' : ""}` : ""}
-      <label class="set-row"><input type="checkbox" data-set="samples" ${st.showSamples ? "checked" : ""}> 가짜 자료 보이기</label>
+      ${adapter.recordAction ? "" : `<label class="set-row"><input type="checkbox" data-set="samples" ${st.showSamples ? "checked" : ""}> 가짜 자료 보이기</label>`}
       ${adapter.claude ? claudeBlock() : ""}
       <div class="set-sep"></div>
-      <label class="set-row"><input type="checkbox" data-set="inbox" ${inbox.enabled ? "checked" : ""} ${inbox.available ? "" : "disabled"}> 인박스 처리 (작업기)</label>
+      ${inbox.available ? `<label class="set-row"><input type="checkbox" data-set="inbox" ${inbox.enabled ? "checked" : ""}> 인박스 처리 (작업기)</label>` : ""}
       ${inbox.available ? `<label class="set-row">폴더 <select data-set="inboxRoot"><option value="" ${st.inboxRoot ? "" : "selected"}>시험 폴더</option>${inbox.driveRoot ? `<option value="drive" ${st.inboxRoot ? "selected" : ""}>드라이브 「블랙홀」</option>` : ""}</select></label>` : ""}
-      <div class="set-note">${inbox.available ? `${st.inboxRoot ? "드라이브 폴더(인박스 원본은 지우지 않고 원본/·노트/만 씀)" : "시험 폴더"}: <code>${escapeHtml(inbox.root)}</code><br>${inbox.running ? "분석 중 · " : ""}${inbox.lastScanAt ? `마지막 확인 ${escapeHtml(inbox.lastScanAt.slice(11, 16))}` : "아직 확인 안 함"}${inbox.lastError ? `<br><span class="warn">${escapeHtml(inbox.lastError)}</span>` : ""}` : "이 화면에서는 인박스 처리를 쓸 수 없습니다."}</div>
+      <div class="set-note" ${inbox.available ? "" : "hidden"}>${inbox.available ? `${st.inboxRoot ? "드라이브 폴더(인박스 원본은 지우지 않고 원본/·노트/만 씀)" : "시험 폴더"}: <code>${escapeHtml(inbox.root)}</code><br>${inbox.running ? "분석 중 · " : ""}${inbox.lastScanAt ? `마지막 확인 ${escapeHtml(inbox.lastScanAt.slice(11, 16))}` : "아직 확인 안 함"}${inbox.lastError ? `<br><span class="warn">${escapeHtml(inbox.lastError)}</span>` : ""}` : "이 화면에서는 인박스 처리를 쓸 수 없습니다."}</div>
       ${adapter.publishShared ? `<label class="set-row"><input type="checkbox" data-set="sharePhone" ${st.sharePhone ? "checked" : ""} ${inbox.driveRoot ? "" : "disabled"}> 휴대폰과 달력 공유</label>
       <div class="set-note">${inbox.driveRoot ? `드라이브 「블랙홀/달력.json」에 일정 사본을 쓰고, 휴대폰에서 바꾼 것을 받아 반영합니다.${shareLine ? `<br>${escapeHtml(shareLine)}` : ""}` : "드라이브 「블랙홀」 폴더가 없어 쓸 수 없습니다."}</div>` : ""}
       ${adapter.messenger && messenger ? `<div class="set-sep"></div>
@@ -290,6 +290,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <label class="set-row">판 불투명도 <input type="range" min="0" max="150" step="10" value="${board.opacity ?? 100}" data-board="opacity" aria-label="위젯·잠금화면 판 불투명도"><span class="set-v">${board.opacity ?? 100}%</span></label>` : ""}
       ${adapter.setLockTasks ? `<label class="set-row"><input type="checkbox" data-board="lockTasks" ${board.lockTasks !== false ? "checked" : ""}> 잠금화면 알림에 오늘 할 일·마감(「완료」 체크)</label>
       <label class="set-row"><input type="checkbox" data-board="lockHideTitles" ${board.lockHideTitles ? "checked" : ""}> 잠금화면 알림에서 할 일 제목 가리기</label>` : ""}
+      ${adapter.pinWidget ? '<div class="set-row"><button class="mini" data-pinwidget>홈 화면에 블랙홀 위젯 추가</button></div>' : ""}
       <div class="set-note">잠금화면 배경은 켜면 지금 배경을 바꿉니다(되돌리려면 휴대폰 배경 설정에서 다시 고름). 잠금 상태에서는 「완료」 체크와 「적기」(메모 추가)까지만 됩니다.${board.status ? `<br>${escapeHtml(board.status)}` : ""}</div>` : ""}
       <div class="set-sep"></div>
       <div class="set-row"><button class="mini" data-testalarm>알람 시험 (10초 뒤)</button></div>
@@ -698,6 +699,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return;
     }
     if (q("[data-claude]")) return void claudeAction(q("[data-claude]")!.dataset.claude!);
+    if (q("[data-pinwidget]")) {
+      void adapter.pinWidget!().then((ok) => {
+        if (board) board.status = ok ? "홈 화면에 놓을지 묻는 창이 뜹니다" : "이 휴대폰은 앱에서 위젯 추가를 지원하지 않습니다(홈 화면 길게 누르기 → 위젯 → 블랙홀)";
+        renderSettings();
+      });
+      return;
+    }
     if (q("[data-lookreset]")) {
       s.settings.glassBlur = 26;
       s.settings.glassBright = 0;

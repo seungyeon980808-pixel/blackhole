@@ -55,7 +55,8 @@ final class BlackholeQuickNotification {
     /** 앱 시작·재부팅·보낸 뒤에 다시 건다(안드로이드 14부터는 사용자가 밀어서 지울 수 있다). */
     static void refresh(Context context) {
         if (isEnabled(context)) show(context, IDLE_TEXT);
-        else showTasks(context, false);
+        // 할 일 묶음은 고정 입력 알림을 꺼 두어도 따로 보인다(설정 「잠금화면 알림에 할 일」).
+        else showTasks(context, true);
     }
 
     /** 잠금화면에 보일 할 일: 끝내지 않은, 오늘까지(지난 것 포함)와 이틀 안 마감. */
@@ -72,6 +73,7 @@ final class BlackholeQuickNotification {
         Context app = context.getApplicationContext();
         NotificationManager manager = app.getSystemService(NotificationManager.class);
         if (manager == null) return;
+        ensureChannel(manager);
         android.content.SharedPreferences prefs = Blackhole.prefs(app);
         List<BlackholeBoard.Line> tasks = on && prefs.getBoolean(BlackholeBoard.PREF_LOCK_TASKS, true)
                 ? lockTasks(Blackhole.boardShared(app), LocalDate.now(), prefs.getBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, false))
@@ -89,11 +91,11 @@ final class BlackholeQuickNotification {
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             Notification.Action check = new Notification.Action.Builder(null, "완료", done).setAuthenticationRequired(false).build();
             String title = lockTitle(t, i, hideTitles);
+            // 묶음 표시는 시스템에 맡긴다(삼성은 같은 앱 알림을 「블랙홀」 아래 모아 보임).
             Notification item = new Notification.Builder(app, CHANNEL_ID)
                     .setSmallIcon(android.R.drawable.checkbox_off_background)
                     .setContentTitle(title)
                     .setContentText(t.badge.isEmpty() ? "할 일" : "마감 " + t.badge)
-                    .setGroup(TASK_GROUP)
                     .setOnlyAlertOnce(true)
                     .setShowWhen(false)
                     .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -109,13 +111,7 @@ final class BlackholeQuickNotification {
         Context app = context.getApplicationContext();
         NotificationManager manager = app.getSystemService(NotificationManager.class);
         if (manager == null) return;
-        if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "블랙홀 잠금화면 입력", NotificationManager.IMPORTANCE_LOW);
-            channel.setDescription("잠금화면에서 말하기·적기·사진을 보내는 고정 알림 (소리 없음)");
-            channel.setShowBadge(false);
-            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-            manager.createNotificationChannel(channel);
-        }
+        ensureChannel(manager);
         PendingIntent voice = PendingIntent.getActivity(app, 0x5B11,
                 BlackholeLockCaptureActivity.intent(app, BlackholeLockCaptureActivity.MODE_VOICE),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -139,9 +135,8 @@ final class BlackholeQuickNotification {
         Notification.Action shoot = new Notification.Action.Builder(null, "사진", photo)
                 .setAuthenticationRequired(false).build();
         Notification publicVersion = base(app, line).build();
+        // 할 일 알림과 같은 묶음에 넣지 않는다: 삼성은 묶음 대표 알림을 숨겨 [말하기][적기][사진]이 사라진다(실기기 확인).
         Notification notification = base(app, line)
-                .setGroup(TASK_GROUP)
-                .setGroupSummary(true)
                 .setContentIntent(open)
                 .addAction(speak)
                 .addAction(write)
@@ -151,6 +146,15 @@ final class BlackholeQuickNotification {
         try { manager.notify(NOTIFICATION_ID, notification); }
         catch (SecurityException ignored) {}
         showTasks(app, true);
+    }
+
+    private static void ensureChannel(NotificationManager manager) {
+        if (manager.getNotificationChannel(CHANNEL_ID) != null) return;
+        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "블랙홀 잠금화면 입력", NotificationManager.IMPORTANCE_LOW);
+        channel.setDescription("잠금화면에서 말하기·적기·사진을 보내고 오늘 할 일을 끝내는 알림 (소리 없음)");
+        channel.setShowBadge(false);
+        channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+        manager.createNotificationChannel(channel);
     }
 
     private static Notification.Builder base(Context app, String line) {

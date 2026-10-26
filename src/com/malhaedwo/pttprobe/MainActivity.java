@@ -77,7 +77,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
-        setTitle("말해둬");
+        setTitle("블랙홀");
         buildUi();
         requestNeededPermissions();
         TranscriptionManager.retryPending(this);
@@ -114,7 +114,7 @@ public final class MainActivity extends Activity {
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(dp(14), dp(12), dp(14), dp(10));
         head.setBackground(roundRect(SURFACE, 0, LINE, 1));
-        TextView title = text("말해둬", 22, INK);
+        TextView title = text("블랙홀", 22, INK);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         head.addView(title, weight());
         liveView = text("PTT CHECK", 11, ACCENT);

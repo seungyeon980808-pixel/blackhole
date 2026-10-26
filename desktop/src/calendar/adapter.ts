@@ -106,6 +106,8 @@ export interface BlackholeAdapter {
   setBoardLook?(bright: number, opacity: number): Promise<void>;
   /** Phone: today's to-dos in the lock-screen notification (완료 there), and hiding their titles. */
   setLockTasks?(show: boolean, hideTitles: boolean): Promise<void>;
+  /** Phone: ask the launcher to add the 블랙홀 widget to the home screen. */
+  pinWidget?(): Promise<boolean>;
   /** Phone (stage 4): calendars to mirror into, and the current choice. */
   googleCalendars?(): Promise<GoogleCalendars>;
   setGoogleCalendars?(enabled: boolean, provisional: string, main: string): Promise<void>;

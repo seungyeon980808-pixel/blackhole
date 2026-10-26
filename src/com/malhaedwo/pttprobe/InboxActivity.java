@@ -362,7 +362,7 @@ public final class InboxActivity extends Activity {
                 .setPositiveButton("승인하고 등록", (dialog, which) -> {
                     CaptureDatabase.get(this).approve(fresh.id);
                     CaptureAutomation.process(this, fresh.id);
-                    toast("승인했습니다. 말해둬에 등록되었습니다");
+                    toast("승인했습니다. 블랙홀에 등록되었습니다");
                     refresh();
                 }).show();
     }

@@ -45,6 +45,34 @@ final class BlackholeCalendarStore {
         try { return new JSONObject(shared).optString("exportedAt", ""); } catch (Exception error) { return ""; }
     }
 
+    /**
+     * 사본(Mac 사본 + 휴대폰 초안)의 알림 시각 → 알람 목록 JSON([{key, atMs, title}], 달력 화면이 넘기는 것과 같은 꼴).
+     * 지운 것·끝낸 할 일은 빼고, 앞으로 울릴 것만. key = 「항목id@YYYY-MM-DDTHH:MM」(Mac과 같은 규칙).
+     */
+    static String alarmsFromShared(String shared, long now, java.time.ZoneId zone) {
+        JSONArray out = new JSONArray();
+        try {
+            JSONObject o = new JSONObject(shared == null || shared.isEmpty() ? "{}" : shared);
+            for (String list : new String[]{"events", "tasks"}) {
+                JSONArray items = o.optJSONArray(list);
+                for (int i = 0; items != null && i < items.length(); i++) {
+                    JSONObject x = items.optJSONObject(i);
+                    if (x == null || x.optBoolean("gone", false) || x.optBoolean("sample", false) || x.optBoolean("done", false)) continue;
+                    JSONArray reminders = x.optJSONArray("reminders");
+                    for (int j = 0; reminders != null && j < reminders.length(); j++) {
+                        String at = reminders.optString(j, "");
+                        long ms;
+                        try { ms = java.time.LocalDateTime.parse(at).atZone(zone).toInstant().toEpochMilli(); }
+                        catch (Exception bad) { continue; }
+                        if (ms <= now) continue;
+                        out.put(new JSONObject().put("key", x.optString("id", "") + "@" + at).put("atMs", ms).put("title", x.optString("title", "")));
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return out.toString();
+    }
+
     /** 대기 목록에 동작 하나를 더한다(같은 id는 한 번). */
     static String addPending(String pending, String actionJson) throws Exception {
         JSONObject action = new JSONObject(actionJson);
@@ -143,6 +171,15 @@ final class BlackholeCalendarStore {
             if (at == null || key.isEmpty() || at.longValue() <= now) continue;
             out.add(new CalendarAlarm(alarmId(key), key, title.isEmpty() ? "블랙홀 알림" : title, at.longValue()));
         }
+        return out;
+    }
+
+    /** 두 알람 목록을 합친다(같은 key는 한 번, 앞 목록 먼저). */
+    static List<CalendarAlarm> union(List<CalendarAlarm> a, List<CalendarAlarm> b) {
+        List<CalendarAlarm> out = new ArrayList<>(a);
+        Set<String> keys = new HashSet<>();
+        for (CalendarAlarm x : a) keys.add(x.key);
+        for (CalendarAlarm x : b) if (keys.add(x.key) && out.size() < MAX_ALARMS) out.add(x);
         return out;
     }
 

@@ -9,4 +9,5 @@ public final class CalendarRefreshJob {
     static void soon(Context context) {}
     static void refreshAsync(Context context) {}
     static void publish(Context context) {}
+    static void onScreenOn(Context context) {}
 }

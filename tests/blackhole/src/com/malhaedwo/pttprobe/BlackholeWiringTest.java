@@ -20,8 +20,8 @@ public final class BlackholeWiringTest {
 
         // 앱 정체성은 그대로.
         check(manifest.contains("package=\"com.malhaedwo.pttprobe\""), "패키지 이름 유지");
-        check(manifest.contains("android:versionCode=\"30\"") && manifest.contains("android:versionName=\"0.11.1\""),
-                "버전 0.11.1(30): 빠른 동기화·초안·마감 표시");
+        check(manifest.contains("android:versionCode=\"35\"") && manifest.contains("android:versionName=\"0.11.6\""),
+                "버전 0.11.6(35)");
         check(manifest.contains("android.permission.USE_FULL_SCREEN_INTENT"), "전체 화면 알림 권한 선언");
         check(!manifest.contains("android.permission.CAMERA"), "CAMERA 권한 없음(카메라 앱에 맡김)");
 
@@ -162,10 +162,17 @@ public final class BlackholeWiringTest {
         check(src("CalendarWidgetProvider").contains("new Intent(app, CalendarWebActivity.class)") && src("CalendarWidgetProvider").contains("setOnClickPendingIntent(boardView, open)"),
                 "위젯을 누르면 블랙홀 달력");
         check(boot.contains("CalendarRefreshJob.publish(app)"), "재부팅·업데이트 뒤 위젯·잠금화면 다시 그림");
+        check(ptt.contains("CalendarRefreshJob.onScreenOn(context)") && refresh.contains("now - lastScreenOn < 60_000L"),
+                "화면을 켤 때 바로 받기(1분에 한 번, 실기기에서 위젯이 15분 늦던 문제)");
         check(read("apk-input/res/xml/blackhole_widget_info.xml").contains("home_screen|keyguard")
                 && read("apk-input/resources/package_1/res/xml/blackhole_widget_info.xml").contains("home_screen|keyguard"),
                 "위젯을 잠금화면 위젯 목록에도 내놓음(지원하는 기기에서)");
+        check(refresh.contains("BlackholeAlarms.syncCalendar(app, \"[]\")") && src("BlackholeAlarms").contains("BlackholeCalendarStore.union(")
+                && src("BlackholeAlarms").contains("alarmsFromShared(Blackhole.boardShared(app)") && src("CalendarWebActivity").contains("BlackholeAlarms.syncCalendar(CalendarWebActivity.this, json)"),
+                "Mac 사본을 받을 때마다 휴대폰 알람을 맞춤(달력 화면을 안 열어도)");
+        check(src("BlackholeAlarms").contains("known.waiting() && known.at > now"), "울리는 중·미뤄 둔 알람은 목록 다시 맞추기에서 끄지 않음(실기기: 울린 지 2초 만에 꺼지던 버그)");
         // 6. 잠금화면 알림: 할 일 「완료」·메모 적기, 잠금 상태에서 되는 것은 거기까지.
+        check(!src("BlackholeQuickNotification").contains("setGroupSummary(true)"), "고정 입력 알림을 할 일 묶음 대표로 쓰지 않음(삼성이 숨김 — 실기기 확인)");
         quick = src("BlackholeQuickNotification");
         String taskReceiver = component(manifest, "receiver", ".BlackholeTaskReceiver");
         check(taskReceiver.contains("android:exported=\"false\""), "완료 수신기는 이 앱 안에서만");

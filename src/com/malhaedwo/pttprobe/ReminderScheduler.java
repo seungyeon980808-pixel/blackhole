@@ -16,6 +16,7 @@ public final class ReminderScheduler {
     public static final String EXTRA_REMINDER_AT = "reminder_at";
     public static final String EXTRA_GENERATION = "reminder_generation";
     public static final String CHANNEL_ID = "malhaedwo_reminders";
+    static final String CHANNEL_NAME = "블랙홀 일정·할 일 알림";
 
     private ReminderScheduler() {}
 
@@ -96,8 +97,15 @@ public final class ReminderScheduler {
         if (manager == null) return Readiness.blocked("NotificationManager를 사용할 수 없습니다");
         if (!manager.areNotificationsEnabled()) return Readiness.blocked("앱 알림이 시스템 설정에서 꺼져 있습니다");
         NotificationChannel channel = manager.getNotificationChannel(CHANNEL_ID);
+        if (channel != null && !CHANNEL_NAME.contentEquals(channel.getName())) {
+            // 옛 이름(말해둬)으로 만든 채널: 이름만 바꾼다(사용자가 정한 중요도·소리는 그대로).
+            NotificationChannel renamed = new NotificationChannel(CHANNEL_ID, CHANNEL_NAME, channel.getImportance());
+            renamed.setDescription(channel.getDescription());
+            manager.createNotificationChannel(renamed);
+            channel = manager.getNotificationChannel(CHANNEL_ID);
+        }
         if (channel == null && ensureChannel) {
-            channel = new NotificationChannel(CHANNEL_ID, "말해둬 일정·할 일 알림", NotificationManager.IMPORTANCE_HIGH);
+            channel = new NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH);
             channel.setDescription("음성으로 저장한 일정과 할 일 알림");
             channel.enableVibration(true);
             manager.createNotificationChannel(channel);

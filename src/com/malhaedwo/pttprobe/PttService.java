@@ -48,6 +48,8 @@ public final class PttService extends Service {
                 if (armed && screenOffBridge != null) screenOffBridge.setEnabled(true);
             } else if (Intent.ACTION_SCREEN_ON.equals(action)) {
                 if (screenOffBridge != null) screenOffBridge.setEnabled(false);
+                // 화면을 켤 때 블랙홀 달력·위젯을 바로 받아 온다(1분에 한 번까지). 실패해도 PTT에는 영향 없음.
+                try { CalendarRefreshJob.onScreenOn(context); } catch (Throwable ignored) {}
             }
         }
     };
@@ -273,7 +275,7 @@ public final class PttService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification.Builder builder = new Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                .setContentTitle(activeRecording ? "말해둬 PTT 녹음 중" : "말해둬 PTT 준비됨")
+                .setContentTitle(activeRecording ? "블랙홀 녹음 중" : "블랙홀 녹음 준비됨")
                 .setContentText(text)
                 .setContentIntent(content)
                 .setOngoing(true)
@@ -291,7 +293,7 @@ public final class PttService extends Service {
     }
 
     private void createChannel() {
-        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "PTT 준비 상태",
+        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "블랙홀 녹음 대기",
                 NotificationManager.IMPORTANCE_LOW);
         channel.setDescription("물리 버튼 녹음 준비 및 진행 상태");
         channel.setSound(null, null);

@@ -34,6 +34,7 @@ public final class BlackholeHostTest {
         drafts(args.length > 0 ? args[0] : ".");
         mirrorDeadlines();
         widgetAndLock();
+        nativeAlarms();
         System.out.println("BlackholeHostTest PASS: " + checks + " assertions (가짜 드라이브·호스트 시험, 기기 증거 아님)");
     }
 
@@ -522,6 +523,23 @@ public final class BlackholeHostTest {
         check(BlackholeBoard.lockTasks(after, 4).size() == 1, "잠금화면 「완료」는 Mac 반영 전에도 위젯·알림에서 바로 빠짐");
         String draftPending = BlackholeCalendarStore.addPendingSafe(BlackholeCalendarStore.completeAction("lock-2", "x", "t-dphone", "job-a"));
         check(BlackholeCalendarStore.withPending(shared, draftPending).contains("\"done\":true"), "휴대폰 초안 id로 누른 완료도 같은 원본의 Mac 항목에 얹음");
+    }
+
+    private static void nativeAlarms() {
+        long now = java.time.LocalDateTime.parse("2026-10-26T19:00").atZone(SEOUL).toInstant().toEpochMilli();
+        String shared = "{\"kind\":\"blackhole-calendar\",\"schemaVersion\":1,\"periods\":[],\"notes\":[],\"events\":["
+                + "{\"id\":\"e-1\",\"title\":\"상담\",\"date\":\"2026-10-27\",\"reminders\":[\"2026-10-27T14:30\"]},"
+                + "{\"id\":\"e-2\",\"title\":\"지난 것\",\"date\":\"2026-10-25\",\"reminders\":[\"2026-10-25T09:00\"]},"
+                + "{\"id\":\"e-3\",\"title\":\"취소\",\"gone\":true,\"reminders\":[\"2026-10-28T09:00\"]}],\"tasks\":["
+                + "{\"id\":\"t-1\",\"title\":\"시험 확인\",\"done\":false,\"reminders\":[\"2026-10-26T22:30\"]},"
+                + "{\"id\":\"t-2\",\"title\":\"끝낸 것\",\"done\":true,\"reminders\":[\"2026-10-26T23:00\"]}]}";
+        List<BlackholeCalendarStore.CalendarAlarm> list = BlackholeCalendarStore.alarms(BlackholeCalendarStore.alarmsFromShared(shared, now, SEOUL), now);
+        check(list.size() == 2 && "e-1@2026-10-27T14:30".equals(list.get(0).key) && "t-1@2026-10-26T22:30".equals(list.get(1).key)
+                && list.get(1).at == java.time.LocalDateTime.parse("2026-10-26T22:30").atZone(SEOUL).toInstant().toEpochMilli(),
+                "달력 화면 없이도 사본의 알림으로 휴대폰 알람(지난·취소·끝낸 것 뺌, Mac과 같은 key)");
+        List<BlackholeCalendarStore.CalendarAlarm> page = BlackholeCalendarStore.alarms("[{\"key\":\"e-1@2026-10-27T14:30\",\"atMs\":" + list.get(0).at + ",\"title\":\"상담\"}]", now);
+        check(BlackholeCalendarStore.union(page, list).size() == 2 && BlackholeCalendarStore.union(new java.util.ArrayList<>(), list).size() == 2,
+                "화면 목록이 옛것이어도 사본이 아는 알람은 남김(합집합)");
     }
 
     private static boolean containsBadge(BlackholeBoard.Board b, String badge) {

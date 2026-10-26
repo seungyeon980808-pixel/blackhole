@@ -27,6 +27,7 @@ check(tauri.version === "0.2.0", "Tauri version must be 0.2.0");
 check(tauri.productName === "Blackhole", "Tauri productName must be Blackhole");
 check(tauri.identifier === "com.malhaedwo.blackhole.desktop", "Tauri identifier must stay unchanged (app data continuity)");
 check(tauri.app.windows[0].title === "블랙홀", "window title must be 블랙홀");
+check(tauri.app.windows[0].backgroundThrottling === "disabled", "the calendar page must keep running when the window is hidden (inbox drafts, results)");
 check(JSON.stringify(tauri.bundle.targets) === JSON.stringify(["nsis", "msi"]), "Windows NSIS and MSI targets must stay configured");
 check(tauri.bundle.windows.nsis.installMode === "currentUser", "NSIS must install per-user");
 check(tauri.bundle.windows.webviewInstallMode.type === "downloadBootstrapper", "WebView2 bootstrapper required");

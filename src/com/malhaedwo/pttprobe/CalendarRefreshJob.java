@@ -79,6 +79,18 @@ public final class CalendarRefreshJob extends JobService {
                 .build());
     }
 
+    private static volatile long lastScreenOn;
+
+    /** 휴대폰 화면을 켤 때(녹음 대기 서비스가 알려 줌): 1분에 한 번까지 바로 받아 위젯·잠금화면을 새로 그린다. */
+    static void onScreenOn(Context context) {
+        long now = System.currentTimeMillis();
+        if (now - lastScreenOn < 60_000L) return;
+        lastScreenOn = now;
+        refreshAsync(context);
+        // Mac이 막 쓴 사본은 구글 드라이브 서버에 오르기까지 몇 초 걸린다(실기기: 첫 받기가 놓침): 짧게 몇 번 더.
+        soon(context);
+    }
+
     /** 화면을 열 때: 기다리지 않고 지금 한 번 받기(작업 등록도 확인). */
     static void refreshAsync(Context context) {
         Context app = context.getApplicationContext();
@@ -146,6 +158,8 @@ public final class CalendarRefreshJob extends JobService {
         Context app = context.getApplicationContext();
         CalendarWidgetProvider.updateAll(app);
         BlackholeQuickNotification.refresh(app);
+        // 달력 화면을 열지 않아도 Mac에서 넣은 알림이 휴대폰 알람으로 걸린다.
+        BlackholeAlarms.syncCalendar(app, "[]");
         SharedPreferences prefs = Blackhole.prefs(app);
         if (!prefs.getBoolean(BlackholeBoard.PREF_LOCK, false)) return;
         boolean hide = prefs.getBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, false);

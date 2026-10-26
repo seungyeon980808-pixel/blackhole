@@ -119,7 +119,7 @@ public final class BlackholeAlarmSetupActivity extends Activity {
 
     private void open(Intent intent) {
         try { startActivity(intent); }
-        catch (Exception error) { toast("설정 화면을 열 수 없습니다. 휴대폰 설정 › 앱 › 말해둬에서 직접 바꿔 주세요."); }
+        catch (Exception error) { toast("설정 화면을 열 수 없습니다. 휴대폰 설정 › 앱 › 블랙홀에서 직접 바꿔 주세요."); }
     }
 
     private Button button(String label, int textColor, int fill) {

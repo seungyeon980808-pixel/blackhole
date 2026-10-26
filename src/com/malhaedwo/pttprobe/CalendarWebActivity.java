@@ -253,21 +253,7 @@ public final class CalendarWebActivity extends Activity {
 
         /** 달력의 알림 시각을 전화식 알람으로 건다. 달력에서 빠진 알림은 풀어 준다. */
         @JavascriptInterface public void scheduleAlarms(String json) {
-            List<BlackholeCalendarStore.CalendarAlarm> wanted = BlackholeCalendarStore.alarms(json, System.currentTimeMillis());
-            Set<String> keep = new HashSet<>();
-            BlackholeAlarmBook book = BlackholeAlarms.load(CalendarWebActivity.this);
-            for (BlackholeCalendarStore.CalendarAlarm alarm : wanted) {
-                keep.add(alarm.id);
-                BlackholeAlarmBook.Alarm known = book.get(alarm.id);
-                // 이미 같은 시각으로 걸려 있거나, 울렸거나 미뤄 둔 알람은 다시 걸지 않는다.
-                if (known != null && (known.at == alarm.at || !known.waiting() || BlackholeAlarmBook.SNOOZED.equals(known.state))) continue;
-                BlackholeAlarms.schedule(CalendarWebActivity.this, alarm.id, alarm.title, alarm.at);
-            }
-            prefs().edit().putString(BlackholeCalendarStore.PREF_ALARM_KEYS, BlackholeCalendarStore.keys(wanted)).apply();
-            for (String old : BlackholeCalendarStore.ids(prefs().getString(BlackholeCalendarStore.PREF_ALARM_IDS, ""))) {
-                if (!keep.contains(old)) BlackholeAlarms.cancel(CalendarWebActivity.this, old);
-            }
-            prefs().edit().putString(BlackholeCalendarStore.PREF_ALARM_IDS, String.join(",", keep)).apply();
+            BlackholeAlarms.syncCalendar(CalendarWebActivity.this, json);
         }
 
         @JavascriptInterface public String sharedCopy() {
@@ -300,6 +286,13 @@ public final class CalendarWebActivity extends Activity {
             prefs().edit().putBoolean(BlackholeBoard.PREF_LOCK, lock).putBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, hideSchool).apply();
             CalendarRefreshJob.forgetLock(CalendarWebActivity.this);
             io.execute(() -> CalendarRefreshJob.publish(CalendarWebActivity.this));
+        }
+
+        /** 홈 화면에 블랙홀 위젯 추가(시스템이 확인 창을 띄운다). 안 되면 false. */
+        @JavascriptInterface public boolean pinWidget() {
+            android.appwidget.AppWidgetManager manager = android.appwidget.AppWidgetManager.getInstance(CalendarWebActivity.this);
+            if (manager == null || !manager.isRequestPinAppWidgetSupported()) return false;
+            return manager.requestPinAppWidget(new android.content.ComponentName(CalendarWebActivity.this, CalendarWidgetProvider.class), null, null);
         }
 
         /** 위젯·잠금화면 그림의 밝기(-50~50)·판 불투명도(0~150%). */

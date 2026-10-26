@@ -38,7 +38,7 @@ public final class ReminderReceiver extends BroadcastReceiver {
         Intent open = new Intent(context, InboxActivity.class).putExtra("capture_id", id);
         PendingIntent content = PendingIntent.getActivity(context, (int) id, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        String title = item.title == null || item.title.trim().isEmpty() ? "말해둬 알림" : item.title;
+        String title = item.title == null || item.title.trim().isEmpty() ? "블랙홀 알림" : item.title;
         String text = item.isSchedule() ? "예약한 알림 시각입니다" : "저장해 둔 할 일을 확인하세요";
         Notification notification = new Notification.Builder(context, ReminderScheduler.CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)

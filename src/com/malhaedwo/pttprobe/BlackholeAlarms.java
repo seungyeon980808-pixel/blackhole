@@ -86,6 +86,43 @@ final class BlackholeAlarms {
         stopRinging(app, id);
     }
 
+    /**
+     * 달력 알림 목록([{key, atMs, title}])을 전화식 알람으로 맞춘다: 새 것은 걸고, 달력에서 빠진 것은 푼다.
+     * 이미 같은 시각으로 걸렸거나 울렸거나 미뤄 둔 알람은 다시 걸지 않는다. 달력 화면과 백그라운드 받아오기가 같이 쓴다.
+     */
+    static void syncCalendar(Context context, String json) {
+        Context app = context.getApplicationContext();
+        android.content.SharedPreferences prefs = Blackhole.prefs(app);
+        synchronized (CALENDAR_LOCK) {
+            // 화면(달력 페이지)이 넘긴 목록과 휴대폰이 가진 사본(Mac 사본 + 휴대폰 초안)의 목록을 합친다.
+            // 한쪽이 옛 목록이어도 다른 쪽이 아는 알람을 지우지 않게(실기기: 뒤에 남은 달력 화면이 방금 만든 초안 알람을 지웠음).
+            long now = System.currentTimeMillis();
+            List<BlackholeCalendarStore.CalendarAlarm> wanted = BlackholeCalendarStore.union(
+                    BlackholeCalendarStore.alarms(json, now),
+                    BlackholeCalendarStore.alarms(BlackholeCalendarStore.alarmsFromShared(Blackhole.boardShared(app), now, java.time.ZoneId.systemDefault()), now));
+            java.util.Set<String> keep = new java.util.HashSet<>();
+            BlackholeAlarmBook book = load(app);
+            for (BlackholeCalendarStore.CalendarAlarm alarm : wanted) {
+                keep.add(alarm.id);
+                BlackholeAlarmBook.Alarm known = book.get(alarm.id);
+                if (known != null && (known.at == alarm.at || !known.waiting() || BlackholeAlarmBook.SNOOZED.equals(known.state))) continue;
+                schedule(app, alarm.id, alarm.title, alarm.at);
+            }
+            prefs.edit().putString(BlackholeCalendarStore.PREF_ALARM_KEYS, BlackholeCalendarStore.keys(wanted)).apply();
+            BlackholeAlarmBook current = load(app);
+            for (String old : BlackholeCalendarStore.ids(prefs.getString(BlackholeCalendarStore.PREF_ALARM_IDS, ""))) {
+                if (keep.contains(old)) continue;
+                // 달력에서 빠진 「앞으로 울릴」 알람만 푼다. 시각이 지나 지금 울리는 것·미뤄 둔 것은 그대로 둔다
+                // (실기기: 울린 지 2초 만에 목록 다시 맞추기가 알람을 꺼 버렸음).
+                BlackholeAlarmBook.Alarm known = current.get(old);
+                if (known != null && known.waiting() && known.at > now && !BlackholeAlarmBook.SNOOZED.equals(known.state)) cancel(app, old);
+            }
+            prefs.edit().putString(BlackholeCalendarStore.PREF_ALARM_IDS, String.join(",", keep)).apply();
+        }
+    }
+
+    private static final Object CALENDAR_LOCK = new Object();
+
     /** 재부팅·앱 교체·시간 변경 뒤 다시 건다. */
     static void restoreAll(Context context) {
         Context app = context.getApplicationContext();
