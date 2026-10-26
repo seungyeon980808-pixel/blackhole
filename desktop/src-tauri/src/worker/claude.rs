@@ -96,6 +96,12 @@ fn media_type(b64: &str) -> &'static str {
 /// The worker's chat messages (system / few-shot / user with `images` or `documents`) as a
 /// Messages API request body. The stable prefix (system + few-shot) carries cache breakpoints.
 pub fn request_body(model: &str, effort: &str, max_tokens: u32, messages: &[Value], schema: &Value) -> Value {
+    request_body_cached(model, effort, max_tokens, messages, schema, true)
+}
+
+/// `cache: false` sends the same request without cache breakpoints: a lone request (nothing in
+/// the last 5 minutes) would pay the cache write (1.25× input) and never read it back.
+pub fn request_body_cached(model: &str, effort: &str, max_tokens: u32, messages: &[Value], schema: &Value, cache: bool) -> Value {
     let system: Vec<&str> = messages.iter().filter(|m| m["role"] == "system").filter_map(|m| m["content"].as_str()).collect();
     let turns: Vec<&Value> = messages.iter().filter(|m| m["role"] != "system").collect();
     let last_fixed = turns.len().saturating_sub(1); // everything before the final user turn is fixed
@@ -109,16 +115,20 @@ pub fn request_body(model: &str, effort: &str, max_tokens: u32, messages: &[Valu
             content.push(json!({"type": "image", "source": {"type": "base64", "media_type": media_type(img), "data": img}}));
         }
         let mut text = json!({"type": "text", "text": m["content"].as_str().unwrap_or("")});
-        if i + 1 == last_fixed {
+        if cache && i + 1 == last_fixed {
             text["cache_control"] = json!({"type": "ephemeral"});
         }
         content.push(text);
         out.push(json!({"role": m["role"], "content": content}));
     }
+    let mut system_block = json!({"type": "text", "text": system.join("\n")});
+    if cache {
+        system_block["cache_control"] = json!({"type": "ephemeral"});
+    }
     json!({
         "model": model,
         "max_tokens": max_tokens,
-        "system": [{"type": "text", "text": system.join("\n"), "cache_control": {"type": "ephemeral"}}],
+        "system": [system_block],
         "messages": out,
         "output_config": {"effort": effort, "format": {"type": "json_schema", "schema": strict_schema(schema)}}
     })
@@ -166,11 +176,16 @@ impl ChatModel for ClaudeChat {
     }
 
     fn chat_json(&self, messages: Vec<Value>, schema: &Value) -> Result<String, WorkerError> {
-        let body = request_body(&self.model, &self.effort, self.max_tokens, &messages, schema);
-        let kind = body_kind(&body);
+        // The answer cache is keyed on the request itself (cache markers left out).
+        let plain = request_body_cached(&self.model, &self.effort, self.max_tokens, &messages, schema, false);
+        let kind = body_kind(&plain);
         // Same request as before (re-imported recording, re-scanned folder, same sentence again):
         // the answer we already paid for. The model only copies phrases; dates are computed later.
-        let hash = super::source::sha256_hex(body.to_string().as_bytes());
+        let hash = super::source::sha256_hex(plain.to_string().as_bytes());
+        // Prompt cache only when another request was made in the last 5 minutes (a burst): a lone
+        // request would pay the write and expire unread.
+        let warm = self.usage_log.as_ref().is_some_and(|p| recent_request(p, Duration::from_secs(300)));
+        let body = if warm || self.usage_log.is_none() { request_body_cached(&self.model, &self.effort, self.max_tokens, &messages, schema, true) } else { plain };
         let cached = self.answer_cache.as_ref().map(|dir| dir.join(format!("{}.json", &hash[..32])));
         if let Some(text) = cached.as_ref().and_then(|p| fs::read_to_string(p).ok()) {
             if let Some(path) = &self.usage_log {
@@ -362,6 +377,19 @@ fn log_usage(path: &PathBuf, model: &str, usage: &Value, kind: &str) {
         "cacheRead": n("cache_read_input_tokens"),
         "cacheWrite": n("cache_creation_input_tokens")
     }));
+}
+
+/// A real request (not a skip) logged within `within`.
+pub fn recent_request(path: &PathBuf, within: Duration) -> bool {
+    let Ok(text) = fs::read_to_string(path) else { return false };
+    let now = chrono::Local::now().naive_local();
+    text.lines()
+        .rev()
+        .take(50)
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .filter(|v| v.get("skip").is_none())
+        .filter_map(|v| v["at"].as_str().and_then(|a| chrono::NaiveDateTime::parse_from_str(a, "%Y-%m-%dT%H:%M:%S").ok()))
+        .any(|t| (now - t).to_std().is_ok_and(|d| d <= within))
 }
 
 /// A call that was not made: "cache" (same request answered before), "rule" (simple sentence,
@@ -578,7 +606,9 @@ mod tests {
         c.answer_cache = Some(dir.path().join("answers"));
         let ask = || crate::worker::extract::text_messages("내일 3시 상담");
         assert_eq!(c.chat_json(ask(), &schema()).unwrap(), ANSWER);
-        let _ = rx.recv().unwrap();
+        // The first request of a quiet period goes without cache markers.
+        let first = rx.recv().unwrap();
+        assert!(!first.contains("cache_control"), "lone request: no cache write");
         // Second time: no request (the fake server would not answer), same text.
         assert_eq!(c.chat_json(ask(), &schema()).unwrap(), ANSWER);
         let month = chrono::Local::now().format("%Y-%m").to_string();
@@ -592,6 +622,13 @@ mod tests {
         assert_eq!(e.code, ErrorCode::ApiBilling);
         assert!(e.code.is_waiting());
         assert_eq!(month_summary(&log, &month).skipped_budget, 1);
+        // A request right after another one (a burst) carries the cache markers.
+        assert!(recent_request(&log, Duration::from_secs(300)));
+        let (url2, rx2) = fake_api(vec![(200, ok_body())]);
+        let mut d = chat(&url2, Some(log.clone()));
+        d.base_url = url2.clone();
+        d.chat_json(crate::worker::extract::text_messages("글피 5시 미용실"), &schema()).unwrap();
+        assert!(rx2.recv().unwrap().contains("cache_control"));
     }
 
     #[test]

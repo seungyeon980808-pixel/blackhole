@@ -2,8 +2,10 @@ mod cache;
 mod calendar;
 mod commands;
 mod desk;
+mod find;
 mod fixtures;
 mod mac;
+mod secret;
 mod models;
 pub mod worker;
 
@@ -15,6 +17,11 @@ pub fn run() {
     let at_login = std::env::args().any(|a| a == "--login");
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        // Main window size and place are remembered (not the quick or alarm window).
+        .plugin(tauri_plugin_window_state::Builder::new()
+                .with_denylist(&[mac::QUICK, mac::ALARM])
+                .with_state_flags(tauri_plugin_window_state::StateFlags::all() & !tauri_plugin_window_state::StateFlags::VISIBLE)
+                .build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -47,6 +54,8 @@ pub fn run() {
             for problem in mac::register_shortcuts(handle, &settings.shortcuts) {
                 eprintln!("블랙홀 단축키: {problem}");
             }
+            #[cfg(target_os = "macos")]
+            mac::watch_right_cmd(handle);
             if at_login {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.hide();
@@ -112,7 +121,19 @@ pub fn run() {
             mac::quick_action,
             mac::speech_permission,
             mac::open_privacy,
-            mac::notify_test
+            mac::notify_test,
+            mac::secret_intake,
+            mac::quick_memo,
+            mac::quick_search,
+            mac::quick_today,
+            mac::quick_ask,
+            mac::quick_open,
+            mac::quick_query_take,
+            mac::secret_copy,
+            mac::secret_reveal,
+            mac::secret_remove,
+            mac::secrets_list,
+            mac::raycast_install
         ])
         .build(tauri::generate_context!())
         .expect("error while building Blackhole");
@@ -123,7 +144,9 @@ pub fn run() {
             // Files dropped on the Dock icon, or 「다음으로 열기 → 블랙홀」 in Finder.
             tauri::RunEvent::Opened { urls } => {
                 for url in urls {
-                    if let Ok(path) = url.to_file_path() {
+                    if url.scheme() == "blackhole" {
+                        mac::open_url(handle, url);
+                    } else if let Ok(path) = url.to_file_path() {
                         mac::put_path(handle, &path, "Dock");
                     }
                 }

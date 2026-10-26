@@ -92,6 +92,12 @@ export interface BlackholeAdapter {
   putPath?(path: string, via: string): Promise<void>;
   /** Mac: these inbox jobs were drafted; `skip` need no AI. Wakes the scanner. */
   inboxDrafted?(skip: string[]): Promise<void>;
+  /** Mac: secrets first — "secret" kept in the keychain only, "ask" 「비밀로 저장할까요?」, "put" go on. */
+  secretIntake?(text: string, secret?: boolean): Promise<"put" | "secret" | "ask">;
+  /** Mac: open the quick input/search window (⌘F). */
+  openQuick?(): void;
+  /** Mac: write the Raycast script commands and show their folder. */
+  raycastInstall?(): Promise<string>;
   /** Mac: count a call that was not made (simple sentence, rule draft final). */
   aiSkipped?(reason: string): void;
   setClaudeOptions?(budgetUsd: number, skipSimple: boolean): Promise<ClaudeStatus>;
@@ -106,7 +112,7 @@ export interface BlackholeAdapter {
   setDesk?(settings: DeskSettings): Promise<DeskStatus>;
   trySound?(sound: string): void;
   speechPermission?(): Promise<string>;
-  openPrivacy?(pane: "microphone" | "speech" | "screen" | "notifications"): void;
+  openPrivacy?(pane: "microphone" | "speech" | "screen" | "notifications" | "accessibility"): void;
   notifyTest?(): void;
 
   /** Mac: the Claude API analyzer (key in the macOS keychain; the page never sees it). */
@@ -185,6 +191,10 @@ export interface ClaudeStatus {
 export interface PutItem {
   text?: string;
   path?: string;
+  /** ⌘Enter in the quick window: a 기억 as typed (no AI). */
+  memo?: string;
+  /** Open this entry (search result). */
+  open?: string;
   link?: { url: string; title: string; text: string };
   via: string;
 }
@@ -195,6 +205,7 @@ export interface DeskSettings {
   alarmSound: string;
   onboarded: boolean;
   autostartOffered?: boolean;
+  rightCmdTwice: boolean;
 }
 
 export interface DeskStatus {
@@ -203,6 +214,9 @@ export interface DeskStatus {
   pretty: { quick: string; clipboard: string; capture: string };
   problems: string[];
   sounds: string[];
+  /** 손쉬운 사용 allowed (right ⌘ twice needs it). */
+  accessibility: boolean;
+  raycastDir: string;
 }
 
 export interface MessengerStatus {

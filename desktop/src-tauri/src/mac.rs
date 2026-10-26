@@ -34,7 +34,9 @@ pub struct Shortcuts {
 
 impl Default for Shortcuts {
     fn default() -> Self {
-        Self { quick: "Alt+Super+K".into(), clipboard: "Alt+Super+B".into(), capture: "Shift+Alt+Super+B".into() }
+        // ⌃⌥⌘: free on a Korean Mac with Raycast (⌃Space/⌃⌥Space switch input, ⌥⌘Space is Finder,
+        // ⌥Space is Raycast). Registered by key code, so they work with the Korean input on.
+        Self { quick: "Ctrl+Alt+Super+Space".into(), clipboard: "Ctrl+Alt+Super+V".into(), capture: "Ctrl+Alt+Super+S".into() }
     }
 }
 
@@ -49,11 +51,13 @@ pub struct DeskSettings {
     pub onboarded: bool,
     /// Set once the login item was offered (so turning it off stays off).
     pub autostart_offered: bool,
+    /// Right ⌘ pressed twice quickly opens the quick window (needs 손쉬운 사용).
+    pub right_cmd_twice: bool,
 }
 
 impl Default for DeskSettings {
     fn default() -> Self {
-        Self { shortcuts: Shortcuts::default(), autostart: false, alarm_sound: "Glass".into(), onboarded: false, autostart_offered: false }
+        Self { shortcuts: Shortcuts::default(), autostart: false, alarm_sound: "Glass".into(), onboarded: false, autostart_offered: false, right_cmd_twice: true }
     }
 }
 
@@ -184,6 +188,8 @@ pub struct MacState {
     pub sound: Mutex<String>,
     /// Things put in, waiting for the main page (it may not be loaded yet: Dock drop at launch).
     pub puts: Mutex<Vec<Put>>,
+    /// A query for the quick window that is still loading.
+    pub quick_query: Mutex<String>,
 }
 
 /* ---------- putting things in ---------- */
@@ -197,6 +203,12 @@ pub struct Put {
     pub path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub link: Option<LinkInfo>,
+    /// ⌘Enter in the quick window: keep as 기억 as typed (no AI).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<String>,
+    /// Open this entry (search result, Raycast).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub open: Option<String>,
     /// 빠른 입력, 클립보드, 화면 캡처, Dock, 끌어 놓기
     pub via: String,
 }
@@ -284,10 +296,40 @@ pub fn fetch_link(url: &str) -> LinkInfo {
     info
 }
 
+/// What happened to a sentence: put in, kept as a secret, or 「비밀로 저장할까요?」.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Intake {
+    Put,
+    Secret,
+    Ask,
+}
+
+/// Secrets first, by local rules: a sure one goes to the keychain only; a doubtful one is asked
+/// (`secret: None`) — from places that cannot ask (clipboard, Raycast) it is not sent at all.
+pub fn intake(app: &AppHandle, text: &str, secret: Option<bool>, can_ask: bool) -> Result<Intake, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let store = |name: &str, value: &str| -> Result<Intake, String> {
+        crate::secret::store(&dir, name, value)?;
+        notify(app, "비밀로 저장(키체인)", &format!("「{name}」 · 값은 이 Mac 키체인에만 있습니다"));
+        Ok(Intake::Secret)
+    };
+    match (crate::secret::guess(text), secret) {
+        (_, Some(false)) | (crate::secret::Guess::None, _) => Ok(Intake::Put),
+        (crate::secret::Guess::Sure { name, value }, _) | (crate::secret::Guess::Maybe { name, value }, Some(true)) => store(&name, &value),
+        (crate::secret::Guess::Maybe { .. }, None) if can_ask => Ok(Intake::Ask),
+        (crate::secret::Guess::Maybe { name, value }, None) => {
+            let _ = (name, value);
+            notify(app, "블랙홀", "비밀번호 같아 보여 보내지 않았습니다. 빠른 입력창에서 넣으면 비밀로 저장할지 묻습니다.");
+            Ok(Intake::Ask)
+        }
+    }
+}
+
 /// Text: a link is looked up first (title, page text), anything else goes in as typed.
 pub fn put_text(app: &AppHandle, text: String, via: &str) {
     let text = text.trim().to_string();
-    if text.is_empty() {
+    if text.is_empty() || !matches!(intake(app, &text, None, false), Ok(Intake::Put)) {
         return;
     }
     if let Some(url) = single_url(&text) {
@@ -424,21 +466,29 @@ pub fn show_main(app: &AppHandle) {
 }
 
 pub fn toggle_quick(app: &AppHandle) {
+    open_quick(app, None, true);
+}
+
+/// Show the quick window (optionally with a query typed in: Raycast 「블랙홀 찾기」).
+pub fn open_quick(app: &AppHandle, query: Option<String>, toggle: bool) {
     if let Some(w) = app.get_webview_window(QUICK) {
-        if w.is_visible().unwrap_or(false) && w.is_focused().unwrap_or(false) {
+        if toggle && query.is_none() && w.is_visible().unwrap_or(false) && w.is_focused().unwrap_or(false) {
             let _ = w.hide();
         } else {
             let _ = w.center();
             let _ = w.show();
             let _ = w.set_focus();
-            let _ = w.emit("bh-quick-open", ());
+            let _ = w.emit("bh-quick-open", query.unwrap_or_default());
         }
         return;
+    }
+    if let Some(q) = query {
+        *app.state::<MacState>().quick_query.lock().unwrap() = q;
     }
     let built = WebviewWindowBuilder::new(app, QUICK, WebviewUrl::App("index.html".into()))
         .initialization_script("window.__BH_WINDOW = 'quick';")
         .title("블랙홀 빠른 입력")
-        .inner_size(620.0, 148.0)
+        .inner_size(640.0, 420.0)
         .resizable(false)
         .decorations(false)
         .transparent(true)
@@ -646,12 +696,151 @@ pub fn build_tray(app: &AppHandle, s: &Shortcuts) -> tauri::Result<()> {
         .icon_as_template(true)
         .tooltip("블랙홀")
         .menu(&menu)
-        .show_menu_on_left_click(true)
+        // Click: the quick window (today + input + search). Right click: the menu.
+        .show_menu_on_left_click(false)
+        .on_tray_icon_event(|tray, e| {
+            if let tauri::tray::TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, button_state: tauri::tray::MouseButtonState::Up, .. } = e {
+                toggle_quick(tray.app_handle());
+            }
+        })
         .on_menu_event(|app, e| run_action(app, e.id().as_ref()))
         .build(app)?;
     Ok(())
 }
 
+
+/* ---------- blackhole:// (Raycast, scripts) ---------- */
+
+fn query_param(url: &tauri::Url, key: &str) -> Option<String> {
+    url.query_pairs().find(|(k, _)| k == key).map(|(_, v)| v.into_owned())
+}
+
+/// `blackhole://put?text=…`, `blackhole://find?q=…`, `blackhole://memo?text=…`,
+/// `blackhole://clipboard`, `blackhole://capture`, `blackhole://quick`, `blackhole://open`.
+pub fn open_url(app: &AppHandle, url: &tauri::Url) {
+    match url.host_str().unwrap_or("") {
+        "put" => {
+            if let Some(t) = query_param(url, "text") {
+                put_text(app, t, "Raycast");
+            }
+        }
+        "memo" => {
+            if let Some(t) = query_param(url, "text") {
+                let _ = quick_memo(app.clone(), t, None);
+            }
+        }
+        "find" => open_quick(app, Some(query_param(url, "q").unwrap_or_default()), false),
+        "clipboard" => run_action(app, "clipboard"),
+        "capture" => run_action(app, "capture"),
+        "quick" => open_quick(app, None, false),
+        _ => show_main(app),
+    }
+}
+
+fn raycast_script(title: &str, arg: Option<&str>, action: &str) -> String {
+    let argument = arg.map(|p| format!("# @raycast.argument1 {{ \"type\": \"text\", \"placeholder\": \"{p}\" }}\n")).unwrap_or_default();
+    let open = match arg {
+        Some(_) => format!("q=$(/usr/bin/osascript -l JavaScript -e 'function run(a){{return encodeURIComponent(a[0])}}' \"$1\")\n/usr/bin/open \"blackhole://{action}$q\""),
+        None => format!("/usr/bin/open \"blackhole://{action}\""),
+    };
+    format!("#!/bin/bash\n# Raycast Script Command: 블랙홀\n# @raycast.schemaVersion 1\n# @raycast.title {title}\n# @raycast.mode silent\n# @raycast.packageName 블랙홀\n# @raycast.icon 🌑\n{argument}\n{open}\n")
+}
+
+/// Raycast Script Commands (넣기·찾기·기억·클립보드·캡처) in `~/.local/share/blackhole/raycast/`.
+/// In Raycast: Settings → Extensions → Script Commands → Add Directories → this folder.
+pub fn write_raycast_scripts(dir: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    let scripts = [
+        ("blackhole-put.sh", raycast_script("블랙홀 넣기", Some("내용"), "put?text=")),
+        ("blackhole-find.sh", raycast_script("블랙홀 찾기", Some("검색어"), "find?q=")),
+        ("blackhole-memo.sh", raycast_script("블랙홀 기억", Some("기억할 내용"), "memo?text=")),
+        ("blackhole-clipboard.sh", raycast_script("블랙홀 클립보드 보내기", None, "clipboard")),
+        ("blackhole-capture.sh", raycast_script("블랙홀 화면 캡처해 넣기", None, "capture")),
+    ];
+    for (name, body) in scripts {
+        let path = dir.join(name);
+        std::fs::write(&path, body).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755));
+        }
+    }
+    Ok(())
+}
+
+/* ---------- right ⌘ twice ---------- */
+
+/// Watches the right ⌘ key (key code 54): two quick presses with nothing else in between open the
+/// quick window. Global key watching needs 손쉬운 사용 (Accessibility) — without it nothing happens.
+#[cfg(target_os = "macos")]
+pub fn watch_right_cmd(app: &AppHandle) {
+    use objc2_app_kit::{NSEvent, NSEventMask, NSEventModifierFlags, NSEventType};
+    use std::ptr::NonNull;
+    static LAST: Mutex<(f64, bool)> = Mutex::new((0.0, false)); // (time of last clean release, ⌘ held clean)
+    let handle = app.clone();
+    let on_event = move |ev: &NSEvent| {
+        let mut last = LAST.lock().unwrap();
+        if ev.r#type() == NSEventType::KeyDown {
+            *last = (0.0, false);
+            return;
+        }
+        if ev.keyCode() != 54 {
+            *last = (0.0, false);
+            return;
+        }
+        let down = ev.modifierFlags().contains(NSEventModifierFlags::Command);
+        let t = ev.timestamp();
+        if down {
+            last.1 = true;
+        } else if last.1 {
+            if last.0 > 0.0 && t - last.0 < 0.4 {
+                *last = (0.0, false);
+                let h = handle.clone();
+                let _ = handle.run_on_main_thread(move || {
+                    if load_settings(&h.path().app_data_dir().unwrap_or_default()).right_cmd_twice {
+                        toggle_quick(&h);
+                    }
+                });
+            } else {
+                *last = (t, false);
+            }
+        }
+    };
+    let on_event = std::sync::Arc::new(on_event);
+    let global = {
+        let f = on_event.clone();
+        block2::RcBlock::new(move |ev: NonNull<NSEvent>| f(unsafe { ev.as_ref() }))
+    };
+    let local = {
+        let f = on_event.clone();
+        block2::RcBlock::new(move |ev: NonNull<NSEvent>| -> *mut NSEvent {
+            f(unsafe { ev.as_ref() });
+            ev.as_ptr()
+        })
+    };
+    let mask = NSEventMask::FlagsChanged | NSEventMask::KeyDown;
+    let g = NSEvent::addGlobalMonitorForEventsMatchingMask_handler(mask, &global);
+    // SAFETY: the handler returns the event unchanged.
+    let l = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(mask, &local) };
+    // The monitors live as long as the app.
+    std::mem::forget((g, l, global, local));
+}
+
+#[cfg(target_os = "macos")]
+#[link(name = "ApplicationServices", kind = "framework")]
+extern "C" {
+    fn AXIsProcessTrusted() -> bool;
+}
+
+/// 손쉬운 사용 allowed (needed only for right ⌘ twice).
+pub fn accessibility_ok() -> bool {
+    #[cfg(target_os = "macos")]
+    // SAFETY: a plain query without arguments.
+    return unsafe { AXIsProcessTrusted() };
+    #[cfg(not(target_os = "macos"))]
+    false
+}
 
 /* ---------- commands ---------- */
 
@@ -664,6 +853,8 @@ pub struct DeskStatus {
     pretty: Shortcuts,
     problems: Vec<String>,
     sounds: Vec<String>,
+    accessibility: bool,
+    raycast_dir: String,
 }
 
 fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -674,7 +865,8 @@ fn status_of(app: &AppHandle, problems: Vec<String>) -> Result<DeskStatus, Strin
     let settings = load_settings(&data_dir(app)?);
     let s = &settings.shortcuts;
     let pretty = Shortcuts { quick: pretty_shortcut(&s.quick), clipboard: pretty_shortcut(&s.clipboard), capture: pretty_shortcut(&s.capture) };
-    Ok(DeskStatus { autostart_on: autostart_on(), pretty, settings, problems, sounds: SOUNDS.iter().map(|s| s.to_string()).collect() })
+    let raycast_dir = crate::worker::claude::data_dir().join("raycast");
+    Ok(DeskStatus { autostart_on: autostart_on(), pretty, settings, problems, sounds: SOUNDS.iter().map(|s| s.to_string()).collect(), accessibility: accessibility_ok(), raycast_dir: raycast_dir.to_string_lossy().into_owned() })
 }
 
 #[tauri::command]
@@ -717,13 +909,128 @@ pub fn alarm_sound_try(sound: String) {
     }
 }
 
-/// The quick-input window (or the main page) puts in a sentence or link.
+/// The quick-input window puts in a sentence or link.
 #[tauri::command]
-pub fn quick_put_text(app: AppHandle, text: String, via: Option<String>) {
-    put_text(&app, text, via.as_deref().unwrap_or("빠른 입력"));
+pub fn quick_put_text(app: AppHandle, text: String, via: Option<String>, secret: Option<bool>) -> Result<Intake, String> {
+    let text = text.trim().to_string();
+    let result = intake(&app, &text, secret, true)?;
+    if result == Intake::Put {
+        // (checked above; put_text checks again and finds nothing to keep)
+        if let Some(url) = single_url(&text) {
+            let (app2, via2) = (app.clone(), via.clone().unwrap_or_else(|| "빠른 입력".into()));
+            std::thread::spawn(move || {
+                let link = fetch_link(&url);
+                emit_put(&app2, Put { link: Some(link), via: via2, ..Put::default() });
+            });
+        } else if !text.is_empty() {
+            emit_put(&app, Put { text: Some(text), via: via.unwrap_or_else(|| "빠른 입력".into()), ..Put::default() });
+        }
+    }
+    if result != Intake::Ask {
+        if let Some(w) = app.get_webview_window(QUICK) {
+            let _ = w.hide();
+        }
+    }
+    Ok(result)
+}
+
+/// The main page's own input: secrets are kept out of the calendar and the chat too.
+#[tauri::command]
+pub fn secret_intake(app: AppHandle, text: String, secret: Option<bool>) -> Result<Intake, String> {
+    intake(&app, &text, secret, true)
+}
+
+/// ⌘Enter: keep as 기억 (no AI). Also an Obsidian note under 노트/기억/ when Drive 「블랙홀」 is here.
+#[tauri::command]
+pub fn quick_memo(app: AppHandle, text: String, secret: Option<bool>) -> Result<Intake, String> {
+    let text = text.trim().to_string();
+    let result = intake(&app, &text, secret, true)?;
+    if result == Intake::Put && !text.is_empty() {
+        let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+        if let Some(root) = calendar::find_drive_blackhole(&home) {
+            let _ = crate::find::write_memo_note(&root, &text);
+        }
+        emit_put(&app, Put { memo: Some(text), via: "빠른 입력".into(), ..Put::default() });
+    }
+    if result != Intake::Ask {
+        if let Some(w) = app.get_webview_window(QUICK) {
+            let _ = w.hide();
+        }
+    }
+    Ok(result)
+}
+
+fn saved_state(app: &AppHandle) -> Option<serde_json::Value> {
+    calendar::load_state(&app.path().app_data_dir().ok()?).ok().flatten()
+}
+
+/// Search as you type: entries and secret names, on this Mac only (no API, no cost).
+#[tauri::command]
+pub fn quick_search(app: AppHandle, query: String) -> Vec<crate::find::Hit> {
+    let dir = app.path().app_data_dir().unwrap_or_default();
+    crate::find::search(saved_state(&app).as_ref(), &crate::secret::list(&dir), &query, 8)
+}
+
+/// The empty quick window: today's appointments and what is due (open to-dos up to today).
+#[tauri::command]
+pub fn quick_today(app: AppHandle) -> Vec<crate::find::Hit> {
+    let Some(state) = saved_state(&app) else { return Vec::new() };
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let mut out: Vec<(String, crate::find::Hit)> = Vec::new();
+    for x in crate::find::entries(&state) {
+        let s = |k: &str| x[k].as_str().unwrap_or("").to_string();
+        let hit = |kind: &str, sub: String| crate::find::Hit { id: s("id"), kind: kind.into(), title: s("title"), sub };
+        match x["kind"].as_str() {
+            Some("event") if s("date") == today => out.push((x["start"].as_str().unwrap_or("00:00").to_string(), hit("일정", x["start"].as_str().unwrap_or("종일").to_string()))),
+            Some("task") if x["done"] != true && x["noDue"] != true && s("due") <= today => {
+                let late = s("due") < today;
+                out.push((format!("~{}", x["dueTime"].as_str().unwrap_or("99")), hit("할 일", if late { format!("{} 지남", s("due")) } else { format!("오늘{}", x["dueTime"].as_str().map(|t| format!(" {t}")).unwrap_or_default()) })));
+            }
+            _ => {}
+        }
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out.into_iter().take(10).map(|(_, h)| h).collect()
+}
+
+/// ⇧Enter: answer from the user's own records (one small Claude call).
+#[tauri::command]
+pub async fn quick_ask(app: AppHandle, question: String) -> Result<crate::find::Answer, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    if !matches!(crate::secret::guess(&question), crate::secret::Guess::None) {
+        return Err("비밀 정보처럼 보이는 글은 AI에 보내지 않습니다.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || crate::find::ask(&dir, &question)).await.map_err(|e| e.to_string())?
+}
+
+/// Open a search result in the main window (its day).
+#[tauri::command]
+pub fn quick_open(app: AppHandle, id: String) {
+    emit_put(&app, Put { open: Some(id), via: "찾기".into(), ..Put::default() });
     if let Some(w) = app.get_webview_window(QUICK) {
         let _ = w.hide();
     }
+    show_main(&app);
+}
+
+#[tauri::command]
+pub async fn secret_copy(name: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || crate::secret::copy(&name)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn secret_reveal(name: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::secret::reveal(&name)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn secret_remove(app: AppHandle, name: String) -> Result<(), String> {
+    crate::secret::remove(&app.path().app_data_dir().map_err(|e| e.to_string())?, &name)
+}
+
+#[tauri::command]
+pub fn secrets_list(app: AppHandle) -> Vec<crate::secret::SecretName> {
+    crate::secret::list(&app.path().app_data_dir().unwrap_or_default())
 }
 
 /// A pasted or dropped picture/file as bytes (name in `x-file-name`, percent-encoded).
@@ -787,10 +1094,26 @@ pub fn open_privacy(pane: String) -> Result<(), String> {
         "speech" => "Privacy_SpeechRecognition",
         "screen" => "Privacy_ScreenCapture",
         "notifications" => "",
+        "accessibility" => "Privacy_Accessibility",
         _ => return Err("알 수 없는 설정입니다.".into()),
     };
     let url = if anchor.is_empty() { "x-apple.systempreferences:com.apple.preference.notifications".to_string() } else { format!("x-apple.systempreferences:com.apple.preference.security?{anchor}") };
     Command::new("/usr/bin/open").arg(url).status().map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// 설정: write the Raycast scripts and show their folder in Finder.
+#[tauri::command]
+pub fn raycast_install() -> Result<String, String> {
+    let dir = crate::worker::claude::data_dir().join("raycast");
+    write_raycast_scripts(&dir)?;
+    let _ = Command::new("/usr/bin/open").arg(&dir).status();
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+/// The quick window, once loaded: a query that arrived before it (Raycast 「찾기」).
+#[tauri::command]
+pub fn quick_query_take(app: AppHandle) -> String {
+    std::mem::take(&mut *app.state::<MacState>().quick_query.lock().unwrap())
 }
 
 #[tauri::command]
@@ -820,6 +1143,19 @@ mod tests {
     }
 
     #[test]
+    fn raycast_scripts_open_blackhole_urls() {
+        let dir = tempfile::tempdir().unwrap();
+        write_raycast_scripts(dir.path()).unwrap();
+        let put = std::fs::read_to_string(dir.path().join("blackhole-put.sh")).unwrap();
+        assert!(put.contains("@raycast.title 블랙홀 넣기") && put.contains("@raycast.argument1") && put.contains("blackhole://put?text=$q"));
+        let clip = std::fs::read_to_string(dir.path().join("blackhole-clipboard.sh")).unwrap();
+        assert!(clip.contains("/usr/bin/open \"blackhole://clipboard\"") && !clip.contains("argument1"));
+        let u = tauri::Url::parse("blackhole://put?text=%EB%82%B4%EC%9D%BC%203%EC%8B%9C").unwrap();
+        assert_eq!(u.host_str(), Some("put"));
+        assert_eq!(query_param(&u, "text").as_deref(), Some("내일 3시"));
+    }
+
+    #[test]
     fn login_item_points_at_the_app() {
         let p = agent_plist(Path::new("/Applications/Blackhole.app/Contents/MacOS/blackhole-desktop"));
         assert!(p.contains("<string>/Applications/Blackhole.app/Contents/MacOS/blackhole-desktop</string><string>--login</string>"));
@@ -829,10 +1165,12 @@ mod tests {
     #[test]
     fn settings_default_and_tray_icon() {
         let d = DeskSettings::default();
-        assert_eq!(d.shortcuts.clipboard, "Alt+Super+B");
+        assert_eq!(d.shortcuts.clipboard, "Ctrl+Alt+Super+V");
+        assert_eq!(pretty_shortcut(&d.shortcuts.quick), "⌃⌥⌘Space");
+        assert!(d.right_cmd_twice);
         assert_eq!(d.alarm_sound, "Glass");
         let s: DeskSettings = serde_json::from_str(r#"{"autostart":true}"#).unwrap();
-        assert!(s.autostart && s.shortcuts.quick == "Alt+Super+K");
+        assert!(s.autostart && s.shortcuts.quick == "Ctrl+Alt+Super+Space");
         let px = tray_rgba(44);
         assert_eq!(px.len(), 44 * 44 * 4);
         assert_eq!(px[(22 * 44 + 22) * 4 + 3], 0, "the middle is empty (the dark moon)");

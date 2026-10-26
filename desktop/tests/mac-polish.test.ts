@@ -153,3 +153,41 @@ describe("inbox results on the day view", () => {
     expect(root.querySelector(".box.inbox h4.warn")!.textContent).toBe("검토 필요 1");
   });
 });
+
+describe("secrets, 기억, undo", () => {
+  it("a secret never reaches the calendar, the chat or the AI", async () => {
+    const asked: string[] = [];
+    const a = mac({ secretIntake: async (t) => (asked.push(t), t.includes("비번") ? "secret" : "put") });
+    await mount(a);
+    const chatBefore = app!.state.chat.length;
+    await app!.submitText("지마켓 비번 Abc!2345");
+    expect(asked).toEqual(["지마켓 비번 Abc!2345"]);
+    expect(a.calls).toEqual([]);
+    expect(app!.state.chat.length).toBe(chatBefore);
+    expect(JSON.stringify(app!.state)).not.toContain("Abc!2345");
+  });
+
+  it("a doubtful one is asked first; 「그냥 넣기」 puts it in", async () => {
+    const a = mac({ secretIntake: async (_t, secret) => (secret === undefined ? "ask" : secret ? "secret" : "put") });
+    const root = await mount(a);
+    await app!.submitText("넷플릭스 Qz8!mPw2x");
+    expect(root.querySelector("#bhLast")!.textContent).toContain("비밀번호 같아요");
+    expect(app!.state.chat).toHaveLength(0);
+    root.querySelector<HTMLElement>('[data-secret="no"]')!.click();
+    await vi.waitFor(() => expect(a.calls).toEqual(["analyze"]));
+  });
+
+  it("⌘Enter 기억 is kept as typed; a search result opens its day; ⌘Z undoes", async () => {
+    let put: ((p: PutItem) => void) | null = null;
+    const a = mac({ onPut: (h) => (put = h) });
+    await mount(a);
+    put!({ memo: "학교 행정실 내선 1234\n오후만 받음", via: "빠른 입력" });
+    await vi.waitFor(() => expect(app!.state.notes.some((n) => n.title === "학교 행정실 내선 1234" && n.details === "오후만 받음")).toBe(true));
+    expect(a.calls).toEqual([]);
+    const memo = app!.state.notes.find((n) => n.title === "학교 행정실 내선 1234")!;
+    document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyZ", key: "z", metaKey: true, bubbles: true }));
+    await vi.waitFor(() => expect(memo.gone).toBe(true));
+    document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyZ", key: "z", metaKey: true, bubbles: true }));
+    await vi.waitFor(() => expect(memo.gone).toBeUndefined());
+  });
+});
