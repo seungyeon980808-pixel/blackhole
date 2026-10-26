@@ -29,8 +29,8 @@ import java.util.Map;
  */
 public final class CalendarWidgetProvider extends AppWidgetProvider {
     static final int MAX_HITS = 10;
-    /** 그림 하나의 픽셀 수 한도(크기 두 가지 × 밝음·어두움 네 장이 위젯 그림 한도 안에 들게). */
-    static final int MAX_PIXELS = 450_000;
+    /** 그림 전체(크기 × 밝음·어두움)의 픽셀 수 한도: 위젯 그림 한도(화면 넓이 × 1.5배)보다 넉넉히 작게. */
+    static final int MAX_PIXELS = 1_800_000;
 
     @Override public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
         update(context, manager, ids);
@@ -78,17 +78,17 @@ public final class CalendarWidgetProvider extends AppWidgetProvider {
             List<SizeF> sizes = sizes(options);
             RemoteViews views;
             if (sizes.size() == 1) {
-                views = views(app, pkg, board, sizes.get(0), density, textScale, look(prefs));
+                views = views(app, pkg, board, sizes.get(0), density, textScale, look(prefs), MAX_PIXELS / 2);
             } else {
                 Map<SizeF, RemoteViews> bySize = new LinkedHashMap<>();
-                for (SizeF size : sizes) bySize.put(size, views(app, pkg, board, size, density, textScale, look(prefs)));
+                for (SizeF size : sizes) bySize.put(size, views(app, pkg, board, size, density, textScale, look(prefs), MAX_PIXELS / (2 * sizes.size())));
                 views = new RemoteViews(bySize);
             }
             try {
                 manager.updateAppWidget(id, views);
             } catch (RuntimeException tooBig) {
                 // 그림이 한도를 넘으면 크기 하나·작은 해상도로 다시.
-                manager.updateAppWidget(id, views(app, pkg, board, sizes.get(0), Math.min(density, 2f), textScale, look(prefs)));
+                manager.updateAppWidget(id, views(app, pkg, board, sizes.get(0), Math.min(density, 2f), textScale, look(prefs), MAX_PIXELS / 8));
             }
         }
     }
@@ -112,10 +112,10 @@ public final class CalendarWidgetProvider extends AppWidgetProvider {
     }
 
     private static RemoteViews views(Context app, String pkg, BlackholeBoard.Board board, SizeF size, float density, float textScale,
-                                     CalendarBoardRenderer.Look look) {
+                                     CalendarBoardRenderer.Look look, int pixels) {
         float wDp = Math.max(110, size.getWidth());
         float hDp = Math.max(80, size.getHeight());
-        float scale = Math.min(density, (float) Math.sqrt(MAX_PIXELS / (wDp * hDp)));
+        float scale = Math.min(density, (float) Math.sqrt(pixels / (wDp * hDp)));
         int w = Math.round(wDp * scale);
         int h = Math.round(hDp * scale);
         CalendarBoardRenderer.Drawn light = CalendarBoardRenderer.widget(board, w, h, scale, look, false, textScale);

@@ -93,10 +93,16 @@ export function aiOffer(x: Entry, fd: (k: string) => string): string {
 }
 
 /** Deadlines with a time on day k, as markers in the 10-minute timetable. */
+/**
+ * Deadline lines in one hour row. Labels would overlap, so only the earliest line carries one
+ * (「마감 제목 외 N」); the others are lines with the title on hover / long press.
+ */
 export function dueMarks(today: string, tasks: Task[], A: number, B: number, dueClass = "du"): string {
-  return tasks.filter((t) => t.dueTime && mins(t.dueTime) >= A && mins(t.dueTime) < B).map((t) => {
+  const here = tasks.filter((t) => t.dueTime && mins(t.dueTime) >= A && mins(t.dueTime) < B).sort((a, b) => a.dueTime!.localeCompare(b.dueTime!));
+  return here.map((t, i) => {
     const b = dueBadge(today, t);
-    return `<div class="${dueClass} ${b?.hot ? "hot" : ""} ${t.done ? "done" : ""}" data-ev="${t.id}" style="left:${pct(mins(t.dueTime!), A)}" title="${esc(`마감 ${t.dueTime} ${t.title}`)}"><span>마감 ${esc(t.title)}</span></div>`;
+    const label = i === 0 ? `<span>마감 ${esc(t.title)}${here.length > 1 ? ` 외 ${here.length - 1}` : ""}</span>` : "";
+    return `<div class="${dueClass} ${b?.hot ? "hot" : ""} ${t.done ? "done" : ""}" data-ev="${t.id}" style="left:${pct(mins(t.dueTime!), A)}" title="${esc(`마감 ${t.dueTime} ${t.title}`)}">${label}</div>`;
   }).join("");
 }
 

@@ -413,3 +413,14 @@ describe("Claude API analyzer in 설정 and without a key", () => {
     expect(root.textContent).toContain("이번 달 0회");
   });
 });
+
+describe("deadline labels in one hour row", () => {
+  it("two deadlines at 12:00 get one label (「외 1」), not two overlapping ones", async () => {
+    const { dueMarks } = await import("../src/calendar/views/common");
+    const t = (id: string, title: string, dueTime: string) => ({ id, title, due: "2026-10-27", dueTime, done: false, subs: [], reminders: [], area: "personal", source: "x", createdAt: "x" }) as never;
+    const html = dueMarks("2026-10-26", [t("a", "점심 메뉴 고민", "12:00"), t("b", "내PC지킴이 완료", "12:00")], 720, 780);
+    expect(html.match(/<span>/g)).toHaveLength(1);
+    expect(html).toContain("마감 점심 메뉴 고민 외 1");
+    expect(html).toContain('title="마감 12:00 내PC지킴이 완료"');
+  });
+});
