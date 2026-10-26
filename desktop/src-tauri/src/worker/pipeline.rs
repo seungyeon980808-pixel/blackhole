@@ -21,6 +21,12 @@ pub const WEAK_RMS: f64 = 300.0;
 pub const HINT_MIN_MS: u64 = 3_000;
 pub const WEAK_AUDIO_REASON: &str = "음성이 너무 짧거나 약함";
 pub const HINT_ONLY_REASON: &str = "받아쓴 글이 힌트 낱말뿐이라 지어낸 것으로 봄";
+pub const TOO_SHORT_REASON: &str = "내용이 너무 짧아 AI를 부르지 않음";
+
+/// Fewer than two letters or digits: not worth a model call.
+pub fn too_short(text: &str) -> bool {
+    text.chars().filter(|c| c.is_alphanumeric()).count() < 2
+}
 
 fn weak_audio(info: &WavInfo) -> bool {
     info.duration_ms < MIN_SPEECH_MS || info.rms < WEAK_RMS
@@ -143,6 +149,33 @@ pub fn input_hash(input: &Input) -> Result<(String, u64), WorkerError> {
     }
 }
 
+pub const RULE_ONLY_SUMMARY: &str = "규칙 초안 그대로(AI 생략)";
+
+/// A job whose rule draft the app already took as final: no reading, no model call. The note
+/// still gets the original text; the app sees no items and keeps its own entry.
+pub fn rule_only_proposal(input: &Input, reference: DateTime<FixedOffset>) -> Result<Proposal, WorkerError> {
+    let (source_type, format, bytes) = match input {
+        Input::File(path) => {
+            let (kind, ext) = source_type_for(path)?;
+            (kind, ext, read_original(path)?)
+        }
+        Input::Text(text) => (SourceType::Text, "txt".to_string(), text.as_bytes().to_vec()),
+    };
+    let source_text = if source_type == SourceType::Text { String::from_utf8_lossy(&bytes).into_owned() } else { String::new() };
+    Ok(Proposal {
+        schema_version: PROPOSAL_SCHEMA_VERSION,
+        source: ProposalSource { source_type, format, sha256: sha256_hex(&bytes), bytes: bytes.len() as u64 },
+        reference_time: reference.to_rfc3339(),
+        engine: EngineInfo { id: EngineId::TextFirst, reader: String::new(), llm_model: "rules".into(), prompt_version: PROMPT_VERSION.to_string(), worker_version: WORKER_VERSION.to_string() },
+        source_text,
+        summary: RULE_ONLY_SUMMARY.into(),
+        items: Vec::new(),
+        needs_review: false,
+        review_reasons: Vec::new(),
+        timings: Timings::default(),
+    })
+}
+
 pub fn analyze(input: &Input, engine: EngineId, reference: DateTime<FixedOffset>, engines: &Engines) -> Result<Proposal, WorkerError> {
     analyze_with(input, engine, reference, engines, &AnalyzeOptions::default())
 }
@@ -221,6 +254,16 @@ pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOf
                 SourceType::Audio => WorkerError::new(ErrorCode::EmptyAudio, "음성에서 받아 적은 말이 없습니다."),
                 _ => WorkerError::new(ErrorCode::EmptyDocument, "입력에서 읽은 글자가 없습니다."),
             });
+        }
+    }
+
+    // A word or less (「ㅇㅇ」, 「.」, an empty transcript of a tap): nothing to organise, no API call.
+    if let Some(text) = &source_text {
+        if too_short(text) {
+            if options.claude && !cfg!(test) {
+                super::claude::log_skip(&super::claude::usage_log_path(), "short", "text");
+            }
+            return Ok(empty(TOO_SHORT_REASON.to_string(), engine, text.clone(), reader));
         }
     }
 
@@ -380,6 +423,26 @@ mod tests {
         assert!(!p.needs_review);
         // The original is untouched.
         assert_eq!(std::fs::read(&wav).unwrap(), speech_wav());
+    }
+
+    #[test]
+    fn rule_only_job_reads_nothing_but_the_text() {
+        let p = rule_only_proposal(&Input::Text("내일 오후 3시 치과"), reference()).unwrap();
+        assert!(p.items.is_empty() && !p.needs_review && p.summary == RULE_ONLY_SUMMARY && p.engine.llm_model == "rules");
+        assert_eq!(p.source.sha256, sha256_hex("내일 오후 3시 치과".as_bytes()));
+        assert_eq!(p.source_text, "내일 오후 3시 치과");
+    }
+
+    #[test]
+    fn a_word_or_less_makes_no_model_call() {
+        let chat = FakeChat::new(vec![]);
+        let engines = Engines { transcriber: &FakeStt(Ok(String::new())), reader: &FakeReader(Ok(String::new())), text_model: &chat, direct_model: &chat };
+        for text in ["ㅇ", " . ", "?!", "a"] {
+            let p = analyze(&Input::Text(text), EngineId::TextFirst, reference(), &engines).unwrap();
+            assert!(p.items.is_empty() && p.review_reasons == vec![TOO_SHORT_REASON.to_string()], "{text}");
+        }
+        assert_eq!(*chat.calls.borrow(), 0);
+        assert!(!too_short("내일") && too_short("ㅋ"));
     }
 
     #[test]

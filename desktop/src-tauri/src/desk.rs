@@ -19,14 +19,15 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tauri::{AppHandle, Emitter, Manager, UserAttentionType};
+use tauri::{AppHandle, Emitter, Manager};
 
 const INBOX_EVERY: Duration = Duration::from_secs(15);
 /// A Drive upload is usually complete within this; the scan leaves newer files for later.
 const INBOX_SETTLE: Duration = Duration::from_secs(3);
 /// Drafts are offered for inbox files this recent (older ones were handled before).
 const DRAFT_WINDOW: Duration = Duration::from_secs(3 * 24 * 3600);
-const RING_LIMIT: Duration = Duration::from_secs(10 * 60);
+/// Inbox jobs whose rule draft was final (simple sentence): the scanner makes no AI call.
+const SKIP_FILE: &str = "ai-skip.json";
 
 #[derive(Default)]
 struct InboxRun {
@@ -47,7 +48,7 @@ pub struct Desk {
     drafted: Mutex<std::collections::HashSet<String>>,
     messenger: Arc<Mutex<MessengerRun>>,
     alarms: Arc<Mutex<Vec<AlarmSpec>>>,
-    ringing: Arc<AtomicBool>,
+    skip: Arc<Mutex<std::collections::HashSet<String>>>,
 }
 
 #[derive(Default)]
@@ -166,7 +167,7 @@ pub async fn analyze_path(app: AppHandle, path: String, now: String) -> Result<P
     .await
 }
 
-fn percent_decode(s: &str) -> String {
+pub(crate) fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -261,11 +262,63 @@ pub fn inbox_drafts(desk: tauri::State<'_, Desk>) -> Vec<calendar::InboxDraft> {
     }
     let since = std::time::SystemTime::now() - DRAFT_WINDOW;
     let list = desk.drafts.lock().unwrap().scan(&root, since);
-    let mut drafted = desk.drafted.lock().unwrap();
-    if list.iter().any(|d| drafted.insert(d.job_id.clone())) {
-        desk.kick.store(true, Ordering::SeqCst);
+    // The page answers with `inbox_drafted` (which jobs need no AI); only then the scanner is woken,
+    // so a simple sentence is never sent to the API before the page could say so.
+    let drafted = desk.drafted.lock().unwrap();
+    if list.iter().any(|d| !drafted.contains(&d.job_id)) {
+        drop(drafted);
+        let mut drafted = desk.drafted.lock().unwrap();
+        for d in &list {
+            drafted.insert(d.job_id.clone());
+        }
+        // Safety net: a page that never answers still gets its AI pass on the next regular scan.
     }
     list
+}
+
+/// The page drafted new inbox jobs. `skip`: jobs whose rule draft is final (simple sentence,
+/// 「AI 생략」 on), never sent to the API. Then the scanner runs at once for the others.
+#[tauri::command]
+pub fn inbox_drafted(app: AppHandle, desk: tauri::State<'_, Desk>, skip: Vec<String>) {
+    if !skip.is_empty() {
+        let mut set = desk.skip.lock().unwrap();
+        for job in &skip {
+            if set.insert(job.clone()) {
+                crate::worker::claude::log_skip(&crate::worker::claude::usage_log_path(), "rule", "text");
+            }
+        }
+        if let Ok(dir) = data_dir(&app) {
+            let list: Vec<&String> = set.iter().collect();
+            let _ = std::fs::write(dir.join(SKIP_FILE), serde_json::to_string(&list).unwrap_or_default());
+        }
+    }
+    desk.kick.store(true, Ordering::SeqCst);
+}
+
+/// A sentence typed here whose rule draft was final: counted, not sent.
+#[tauri::command]
+pub fn ai_skipped(reason: String) {
+    crate::worker::claude::log_skip(&crate::worker::claude::usage_log_path(), &reason, "text");
+}
+
+/// Copy a file into the current inbox folder (`<날짜-시각>-맥-<이름>`) and wake the scanner.
+/// The file itself is only read.
+#[tauri::command]
+pub fn inbox_put(desk: tauri::State<'_, Desk>, path: String) -> Result<String, String> {
+    let (enabled, root) = {
+        let run = desk.inbox.lock().unwrap();
+        (run.enabled, run.root.clone())
+    };
+    if !enabled || root.as_os_str().is_empty() {
+        return Err("인박스 처리가 꺼져 있습니다.".into());
+    }
+    let from = Path::new(&path);
+    source_type_for(from).map_err(|e| e.message)?;
+    let name = from.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "입력".into());
+    let target = Layout::new(&root).inbox().join(format!("{}-맥-{}", chrono::Local::now().format("%Y%m%d-%H%M%S"), name));
+    std::fs::copy(from, &target).map_err(|e| format!("인박스에 넣지 못했습니다: {e}"))?;
+    desk.kick.store(true, Ordering::SeqCst);
+    Ok(target.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())
 }
 
 /// Claude API status for 설정. The key itself is never returned to the page.
@@ -277,14 +330,35 @@ pub struct ClaudeStatus {
     has_key: bool,
     month_requests: u64,
     month_usd: f64,
+    budget_usd: f64,
+    skip_simple: bool,
+    month: crate::worker::claude::MonthSummary,
 }
 
 fn claude_status_now() -> Result<ClaudeStatus, String> {
     let config = WorkerConfig::from_env().map_err(|e| e.message)?;
     let has_key = crate::worker::claude::api_key().map_err(|e| e.message)?.is_some();
     let month = chrono::Local::now().format("%Y-%m").to_string();
-    let (month_requests, month_usd) = crate::worker::claude::month_usage(&crate::worker::claude::usage_log_path(), &month);
-    Ok(ClaudeStatus { analyzer: config.analyzer.clone(), model: config.claude_model.clone(), has_key, month_requests, month_usd })
+    let summary = crate::worker::claude::month_summary(&crate::worker::claude::usage_log_path(), &month);
+    let ai = crate::worker::claude::AiSettings::load();
+    Ok(ClaudeStatus {
+        analyzer: config.analyzer.clone(),
+        model: config.claude_model.clone(),
+        has_key,
+        month_requests: summary.requests,
+        month_usd: summary.usd,
+        budget_usd: ai.budget_usd,
+        skip_simple: ai.skip_simple,
+        month: summary,
+    })
+}
+
+/// 설정: monthly AI budget (USD, 0 = none) and 「간단한 문장은 AI 생략」.
+#[tauri::command]
+pub fn claude_set_options(budget_usd: f64, skip_simple: bool) -> Result<ClaudeStatus, String> {
+    let ai = crate::worker::claude::AiSettings { budget_usd: budget_usd.clamp(0.0, 1000.0), skip_simple };
+    ai.save().map_err(|e| e.message)?;
+    claude_status_now()
 }
 
 #[tauri::command]
@@ -342,50 +416,33 @@ pub fn alarms_schedule(desk: tauri::State<'_, Desk>, alarms: Vec<AlarmSpec>) {
     *desk.alarms.lock().unwrap() = alarms;
 }
 
-fn bring_forward(app: &AppHandle, on_top: bool) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.show();
-        let _ = w.unminimize();
-        let _ = w.set_always_on_top(on_top);
-        if on_top {
-            let _ = w.set_focus();
-            let _ = w.request_user_attention(Some(UserAttentionType::Critical));
-        }
-    }
-}
-
-fn start_ring(ringing: &Arc<AtomicBool>) {
-    if ringing.swap(true, Ordering::SeqCst) {
-        return;
-    }
-    let flag = ringing.clone();
-    std::thread::spawn(move || {
-        let started = Instant::now();
-        while flag.load(Ordering::SeqCst) && started.elapsed() < RING_LIMIT {
-            #[cfg(target_os = "macos")]
-            {
-                let _ = std::process::Command::new("/usr/bin/afplay").arg("/System/Library/Sounds/Glass.aiff").status();
-            }
-            std::thread::sleep(Duration::from_millis(250));
-        }
-        flag.store(false, Ordering::SeqCst);
-    });
-}
-
-/// Start/stop ringing. Returns true when the sound is played here (macOS); otherwise the
-/// web page beeps itself.
+/// Kept for older pages: the alarm window rings itself; `false` stops the sound.
 #[tauri::command]
-pub fn alarm_ring(app: AppHandle, desk: tauri::State<'_, Desk>, on: bool) -> bool {
-    if on {
-        bring_forward(&app, true);
-        if cfg!(target_os = "macos") {
-            start_ring(&desk.ringing);
-        }
-    } else {
-        desk.ringing.store(false, Ordering::SeqCst);
-        bring_forward(&app, false);
+pub fn alarm_ring(app: AppHandle, on: bool) -> bool {
+    if !on {
+        crate::mac::stop_ring(&app.state::<crate::mac::MacState>());
     }
-    cfg!(target_os = "macos")
+    true
+}
+
+/// Alarms that passed while Blackhole was not running (the page finds them at start).
+#[tauri::command]
+pub fn alarm_missed(app: AppHandle, alarms: Vec<AlarmSpec>) {
+    crate::mac::show_alarms(&app, alarms.into_iter().map(|a| AlarmSpec { missed: true, ..a }).collect());
+}
+
+/// The alarm window: what to show.
+#[tauri::command]
+pub fn alarm_current(app: AppHandle) -> Vec<AlarmSpec> {
+    app.state::<crate::mac::MacState>().showing.lock().unwrap().clone()
+}
+
+/// The alarm window: 확인 / 완료 / 10분 뒤. The main page applies it to the calendar.
+#[tauri::command]
+pub fn alarm_answer(app: AppHandle, key: String, answer: String) {
+    if let Some(alarm) = crate::mac::alarm_answered(&app, &key) {
+        let _ = app.emit_to("main", "bh-alarm-answer", serde_json::json!({ "alarm": alarm, "answer": answer }));
+    }
 }
 
 /// Window glass: the desktop shows through (macOS vibrancy) for the 유리 theme; the 공문서
@@ -418,15 +475,24 @@ pub fn start(app: &AppHandle) {
         run.root = run.test_root.clone();
     }
 
-    let (alarms, ringing, handle) = (desk.alarms.clone(), desk.ringing.clone(), app.clone());
+    if let Ok(dir) = data_dir(app) {
+        let saved: Vec<String> = std::fs::read_to_string(dir.join(SKIP_FILE)).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+        desk.skip.lock().unwrap().extend(saved);
+    }
+
+    // The alarm clock runs here, not in the page: a hidden window's timers may be slowed down.
+    let (alarms, handle) = (desk.alarms.clone(), app.clone());
     std::thread::spawn(move || loop {
         std::thread::sleep(Duration::from_millis(500));
         let due = calendar::take_due(&mut alarms.lock().unwrap(), calendar::now_ms());
-        for alarm in due {
-            bring_forward(&handle, true);
-            start_ring(&ringing);
-            let _ = handle.emit("bh-alarm", serde_json::json!({ "key": alarm.key }));
+        if due.is_empty() {
+            continue;
         }
+        for alarm in &due {
+            let _ = handle.emit_to("main", "bh-alarm", serde_json::json!({ "key": alarm.key }));
+        }
+        let h = handle.clone();
+        let _ = handle.run_on_main_thread(move || crate::mac::show_alarms(&h, due));
     });
 
     // Discord·Slack → the current inbox folder, every 30 s while enabled.
@@ -452,7 +518,7 @@ pub fn start(app: &AppHandle) {
         }
     });
 
-    let (inbox, kick) = (desk.inbox.clone(), desk.kick.clone());
+    let (inbox, kick, skip) = (desk.inbox.clone(), desk.kick.clone(), desk.skip.clone());
     std::thread::spawn(move || {
         let mut last = Instant::now() - INBOX_EVERY;
         loop {
@@ -469,7 +535,13 @@ pub fn start(app: &AppHandle) {
             last = Instant::now();
             inbox.lock().unwrap().running = true;
             let now = chrono::Local::now().fixed_offset();
-            let result = scan_once(&Layout::new(&root), EngineId::TextFirst, now, INBOX_SETTLE, |input, _| run_analysis_in(input, now, Some(&Layout::new(&root).inbox())));
+            let result = scan_once(&Layout::new(&root), EngineId::TextFirst, now, INBOX_SETTLE, |input, _| {
+                let job = crate::worker::pipeline::input_hash(input).map(|(sha, _)| format!("job-{}", &sha[..16])).unwrap_or_default();
+                if skip.lock().unwrap().contains(&job) {
+                    return crate::worker::pipeline::rule_only_proposal(input, now);
+                }
+                run_analysis_in(input, now, Some(&Layout::new(&root).inbox()))
+            });
             let mut run = inbox.lock().unwrap();
             run.running = false;
             run.last_scan_at = Some(now.format("%Y-%m-%dT%H:%M:%S").to_string());

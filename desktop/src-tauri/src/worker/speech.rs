@@ -63,7 +63,7 @@ fn helper_path() -> Result<PathBuf, WorkerError> {
 pub struct MacSpeech;
 
 impl MacSpeech {
-    fn run(&self, wav: &Path) -> Result<String, WorkerError> {
+    pub fn run(&self, wav: &Path) -> Result<String, WorkerError> {
         let helper = helper_path()?;
         let out = Command::new(&helper)
             .arg(wav)

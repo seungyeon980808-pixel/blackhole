@@ -3,14 +3,15 @@
  * Platform work goes through the adapter, so this module runs unchanged in the desktop
  * window, a browser and the phone WebView.
  */
-import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type BoardOptions, type ClaudeStatus, type GoogleCalendars, type InboxStatus, type MessengerStatus } from "./adapter";
+import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type BoardOptions, type ClaudeStatus, type DeskStatus, type GoogleCalendars, type InboxStatus, type MessengerStatus, type PutItem } from "./adapter";
 import { addDays, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
+import { isSimpleCertain, parseRule } from "./rules";
 import { seedState } from "./samples";
 import {
-  applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
+  applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
 } from "./store";
 import type { Ctx, ThemeView, ViewName } from "./views/common";
 import { doc, printSheet } from "./views/doc";
@@ -87,13 +88,21 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let messenger: MessengerStatus | null = null;
   let claude: ClaudeStatus | null = null;
   let claudeLine = "";
+  let desk: DeskStatus | null = null;
+  let deskLine = "";
+  let guideOpen = false;
+  let guideLines: Record<string, string> = {};
+  /** 「알람 시험」 alarms, scheduled with the real ones. */
+  const testAlarms: Alarm[] = [];
   const loadCalendars = () =>
-    Promise.all([adapter.googleCalendars?.(), adapter.board?.(), adapter.messenger?.(), adapter.claude?.().catch(() => null)]).then(([g, b, m, c]) => {
+    Promise.all([adapter.googleCalendars?.(), adapter.board?.(), adapter.messenger?.(), adapter.claude?.().catch(() => null), adapter.desk?.().catch(() => null)]).then(([g, b, m, c, d]) => {
       gcal = g ?? null;
       board = b ?? null;
       messenger = m ?? null;
       claude = c ?? null;
+      desk = d ?? desk;
       if (settingsOpen) renderSettings();
+      if (guideOpen) renderGuide();
     });
   (window as unknown as { blackholeCalendars?: () => void }).blackholeCalendars = () => void loadCalendars();
   let shareTimer: number | undefined;
@@ -148,6 +157,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     root.innerHTML = `${theme().shell(c)}
       <section class="chatsheet" id="bhChat" aria-label="대화 기록"><div class="grab" data-drag="close" role="button" tabindex="0" aria-label="대화 기록 닫기"><i></i></div><div class="sheethead">대화 기록</div><div class="thread" id="bhThread" aria-live="polite"></div><div class="sheetcomp" id="bhChatComp"></div></section>
       <div class="settings" id="bhSettings" role="dialog" aria-label="설정" hidden></div>
+      <div class="settings guide" id="bhGuide" role="dialog" aria-label="처음 쓰기" hidden></div>
       <div class="alarm" id="bhAlarm" aria-live="assertive"></div>
       <input type="file" id="bhFile" hidden accept="image/*,.pdf,.hwp,.hwpx,.docx,.xlsx,.txt,.wav">`;
     renderComposer();
@@ -274,7 +284,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <label class="set-row"><input type="checkbox" data-set="samples" ${st.showSamples ? "checked" : ""}> 가짜 자료 보이기</label>
       ${adapter.claude ? claudeBlock() : ""}
       <div class="set-sep"></div>
-      <label class="set-row"><input type="checkbox" data-set="inbox" ${inbox.enabled ? "checked" : ""} ${inbox.available ? "" : "disabled"}> 인박스 처리 (작업기)</label>
+      <label class="set-row"><input type="checkbox" data-set="inbox" ${inbox.enabled ? "checked" : ""} ${inbox.available ? "" : "disabled"}> 인박스 처리(휴대폰·드라이브에서 온 것 정리)</label>
       ${inbox.available ? `<label class="set-row">폴더 <select data-set="inboxRoot"><option value="" ${st.inboxRoot ? "" : "selected"}>시험 폴더</option>${inbox.driveRoot ? `<option value="drive" ${st.inboxRoot ? "selected" : ""}>드라이브 「블랙홀」</option>` : ""}</select></label>` : ""}
       <div class="set-note">${inbox.available ? `${st.inboxRoot ? "드라이브 폴더(인박스 원본은 지우지 않고 원본/·노트/만 씀)" : "시험 폴더"}: <code>${escapeHtml(inbox.root)}</code><br>${inbox.running ? "분석 중 · " : ""}${inbox.lastScanAt ? `마지막 확인 ${escapeHtml(inbox.lastScanAt.slice(11, 16))}` : "아직 확인 안 함"}${inbox.lastError ? `<br><span class="warn">${escapeHtml(inbox.lastError)}</span>` : ""}` : "이 화면에서는 인박스 처리를 쓸 수 없습니다."}</div>
       ${adapter.publishShared ? `<label class="set-row"><input type="checkbox" data-set="sharePhone" ${st.sharePhone ? "checked" : ""} ${inbox.driveRoot ? "" : "disabled"}> 휴대폰과 달력 공유</label>
@@ -291,8 +301,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       ${adapter.setLockTasks ? `<label class="set-row"><input type="checkbox" data-board="lockTasks" ${board.lockTasks !== false ? "checked" : ""}> 잠금화면 알림에 오늘 할 일·마감(「완료」 체크)</label>
       <label class="set-row"><input type="checkbox" data-board="lockHideTitles" ${board.lockHideTitles ? "checked" : ""}> 잠금화면 알림에서 할 일 제목 가리기</label>` : ""}
       <div class="set-note">잠금화면 배경은 켜면 지금 배경을 바꿉니다(되돌리려면 휴대폰 배경 설정에서 다시 고름). 잠금 상태에서는 「완료」 체크와 「적기」(메모 추가)까지만 됩니다.${board.status ? `<br>${escapeHtml(board.status)}` : ""}</div>` : ""}
+      ${adapter.desk ? deskBlock() : ""}
       <div class="set-sep"></div>
-      <div class="set-row"><button class="mini" data-testalarm>알람 시험 (10초 뒤)</button></div>
+      <div class="set-row"><button class="mini" data-testalarm>알람 시험 (1분 뒤)</button>${adapter.desk ? '<button class="mini" data-guide>처음 쓰기 안내</button>' : ""}</div>
       <div class="set-note">${escapeHtml(adapter.connection.detail)}</div>`;
     el.hidden = false;
   }
@@ -309,7 +320,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         ? `<div class="set-row">Claude API 키 저장됨(키체인) <button class="mini" data-claude="check">연결 확인</button><button class="mini" data-claude="clear">키 지우기</button></div>`
         : `<label class="set-row">Claude API 키 <input type="password" data-claude-key autocomplete="off" spellcheck="false" placeholder="sk-ant-…" aria-label="Claude API 키 붙여넣기"></label>
            <div class="set-row"><button class="mini" data-claude="save">키 저장</button></div>`}
-      <div class="set-note">${local ? "worker-config.json의 analyzer를 \"claude\"로 두면 Claude로 돌아갑니다." : `키는 이 Mac의 키체인에만 둡니다(파일·드라이브에 남기지 않음). 키가 없어도 초안은 바로 들어가고, AI 다듬기만 기다립니다.<br>이번 달 ${claude.monthRequests}회 · 대략 $${usd.toFixed(usd < 1 ? 3 : 2)}(약 ${won.toLocaleString("ko-KR")}원)`}${claudeLine ? `<br>${escapeHtml(claudeLine)}` : ""}</div>`;
+      ${local || !adapter.setClaudeOptions ? "" : `<label class="set-row">월 예산 $<input type="number" min="0" max="100" step="0.5" value="${claude.budgetUsd ?? 3}" data-claude-opt="budget" aria-label="이번 달 AI 예산(달러)" style="width:64px"></label>
+      <label class="set-row"><input type="checkbox" data-claude-opt="skip" ${claude.skipSimple !== false ? "checked" : ""}> 간단한 문장은 AI 생략(날짜·시각·제목이 분명한 약속 하나)</label>`}
+      <div class="set-note">${local ? "worker-config.json의 analyzer를 \"claude\"로 두면 Claude로 돌아갑니다." : `키는 이 Mac의 키체인에만 둡니다. 예산을 넘으면 AI를 멈추고 초안만 넣습니다.<br>이번 달 ${claude.monthRequests}회 · 대략 $${usd.toFixed(usd < 1 ? 3 : 2)}(약 ${won.toLocaleString("ko-KR")}원)${claude.month && (claude.month.skippedCache + claude.month.skippedRule + claude.month.skippedShort + claude.month.skippedBudget) ? ` · 부르지 않음 ${claude.month.skippedRule + claude.month.skippedCache + claude.month.skippedShort + claude.month.skippedBudget}회` : ""}`}${claudeLine ? `<br>${escapeHtml(claudeLine)}` : ""}</div>`;
   }
 
   async function claudeAction(what: string): Promise<void> {
@@ -333,6 +346,84 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       claudeLine = e instanceof Error ? e.message : String(e);
     }
     if (settingsOpen) renderSettings();
+  }
+
+  /** Mac: login item, shortcuts, alarm sound. */
+  function deskBlock(): string {
+    if (!desk) return '<div class="set-sep"></div><div class="set-note">Mac 설정을 읽는 중…</div>';
+    const d = desk.settings;
+    const sc = (k: "quick" | "clipboard" | "capture", label: string) =>
+      `<label class="set-row">${label} <input data-desk-sc="${k}" value="${escapeHtml(d.shortcuts[k])}" spellcheck="false" autocomplete="off" aria-label="${label} 단축키" style="width:150px"><span class="set-v">${escapeHtml(desk!.pretty[k])}</span></label>`;
+    return `<div class="set-sep"></div>
+      <label class="set-row"><input type="checkbox" data-desk="autostart" ${desk.autostartOn ? "checked" : ""}> 로그인하면 블랙홀 켜기(메뉴 막대에만)</label>
+      ${sc("quick", "빠른 입력")}${sc("clipboard", "클립보드 보내기")}${sc("capture", "화면 캡처해 넣기")}
+      <label class="set-row">알람 소리 <select data-desk="sound">${desk.sounds.map((x) => `<option ${x === d.alarmSound ? "selected" : ""}>${x}</option>`).join("")}</select><button class="mini" data-desk-try>들어 보기</button></label>
+      <div class="set-note">단축키 예: Alt+Super+K(⌥⌘K), Ctrl+Shift+Space. 비우면 끕니다. 창을 닫아도 메뉴 막대의 블랙홀이 인박스·알람을 계속 돌립니다.${desk.problems.length || deskLine ? `<br><span class="warn">${escapeHtml([...desk.problems, deskLine].filter(Boolean).join(" · "))}</span>` : ""}</div>`;
+  }
+
+  async function saveDesk(change: (d: DeskStatus["settings"]) => void): Promise<void> {
+    if (!desk || !adapter.setDesk) return;
+    const next = structuredClone(desk.settings);
+    change(next);
+    try {
+      desk = await adapter.setDesk(next);
+      deskLine = "";
+    } catch (e) {
+      deskLine = e instanceof Error ? e.message : String(e);
+    }
+    if (settingsOpen) renderSettings();
+    if (guideOpen) renderGuide();
+  }
+
+  /** First start (Mac): everything that may stop the user, once, in one place. */
+  function renderGuide(): void {
+    const el = root.querySelector<HTMLElement>("#bhGuide");
+    if (!el) return;
+    if (!guideOpen) {
+      el.hidden = true;
+      return;
+    }
+    const p = desk?.pretty;
+    const line = (k: string) => (guideLines[k] ? `<span class="set-v">${escapeHtml(guideLines[k])}</span>` : "");
+    const keyOk = claude ? (claude.hasKey ? "Claude 키 있음" : "Claude 키 없음 — 설정에서 넣으면 AI 다듬기가 켜집니다(없어도 초안은 들어감)") : "";
+    el.innerHTML = `<div class="set-h">처음 쓰기 <button class="mini" data-guide-close>다 봤어요</button></div>
+      <div class="set-row"><b>넣는 법</b></div>
+      <div class="set-note">입력칸에 쓰고 Enter · 파일을 창이나 Dock 아이콘에 끌어 놓기 · 사진은 입력칸에 ⌘V${p ? `<br>어디서든 ${escapeHtml(p.quick)} 빠른 입력 · ${escapeHtml(p.clipboard)} 클립보드 보내기 · ${escapeHtml(p.capture)} 화면 일부 캡처` : ""}<br>메뉴 막대의 블랙홀 아이콘에서도 됩니다.</div>
+      <div class="set-sep"></div>
+      <div class="set-row"><b>허용할 것</b></div>
+      <div class="set-row">알림 <button class="mini" data-perm="notify">시험 알림 보내기</button><button class="mini" data-perm="notifications">설정 열기</button>${line("notify")}</div>
+      <div class="set-row">마이크(말하기) <button class="mini" data-perm="mic">허용 묻기</button>${line("mic")}</div>
+      <div class="set-row">음성 인식(녹음 받아쓰기) <button class="mini" data-perm="speech">허용 묻기</button>${line("speech")}</div>
+      <div class="set-row">화면 기록(캡처해 넣기) <button class="mini" data-perm="screen">설정 열기</button></div>
+      <div class="set-note">손쉬운 사용 권한은 필요 없습니다(단축키는 권한 없이 동작). 화면 기록은 처음 캡처할 때 macOS가 묻습니다.</div>
+      <div class="set-sep"></div>
+      <label class="set-row"><input type="checkbox" data-desk="autostart" ${desk?.autostartOn ? "checked" : ""}> 로그인하면 블랙홀 켜기(메뉴 막대에만)</label>
+      <div class="set-row"><button class="mini" data-testalarm>알람 시험 (1분 뒤)</button></div>
+      <div class="set-note">${escapeHtml(keyOk)}${inbox.available && !inbox.enabled ? "<br>휴대폰에서 보낸 것을 받으려면 설정 → 인박스 처리를 켜고 폴더를 「드라이브 블랙홀」로 고르세요." : ""}</div>`;
+    el.hidden = false;
+  }
+
+  async function permission(what: string): Promise<void> {
+    try {
+      if (what === "notify") {
+        adapter.notifyTest?.();
+        guideLines.notify = "알림이 안 보이면 「설정 열기」에서 블랙홀 알림을 켜 주세요";
+      } else if (what === "mic") {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((t) => t.stop());
+        guideLines.mic = "허용됨";
+      } else if (what === "speech") {
+        guideLines.speech = "묻는 중…";
+        renderGuide();
+        guideLines.speech = (await adapter.speechPermission?.()) ?? "";
+      } else if (what === "notifications" || what === "screen") {
+        adapter.openPrivacy?.(what);
+      }
+    } catch (e) {
+      guideLines[what] = e instanceof Error ? e.message : String(e);
+      if (what === "mic") adapter.openPrivacy?.("microphone");
+    }
+    renderGuide();
   }
 
   /** Stage 4 on the phone: mirror into a provisional and a main Google calendar. */
@@ -409,18 +500,28 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (!adapter.inboxDrafts || !inbox.available || !s.settings.inboxEnabled) return;
     const list = await adapter.inboxDrafts().catch(() => []);
     let n = 0;
+    const skip: string[] = [];
     for (const d of list) {
       if (s.draftedJobs.includes(d.jobId) || s.ingestedJobs.includes(d.jobId) || !d.text.trim()) continue;
       s.draftedJobs.push(d.jobId);
       if (s.draftedJobs.length > 2000) s.draftedJobs.splice(0, s.draftedJobs.length - 2000);
       const now = clock();
       const src = "휴대폰";
-      const x = draftFromText(s, d.text, src, d.at ? new Date(d.at) : now, d.jobId);
+      const at = d.at ? new Date(d.at) : now;
+      const simple = skipsAi(d.text, at);
+      const x = draftFromText(s, d.text, src, at, d.jobId);
       s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: d.text, kind: d.kind === "voice" ? "voice" : "text", src });
       const line = describe(s, x.id, theme().fd);
-      log(s, { label: "초안", msg: line.msg, src, ref: x.id }, now);
+      if (simple) {
+        // The rule draft is final: the Mac never sends this job to the API.
+        x.draft = false;
+        skip.push(d.jobId);
+        log(s, { label: line.label, msg: line.msg, src, ref: x.id }, now);
+        s.inbox.push({ at: stamp(now), title: d.text.slice(0, 40), src, state: "완료", out: "1건" });
+      } else log(s, { label: "초안", msg: line.msg, src, ref: x.id }, now);
       n++;
     }
+    if (n) void adapter.inboxDrafted?.(skip).catch(() => undefined);
     if (n) {
       await save();
       syncAlarms();
@@ -452,12 +553,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
    * Draft first, AI later: a sentence goes on the calendar at once from the rule parser, then
    * the AI result replaces that same entry (same id) when it arrives.
    */
-  async function analyze(input: AnalyzeInput, me: Omit<ChatMessage, "id" | "at" | "who">, src: string, inboxTitle: string): Promise<void> {
+  async function analyze(input: AnalyzeInput, me: Omit<ChatMessage, "id" | "at" | "who">, src: string, inboxTitle: string, opts: { noDraft?: boolean } = {}): Promise<void> {
     const t0 = performance.now();
     const now = clock();
     s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", ...me, src });
     const key = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const drafted = input.text !== undefined;
+    const drafted = input.text !== undefined && !opts.noDraft;
     if (drafted) {
       const x = draftFromText(s, input.text!, src, now, key);
       log(s, { label: "초안", msg: describe(s, x.id, theme().fd).msg, src, ref: x.id }, now);
@@ -525,10 +626,69 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     render();
   }
 
+  /** 「간단한 문장은 AI 생략」: only where the AI costs money (the Mac), and only when it is on. */
+  function skipsAi(text: string, at: Date): boolean {
+    return !!adapter.aiSkipped && claude?.skipSimple !== false && claude?.analyzer !== "local" && isSimpleCertain(text, parseRule(text, at));
+  }
+
   async function submitText(text: string, src = adapter.origin): Promise<void> {
     const v = text.trim();
     if (!v) return;
+    if (skipsAi(v, clock())) {
+      const now = clock();
+      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: v, kind: "text", src });
+      const x = draftFromText(s, v, src, now, `local-${Date.now().toString(36)}`);
+      x.draft = false;
+      const line = describe(s, x.id, theme().fd);
+      log(s, { label: line.label, msg: line.msg, src, ref: x.id }, now);
+      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: "바로 넣었어요(간단한 문장이라 AI 생략).", refs: [x.id] });
+      s.inbox.push({ at: stamp(now), title: v.slice(0, 40), src, state: "완료", out: "1건" });
+      adapter.aiSkipped?.("rule");
+      await save();
+      syncAlarms();
+      renderComposer();
+      render();
+      return;
+    }
     await analyze({ text: v, now: clock() }, { text: v, kind: "text" }, src, "문장");
+  }
+
+  /** A link: the page's title and text go to the AI (schedule candidates); the link itself is kept as 기억. */
+  async function submitLink(link: NonNullable<PutItem["link"]>, via: string): Promise<void> {
+    const now = clock();
+    const title = link.title || link.url;
+    const memo = { id: newId(s, "n"), kind: "note" as const, title: `링크 · ${title}`.slice(0, 80), details: link.url, area: "personal" as const, source: via, createdAt: stamp(now) };
+    s.notes.push(memo);
+    log(s, { label: "기억", msg: memo.title, src: via, ref: memo.id }, now);
+    if (!link.text.trim()) {
+      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: link.url, kind: "text", src: via });
+      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: "페이지를 읽지 못해 링크만 기억으로 두었어요.", refs: [memo.id] });
+      await save();
+      render();
+      return;
+    }
+    const body = `링크 정리: 이 페이지에서 일정·마감·할 일만 뽑아 주세요.\n제목: ${link.title}\n주소: ${link.url}\n\n${link.text}`;
+    await analyze({ text: body, now }, { text: `${title}\n${link.url}`, kind: "text" }, "링크", title, { noDraft: true });
+  }
+
+  /** Quick window, clipboard, Dock, capture, drop: like typing here, files go to the inbox when it is on. */
+  async function handlePut(p: PutItem): Promise<void> {
+    if (p.link) return submitLink(p.link, p.via);
+    if (p.text) return submitText(p.text, p.via);
+    if (!p.path) return;
+    const name = p.path.split(/[\\/]/).pop() ?? p.path;
+    if (adapter.inboxPut && inbox.enabled) {
+      try {
+        await adapter.inboxPut(p.path);
+        log(s, { label: "넣음", msg: `${name} → 인박스(곧 정리)`, src: p.via }, clock());
+        await save();
+        renderLast();
+        return;
+      } catch (e) {
+        console.warn("인박스에 넣지 못해 바로 분석", e);
+      }
+    }
+    await submitPath(p.path, p.via);
   }
 
   async function submitFile(name: string, bytes: Uint8Array, kind: ChatKind = /\.(png|jpe?g|webp|heic)$/i.test(name) ? "photo" : "file"): Promise<void> {
@@ -536,9 +696,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     await analyze({ file: { name, bytes }, now: clock() }, { text: "", kind, fileName: name }, src, kind === "voice" ? "음성 메모" : name);
   }
 
-  async function submitPath(path: string): Promise<void> {
+  async function submitPath(path: string, src = "넣기"): Promise<void> {
     const name = path.split(/[\\/]/).pop() ?? path;
-    await analyze({ path, now: clock() }, { text: "", kind: "file", fileName: name }, "넣기", name);
+    await analyze({ path, now: clock() }, { text: "", kind: "file", fileName: name }, src, name);
   }
 
   async function toggleVoice(): Promise<void> {
@@ -568,13 +728,17 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   /* ---------- alarms ---------- */
 
   function syncAlarms(): void {
-    void adapter.scheduleAlarms(upcomingAlarms(s, clock()));
+    const now = clock().getTime();
+    for (let i = testAlarms.length - 1; i >= 0; i--) if (testAlarms[i].atMs < now - 60_000 || s.firedAlarms.includes(testAlarms[i].key)) testAlarms.splice(i, 1);
+    void adapter.scheduleAlarms([...upcomingAlarms(s, clock()), ...testAlarms]);
   }
 
   function fireAlarm(a: Alarm): void {
     if (alarmOn?.key === a.key || alarmQueue.some((x) => x.key === a.key)) return;
     markFired(s, a.key);
     void save();
+    // Mac: the full-screen alarm window shows and rings it; the answer comes back by event.
+    if (adapter.nativeAlarms) return;
     alarmQueue.push(a);
     if (!alarmOn) nextAlarm();
   }
@@ -630,6 +794,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   function stopBeep(): void {
     window.clearInterval(ringTimer);
     ringTimer = undefined;
+  }
+
+  async function answerNative(a: Alarm, action: "done" | "snooze" | "ok"): Promise<void> {
+    if (a.ref && action !== "ok") userAction({ type: "alarm", ref: a.ref, key: a.key, answer: action }, false);
+    else markFired(s, a.key);
+    await save();
+    syncAlarms();
+    render();
   }
 
   async function answer(action: "done" | "snooze"): Promise<void> {
@@ -707,11 +879,29 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return;
     }
     if (q("[data-testalarm]")) {
-      const at = new Date(clock().getTime() + 10_000);
-      const a: Alarm = { key: `test@${at.getTime()}`, ref: "", kind: "event", at: stamp(at), atMs: at.getTime(), title: "알람 시험", body: "10초 뒤 시험 알람입니다" };
-      timers.push(window.setTimeout(() => fireAlarm(a), 10_000));
+      const at = new Date(clock().getTime() + 60_000);
+      const a: Alarm = { key: `test@${at.getTime()}`, ref: "", kind: "event", at: stamp(at), atMs: at.getTime(), title: "알람 시험", body: "1분 뒤 시험 알람입니다 · 확인을 누르면 꺼집니다" };
+      testAlarms.push(a);
+      syncAlarms();
+      const b = q<HTMLButtonElement>("[data-testalarm]")!;
+      b.textContent = `알람 시험 · ${stamp(at).slice(11)}에 울림`;
       return;
     }
+    if (q("[data-guide]")) {
+      guideOpen = true;
+      settingsOpen = false;
+      root.querySelector<HTMLElement>("#bhSettings")!.hidden = true;
+      void loadCalendars();
+      return renderGuide();
+    }
+    if (q("[data-guide-close]")) {
+      guideOpen = false;
+      renderGuide();
+      return void saveDesk((d) => (d.onboarded = true));
+    }
+    if (q("[data-perm]")) return void permission(q("[data-perm]")!.dataset.perm!);
+    if (q("[data-desk-try]")) return adapter.trySound?.(desk?.settings.alarmSound ?? "Glass");
+    if (q("#bhGuide")) return;
     if (q("#bhSettings")) return;
     if (q("[data-v]")) {
       view = q("[data-v]")!.dataset.v as ViewName;
@@ -740,7 +930,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const el = e.target as HTMLElement;
     if (e.key === "Escape") {
       if (!printRoot.hidden) printRoot.hidden = true;
-      else if (settingsOpen) {
+      else if (guideOpen) {
+        guideOpen = false;
+        renderGuide();
+      } else if (settingsOpen) {
         settingsOpen = false;
         root.querySelector<HTMLElement>("#bhSettings")!.hidden = true;
       } else if (chatOpen) setChat(false);
@@ -814,6 +1007,25 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       await adapter.setGoogleCalendars(g.enabled, g.provisional, g.main);
       void loadCalendars();
       return;
+    }
+    if (el.dataset.claudeOpt && claude && adapter.setClaudeOptions) {
+      const budget = el.dataset.claudeOpt === "budget" ? Math.max(0, Number(el.value) || 0) : claude.budgetUsd ?? 3;
+      const skip = el.dataset.claudeOpt === "skip" ? (el as HTMLInputElement).checked : claude.skipSimple !== false;
+      claude = await adapter.setClaudeOptions(budget, skip).catch((err: unknown) => {
+        claudeLine = String(err);
+        return claude;
+      });
+      renderSettings();
+      return;
+    }
+    if (el.dataset.desk === "autostart") return void saveDesk((d) => (d.autostart = (el as HTMLInputElement).checked));
+    if (el.dataset.desk === "sound") {
+      adapter.trySound?.(el.value);
+      return void saveDesk((d) => (d.alarmSound = el.value));
+    }
+    if (el.dataset.deskSc) {
+      const k = el.dataset.deskSc as "quick" | "clipboard" | "capture";
+      return void saveDesk((d) => (d.shortcuts[k] = el.value.trim()));
     }
     const key = el.dataset.set;
     if (!key) return;
@@ -909,7 +1121,23 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     syncAlarms();
     render();
   });
-  adapter.onFileDrop?.((paths) => paths.forEach((p) => void submitPath(p)));
+  adapter.onFileDrop?.((paths) => paths.forEach((p) => void (adapter.putPath ? adapter.putPath(p, "끌어 놓기") : submitPath(p))));
+  adapter.onPut?.((p) => void handlePut(p));
+  adapter.onAlarmAnswer?.((a, action) => void answerNative(a, action));
+  // A picture pasted into the input (⌘V) goes in like a dropped file.
+  const onPaste = (e: ClipboardEvent) => {
+    const files = [...(e.clipboardData?.files ?? [])];
+    if (!files.length || !(e.target as HTMLElement).closest?.("#bhIn, #bhChatIn")) return;
+    e.preventDefault();
+    for (const f of files) {
+      void f.arrayBuffer().then((buf) => {
+        const bytes = new Uint8Array(buf);
+        const name = f.name && f.name !== "image.png" ? f.name : `붙여넣기-${stamp(clock()).replace(/[:T-]/g, "")}.${(f.type.split("/")[1] ?? "png").replace("jpeg", "jpg")}`;
+        return adapter.putBytes ? adapter.putBytes(name, bytes, "붙여넣기") : submitFile(name, bytes);
+      });
+    }
+  };
+  root.addEventListener("paste", onPaste);
 
   let lastWidthCompact = false;
   const onResize = () => {
@@ -935,6 +1163,19 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   await refreshInbox();
   syncAlarms();
   render();
+  await loadCalendars().catch(() => undefined);
+  if (adapter.showMissed) {
+    const missed = missedAlarms(s, clock());
+    if (missed.length) {
+      missed.forEach((a) => markFired(s, a.key));
+      await save();
+      void adapter.showMissed(missed).catch(() => undefined);
+    }
+  }
+  if ((desk as DeskStatus | null)?.settings.onboarded === false) {
+    guideOpen = true;
+    renderGuide();
+  }
 
   // Minute tick: move the now-line, keep alarms scheduled across midnight.
   timers.push(window.setInterval(() => {
@@ -983,6 +1224,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       stopBeep();
       root.removeEventListener("click", onClick);
       root.removeEventListener("keydown", onKey);
+      root.removeEventListener("paste", onPaste);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("resize", onResize);

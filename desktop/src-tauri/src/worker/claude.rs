@@ -38,6 +38,10 @@ pub struct ClaudeChat {
     /// None: read the key when called (keychain); tests pass one.
     pub api_key: Option<String>,
     pub usage_log: Option<PathBuf>,
+    /// Answers already paid for, by request hash (same words → no second call). None in tests.
+    pub answer_cache: Option<PathBuf>,
+    /// Monthly limit in USD; at or over it no request is sent (drafts only). None = no limit.
+    pub budget_usd: Option<f64>,
 }
 
 impl ClaudeChat {
@@ -50,6 +54,8 @@ impl ClaudeChat {
             timeout: Duration::from_secs(120),
             api_key: None,
             usage_log: Some(usage_log_path()),
+            answer_cache: Some(data_dir().join("claude-answers")),
+            budget_usd: Some(AiSettings::load().budget_usd),
         }
     }
 }
@@ -160,11 +166,30 @@ impl ChatModel for ClaudeChat {
     }
 
     fn chat_json(&self, messages: Vec<Value>, schema: &Value) -> Result<String, WorkerError> {
+        let body = request_body(&self.model, &self.effort, self.max_tokens, &messages, schema);
+        let kind = body_kind(&body);
+        // Same request as before (re-imported recording, re-scanned folder, same sentence again):
+        // the answer we already paid for. The model only copies phrases; dates are computed later.
+        let hash = super::source::sha256_hex(body.to_string().as_bytes());
+        let cached = self.answer_cache.as_ref().map(|dir| dir.join(format!("{}.json", &hash[..32])));
+        if let Some(text) = cached.as_ref().and_then(|p| fs::read_to_string(p).ok()) {
+            if let Some(path) = &self.usage_log {
+                log_skip(path, "cache", kind);
+            }
+            return Ok(text);
+        }
+        if let (Some(budget), Some(path)) = (self.budget_usd, &self.usage_log) {
+            let month = chrono::Local::now().format("%Y-%m").to_string();
+            let (_, used) = month_usage(path, &month);
+            if budget > 0.0 && used >= budget {
+                log_skip(path, "budget", kind);
+                return Err(WorkerError::new(ErrorCode::ApiBilling, format!("이번 달 AI 예산(${budget:.2})을 다 써서 AI 다듬기를 멈췄습니다. 초안은 그대로 들어갑니다(설정에서 예산을 바꿀 수 있음).")));
+            }
+        }
         let key = match &self.api_key {
             Some(k) => k.clone(),
             None => api_key()?.ok_or_else(|| WorkerError::new(ErrorCode::ApiKeyMissing, "Claude API 키가 없습니다. 설정에서 키를 넣으면 AI 다듬기를 시작합니다(초안은 그대로 들어갑니다)."))?,
         };
-        let body = request_body(&self.model, &self.effort, self.max_tokens, &messages, schema);
         let url = format!("{}/v1/messages", self.base_url.trim_end_matches('/'));
         let mut last = WorkerError::new(ErrorCode::RunnerUnavailable, "Claude API에 연결할 수 없습니다.");
         for attempt in 0..RETRIES {
@@ -178,9 +203,16 @@ impl ChatModel for ClaudeChat {
                 Ok(ok) => {
                     let value: Value = ok.into_json().map_err(|e| WorkerError::new(ErrorCode::RunnerFailed, format!("Claude API 응답을 읽지 못했습니다: {e}")))?;
                     if let Some(path) = &self.usage_log {
-                        log_usage(path, &self.model, &value["usage"]);
+                        log_usage(path, &self.model, &value["usage"], kind);
                     }
-                    return read_response(&value);
+                    let text = read_response(&value)?;
+                    if let Some(p) = &cached {
+                        if let Some(dir) = p.parent() {
+                            let _ = fs::create_dir_all(dir);
+                        }
+                        let _ = fs::write(p, &text);
+                    }
+                    return Ok(text);
                 }
                 Err(ureq::Error::Status(code, resp)) => {
                     let after = resp.header("retry-after").and_then(|v| v.trim().parse::<u64>().ok());
@@ -284,27 +316,128 @@ pub fn check_key(base_url: &str, key: &str, model: &str) -> Result<(), WorkerErr
 
 /* ---------- usage log (token counts only) ---------- */
 
-pub fn usage_log_path() -> PathBuf {
+/// `~/.local/share/blackhole` (usage log, answer cache, AI settings; never the repository or Drive).
+pub fn data_dir() -> PathBuf {
     let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
-    home.join(".local").join("share").join("blackhole").join("claude-usage.jsonl")
+    home.join(".local").join("share").join("blackhole")
 }
 
-fn log_usage(path: &PathBuf, model: &str, usage: &Value) {
-    let n = |k: &str| usage[k].as_u64().unwrap_or(0);
-    let line = json!({
-        "at": chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
-        "model": model,
-        "input": n("input_tokens"),
-        "output": n("output_tokens"),
-        "cacheRead": n("cache_read_input_tokens"),
-        "cacheWrite": n("cache_creation_input_tokens")
-    });
+pub fn usage_log_path() -> PathBuf {
+    data_dir().join("claude-usage.jsonl")
+}
+
+/// What was sent: "pdf", "image" or "text" (for the local record; no content).
+fn body_kind(body: &Value) -> &'static str {
+    let blocks = body["messages"].as_array().and_then(|m| m.last()).and_then(|m| m["content"].as_array()).cloned().unwrap_or_default();
+    if blocks.iter().any(|b| b["type"] == "document") {
+        "pdf"
+    } else if blocks.iter().any(|b| b["type"] == "image") {
+        "image"
+    } else {
+        "text"
+    }
+}
+
+fn append_line(path: &PathBuf, line: Value) {
     if let Some(dir) = path.parent() {
         let _ = fs::create_dir_all(dir);
     }
     if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(path) {
         let _ = writeln!(f, "{line}");
     }
+}
+
+fn now_stamp() -> String {
+    chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string()
+}
+
+fn log_usage(path: &PathBuf, model: &str, usage: &Value, kind: &str) {
+    let n = |k: &str| usage[k].as_u64().unwrap_or(0);
+    append_line(path, json!({
+        "at": now_stamp(),
+        "model": model,
+        "kind": kind,
+        "input": n("input_tokens"),
+        "output": n("output_tokens"),
+        "cacheRead": n("cache_read_input_tokens"),
+        "cacheWrite": n("cache_creation_input_tokens")
+    }));
+}
+
+/// A call that was not made: "cache" (same request answered before), "rule" (simple sentence,
+/// the rule draft is final), "short" (nothing to read), "budget" (monthly limit reached).
+pub fn log_skip(path: &PathBuf, reason: &str, kind: &str) {
+    append_line(path, json!({ "at": now_stamp(), "skip": reason, "kind": kind }));
+}
+
+/// AI cost controls, `~/.local/share/blackhole/ai-settings.json` (written from 설정).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AiSettings {
+    /// Monthly limit in USD (0 = no limit).
+    pub budget_usd: f64,
+    /// Simple sentences whose rule draft is certain (date, time, title) skip the AI.
+    pub skip_simple: bool,
+}
+
+impl Default for AiSettings {
+    fn default() -> Self {
+        Self { budget_usd: 3.0, skip_simple: true }
+    }
+}
+
+impl AiSettings {
+    pub fn path() -> PathBuf {
+        data_dir().join("ai-settings.json")
+    }
+    pub fn load() -> Self {
+        fs::read_to_string(Self::path()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+    }
+    pub fn save(&self) -> Result<(), WorkerError> {
+        fs::create_dir_all(data_dir())?;
+        fs::write(Self::path(), serde_json::to_string_pretty(self).unwrap_or_default())?;
+        Ok(())
+    }
+}
+
+/// This month's calls and skips, from the local log (token counts only).
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonthSummary {
+    pub requests: u64,
+    pub usd: f64,
+    pub input: u64,
+    pub output: u64,
+    pub cache_read: u64,
+    pub cache_write: u64,
+    pub skipped_cache: u64,
+    pub skipped_rule: u64,
+    pub skipped_short: u64,
+    pub skipped_budget: u64,
+}
+
+pub fn month_summary(path: &PathBuf, yyyy_mm: &str) -> MonthSummary {
+    let mut m = MonthSummary::default();
+    let Ok(text) = fs::read_to_string(path) else { return m };
+    for v in text.lines().filter_map(|l| serde_json::from_str::<Value>(l).ok()).filter(|v| v["at"].as_str().is_some_and(|a| a.starts_with(yyyy_mm))) {
+        match v["skip"].as_str() {
+            Some("cache") => m.skipped_cache += 1,
+            Some("rule") => m.skipped_rule += 1,
+            Some("short") => m.skipped_short += 1,
+            Some("budget") => m.skipped_budget += 1,
+            Some(_) => {}
+            None => {
+                let n = |k: &str| v[k].as_u64().unwrap_or(0);
+                m.requests += 1;
+                m.usd += line_cost(&v);
+                m.input += n("input");
+                m.output += n("output");
+                m.cache_read += n("cacheRead");
+                m.cache_write += n("cacheWrite");
+            }
+        }
+    }
+    m
 }
 
 /// Cost of one logged line (USD): cache reads 0.1×, cache writes 1.25× the input price.
@@ -318,7 +451,7 @@ pub fn month_usage(path: &PathBuf, yyyy_mm: &str) -> (u64, f64) {
     let Ok(text) = fs::read_to_string(path) else { return (0, 0.0) };
     text.lines()
         .filter_map(|l| serde_json::from_str::<Value>(l).ok())
-        .filter(|v| v["at"].as_str().is_some_and(|a| a.starts_with(yyyy_mm)))
+        .filter(|v| v["at"].as_str().is_some_and(|a| a.starts_with(yyyy_mm)) && v.get("skip").is_none())
         .fold((0, 0.0), |(n, usd), v| (n + 1, usd + line_cost(&v)))
 }
 
@@ -364,7 +497,7 @@ mod tests {
     }
 
     fn chat(url: &str, log: Option<PathBuf>) -> ClaudeChat {
-        ClaudeChat { base_url: url.into(), model: DEFAULT_MODEL.into(), effort: "low".into(), max_tokens: 8192, timeout: Duration::from_secs(5), api_key: Some("sk-ant-test-0000000000000000".into()), usage_log: log }
+        ClaudeChat { base_url: url.into(), model: DEFAULT_MODEL.into(), effort: "low".into(), max_tokens: 8192, timeout: Duration::from_secs(5), api_key: Some("sk-ant-test-0000000000000000".into()), usage_log: log, answer_cache: None, budget_usd: None }
     }
 
     const ANSWER: &str = r#"{"summary":"상담","items":[]}"#;
@@ -434,6 +567,31 @@ mod tests {
         if api_key().unwrap().is_none() {
             assert_eq!(no_key.chat_json(vec![], &schema()).unwrap_err().code, ErrorCode::ApiKeyMissing);
         }
+    }
+
+    #[test]
+    fn same_request_is_answered_from_the_cache_and_the_budget_stops_calls() {
+        let dir = tempfile::tempdir().unwrap();
+        let log = dir.path().join("usage.jsonl");
+        let (url, rx) = fake_api(vec![(200, ok_body())]);
+        let mut c = chat(&url, Some(log.clone()));
+        c.answer_cache = Some(dir.path().join("answers"));
+        let ask = || crate::worker::extract::text_messages("내일 3시 상담");
+        assert_eq!(c.chat_json(ask(), &schema()).unwrap(), ANSWER);
+        let _ = rx.recv().unwrap();
+        // Second time: no request (the fake server would not answer), same text.
+        assert_eq!(c.chat_json(ask(), &schema()).unwrap(), ANSWER);
+        let month = chrono::Local::now().format("%Y-%m").to_string();
+        let m = month_summary(&log, &month);
+        assert_eq!((m.requests, m.skipped_cache), (1, 1));
+        assert_eq!(month_usage(&log, &month).0, 1, "skips are not requests");
+        // Budget already used up: nothing is sent, the job waits.
+        c.answer_cache = None;
+        c.budget_usd = Some(m.usd / 2.0);
+        let e = c.chat_json(crate::worker::extract::text_messages("모레 4시 회의"), &schema()).unwrap_err();
+        assert_eq!(e.code, ErrorCode::ApiBilling);
+        assert!(e.code.is_waiting());
+        assert_eq!(month_summary(&log, &month).skipped_budget, 1);
     }
 
     #[test]

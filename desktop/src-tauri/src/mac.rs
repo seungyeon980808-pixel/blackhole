@@ -1,0 +1,841 @@
+//! Ready-to-use Mac pieces: menu-bar icon, global shortcuts, the quick-input window, clipboard
+//! and screen-capture sending, files dropped on the Dock icon, login item, notifications and the
+//! full-screen alarm window. Everything that is put in ends up as one `bh-put` event for the main
+//! window, which decides (inbox folder or direct analysis) like for its own input.
+
+use crate::calendar::{self, AlarmSpec};
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    process::Command,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::{Duration, Instant},
+};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+
+pub const QUICK: &str = "quick";
+pub const ALARM: &str = "alarm";
+const RING_LIMIT: Duration = Duration::from_secs(10 * 60);
+pub const SOUNDS: [&str; 8] = ["Glass", "Hero", "Submarine", "Sosumi", "Ping", "Funk", "Blow", "Purr"];
+
+/* ---------- settings (app data, read before the page loads) ---------- */
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Shortcuts {
+    pub quick: String,
+    pub clipboard: String,
+    pub capture: String,
+}
+
+impl Default for Shortcuts {
+    fn default() -> Self {
+        Self { quick: "Alt+Super+K".into(), clipboard: "Alt+Super+B".into(), capture: "Shift+Alt+Super+B".into() }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DeskSettings {
+    pub shortcuts: Shortcuts,
+    /// Start at login (menu bar only, no window). Turned on at the first start.
+    pub autostart: bool,
+    pub alarm_sound: String,
+    /// The first-start guide was closed.
+    pub onboarded: bool,
+    /// Set once the login item was offered (so turning it off stays off).
+    pub autostart_offered: bool,
+}
+
+impl Default for DeskSettings {
+    fn default() -> Self {
+        Self { shortcuts: Shortcuts::default(), autostart: false, alarm_sound: "Glass".into(), onboarded: false, autostart_offered: false }
+    }
+}
+
+const SETTINGS_FILE: &str = "desk-settings.json";
+
+pub fn load_settings(dir: &Path) -> DeskSettings {
+    std::fs::read_to_string(dir.join(SETTINGS_FILE)).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+}
+
+pub fn save_settings(dir: &Path, s: &DeskSettings) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    std::fs::write(dir.join(SETTINGS_FILE), serde_json::to_string_pretty(s).unwrap_or_default()).map_err(|e| e.to_string())
+}
+
+/// 「Alt+Super+K」 → 「⌥⌘K」.
+pub fn pretty_shortcut(s: &str) -> String {
+    let mut out = String::new();
+    let mut key = String::new();
+    for part in s.split('+').map(str::trim) {
+        match part.to_ascii_lowercase().as_str() {
+            "ctrl" | "control" => out.push('⌃'),
+            "alt" | "option" => out.push('⌥'),
+            "shift" => out.push('⇧'),
+            "super" | "cmd" | "command" | "meta" | "cmdorctrl" | "commandorcontrol" => out.push('⌘'),
+            _ => key = part.to_uppercase(),
+        }
+    }
+    // Apple's order: ⌃⌥⇧⌘
+    let order = ['⌃', '⌥', '⇧', '⌘'];
+    let mods: String = order.iter().filter(|c| out.contains(**c)).collect();
+    format!("{mods}{}", if key == "SPACE" { "Space".into() } else { key })
+}
+
+/* ---------- login item (LaunchAgent) ---------- */
+
+const AGENT_LABEL: &str = "com.malhaedwo.blackhole.desktop.login";
+
+fn agent_path() -> PathBuf {
+    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    home.join("Library").join("LaunchAgents").join(format!("{AGENT_LABEL}.plist"))
+}
+
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+}
+
+pub fn agent_plist(exe: &Path) -> String {
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>{AGENT_LABEL}</string>
+  <key>ProgramArguments</key><array><string>{}</string><string>--login</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>ProcessType</key><string>Interactive</string>
+</dict>
+</plist>
+"#,
+        xml_escape(&exe.to_string_lossy())
+    )
+}
+
+/// Start at login on/off. Only a file in ~/Library/LaunchAgents (no system setting changed).
+pub fn set_autostart(on: bool) -> Result<(), String> {
+    let path = agent_path();
+    if on {
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        // Only a real installed app (not `cargo run` / a test build) starts at login.
+        if !exe.to_string_lossy().contains(".app/Contents/MacOS/") {
+            return Err("설치한 앱(.app)에서만 로그인 시 실행을 켤 수 있습니다.".into());
+        }
+        std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
+        std::fs::write(&path, agent_plist(&exe)).map_err(|e| e.to_string())
+    } else {
+        match std::fs::remove_file(&path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+}
+
+pub fn autostart_on() -> bool {
+    agent_path().is_file()
+}
+
+/* ---------- menu-bar icon (drawn in code: ring + crescent, template image) ---------- */
+
+pub fn tray_rgba(n: u32) -> Vec<u8> {
+    let mut out = vec![0u8; (n * n * 4) as usize];
+    let c = n as f64 / 2.0;
+    let r_out = n as f64 * 0.42;
+    let r_in = n as f64 * 0.33;
+    let ss = 4;
+    for y in 0..n {
+        for x in 0..n {
+            let mut hit = 0;
+            for sy in 0..ss {
+                for sx in 0..ss {
+                    let px = x as f64 + (sx as f64 + 0.5) / ss as f64 - c;
+                    let py = y as f64 + (sy as f64 + 0.5) / ss as f64 - c;
+                    let d = (px * px + py * py).sqrt();
+                    // corona ring, plus a thicker crescent to the lower left (the eclipse)
+                    let moon = ((px - n as f64 * 0.05).powi(2) + (py + n as f64 * 0.07).powi(2)).sqrt();
+                    if d <= r_out && (d >= r_in || moon > r_in) {
+                        hit += 1;
+                    }
+                }
+            }
+            let a = (hit * 255 / (ss * ss)) as u8;
+            let i = ((y * n + x) * 4) as usize;
+            out[i + 3] = a;
+        }
+    }
+    out
+}
+
+/* ---------- runtime state ---------- */
+
+#[derive(Default)]
+pub struct MacState {
+    /// shortcut id → action ("quick", "clipboard", "capture")
+    pub shortcuts: Mutex<HashMap<u32, String>>,
+    /// Alarms on screen in the alarm window, the first one is shown.
+    pub showing: Mutex<Vec<AlarmSpec>>,
+    pub ringing: Arc<AtomicBool>,
+    pub sound: Mutex<String>,
+    /// Things put in, waiting for the main page (it may not be loaded yet: Dock drop at launch).
+    pub puts: Mutex<Vec<Put>>,
+}
+
+/* ---------- putting things in ---------- */
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Put {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link: Option<LinkInfo>,
+    /// 빠른 입력, 클립보드, 화면 캡처, Dock, 끌어 놓기
+    pub via: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkInfo {
+    pub url: String,
+    pub title: String,
+    pub text: String,
+}
+
+fn main_visible(app: &AppHandle) -> bool {
+    app.get_webview_window("main").and_then(|w| w.is_visible().ok()).unwrap_or(false) && app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false)
+}
+
+pub fn notify(app: &AppHandle, title: &str, body: &str) {
+    use tauri_plugin_notification::NotificationExt;
+    let _ = app.notification().builder().title(title).body(body).show();
+}
+
+pub fn emit_put(app: &AppHandle, put: Put) {
+    let label = put.link.as_ref().map(|l| if l.title.is_empty() { l.url.clone() } else { l.title.clone() })
+        .or_else(|| put.text.clone())
+        .or_else(|| put.path.as_deref().and_then(|p| Path::new(p).file_name()).map(|n| n.to_string_lossy().into_owned()))
+        .unwrap_or_default();
+    if !main_visible(app) {
+        let short: String = label.chars().take(60).collect();
+        notify(app, &format!("블랙홀에 넣음 · {}", put.via), &short);
+    }
+    app.state::<MacState>().puts.lock().unwrap().push(put);
+    let _ = app.emit_to("main", "bh-put", ());
+}
+
+/// The main page takes what was put in (on the `bh-put` signal and once at start).
+#[tauri::command]
+pub fn put_take(app: AppHandle) -> Vec<Put> {
+    std::mem::take(&mut *app.state::<MacState>().puts.lock().unwrap())
+}
+
+/// A single http(s) link and nothing else.
+pub fn single_url(text: &str) -> Option<String> {
+    let t = text.trim();
+    (!t.contains(char::is_whitespace) && (t.starts_with("https://") || t.starts_with("http://")) && t.len() < 2048).then(|| t.to_string())
+}
+
+fn decode_entities(s: &str) -> String {
+    s.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace("&nbsp;", " ")
+}
+
+/// Title and readable text of an HTML page (scripts, styles and tags removed).
+pub fn page_text(html: &str) -> (String, String) {
+    let lower = html.to_lowercase();
+    let title = lower.find("<title").and_then(|a| {
+        let start = lower[a..].find('>')? + a + 1;
+        let end = lower[start..].find("</title")? + start;
+        Some(decode_entities(html[start..end].trim()))
+    }).unwrap_or_default();
+    let meta = regex::Regex::new(r#"(?is)<meta[^>]+(?:property|name)=["'](?:og:description|description)["'][^>]+content=["']([^"']+)"#).ok()
+        .and_then(|re| re.captures(html).map(|c| decode_entities(c[1].trim())))
+        .unwrap_or_default();
+    let body = regex::Regex::new(r"(?is)<(script|style|noscript|svg|head)\b.*?</(script|style|noscript|svg|head)>").map(|re| re.replace_all(html, " ").into_owned()).unwrap_or_default();
+    let body = regex::Regex::new(r"(?s)<[^>]*>").map(|re| re.replace_all(&body, " ").into_owned()).unwrap_or_default();
+    let body = decode_entities(&body);
+    let body = body.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut text = if meta.is_empty() { String::new() } else { format!("{meta}\n") };
+    text.push_str(&body.chars().take(3000).collect::<String>());
+    (title.split_whitespace().collect::<Vec<_>>().join(" "), text)
+}
+
+pub fn fetch_link(url: &str) -> LinkInfo {
+    let mut info = LinkInfo { url: url.into(), ..LinkInfo::default() };
+    let resp = ureq::get(url).timeout(Duration::from_secs(10)).set("user-agent", "Mozilla/5.0 (Macintosh) Blackhole/0.2").call();
+    if let Ok(r) = resp {
+        let html_like = r.content_type().contains("html") || r.content_type().contains("text");
+        if html_like {
+            let mut body = String::new();
+            use std::io::Read;
+            let _ = r.into_reader().take(2_000_000).read_to_string(&mut body);
+            let (title, text) = page_text(&body);
+            info.title = title;
+            info.text = text;
+        }
+    }
+    info
+}
+
+/// Text: a link is looked up first (title, page text), anything else goes in as typed.
+pub fn put_text(app: &AppHandle, text: String, via: &str) {
+    let text = text.trim().to_string();
+    if text.is_empty() {
+        return;
+    }
+    if let Some(url) = single_url(&text) {
+        let (app, via) = (app.clone(), via.to_string());
+        std::thread::spawn(move || {
+            let link = fetch_link(&url);
+            emit_put(&app, Put { link: Some(link), via, ..Put::default() });
+        });
+        return;
+    }
+    emit_put(app, Put { text: Some(text), via: via.into(), ..Put::default() });
+}
+
+/// Formats the worker does not read, turned into ones it does with macOS's own tools:
+/// voice memos (m4a, mp3, aac, caf, aiff) → 16 kHz WAV, HEIC/TIFF/GIF photos → PNG.
+pub fn convert_for_worker(app: &AppHandle, path: &Path) -> PathBuf {
+    let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let audio = matches!(ext.as_str(), "m4a" | "mp3" | "aac" | "caf" | "aif" | "aiff" | "mp4");
+    let image = matches!(ext.as_str(), "heic" | "heif" | "tif" | "tiff" | "gif" | "bmp");
+    if !audio && !image {
+        return path.to_path_buf();
+    }
+    let Ok(dir) = app.path().app_data_dir().map(|d| d.join(calendar::INPUT_DIR)) else { return path.to_path_buf() };
+    let _ = std::fs::create_dir_all(&dir);
+    let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "입력".into());
+    let out = dir.join(format!("{stem}-{}.{}", chrono::Local::now().format("%H%M%S"), if audio { "wav" } else { "png" }));
+    let ok = if audio {
+        Command::new("/usr/bin/afconvert").args(["-f", "WAVE", "-d", "LEI16@16000", "-c", "1"]).arg(path).arg(&out).status()
+    } else {
+        Command::new("/usr/bin/sips").args(["-s", "format", "png"]).arg(path).arg("--out").arg(&out).stdout(std::process::Stdio::null()).status()
+    }
+    .map(|s| s.success())
+    .unwrap_or(false);
+    if ok && out.is_file() { out } else { path.to_path_buf() }
+}
+
+pub fn put_path(app: &AppHandle, path: &Path, via: &str) {
+    let path = convert_for_worker(app, path);
+    emit_put(app, Put { path: Some(path.to_string_lossy().into_owned()), via: via.into(), ..Put::default() });
+}
+
+pub fn put_bytes(app: &AppHandle, name: &str, bytes: &[u8], via: &str) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let kept = calendar::keep_input(&dir, name, bytes).map_err(|e| e.to_string())?;
+    put_path(app, &kept, via);
+    Ok(())
+}
+
+fn stamp_name(ext: &str) -> String {
+    format!("{}.{ext}", chrono::Local::now().format("%Y%m%d-%H%M%S"))
+}
+
+/// What is on the clipboard: copied files, an image, or text (JXA through osascript).
+#[derive(Debug, Default, Deserialize)]
+struct Clip {
+    #[serde(default)]
+    files: Vec<String>,
+    #[serde(default)]
+    image: bool,
+    #[serde(default)]
+    text: String,
+}
+
+const CLIP_JS: &str = r#"
+ObjC.import('AppKit');
+const pb = $.NSPasteboard.generalPasteboard;
+const out = {files: [], image: false, text: ''};
+const urls = pb.readObjectsForClassesOptions($([$.NSURL]), $({NSPasteboardURLReadingFileURLsOnlyKey: true}));
+if (urls && urls.count > 0) { for (let i = 0; i < urls.count; i++) out.files.push(urls.objectAtIndex(i).path.js); }
+const dest = $.NSProcessInfo.processInfo.environment.objectForKey('BH_CLIP_IMAGE').js;
+if (!out.files.length) {
+  let png = pb.dataForType('public.png');
+  if (!png || png.isNil()) {
+    const tiff = pb.dataForType('public.tiff');
+    if (tiff && !tiff.isNil()) png = $.NSBitmapImageRep.imageRepWithData(tiff).representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $());
+  }
+  if (png && !png.isNil()) { png.writeToFileAtomically(dest, true); out.image = true; }
+}
+const s = pb.stringForType('public.utf8-plain-text');
+if (s && !s.isNil()) out.text = s.js;
+JSON.stringify(out);
+"#;
+
+pub fn send_clipboard(app: &AppHandle) -> Result<String, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join(calendar::INPUT_DIR);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let image = dir.join(format!("클립보드-{}", stamp_name("png")));
+    let out = Command::new("/usr/bin/osascript").args(["-l", "JavaScript", "-e", CLIP_JS]).env("BH_CLIP_IMAGE", &image).output().map_err(|e| e.to_string())?;
+    let clip: Clip = serde_json::from_slice(&out.stdout).map_err(|_| format!("클립보드를 읽지 못했습니다: {}", String::from_utf8_lossy(&out.stderr).trim()))?;
+    if !clip.files.is_empty() {
+        for f in &clip.files {
+            put_path(app, Path::new(f), "클립보드");
+        }
+        return Ok(format!("파일 {}개", clip.files.len()));
+    }
+    if clip.image && image.is_file() {
+        put_path(app, &image, "클립보드");
+        return Ok("이미지".into());
+    }
+    if !clip.text.trim().is_empty() {
+        let link = single_url(&clip.text).is_some();
+        put_text(app, clip.text, "클립보드");
+        return Ok(if link { "링크".into() } else { "글".into() });
+    }
+    notify(app, "블랙홀", "클립보드가 비어 있습니다.");
+    Err("클립보드가 비어 있습니다.".into())
+}
+
+/// macOS area capture (`screencapture -i`): the picked area goes in as a picture.
+pub fn capture(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let Ok(dir) = app.path().app_data_dir().map(|d| d.join(calendar::INPUT_DIR)) else { return };
+        let _ = std::fs::create_dir_all(&dir);
+        let file = dir.join(format!("화면-{}", stamp_name("png")));
+        if let Some(w) = app.get_webview_window(QUICK) {
+            let _ = w.hide();
+        }
+        let ok = Command::new("/usr/sbin/screencapture").arg("-i").arg("-x").arg(&file).status().map(|s| s.success()).unwrap_or(false);
+        if ok && file.is_file() {
+            put_path(&app, &file, "화면 캡처");
+        }
+    });
+}
+
+/* ---------- windows ---------- */
+
+pub fn show_main(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+pub fn toggle_quick(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window(QUICK) {
+        if w.is_visible().unwrap_or(false) && w.is_focused().unwrap_or(false) {
+            let _ = w.hide();
+        } else {
+            let _ = w.center();
+            let _ = w.show();
+            let _ = w.set_focus();
+            let _ = w.emit("bh-quick-open", ());
+        }
+        return;
+    }
+    let built = WebviewWindowBuilder::new(app, QUICK, WebviewUrl::App("index.html".into()))
+        .initialization_script("window.__BH_WINDOW = 'quick';")
+        .title("블랙홀 빠른 입력")
+        .inner_size(620.0, 148.0)
+        .resizable(false)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .visible_on_all_workspaces(true)
+        .skip_taskbar(true)
+        .shadow(true)
+        .center()
+        .focused(true)
+        .build();
+    if let Ok(w) = built {
+        raise_window(&w, false);
+    }
+}
+
+/// Put a window above everything: all Spaces, over full-screen apps (alarm: screen-saver level).
+pub fn raise_window(w: &tauri::WebviewWindow, alarm: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        let w2 = w.clone();
+        let _ = w.run_on_main_thread(move || {
+            use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior};
+            if let Ok(ptr) = w2.ns_window() {
+                // SAFETY: Tauri hands out the live NSWindow of this webview window; we are on the main thread.
+                let ns: &NSWindow = unsafe { &*(ptr as *const NSWindow) };
+                ns.setLevel(if alarm { 1000 } else { 8 });
+                ns.setCollectionBehavior(NSWindowCollectionBehavior::CanJoinAllSpaces | NSWindowCollectionBehavior::FullScreenAuxiliary | NSWindowCollectionBehavior::Stationary);
+            }
+        });
+    }
+    let _ = alarm;
+}
+
+fn ring(state: &MacState, once: bool) {
+    let flag = state.ringing.clone();
+    if flag.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let sound = state.sound.lock().unwrap().clone();
+    std::thread::spawn(move || {
+        let file = format!("/System/Library/Sounds/{sound}.aiff");
+        let started = Instant::now();
+        while flag.load(Ordering::SeqCst) && started.elapsed() < RING_LIMIT {
+            if cfg!(target_os = "macos") {
+                // -v 1.6: louder than the system alert, still follows the output volume.
+                let _ = Command::new("/usr/bin/afplay").args(["-v", "1.6", &file]).status();
+            }
+            if once {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        flag.store(false, Ordering::SeqCst);
+    });
+}
+
+pub fn stop_ring(state: &MacState) {
+    state.ringing.store(false, Ordering::SeqCst);
+}
+
+/// Show alarms in the full-screen alarm window (queued; the first one is on screen) and ring.
+pub fn show_alarms(app: &AppHandle, alarms: Vec<AlarmSpec>) {
+    if alarms.is_empty() {
+        return;
+    }
+    let state = app.state::<MacState>();
+    let all_missed = alarms.iter().all(|a| a.missed);
+    {
+        let mut showing = state.showing.lock().unwrap();
+        for a in alarms.iter() {
+            if !showing.iter().any(|x| x.key == a.key) {
+                showing.push(a.clone());
+            }
+        }
+    }
+    for a in &alarms {
+        let when = a.at.get(11..16).unwrap_or("");
+        notify(app, &format!("{} {when}", if a.missed { "놓친 알람" } else { "블랙홀 알람" }), &a.title);
+    }
+    open_alarm_window(app);
+    ring(&state, all_missed);
+}
+
+fn open_alarm_window(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window(ALARM) {
+        let _ = w.emit("bh-alarm-update", ());
+        let _ = w.show();
+        let _ = w.set_focus();
+        raise_window(&w, true);
+        return;
+    }
+    let (pos, size) = app
+        .primary_monitor()
+        .ok()
+        .flatten()
+        .map(|m| {
+            let s = m.scale_factor();
+            (m.position().to_logical::<f64>(s), m.size().to_logical::<f64>(s))
+        })
+        .map(|(p, z)| ((p.x, p.y), (z.width, z.height)))
+        .unwrap_or(((0.0, 0.0), (1440.0, 900.0)));
+    let built = WebviewWindowBuilder::new(app, ALARM, WebviewUrl::App("index.html".into()))
+        .initialization_script("window.__BH_WINDOW = 'alarm';")
+        .title("블랙홀 알람")
+        .position(pos.0, pos.1)
+        .inner_size(size.0, size.1)
+        .decorations(false)
+        .resizable(false)
+        .transparent(true)
+        .always_on_top(true)
+        .visible_on_all_workspaces(true)
+        .skip_taskbar(true)
+        .focused(true)
+        .build();
+    if let Ok(w) = built {
+        raise_window(&w, true);
+        let _ = w.set_focus();
+    }
+}
+
+/// The alarm window answered: drop it from the queue, close the window when none is left.
+pub fn alarm_answered(app: &AppHandle, key: &str) -> Option<AlarmSpec> {
+    let state = app.state::<MacState>();
+    let (answered, left) = {
+        let mut showing = state.showing.lock().unwrap();
+        let i = showing.iter().position(|a| a.key == key);
+        let answered = i.map(|i| showing.remove(i));
+        (answered, showing.len())
+    };
+    if left == 0 {
+        stop_ring(&state);
+        if let Some(w) = app.get_webview_window(ALARM) {
+            let _ = w.close();
+        }
+    } else if let Some(w) = app.get_webview_window(ALARM) {
+        let _ = w.emit("bh-alarm-update", ());
+    }
+    answered
+}
+
+/* ---------- shortcuts ---------- */
+
+pub fn register_shortcuts(app: &AppHandle, s: &Shortcuts) -> Vec<String> {
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+    let gs = app.global_shortcut();
+    let _ = gs.unregister_all();
+    let state = app.state::<MacState>();
+    let mut map = state.shortcuts.lock().unwrap();
+    map.clear();
+    let mut problems = Vec::new();
+    for (action, text) in [("quick", &s.quick), ("clipboard", &s.clipboard), ("capture", &s.capture)] {
+        if text.trim().is_empty() {
+            continue;
+        }
+        match text.parse::<Shortcut>() {
+            Ok(sc) => match gs.register(sc) {
+                Ok(()) => {
+                    map.insert(sc.id(), action.to_string());
+                }
+                Err(e) => problems.push(format!("{} 단축키를 쓸 수 없습니다(다른 앱이 쓰는 중일 수 있음): {e}", pretty_shortcut(text))),
+            },
+            Err(_) => problems.push(format!("단축키 형식이 아닙니다: {text}")),
+        }
+    }
+    problems
+}
+
+pub fn run_action(app: &AppHandle, action: &str) {
+    match action {
+        "quick" => toggle_quick(app),
+        "clipboard" => {
+            let app = app.clone();
+            std::thread::spawn(move || {
+                let _ = send_clipboard(&app);
+            });
+        }
+        "capture" => capture(app),
+        "open" => show_main(app),
+        "quit" => app.exit(0),
+        _ => {}
+    }
+}
+
+pub fn build_tray(app: &AppHandle, s: &Shortcuts) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+    use tauri::tray::TrayIconBuilder;
+    let label = |name: &str, sc: &str| if sc.trim().is_empty() { name.to_string() } else { format!("{name}    {}", pretty_shortcut(sc)) };
+    let menu = Menu::with_items(
+        app,
+        &[
+            &MenuItem::with_id(app, "quick", label("빠른 입력…", &s.quick), true, None::<&str>)?,
+            &MenuItem::with_id(app, "clipboard", label("클립보드 보내기", &s.clipboard), true, None::<&str>)?,
+            &MenuItem::with_id(app, "capture", label("화면 일부 캡처해 넣기", &s.capture), true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "open", "블랙홀 열기", true, None::<&str>)?,
+            &MenuItem::with_id(app, "quit", "블랙홀 끝내기", true, None::<&str>)?,
+        ],
+    )?;
+    if let Some(tray) = app.tray_by_id("bh") {
+        return tray.set_menu(Some(menu));
+    }
+    let n = 44;
+    TrayIconBuilder::with_id("bh")
+        .icon(tauri::image::Image::new_owned(tray_rgba(n), n, n))
+        .icon_as_template(true)
+        .tooltip("블랙홀")
+        .menu(&menu)
+        .show_menu_on_left_click(true)
+        .on_menu_event(|app, e| run_action(app, e.id().as_ref()))
+        .build(app)?;
+    Ok(())
+}
+
+
+/* ---------- commands ---------- */
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeskStatus {
+    settings: DeskSettings,
+    autostart_on: bool,
+    /// Shortcuts as the Mac menu shows them (⌥⌘K …).
+    pretty: Shortcuts,
+    problems: Vec<String>,
+    sounds: Vec<String>,
+}
+
+fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path().app_data_dir().map_err(|e| e.to_string())
+}
+
+fn status_of(app: &AppHandle, problems: Vec<String>) -> Result<DeskStatus, String> {
+    let settings = load_settings(&data_dir(app)?);
+    let s = &settings.shortcuts;
+    let pretty = Shortcuts { quick: pretty_shortcut(&s.quick), clipboard: pretty_shortcut(&s.clipboard), capture: pretty_shortcut(&s.capture) };
+    Ok(DeskStatus { autostart_on: autostart_on(), pretty, settings, problems, sounds: SOUNDS.iter().map(|s| s.to_string()).collect() })
+}
+
+#[tauri::command]
+pub fn desk_status(app: AppHandle) -> Result<DeskStatus, String> {
+    status_of(&app, Vec::new())
+}
+
+/// Save 설정 (shortcuts, login item, alarm sound, guide closed) and apply it at once.
+#[tauri::command]
+pub fn desk_set(app: AppHandle, settings: DeskSettings) -> Result<DeskStatus, String> {
+    let dir = data_dir(&app)?;
+    let before = load_settings(&dir);
+    let mut problems = Vec::new();
+    if settings.autostart != autostart_on() {
+        if let Err(e) = set_autostart(settings.autostart) {
+            problems.push(e);
+        }
+    }
+    let mut settings = settings;
+    settings.autostart_offered = true;
+    if !SOUNDS.contains(&settings.alarm_sound.as_str()) {
+        settings.alarm_sound = "Glass".into();
+    }
+    *app.state::<MacState>().sound.lock().unwrap() = settings.alarm_sound.clone();
+    if settings.shortcuts != before.shortcuts {
+        problems.extend(register_shortcuts(&app, &settings.shortcuts));
+        let _ = build_tray(&app, &settings.shortcuts);
+    }
+    save_settings(&dir, &settings)?;
+    status_of(&app, problems)
+}
+
+/// Play the chosen alarm sound once (설정).
+#[tauri::command]
+pub fn alarm_sound_try(sound: String) {
+    if SOUNDS.contains(&sound.as_str()) {
+        std::thread::spawn(move || {
+            let _ = Command::new("/usr/bin/afplay").args(["-v", "1.6", &format!("/System/Library/Sounds/{sound}.aiff")]).status();
+        });
+    }
+}
+
+/// The quick-input window (or the main page) puts in a sentence or link.
+#[tauri::command]
+pub fn quick_put_text(app: AppHandle, text: String, via: Option<String>) {
+    put_text(&app, text, via.as_deref().unwrap_or("빠른 입력"));
+    if let Some(w) = app.get_webview_window(QUICK) {
+        let _ = w.hide();
+    }
+}
+
+/// A pasted or dropped picture/file as bytes (name in `x-file-name`, percent-encoded).
+#[tauri::command]
+pub fn quick_put_bytes(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err("내용이 없습니다.".into()) };
+    let header = |k: &str| request.headers().get(k).and_then(|v| v.to_str().ok()).map(str::to_string);
+    let name = crate::desk::percent_decode(&header("x-file-name").unwrap_or_else(|| "붙여넣기.png".into()));
+    let via = crate::desk::percent_decode(&header("x-via").unwrap_or_else(|| "빠른%20입력".into()));
+    put_bytes(&app, &name, bytes, &via)?;
+    if let Some(w) = app.get_webview_window(QUICK) {
+        let _ = w.hide();
+    }
+    Ok(())
+}
+
+/// A dropped file path (quick window).
+#[tauri::command]
+pub fn quick_put_path(app: AppHandle, path: String, via: Option<String>) {
+    put_path(&app, Path::new(&path), via.as_deref().unwrap_or("끌어 놓기"));
+}
+
+#[tauri::command]
+pub fn quick_hide(app: AppHandle) {
+    if let Some(w) = app.get_webview_window(QUICK) {
+        let _ = w.hide();
+    }
+}
+
+#[tauri::command]
+pub fn quick_action(app: AppHandle, action: String) {
+    run_action(&app, &action);
+}
+
+/// 처음 안내: ask for speech recognition once (runs the helper on a short silent file).
+#[tauri::command]
+pub async fn speech_permission() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let dir = std::env::temp_dir().join("blackhole-permission");
+        let _ = std::fs::create_dir_all(&dir);
+        let wav = dir.join("silence.wav");
+        let _ = std::fs::write(&wav, crate::worker::source::pcm16_wav(16_000, &vec![0; 8_000]));
+        let result = crate::worker::speech::MacSpeech.run(&wav);
+        let _ = std::fs::remove_dir_all(&dir);
+        match result {
+            Err(e) if e.message.contains("NOT_AUTHORIZED") => Err("음성 인식이 꺼져 있습니다. 시스템 설정 → 개인정보 보호 → 음성 인식에서 블랙홀을 켜 주세요.".to_string()),
+            Err(e) if e.message.contains("UNAVAILABLE") || e.message.contains("실행할 수 없습니다") => Err(e.message),
+            // Silence gives 「no speech」: the permission itself is fine.
+            _ => Ok("음성 인식 허용됨".to_string()),
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Open a 개인정보 보호 page of System Settings (nothing is changed here).
+#[tauri::command]
+pub fn open_privacy(pane: String) -> Result<(), String> {
+    let anchor = match pane.as_str() {
+        "microphone" => "Privacy_Microphone",
+        "speech" => "Privacy_SpeechRecognition",
+        "screen" => "Privacy_ScreenCapture",
+        "notifications" => "",
+        _ => return Err("알 수 없는 설정입니다.".into()),
+    };
+    let url = if anchor.is_empty() { "x-apple.systempreferences:com.apple.preference.notifications".to_string() } else { format!("x-apple.systempreferences:com.apple.preference.security?{anchor}") };
+    Command::new("/usr/bin/open").arg(url).status().map(|_| ()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn notify_test(app: AppHandle) {
+    notify(&app, "블랙홀", "알림이 이렇게 뜹니다.");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shortcuts_read_like_the_mac_menu() {
+        assert_eq!(pretty_shortcut("Alt+Super+K"), "⌥⌘K");
+        assert_eq!(pretty_shortcut("Shift+Alt+Super+B"), "⌥⇧⌘B");
+        assert_eq!(pretty_shortcut("Ctrl+Space"), "⌃Space");
+    }
+
+    #[test]
+    fn links_and_pages() {
+        assert_eq!(single_url(" https://example.com/a?b=1 "), Some("https://example.com/a?b=1".into()));
+        assert_eq!(single_url("내일 https://example.com"), None);
+        assert_eq!(single_url("ftp://x"), None);
+        let (title, text) = page_text("<html><head><title> 가을 &amp; 축제 </title><meta name=\"description\" content=\"11월 3일 오후 2시\"><script>var x=1</script></head><body><h1>안내</h1><p>장소: 강당</p></body></html>");
+        assert_eq!(title, "가을 & 축제");
+        assert!(text.starts_with("11월 3일 오후 2시\n") && text.contains("안내 장소: 강당") && !text.contains("var x"), "{text}");
+    }
+
+    #[test]
+    fn login_item_points_at_the_app() {
+        let p = agent_plist(Path::new("/Applications/Blackhole.app/Contents/MacOS/blackhole-desktop"));
+        assert!(p.contains("<string>/Applications/Blackhole.app/Contents/MacOS/blackhole-desktop</string><string>--login</string>"));
+        assert!(p.contains("RunAtLoad"));
+    }
+
+    #[test]
+    fn settings_default_and_tray_icon() {
+        let d = DeskSettings::default();
+        assert_eq!(d.shortcuts.clipboard, "Alt+Super+B");
+        assert_eq!(d.alarm_sound, "Glass");
+        let s: DeskSettings = serde_json::from_str(r#"{"autostart":true}"#).unwrap();
+        assert!(s.autostart && s.shortcuts.quick == "Alt+Super+K");
+        let px = tray_rgba(44);
+        assert_eq!(px.len(), 44 * 44 * 4);
+        assert_eq!(px[(22 * 44 + 22) * 4 + 3], 0, "the middle is empty (the dark moon)");
+        assert!(px.chunks(4).filter(|p| p[3] > 200).count() > 200, "a visible ring");
+    }
+}

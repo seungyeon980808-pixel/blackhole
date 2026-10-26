@@ -3,8 +3,36 @@
 <plist version="1.0">
 <dict>
   <key>NSMicrophoneUsageDescription</key>
-  <string>「말하기」로 음성 메모를 녹음해 이 Mac 안의 작업기로 일정을 정리합니다.</string>
+  <string>「말하기」로 음성 메모를 녹음해 일정·할 일로 정리합니다.</string>
   <key>NSSpeechRecognitionUsageDescription</key>
   <string>녹음한 말을 이 Mac의 음성 인식으로 글로 바꿔 일정·할 일로 정리합니다.</string>
+  <!-- Files dropped on the Dock icon / Finder 「다음으로 열기」 go into the 블랙홀 inbox.
+       Alternate rank: Blackhole never becomes the default app for these files. -->
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>블랙홀에 넣을 파일</string>
+      <key>CFBundleTypeRole</key>
+      <string>Viewer</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>public.image</string>
+        <string>com.adobe.pdf</string>
+        <string>public.plain-text</string>
+        <string>public.audio</string>
+        <string>org.openxmlformats.wordprocessingml.document</string>
+        <string>org.openxmlformats.spreadsheetml.sheet</string>
+        <string>com.microsoft.excel.xls</string>
+        <string>public.data</string>
+      </array>
+    </dict>
+  </array>
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>「화면 일부 캡처해 넣기」로 고른 부분을 일정·할 일로 정리합니다.</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.productivity</string>
 </dict>
 </plist>

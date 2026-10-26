@@ -186,3 +186,23 @@ export function parseRule(raw: string, now: Date): RuleResult {
   // Java keeps a start time only when both a date and a time exist.
   return { kind, title, date: date ? ymd(date) : null, time: date ? time : null, hasTime: hasTime && date !== null, needsReview: review, explanation };
 }
+
+/** Words that make a sentence more than 「one appointment」: lists, order, reminders, memory, school. */
+const NOT_SIMPLE = /[,，、:;·\n~]|그리고|그 ?전에|전에|후에|다음에|끝나고|하고 |랑 |이랑|및|까지|부터|알려|알림|기억|챙기|준비|하위|매주|매일|격주|반복|마다|학교|학년|학부모|학생|교무|교실|수업|담임|연수|공문|결재|출석|수행평가|방과후|교감|교장|동아리|시험|평가|회의|조회|입학|졸업|면담|운동장|급식|학급|방학|개학/;
+/** Conversational endings the rule title keeps (「치과 예약 있어」): the AI writes a cleaner title. */
+const TITLE_TAIL = /(?:있어|있음|있다|있고|해|해야|해줘|해 줘|줘|야|이야|거야|잡아|잡아줘|추가|넣어|넣어줘|해요|요|임|함|거든|래|대)$/;
+
+/**
+ * True when the rule draft is as good as the AI's would be: one appointment, an explicit date
+ * and clock time (not guessed), a short clean title, nothing else in the sentence. Such sentences
+ * skip the AI (「간단한 문장은 AI 생략」). Lists, sub-tasks, reminders, school items, documents and
+ * photos always go to the AI.
+ */
+export function isSimpleCertain(raw: string, r: RuleResult): boolean {
+  const text = normalize(raw).trim();
+  if (r.kind !== "SCHEDULE" || !r.hasTime || r.needsReview || r.explanation !== "날짜와 시간을 찾음") return false;
+  if (text.length > 30 || NOT_SIMPLE.test(text)) return false;
+  if (/(아침|저녁|밤|새벽|낮)(?!\s*\d)/.test(text)) return false;
+  const title = r.title.trim();
+  return title !== "음성 메모" && title.length >= 2 && title.length <= 15 && !TITLE_TAIL.test(title) && /^[가-힣A-Za-z0-9 ]+$/.test(title);
+}

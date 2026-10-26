@@ -82,6 +82,33 @@ export interface BlackholeAdapter {
   /** Window glass (desktop shows through) for the current theme, where the platform has it. */
   setLook?(theme: string, mode: string): Promise<void>;
 
+  /* Mac: quick input, clipboard, Dock, capture — everything put in arrives here. */
+  onPut?(handler: (put: PutItem) => void): void;
+  /** Mac: copy a file into the current inbox folder (resolves to its inbox name). */
+  inboxPut?(path: string): Promise<string>;
+  /** Mac: a pasted picture/file from this page, sent the same way as the quick window's. */
+  putBytes?(name: string, bytes: Uint8Array, via: string): Promise<void>;
+  /** Mac: a dropped file path (converted where needed: m4a → wav, heic → png). */
+  putPath?(path: string, via: string): Promise<void>;
+  /** Mac: these inbox jobs were drafted; `skip` need no AI. Wakes the scanner. */
+  inboxDrafted?(skip: string[]): Promise<void>;
+  /** Mac: count a call that was not made (simple sentence, rule draft final). */
+  aiSkipped?(reason: string): void;
+  setClaudeOptions?(budgetUsd: number, skipSimple: boolean): Promise<ClaudeStatus>;
+
+  /* Mac: the full-screen alarm window rings by itself (the page only keeps the calendar). */
+  readonly nativeAlarms?: boolean;
+  onAlarmAnswer?(handler: (alarm: Alarm, answer: "done" | "snooze" | "ok") => void): void;
+  showMissed?(alarms: Alarm[]): Promise<void>;
+
+  /* Mac: menu bar, shortcuts, login item, alarm sound, first-start guide. */
+  desk?(): Promise<DeskStatus>;
+  setDesk?(settings: DeskSettings): Promise<DeskStatus>;
+  trySound?(sound: string): void;
+  speechPermission?(): Promise<string>;
+  openPrivacy?(pane: "microphone" | "speech" | "screen" | "notifications"): void;
+  notifyTest?(): void;
+
   /** Mac: the Claude API analyzer (key in the macOS keychain; the page never sees it). */
   claude?(): Promise<ClaudeStatus>;
   setClaudeKey?(key: string): Promise<ClaudeStatus>;
@@ -144,6 +171,38 @@ export interface ClaudeStatus {
   hasKey: boolean;
   monthRequests: number;
   monthUsd: number;
+  /** Monthly limit in USD (0 = none); at the limit the AI stops and drafts stay. */
+  budgetUsd?: number;
+  /** 「간단한 문장은 AI 생략」 */
+  skipSimple?: boolean;
+  month?: {
+    requests: number; usd: number; input: number; output: number; cacheRead: number; cacheWrite: number;
+    skippedCache: number; skippedRule: number; skippedShort: number; skippedBudget: number;
+  };
+}
+
+/** Something put in from outside the page (quick window, clipboard, Dock, capture). */
+export interface PutItem {
+  text?: string;
+  path?: string;
+  link?: { url: string; title: string; text: string };
+  via: string;
+}
+
+export interface DeskSettings {
+  shortcuts: { quick: string; clipboard: string; capture: string };
+  autostart: boolean;
+  alarmSound: string;
+  onboarded: boolean;
+  autostartOffered?: boolean;
+}
+
+export interface DeskStatus {
+  settings: DeskSettings;
+  autostartOn: boolean;
+  pretty: { quick: string; clipboard: string; capture: string };
+  problems: string[];
+  sounds: string[];
 }
 
 export interface MessengerStatus {

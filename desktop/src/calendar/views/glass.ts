@@ -2,7 +2,7 @@
 import { addDays, DOW, fdShort, mins, parseDay, ymd, diffDays } from "../dates";
 import type { CalEvent, ChatMessage, Period, Task } from "../model";
 import { alarmsOn, dueOn, eventsOn, findEntry, pending, periodsOn, taskGroups, type Alarm } from "../store";
-import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, nextReminder, pct, type Ctx, type ThemeView } from "./common";
+import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
 
 const fd = fdShort;
 const none = '<div class="none">없음</div>';
@@ -77,6 +77,25 @@ function refCard(ctx: Ctx, id: string): string {
   return `<div class="rc ${x.gone ? "gone" : ""}"><b>${esc(x.title)}</b><div class="rm2">${kind}${when ? " · " + esc(when) : ""}</div>${review}${act}</div>`;
 }
 
+/**
+ * Results first: 「검토 필요」 stands out, what was organised today is folded to titles, file names
+ * and times only behind 「자세히」. Nothing to show → no box at all.
+ */
+function inboxBox(ctx: Ctx, pend: CalEvent[]): string {
+  const review = needsReview(ctx);
+  const failed = ctx.s.inbox.filter((x) => x.at.slice(0, 10) === ctx.today && x.state === "실패");
+  const done = todayResults(ctx);
+  const raw = ctx.s.inbox.filter((x) => x.at.slice(0, 10) === ctx.today);
+  if (!review.length && !failed.length && !pend.length && !done.length) return "";
+  const row = (x: { id: string; kind: CalEvent["kind"] | Task["kind"] | Period["kind"] | "note"; title: string }) => `<div class="inb" data-ev="${x.id}"><span class="k">${KIND_WORD[x.kind]}</span><span class="evt">${esc(x.title)}</span></div>`;
+  return `<div class="box g inbox">
+    ${review.length || failed.length ? `<h4 class="warn">검토 필요 ${review.length + failed.length}</h4>${review.map((x) => `<div class="inb rv" data-ev="${x.id}"><span class="k">${KIND_WORD[x.kind]}</span><span class="evt">${esc(x.title)} <span class="s">${esc(x.review!.join(" · "))}</span></span>${x.kind === "event" && x.provisional ? okNo(x.id) : `<span class="act"><button class="mini" data-no="${x.id}">되돌리기</button></span>`}</div>`).join("")}${failed.map((x) => `<div class="inb rv"><span class="k">실패</span><span class="evt">${esc(x.out || x.title)}</span></div>`).join("")}` : ""}
+    ${pend.length ? `<h4 class="${review.length || failed.length ? "mt" : ""}">확정 대기 ${pend.length}</h4>${pend.map((e) => `<div class="ev" data-ev="${e.id}"><span class="tm w96">${fd(e.date)} ${e.start ?? "종일"}</span><span class="evt">${esc(e.title)}</span>${okNo(e.id)}</div>`).join("")}` : ""}
+    ${done.length ? `<details class="fold"><summary>오늘 정리한 것 ${done.length}</summary>${done.map(row).join("")}
+      ${raw.length ? `<details class="fold tech"><summary>자세히</summary>${raw.slice().reverse().map((x) => `<div class="inb"><span class="tm">${x.at.slice(11)}</span><span>${esc(x.title)} <span class="s">${esc(x.src)} · ${x.state === "완료" ? esc(x.out) : x.state}</span></span></div>`).join("")}</details>` : ""}</details>` : ""}
+  </div>`;
+}
+
 export const glass: ThemeView = {
   fd,
   shell: (ctx) => `
@@ -106,7 +125,6 @@ export const glass: ThemeView = {
     const ps = periodsOn(ctx.s, k);
     const tom = ymd(addDays(ctx.cur, 1));
     const pend = pending(ctx.s).filter((e) => e.date !== k);
-    const inbox = ctx.s.inbox.filter((x) => x.at.slice(0, 10) === ctx.today);
     return `<div class="day">
       <div class="ttwrap">${timetable(ctx, k)}</div>
       <div class="col2"><div class="box g grow">
@@ -119,8 +137,7 @@ export const glass: ThemeView = {
         ${ps.length ? `<div class="box g"><h4>기간</h4>${ps.map((p) => perRow(p, k)).join("")}</div>` : ""}
         <div class="box g"><h4>일정</h4>${eventsOn(ctx.s, k).map(evRow).join("") || none}
           <h4 class="mt">내일 · ${fd(tom)}</h4>${eventsOn(ctx.s, tom).map(evRow).join("") || none}</div>
-        <div class="box g"><h4>확인 대기 ${pending(ctx.s).length}</h4>${pend.map((e) => `<div class="ev" data-ev="${e.id}"><span class="tm w96">${fd(e.date)} ${e.start ?? "종일"}</span><span class="evt">${esc(e.title)}</span>${okNo(e.id)}</div>`).join("") || none}
-          ${k === ctx.today ? `<h4 class="mt">오늘 들어온 것 ${inbox.length} <small>${esc(ctx.inboxLine)}</small></h4>${inbox.slice().reverse().map((x) => `<div class="inb"><span class="tm">${x.at.slice(11)}</span><span>${esc(x.title)} <span class="s ${x.state === "실패" || x.state === "검토 필요" ? "warn" : ""}">${x.state === "완료" ? esc(x.out) : x.state}</span></span></div>`).join("")}` : ""}</div>
+        ${inboxBox(ctx, pend)}
       </div></div>`;
   },
   week: () => null,
