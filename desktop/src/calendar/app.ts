@@ -3,7 +3,7 @@
  * Platform work goes through the adapter, so this module runs unchanged in the desktop
  * window, a browser and the phone WebView.
  */
-import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type BoardOptions, type GoogleCalendars, type InboxStatus, type MessengerStatus } from "./adapter";
+import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type BoardOptions, type ClaudeStatus, type GoogleCalendars, type InboxStatus, type MessengerStatus } from "./adapter";
 import { addDays, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
@@ -39,6 +39,8 @@ export interface BlackholeApp {
 
 const THEMES: Record<ThemeName, ThemeView> = { glass, doc };
 const COMPACT = 760;
+/** Worker codes that mean 「the analyzer is not available now」, not 「this input failed」. */
+const WAITING_CODES = ["API_KEY_MISSING", "API_BILLING", "RUNNER_UNAVAILABLE", "MODEL_MISSING", "STT_UNAVAILABLE"];
 /** Minimum time between two writes of the Drive 「달력.json」. */
 export const SHARE_GAP_MS = 10_000;
 
@@ -83,11 +85,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let gcal: GoogleCalendars | null = null;
   let board: BoardOptions | null = null;
   let messenger: MessengerStatus | null = null;
+  let claude: ClaudeStatus | null = null;
+  let claudeLine = "";
   const loadCalendars = () =>
-    Promise.all([adapter.googleCalendars?.(), adapter.board?.(), adapter.messenger?.()]).then(([g, b, m]) => {
+    Promise.all([adapter.googleCalendars?.(), adapter.board?.(), adapter.messenger?.(), adapter.claude?.().catch(() => null)]).then(([g, b, m, c]) => {
       gcal = g ?? null;
       board = b ?? null;
       messenger = m ?? null;
+      claude = c ?? null;
       if (settingsOpen) renderSettings();
     });
   (window as unknown as { blackholeCalendars?: () => void }).blackholeCalendars = () => void loadCalendars();
@@ -267,6 +272,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <label class="set-row">배경 밝기 <input type="range" min="-50" max="50" step="5" value="${st.glassBright}" data-set="glassBright" aria-label="배경·카드 밝기"><span class="set-v">${st.glassBright > 0 ? "+" : ""}${st.glassBright}</span></label>
       ${st.glassBlur !== 26 || st.glassBright !== 0 ? '<div class="set-row"><button class="mini" data-lookreset>처음 모습으로</button></div>' : ""}` : ""}
       <label class="set-row"><input type="checkbox" data-set="samples" ${st.showSamples ? "checked" : ""}> 가짜 자료 보이기</label>
+      ${adapter.claude ? claudeBlock() : ""}
       <div class="set-sep"></div>
       <label class="set-row"><input type="checkbox" data-set="inbox" ${inbox.enabled ? "checked" : ""} ${inbox.available ? "" : "disabled"}> 인박스 처리 (작업기)</label>
       ${inbox.available ? `<label class="set-row">폴더 <select data-set="inboxRoot"><option value="" ${st.inboxRoot ? "" : "selected"}>시험 폴더</option>${inbox.driveRoot ? `<option value="drive" ${st.inboxRoot ? "selected" : ""}>드라이브 「블랙홀」</option>` : ""}</select></label>` : ""}
@@ -289,6 +295,44 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <div class="set-row"><button class="mini" data-testalarm>알람 시험 (10초 뒤)</button></div>
       <div class="set-note">${escapeHtml(adapter.connection.detail)}</div>`;
     el.hidden = false;
+  }
+
+  /** Claude API key (stored in the macOS keychain; the page only knows whether one exists). */
+  function claudeBlock(): string {
+    if (!claude) return '<div class="set-sep"></div><div class="set-note">AI 설정을 읽는 중…</div>';
+    const usd = claude.monthUsd;
+    const won = Math.round(usd * 1400);
+    const local = claude.analyzer === "local";
+    return `<div class="set-sep"></div>
+      <div class="set-row"><b>AI 다듬기</b>&nbsp;${local ? "로컬 모델(선택)" : `Claude · ${escapeHtml(claude.model)}`}</div>
+      ${local ? "" : claude.hasKey
+        ? `<div class="set-row">Claude API 키 저장됨(키체인) <button class="mini" data-claude="check">연결 확인</button><button class="mini" data-claude="clear">키 지우기</button></div>`
+        : `<label class="set-row">Claude API 키 <input type="password" data-claude-key autocomplete="off" spellcheck="false" placeholder="sk-ant-…" aria-label="Claude API 키 붙여넣기"></label>
+           <div class="set-row"><button class="mini" data-claude="save">키 저장</button></div>`}
+      <div class="set-note">${local ? "worker-config.json의 analyzer를 \"claude\"로 두면 Claude로 돌아갑니다." : `키는 이 Mac의 키체인에만 둡니다(파일·드라이브에 남기지 않음). 키가 없어도 초안은 바로 들어가고, AI 다듬기만 기다립니다.<br>이번 달 ${claude.monthRequests}회 · 대략 $${usd.toFixed(usd < 1 ? 3 : 2)}(약 ${won.toLocaleString("ko-KR")}원)`}${claudeLine ? `<br>${escapeHtml(claudeLine)}` : ""}</div>`;
+  }
+
+  async function claudeAction(what: string): Promise<void> {
+    try {
+      if (what === "save") {
+        const el = root.querySelector<HTMLInputElement>("[data-claude-key]");
+        const key = el?.value.trim() ?? "";
+        if (el) el.value = "";
+        if (!key) return;
+        claude = await adapter.setClaudeKey!(key);
+        claudeLine = "키를 저장했습니다. 「연결 확인」으로 확인해 보세요.";
+      } else if (what === "clear") {
+        claude = await adapter.clearClaudeKey!();
+        claudeLine = "키를 지웠습니다.";
+      } else if (what === "check") {
+        claudeLine = "확인 중…";
+        renderSettings();
+        claudeLine = await adapter.checkClaude!();
+      }
+    } catch (e) {
+      claudeLine = e instanceof Error ? e.message : String(e);
+    }
+    if (settingsOpen) renderSettings();
   }
 
   /** Stage 4 on the phone: mirror into a provisional and a main Google calendar. */
@@ -453,9 +497,21 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
       const msg = e instanceof AnalyzeError ? e.message : e instanceof Error ? e.message : String(e);
       const kept = draftsOf(s, key);
+      // No key, no balance, API busy: not a failure of the input. The draft stays as it is.
+      const waiting = e instanceof AnalyzeError && WAITING_CODES.includes(e.code);
       for (const x of kept) {
         x.draft = false;
-        x.review = [...(x.review ?? []), "AI 분석 실패 · 규칙으로만 넣음"];
+        x.review = [...(x.review ?? []), waiting ? "AI 다듬기 안 함 · 규칙 초안" : "AI 분석 실패 · 규칙으로만 넣음"];
+      }
+      if (waiting && kept.length) {
+        s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: `초안으로 넣었어요. AI 다듬기는 하지 못했어요: ${msg}`, refs: kept.map((x) => x.id) });
+        s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: "검토 필요", out: "초안" });
+        busy--;
+        await save();
+        syncAlarms();
+        renderComposer();
+        render();
+        return;
       }
       s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: `분석하지 못했어요: ${msg}${kept.length ? " 초안은 그대로 두었어요." : ""}`, error: true, refs: kept.map((x) => x.id) });
       log(s, { label: "실패", msg, src }, at);
@@ -641,6 +697,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       else root.querySelector<HTMLElement>("#bhSettings")!.hidden = true;
       return;
     }
+    if (q("[data-claude]")) return void claudeAction(q("[data-claude]")!.dataset.claude!);
     if (q("[data-lookreset]")) {
       s.settings.glassBlur = 26;
       s.settings.glassBright = 0;

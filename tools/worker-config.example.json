@@ -1,4 +1,7 @@
 {
+  "analyzer": "claude",
+  "claudeModel": "claude-haiku-5-5",
+  "claudeEffort": "low",
   "whisperPrompt": "학부모 상담, 생활기록부, 세특, 수행평가, 지필평가, 가정통신문, 입학식, 졸업식, 현장체험학습, 교과 협의회, 교직원 연수, 방과후 수업, 출석부, 공개수업, 담임, 교무실",
   "schoolWords": [
     "학교",

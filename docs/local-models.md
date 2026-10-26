@@ -1,5 +1,8 @@
 # 로컬 모델 설치 기록
 
+> **2026-10-26 바뀜: 로컬 모델은 「선택, 기본 꺼짐」입니다.** 노트북이 느려져 제품 소유자가 AI 분석을 Claude API(Claude Haiku 5.5)로 옮기기로 했습니다(`docs/local-worker.md`의 「Claude API 분석」 절). 작업기는 Ollama·whisper를 기본으로 부르지 않고 자동 실행도 하지 않습니다. 아래 모델 파일은 지우지 않았습니다(지우기는 제품 소유자가 정함). 다시 쓰려면 `~/.local/share/blackhole-models/worker-config.json`에 `"analyzer": "local"`을 넣고 `ollama serve`를 직접 띄웁니다. Claude 경로에서 녹음 받아쓰기의 마지막 대안으로만 whisper를 쓰려면 `"whisperFallback": true`.
+
+
 작성 2026-10-24. Blackhole 로컬 분석 작업기(`blackhole-worker`)가 쓰는 실행기와 모델입니다. 모두 저장소 밖에 있고, 음성·문서 내용을 외부로 보내지 않습니다. 모델 파일을 받을 때만 인터넷을 씁니다.
 
 설치·확인은 `bash tools/setup-local-models.sh`로 다시 할 수 있습니다(기본은 Gemma 4 E2B 하나, 평가용 Gemma 3 두 개는 `--with-comparison`). 이미 있는 것은 건너뛰고, 아무것도 지우지 않습니다. `--check`를 붙이면 설치 없이 상태만 보고 한국어 문장 하나로 실행을 확인합니다.

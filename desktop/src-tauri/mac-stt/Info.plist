@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.malhaedwo.blackhole.stt</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>녹음한 말을 글로 바꿔 일정·할 일로 정리합니다.</string>
+</dict>
+</plist>

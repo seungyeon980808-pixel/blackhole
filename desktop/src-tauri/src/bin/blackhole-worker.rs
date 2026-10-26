@@ -14,8 +14,8 @@ use std::{path::PathBuf, process::ExitCode};
 use blackhole_desktop_lib::worker::{
     config::WorkerConfig,
     error::{ErrorCode, WorkerError},
-    pipeline::{analyze_with, source_type_for, Engines, Input},
-    proposal::{EngineId, SourceType},
+    pipeline::Input,
+    proposal::EngineId,
     inbox::{scan_once, Layout},
     messenger::{poll, MessengerConfig},
     queue::{Enqueued, Queue},
@@ -101,17 +101,9 @@ fn queue_dir(args: &Args) -> Result<&PathBuf, WorkerError> {
 fn run() -> Result<serde_json::Value, WorkerError> {
     let args = parse_args()?;
     let config = WorkerConfig::from_env()?;
-    let (whisper, kordoc) = (config.whisper(), config.kordoc());
-    // Per input, so a larger document model (BLACKHOLE_DOCUMENT_MODEL) is used only where it applies.
-    let analyze_one = |input: &Input, engine: EngineId, reference: DateTime<FixedOffset>| {
-        let source = match input {
-            Input::File(path) => source_type_for(path)?.0,
-            Input::Text(_) => SourceType::Text,
-        };
-        let (text_chat, direct_chat) = (config.chat_for(source, false), config.chat_for(source, true));
-        let engines = Engines { transcriber: &whisper, reader: &kordoc, text_model: &text_chat, direct_model: &direct_chat };
-        analyze_with(input, engine, reference, &engines, &config.options)
-    };
+    // Claude by default; BLACKHOLE_ANALYZER=local (or "analyzer": "local") for whisper + Ollama.
+    let inbox = args.root.as_ref().map(|r| r.join("인박스"));
+    let analyze_one = |input: &Input, engine: EngineId, reference: DateTime<FixedOffset>| config.analyze(input, engine, reference, inbox.as_deref());
 
     match args.command.as_str() {
         "analyze" => Ok(to_json(&analyze_one(&input(&args)?, engine(&args)?, reference(&args)?)?)),

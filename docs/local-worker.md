@@ -1,4 +1,29 @@
-# Blackhole 로컬 분석 작업기 (1단계)
+# Blackhole 분석 작업기
+
+> **2026-10-26부터 기본 분석기는 Claude API(Claude Haiku 5.5)입니다.** 아래 「Claude API 분석」 절을 먼저 보세요. 그 아래의 whisper·Ollama(Gemma) 설명은 선택 경로(`"analyzer": "local"`, 기본 꺼짐)의 기록입니다.
+
+## Claude API 분석 (기본, 2026-10-26)
+
+| 입력 | 처리 |
+|---|---|
+| 문장 | 그대로 글로 보냄 |
+| 사진(PNG·JPG·WebP) | 그림(image 블록)으로 보냄. 글자 인식 모델은 돌리지 않음 |
+| PDF | 문서(document 블록, base64)로 보냄 |
+| HWP·HWPX·DOCX·XLSX | 이 Mac에서 kordoc으로 글자만 뽑아 글로 보냄 |
+| 녹음(WAV) | ① 휴대폰이 함께 보낸 받아쓰기(`인박스/*.bhstt`, 녹음 SHA-256으로 짝) ② 없으면 macOS 내장 음성 인식(한국어, 가능하면 기기 안) ③ `whisperFallback`을 켠 경우에만 whisper. 받은 글을 보냄 |
+
+- 모델 `claude-haiku-5-5`(날짜 접미사 없음), `output_config.effort` 기본 `low`, 답은 구조화 출력(`output_config.format` = 제안 JSON 스키마, 모든 객체 `additionalProperties: false`)으로 받습니다. 날짜·시각 계산은 지금처럼 코드(`dates.rs`)가 합니다. 거절(`refusal`)·길이 끊김(`max_tokens`)은 추측하지 않고 실패로 남깁니다.
+- 지시문(system)과 예시 대화는 고정이라 프롬프트 캐시(`cache_control`)를 둡니다. 응답의 토큰 수(내용 없이 시각·토큰만)를 `~/.local/share/blackhole/claude-usage.jsonl`에 남기고, 설정 화면에 「이번 달 대략 사용액」(Haiku 5.5: 입력 $0.10, 출력 $0.50 /백만 토큰, 캐시 읽기 0.1배, 캐시 쓰기 1.25배)으로 보입니다.
+- 429·5xx·529는 최대 3번 다시 시도(retry-after 따름). 키 없음·잘못된 키(401/403)·잔액 부족(402)·한도 초과는 「대기」 코드(`API_KEY_MISSING`, `API_BILLING`, `RUNNER_UNAVAILABLE`)로, 인박스 작업은 실패로 묶지 않고 10분마다 다시 시도합니다. 원본·작업은 지우지 않습니다.
+- **API 키**: Mac 앱 설정 「Claude API 키」에 붙여 넣으면 macOS 키체인(서비스 `com.malhaedwo.blackhole.claude`)에만 저장합니다. `security -i`의 표준 입력으로 넘겨 프로세스 목록·파일·로그·드라이브·저장소에 남지 않습니다. 화면은 키가 있는지만 압니다. 「연결 확인」은 모델 정보 조회(토큰 비용 없음) 한 번. 「키 지우기」는 키체인 항목을 지웁니다. CLI·시험은 `BLACKHOLE_CLAUDE_API_KEY` 환경 변수도 읽습니다.
+- 키가 없어도 「초안 먼저」(규칙 파서)는 그대로 동작합니다. 휴대폰은 API를 부르지 않고(키를 휴대폰에 두지 않음) 초안만 만듭니다. AI 다듬기는 Mac이 합니다.
+- macOS 음성 인식 도우미(`desktop/src-tauri/mac-stt/main.swift`)는 빌드 때 앱에 들어가고, 처음 쓸 때 `~/.local/share/blackhole/bin/`에 풀어 실행합니다. 처음 한 번 「음성 인식」 권한을 묻습니다.
+- 설정 칸(`worker-config.json`): `analyzer`("claude"|"local"), `claudeModel`, `claudeEffort`, `whisperFallback`. 환경 변수: `BLACKHOLE_ANALYZER`, `BLACKHOLE_CLAUDE_MODEL`, `BLACKHOLE_CLAUDE_EFFORT`, `BLACKHOLE_CLAUDE_URL`(시험용 가짜 서버), `BLACKHOLE_WHISPER_FALLBACK`.
+- 비교 평가: `node tools/worker-eval/run-haiku-eval.mjs --yes`(요금 발생 — 키를 넣은 뒤 부모 세션·제품 소유자가 실행). 시험은 127.0.0.1 가짜 API 서버로만 했고 실제 API는 부르지 않았습니다.
+
+---
+
+# (선택 경로) 로컬 분석 작업기 (1단계 기록)
 
 음성(WAV)·글·문서(PDF, HWP, HWPX, DOCX, XLSX)·이미지(PNG, JPG, WebP) 하나를 넣으면 이 컴퓨터 안의 모델만으로 「제안 JSON」을 만듭니다. Google, Calendar, 외부 AI API에 연결하지 않습니다. 화면(UI)은 아직 없고, 2단계에서 데스크톱 앱이 같은 Rust 모듈을 부릅니다.
 

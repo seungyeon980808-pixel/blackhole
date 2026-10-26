@@ -6,8 +6,8 @@ use crate::worker::{
     config::WorkerConfig,
     error::{ErrorCode, WorkerError},
     inbox::{scan_once, Layout},
-    pipeline::{analyze_with, source_type_for, Engines, Input},
-    proposal::{EngineId, Proposal, SourceType},
+    pipeline::{source_type_for, Input},
+    proposal::{EngineId, Proposal},
 };
 use chrono::{DateTime, FixedOffset};
 use serde::Serialize;
@@ -121,17 +121,13 @@ fn parse_now(now: &str) -> Result<DateTime<FixedOffset>, WorkerError> {
     DateTime::parse_from_rfc3339(now).map_err(|e| WorkerError::new(ErrorCode::UnsupportedInput, format!("기준 시각 형식 오류({now}): {e}")))
 }
 
-/// The same analysis the `blackhole-worker` CLI runs (engine A, config file + BLACKHOLE_* env).
+/// The same analysis the `blackhole-worker` CLI runs (config file + BLACKHOLE_* env; Claude by default).
 fn run_analysis(input: &Input, now: DateTime<FixedOffset>) -> Result<Proposal, WorkerError> {
-    let config = WorkerConfig::from_env()?;
-    let source = match input {
-        Input::File(path) => source_type_for(path)?.0,
-        Input::Text(_) => SourceType::Text,
-    };
-    let (whisper, kordoc) = (config.whisper(), config.kordoc());
-    let (text_chat, direct_chat) = (config.chat_for(source, false), config.chat_for(source, true));
-    let engines = Engines { transcriber: &whisper, reader: &kordoc, text_model: &text_chat, direct_model: &direct_chat };
-    analyze_with(input, EngineId::TextFirst, now, &engines, &config.options)
+    run_analysis_in(input, now, None)
+}
+
+fn run_analysis_in(input: &Input, now: DateTime<FixedOffset>, inbox: Option<&Path>) -> Result<Proposal, WorkerError> {
+    WorkerConfig::from_env()?.analyze(input, EngineId::TextFirst, now, inbox)
 }
 
 async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, WorkerError> + Send + 'static) -> Result<T, WorkerError> {
@@ -270,6 +266,57 @@ pub fn inbox_drafts(desk: tauri::State<'_, Desk>) -> Vec<calendar::InboxDraft> {
         desk.kick.store(true, Ordering::SeqCst);
     }
     list
+}
+
+/// Claude API status for 설정. The key itself is never returned to the page.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeStatus {
+    analyzer: String,
+    model: String,
+    has_key: bool,
+    month_requests: u64,
+    month_usd: f64,
+}
+
+fn claude_status_now() -> Result<ClaudeStatus, String> {
+    let config = WorkerConfig::from_env().map_err(|e| e.message)?;
+    let has_key = crate::worker::claude::api_key().map_err(|e| e.message)?.is_some();
+    let month = chrono::Local::now().format("%Y-%m").to_string();
+    let (month_requests, month_usd) = crate::worker::claude::month_usage(&crate::worker::claude::usage_log_path(), &month);
+    Ok(ClaudeStatus { analyzer: config.analyzer.clone(), model: config.claude_model.clone(), has_key, month_requests, month_usd })
+}
+
+#[tauri::command]
+pub fn claude_status() -> Result<ClaudeStatus, String> {
+    claude_status_now()
+}
+
+/// Store a pasted key in the macOS keychain only.
+#[tauri::command]
+pub fn claude_set_key(key: String) -> Result<ClaudeStatus, String> {
+    crate::worker::claude::store_key(&key).map_err(|e| e.message)?;
+    claude_status_now()
+}
+
+#[tauri::command]
+pub fn claude_clear_key() -> Result<ClaudeStatus, String> {
+    crate::worker::claude::clear_key().map_err(|e| e.message)?;
+    claude_status_now()
+}
+
+/// 「연결 확인」: one free request (model lookup) with the stored key.
+#[tauri::command]
+pub async fn claude_check() -> Result<String, String> {
+    blocking(|| {
+        let config = WorkerConfig::from_env()?;
+        let key = crate::worker::claude::api_key()?.ok_or_else(|| WorkerError::new(ErrorCode::ApiKeyMissing, "Claude API 키가 없습니다."))?;
+        let url = std::env::var("BLACKHOLE_CLAUDE_URL").unwrap_or_else(|_| crate::worker::claude::DEFAULT_URL.into());
+        crate::worker::claude::check_key(&url, &key, &config.claude_model)?;
+        Ok(format!("연결됨 · {} · {}", config.claude_model, chrono::Local::now().format("%H:%M")))
+    })
+    .await
+    .map_err(|e| e.message)
 }
 
 fn drive_root() -> Result<PathBuf, String> {
@@ -422,7 +469,7 @@ pub fn start(app: &AppHandle) {
             last = Instant::now();
             inbox.lock().unwrap().running = true;
             let now = chrono::Local::now().fixed_offset();
-            let result = scan_once(&Layout::new(&root), EngineId::TextFirst, now, INBOX_SETTLE, |input, _| run_analysis(input, now));
+            let result = scan_once(&Layout::new(&root), EngineId::TextFirst, now, INBOX_SETTLE, |input, _| run_analysis_in(input, now, Some(&Layout::new(&root).inbox())));
             let mut run = inbox.lock().unwrap();
             run.running = false;
             run.last_scan_at = Some(now.format("%Y-%m-%dT%H:%M:%S").to_string());

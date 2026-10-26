@@ -22,13 +22,20 @@ pub enum ErrorCode {
     InvalidModelOutput,
     Interrupted,
     Io,
+    /// No Claude API key (or a wrong one): the job waits until a key is set.
+    ApiKeyMissing,
+    /// Claude API balance or billing problem: the job waits.
+    ApiBilling,
 }
 
 impl ErrorCode {
     /// The analyzer itself is not available (model or service off, not installed): the input
     /// is fine, so the job waits instead of failing for good.
     pub fn is_waiting(self) -> bool {
-        matches!(self, Self::RunnerUnavailable | Self::ModelMissing | Self::SttUnavailable | Self::SttModelMissing | Self::ReaderUnavailable)
+        matches!(
+            self,
+            Self::RunnerUnavailable | Self::ModelMissing | Self::SttUnavailable | Self::SttModelMissing | Self::ReaderUnavailable | Self::ApiKeyMissing | Self::ApiBilling
+        )
     }
 }
 

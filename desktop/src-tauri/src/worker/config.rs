@@ -6,8 +6,15 @@ use super::{
     extract::ExtractOptions,
     pipeline::AnalyzeOptions,
     proposal::SourceType,
-    runners::{KordocCli, OllamaChat, WhisperCli},
+    runners::{ChatModel, KordocCli, OllamaChat, WhisperCli},
 };
+use super::{
+    claude::ClaudeChat,
+    pipeline::{analyze_with, source_type_for, Engines, Input},
+    proposal::{EngineId, Proposal},
+    speech::{MacSpeech, SpeechChain},
+};
+use chrono::{DateTime, FixedOffset};
 use serde::Deserialize;
 use std::{env, path::{Path, PathBuf}, time::Duration};
 
@@ -31,6 +38,12 @@ pub struct WorkerConfig {
     /// Larger model for documents and images only (`BLACKHOLE_DOCUMENT_MODEL` / `documentModel`).
     pub document_model: Option<String>,
     pub options: AnalyzeOptions,
+    /// "claude" (default) or "local" (whisper + Ollama, the 2026-10 setup).
+    pub analyzer: String,
+    pub claude_model: String,
+    pub claude_effort: String,
+    /// With the Claude analyzer: also try whisper.cpp when the phone and macOS give no text.
+    pub whisper_fallback: bool,
 }
 
 /// Optional JSON file (`$BLACKHOLE_WORKER_CONFIG`, else `<models dir>/worker-config.json`).
@@ -55,6 +68,15 @@ pub struct WorkerFileConfig {
     /// Part-of-day defaults, e.g. {"저녁": "19:00"} (see dates::DEFAULT_DAYPARTS).
     #[serde(default)]
     pub dayparts: std::collections::BTreeMap<String, String>,
+    /// "claude" (default) or "local".
+    #[serde(default)]
+    pub analyzer: Option<String>,
+    #[serde(default)]
+    pub claude_model: Option<String>,
+    #[serde(default)]
+    pub claude_effort: Option<String>,
+    #[serde(default)]
+    pub whisper_fallback: Option<bool>,
 }
 
 pub fn read_file_config(path: &Path) -> Result<WorkerFileConfig, WorkerError> {
@@ -112,7 +134,15 @@ impl WorkerConfig {
                 Err(_) => file.recheck_below,
             },
             image_ocr_hint: switch("BLACKHOLE_IMAGE_OCR_HINT").or(file.image_ocr_hint).unwrap_or(false),
+            claude: false,
         };
+        let analyzer = var_or("BLACKHOLE_ANALYZER", file.analyzer.clone().unwrap_or_else(|| "claude".into()));
+        let mut options = options;
+        options.claude = analyzer != "local";
+        if options.claude {
+            // Local-model experiments do not apply to the API path.
+            options.image_ocr_hint = false;
+        }
         let whisper_prompt = match env::var("BLACKHOLE_WHISPER_PROMPT") {
             Ok(v) if v == "off" || v.trim().is_empty() => None,
             Ok(v) => Some(v),
@@ -140,7 +170,39 @@ impl WorkerConfig {
                 Err(_) => file.document_model.clone(),
             },
             options,
+            claude_model: var_or("BLACKHOLE_CLAUDE_MODEL", file.claude_model.clone().unwrap_or_else(|| super::claude::DEFAULT_MODEL.into())),
+            claude_effort: var_or("BLACKHOLE_CLAUDE_EFFORT", file.claude_effort.clone().unwrap_or_else(|| "low".into())),
+            whisper_fallback: switch("BLACKHOLE_WHISPER_FALLBACK").or(file.whisper_fallback).unwrap_or(false),
+            analyzer,
         })
+    }
+
+    pub fn uses_claude(&self) -> bool {
+        self.analyzer != "local"
+    }
+
+    /// Analyze one input with the configured analyzer. `inbox`: the folder a file came from
+    /// (phone transcripts of recordings live there).
+    pub fn analyze(&self, input: &Input, engine: EngineId, reference: DateTime<FixedOffset>, inbox: Option<&Path>) -> Result<Proposal, WorkerError> {
+        let kordoc = self.kordoc();
+        if self.uses_claude() {
+            let chat = ClaudeChat::new(&self.claude_model, &self.claude_effort);
+            let speech = SpeechChain {
+                inbox: inbox.map(Path::to_path_buf),
+                mac: Some(MacSpeech),
+                local: if self.whisper_fallback { Some(Box::new(self.whisper())) } else { None },
+            };
+            let engines = Engines { transcriber: &speech, reader: &kordoc, text_model: &chat, direct_model: &chat };
+            return analyze_with(input, engine, reference, &engines, &self.options);
+        }
+        let source = match input {
+            Input::File(path) => source_type_for(path)?.0,
+            Input::Text(_) => SourceType::Text,
+        };
+        let whisper = self.whisper();
+        let (text_chat, direct_chat): (Box<dyn ChatModel>, Box<dyn ChatModel>) = (Box::new(self.chat_for(source, false)), Box::new(self.chat_for(source, true)));
+        let engines = Engines { transcriber: &whisper, reader: &kordoc, text_model: text_chat.as_ref(), direct_model: direct_chat.as_ref() };
+        analyze_with(input, engine, reference, &engines, &self.options)
     }
 
     pub fn whisper(&self) -> WhisperCli {

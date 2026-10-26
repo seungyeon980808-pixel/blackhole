@@ -66,6 +66,9 @@ pub struct AnalyzeOptions {
     pub recheck_below: Option<f64>,
     /// Engine B for images: also run OCR and give its text to the model as a hint.
     pub image_ocr_hint: bool,
+    /// Claude analyzer: images and PDFs go to the model directly (image / document blocks);
+    /// no OCR model is run.
+    pub claude: bool,
 }
 
 fn review_count(extraction: &Extraction) -> usize {
@@ -174,7 +177,11 @@ pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOf
     }
     // Text and documents have nothing to read directly; they always use engine A. With the
     // OCR hint on, images always go to the model directly (the hint only exists there).
+    let pdf = matches!(input, Input::File(p) if p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")));
     let engine = match source_type {
+        SourceType::Image if options.claude => EngineId::Direct,
+        SourceType::Document if options.claude && pdf => EngineId::Direct,
+        SourceType::Audio if options.claude => EngineId::TextFirst,
         SourceType::Image if options.image_ocr_hint => EngineId::Direct,
         SourceType::Audio | SourceType::Image => engine,
         SourceType::Text | SourceType::Document => EngineId::TextFirst,
@@ -233,7 +240,11 @@ pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOf
             (text, summaries.join(" / "), items, engines.text_model.model_name())
         }
         None => {
-            let media = if source_type == SourceType::Audio { "음성" } else { "이미지" };
+            let media = match source_type {
+                SourceType::Audio => "음성",
+                SourceType::Document => "문서",
+                _ => "이미지",
+            };
             // An OCR failure only removes the hint; the model still reads the image.
             let hint = match input {
                 Input::File(path) if options.image_ocr_hint && source_type == SourceType::Image => engines.reader.read(path).ok(),
@@ -242,7 +253,14 @@ pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOf
             if hint.is_some() {
                 reader = engines.reader.reader_name();
             }
-            let messages = direct_messages_with(media, base64(&bytes), hint.as_deref(), &options.extract);
+            let mut messages = direct_messages_with(media, base64(&bytes), hint.as_deref(), &options.extract);
+            if source_type == SourceType::Document {
+                // A PDF goes to Claude as a document block, not an image.
+                if let Some(last) = messages.last_mut() {
+                    last["documents"] = last["images"].take();
+                    last.as_object_mut().map(|o| o.remove("images"));
+                }
+            }
             let extraction = extract_once(engines.direct_model, messages, true, None, reference, options)?;
             (extraction.transcript.unwrap_or_default(), extraction.summary, extraction.items, engines.direct_model.model_name())
         }
@@ -576,5 +594,42 @@ mod tests {
         assert_eq!(base64(b"f"), "Zg==");
         assert_eq!(base64(b"fo"), "Zm8=");
         assert_eq!(base64(b"foobar"), "Zm9vYmFy");
+    }
+
+    struct Recorder(std::cell::RefCell<Vec<Vec<serde_json::Value>>>, String);
+    impl ChatModel for Recorder {
+        fn model_name(&self) -> String {
+            "claude/test".into()
+        }
+        fn chat_json(&self, messages: Vec<serde_json::Value>, _: &serde_json::Value) -> Result<String, WorkerError> {
+            self.0.borrow_mut().push(messages);
+            Ok(self.1.clone())
+        }
+    }
+
+    #[test]
+    fn claude_reads_images_and_pdfs_directly_and_documents_as_text() {
+        let dir = tempfile::tempdir().unwrap();
+        let answer = serde_json::json!({"transcript":"11월 3일 운동회","summary":"운동회","items":[]}).to_string();
+        let opts = AnalyzeOptions { claude: true, ..Default::default() };
+        for (name, bytes, key) in [("a.png", &b"\x89PNG fake"[..], "images"), ("b.pdf", &b"%PDF-1.4 fake"[..], "documents")] {
+            let path = dir.path().join(name);
+            std::fs::write(&path, bytes).unwrap();
+            let chat = Recorder(Default::default(), answer.clone());
+            let reader = FakeReader(Err(WorkerError::new(ErrorCode::ReaderFailed, "OCR must not run")));
+            let engines = Engines { transcriber: &FakeStt(Ok(String::new())), reader: &reader, text_model: &chat, direct_model: &chat };
+            analyze_with(&Input::File(&path), EngineId::TextFirst, reference(), &engines, &opts).unwrap();
+            let sent = chat.0.borrow();
+            let last = sent[0].last().unwrap();
+            assert!(last[key].is_array(), "{name}: {last}");
+            assert!(last.get(if key == "images" { "documents" } else { "images" }).is_none());
+        }
+        // HWPX is read to text locally (kordoc), then sent as text.
+        let path = dir.path().join("c.hwpx");
+        std::fs::write(&path, b"PK fake").unwrap();
+        let chat = Recorder(Default::default(), serde_json::json!({"summary":"","items":[]}).to_string());
+        let engines = Engines { transcriber: &FakeStt(Ok(String::new())), reader: &FakeReader(Ok("공문 본문".into())), text_model: &chat, direct_model: &chat };
+        analyze_with(&Input::File(&path), EngineId::TextFirst, reference(), &engines, &opts).unwrap();
+        assert_eq!(chat.0.borrow()[0].last().unwrap()["content"], "공문 본문");
     }
 }

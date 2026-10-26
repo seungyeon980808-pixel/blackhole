@@ -373,3 +373,43 @@ describe("glass look sliders (설정)", () => {
     expect(calls).toEqual([["look", 0, 60], ["lock", true, true]]);
   });
 });
+
+describe("Claude API analyzer in 설정 and without a key", () => {
+  it("keeps the draft and explains when there is no key; the key is pasted, never shown back", async () => {
+    const { AnalyzeError } = await import("../src/calendar/adapter");
+    let status = { analyzer: "claude", model: "claude-haiku-5-5", hasKey: false, monthRequests: 0, monthUsd: 0 };
+    const stored: string[] = [];
+    const adapter: BlackholeAdapter = {
+      ...memoryAdapter(),
+      origin: "데스크톱",
+      analyze: async () => {
+        throw new AnalyzeError("API_KEY_MISSING", "Claude API 키가 없습니다.");
+      },
+      claude: async () => status,
+      setClaudeKey: async (k) => {
+        stored.push(k);
+        status = { ...status, hasKey: true };
+        return status;
+      },
+      clearClaudeKey: async () => (status = { ...status, hasKey: false }),
+      checkClaude: async () => "연결됨"
+    };
+    const root = await mount(adapter);
+    await app!.submitText("내일 3시 회의");
+    const last = app!.state.chat.at(-1)!;
+    expect(last.error).toBeUndefined();
+    expect(last.text).toContain("초안으로 넣었어요");
+    expect(app!.state.events.filter((e) => !e.gone)).toHaveLength(1);
+    root.querySelector<HTMLButtonElement>("[data-settings]")!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    const input = root.querySelector<HTMLInputElement>("[data-claude-key]")!;
+    expect(input.type).toBe("password");
+    input.value = "sk-ant-api03-test";
+    root.querySelector<HTMLButtonElement>('[data-claude="save"]')!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(stored).toEqual(["sk-ant-api03-test"]);
+    expect(root.textContent).toContain("키 저장됨");
+    expect(root.innerHTML).not.toContain("sk-ant-api03-test");
+    expect(root.textContent).toContain("이번 달 0회");
+  });
+});

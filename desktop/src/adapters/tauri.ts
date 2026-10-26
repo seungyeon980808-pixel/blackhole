@@ -4,7 +4,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { AnalyzeError, type BlackholeAdapter, type InboxDraft, type InboxResult, type InboxStatus, type MessengerStatus } from "../calendar/adapter";
+import { AnalyzeError, type BlackholeAdapter, type ClaudeStatus, type InboxDraft, type InboxResult, type InboxStatus, type MessengerStatus } from "../calendar/adapter";
 import { isoWithOffset } from "../calendar/dates";
 import type { CalendarState, UserAction } from "../calendar/model";
 import type { Alarm } from "../calendar/store";
@@ -34,7 +34,7 @@ export function tauriAdapter(): BlackholeAdapter {
     origin: "데스크톱",
     connection: {
       label: "로컬·미연결",
-      detail: "이 Mac의 앱 데이터 폴더에만 저장합니다. 구글 캘린더·드라이브에는 아직 연결하지 않았고 쓰지 않습니다(4단계에서 가승인 캘린더 연결)."
+      detail: "달력은 이 Mac의 앱 데이터 폴더에 저장하고 구글 캘린더에는 쓰지 않습니다. AI 다듬기는 Claude API(키를 넣은 경우)로 글·사진·PDF를 보내 정리합니다."
     },
     load: () => invoke("load_calendar_state"),
     save: (state: CalendarState) => invoke("save_calendar_state", { state }),
@@ -69,6 +69,10 @@ export function tauriAdapter(): BlackholeAdapter {
     ring: (on) => invoke<boolean>("alarm_ring", { on }),
     print: () => invoke("print_page"),
     setLook: (theme, mode) => invoke("set_window_look", { theme, mode }),
+    claude: () => invoke<ClaudeStatus>("claude_status"),
+    setClaudeKey: (key) => invoke<ClaudeStatus>("claude_set_key", { key }),
+    clearClaudeKey: () => invoke<ClaudeStatus>("claude_clear_key"),
+    checkClaude: () => invoke<string>("claude_check"),
     messenger: () => invoke<MessengerStatus>("messenger_status"),
     setMessenger: (enabled) => invoke<MessengerStatus>("messenger_set", { enabled }),
     publishShared: (shared) => invoke<string>("share_calendar", { shared }),

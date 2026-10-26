@@ -134,7 +134,7 @@ describe("calendar app", () => {
   });
 
   it("reports worker failures in the chat and keeps the rule draft", async () => {
-    await mount(fakeAdapter(new AnalyzeError("RUNNER_UNAVAILABLE", "Ollama가 꺼져 있습니다.")));
+    await mount(fakeAdapter(new AnalyzeError("RUNNER_FAILED", "Ollama가 꺼져 있습니다.")));
     const before = app!.state.events.length;
     await app!.submitText("내일 3시 회의");
     expect(app!.state.events.length).toBe(before + 1);
