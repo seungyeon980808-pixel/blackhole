@@ -280,8 +280,9 @@ fn drive_root() -> Result<PathBuf, String> {
 /// Write the phone's copy (Drive 「블랙홀/달력.json」, made by the phone). Returns a status line.
 #[tauri::command]
 pub fn share_calendar(shared: serde_json::Value) -> Result<String, String> {
-    calendar::write_shared(&drive_root()?, &shared)?;
-    Ok(format!("휴대폰 공유 사본을 {}에 씀", chrono::Local::now().format("%H:%M")))
+    let written = calendar::write_shared(&drive_root()?, &shared)?;
+    let at = chrono::Local::now().format("%H:%M");
+    Ok(if written { format!("휴대폰 공유 사본을 {at}에 씀") } else { format!("휴대폰 공유 사본 그대로({at} 확인, 바뀐 것 없음)") })
 }
 
 #[tauri::command]

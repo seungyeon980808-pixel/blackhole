@@ -24,6 +24,29 @@ use std::{
 };
 
 pub const MAX_ATTEMPTS: u32 = 3;
+/// How often a job waiting for the analyzer (service off, model missing) is tried again.
+pub const WAIT_RETRY: Duration = Duration::from_secs(10 * 60);
+
+fn older_than(stamp: &str, now: DateTime<FixedOffset>, age: Duration) -> bool {
+    DateTime::parse_from_rfc3339(stamp).map_or(true, |t| (now - t).to_std().map_or(false, |d| d >= age))
+}
+
+/// SHA-256 of an inbox file, remembered by (path, size, modified) so a scan does not read every
+/// original (recordings included) again. Google Drive files are read only when new or changed.
+fn cached_sha(path: &Path) -> Result<String, WorkerError> {
+    use std::{collections::HashMap, sync::Mutex};
+    static CACHE: Mutex<Option<HashMap<PathBuf, (u64, SystemTime, String)>>> = Mutex::new(None);
+    let meta = fs::metadata(path)?;
+    let modified = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+    if let Some((len, at, sha)) = CACHE.lock().unwrap().get_or_insert_with(HashMap::new).get(path) {
+        if *len == meta.len() && *at == modified {
+            return Ok(sha.clone());
+        }
+    }
+    let sha = sha256_hex(&fs::read(path)?);
+    CACHE.lock().unwrap().get_or_insert_with(HashMap::new).insert(path.to_path_buf(), (meta.len(), modified, sha.clone()));
+    Ok(sha)
+}
 /// Extension of phone action files in 인박스/ (read by the desktop app, skipped by the scanner).
 pub const PHONE_ACTION_EXT: &str = "bhact";
 /// Extension of the phone's own transcript beside a recording (read by the desktop app for a
@@ -150,8 +173,7 @@ where
             report.waiting.push(name);
             continue;
         }
-        let bytes = fs::read(&path)?;
-        let sha = sha256_hex(&bytes);
+        let sha = cached_sha(&path)?;
         if queue.jobs().iter().any(|j| j.source_sha256 == sha) {
             report.already_seen += 1;
             continue;
@@ -162,11 +184,16 @@ where
         }
     }
 
-    // 2. Earlier failures get another try, a few times at most.
+    // 2. Earlier failures get another try, a few times at most. A job that failed only because
+    //    the analyzer was off waits: tried again every WAIT_RETRY, never given up on.
     let retry: Vec<String> = queue
         .jobs()
         .iter()
-        .filter(|j| j.state == JobState::Failed && j.attempts < MAX_ATTEMPTS)
+        .filter(|j| j.state == JobState::Failed)
+        .filter(|j| match &j.last_error {
+            Some(e) if e.code.is_waiting() => older_than(&j.updated_at, now, WAIT_RETRY),
+            _ => j.attempts < MAX_ATTEMPTS,
+        })
         .map(|j| j.job_id.clone())
         .collect();
     for id in retry {
@@ -255,13 +282,13 @@ mod tests {
         let layout = Layout::new(dir.path());
         layout.ensure().unwrap();
         fs::write(layout.inbox().join("a.txt"), MEMO).unwrap();
-        let chat = FakeChat::new(vec![Err(WorkerError::new(ErrorCode::RunnerUnavailable, "down")), Ok(answer())]);
+        let chat = FakeChat::new(vec![Err(WorkerError::new(ErrorCode::RunnerFailed, "down")), Ok(answer())]);
         let engines = Engines { transcriber: &FakeStt(Ok(String::new())), reader: &FakeReader(Ok(String::new())), text_model: &chat, direct_model: &chat };
         let run = || scan_once(&layout, EngineId::TextFirst, now(), Duration::ZERO, |i, e| analyze(i, e, now(), &engines)).unwrap();
 
         let first = run();
         assert_eq!(first.failed.len(), 1);
-        assert_eq!(first.failed[0].error.code, ErrorCode::RunnerUnavailable);
+        assert_eq!(first.failed[0].error.code, ErrorCode::RunnerFailed);
         assert!(first.notes.is_empty());
         let second = run();
         assert!(second.failed.is_empty());
@@ -274,12 +301,34 @@ mod tests {
         let layout = Layout::new(dir.path());
         layout.ensure().unwrap();
         fs::write(layout.inbox().join("a.txt"), MEMO).unwrap();
-        let chat = FakeChat::new(vec![]); // always fails
+        let chat = FakeChat::new((0..5).map(|_| Err(WorkerError::new(ErrorCode::RunnerFailed, "broken"))).collect()); // always fails
         let engines = Engines { transcriber: &FakeStt(Ok(String::new())), reader: &FakeReader(Ok(String::new())), text_model: &chat, direct_model: &chat };
         for _ in 0..5 {
             scan_once(&layout, EngineId::TextFirst, now(), Duration::ZERO, |i, e| analyze(i, e, now(), &engines)).unwrap();
         }
         assert_eq!(*chat.calls.borrow(), MAX_ATTEMPTS as usize);
+    }
+
+    #[test]
+    fn analyzer_off_keeps_jobs_waiting_instead_of_failing_for_good() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path());
+        layout.ensure().unwrap();
+        fs::write(layout.inbox().join("a.txt"), MEMO).unwrap();
+        let off = |_: &Input, _: EngineId| -> Result<Proposal, WorkerError> { Err(WorkerError::new(ErrorCode::RunnerUnavailable, "Ollama 꺼짐")) };
+        for _ in 0..5 {
+            scan_once(&layout, EngineId::TextFirst, now(), Duration::ZERO, off).unwrap();
+        }
+        let queue = Queue::open(&layout.state()).unwrap();
+        assert_eq!(queue.jobs()[0].attempts, 1, "no retry before WAIT_RETRY, no burning attempts");
+        assert!(crate::calendar::inbox_results(&layout.state()).unwrap().is_empty(), "not reported as a final failure");
+        // Much later the analyzer is back: the job is tried again and succeeds.
+        // (The queue stamps jobs with the real clock.)
+        let later = chrono::Local::now().fixed_offset() + chrono::Duration::hours(1);
+        let engines_chat = FakeChat::new(vec![Ok(answer())]);
+        let engines = Engines { transcriber: &FakeStt(Ok(String::new())), reader: &FakeReader(Ok(String::new())), text_model: &engines_chat, direct_model: &engines_chat };
+        let report = scan_once(&layout, EngineId::TextFirst, later, Duration::ZERO, |i, e| analyze(i, e, now(), &engines)).unwrap();
+        assert_eq!(report.notes.len(), 1);
     }
 
     #[test]

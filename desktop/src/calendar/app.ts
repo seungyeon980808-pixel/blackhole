@@ -39,6 +39,8 @@ export interface BlackholeApp {
 
 const THEMES: Record<ThemeName, ThemeView> = { glass, doc };
 const COMPACT = 760;
+/** Minimum time between two writes of the Drive 「달력.json」. */
+export const SHARE_GAP_MS = 10_000;
 
 export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapter, options: MountOptions = {}): Promise<BlackholeApp> {
   const clock = options.now ?? (() => new Date());
@@ -90,13 +92,29 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     });
   (window as unknown as { blackholeCalendars?: () => void }).blackholeCalendars = () => void loadCalendars();
   let shareTimer: number | undefined;
+  let lastShared = "";
+  let lastSharedAt = 0;
+  /**
+   * The Drive copy is written only when its content (not exportedAt) changed, and at most once
+   * per SHARE_GAP_MS: every write makes Google Drive re-sync the file (CPU on the Mac).
+   */
+  const publishNow = () => {
+    shareTimer = undefined;
+    const shared = sharedFrom(s, stamp(clock()));
+    const body = JSON.stringify({ ...shared, exportedAt: "" });
+    if (body === lastShared) return;
+    lastShared = body;
+    lastSharedAt = Date.now();
+    void adapter.publishShared!(shared).then((line) => (shareLine = line), (e: unknown) => {
+      shareLine = String(e);
+      lastShared = "";
+    });
+  };
   const save = async () => {
     await adapter.save(s).catch((e: unknown) => console.error("저장 실패", e));
-    if (adapter.publishShared && s.settings.sharePhone) {
-      window.clearTimeout(shareTimer);
-      shareTimer = window.setTimeout(() => {
-        void adapter.publishShared!(sharedFrom(s, stamp(clock()))).then((line) => (shareLine = line), (e: unknown) => (shareLine = String(e)));
-      }, 1500);
+    if (adapter.publishShared && s.settings.sharePhone && shareTimer === undefined) {
+      const wait = Math.max(1500, lastSharedAt + SHARE_GAP_MS - Date.now());
+      shareTimer = window.setTimeout(publishNow, wait);
     }
   };
 
@@ -296,7 +314,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const before = inbox.lastScanAt;
     inbox = await adapter.inboxStatus().catch(() => inbox);
     const results = await adapter.inboxResults().catch(() => []);
-    let changed = before !== inbox.lastScanAt;
+    // A finished scan alone changes nothing to save (only the status line).
+    if (before !== inbox.lastScanAt && settingsOpen) renderSettings();
+    let changed = false;
     for (const r of results) {
       if (s.ingestedJobs.includes(r.jobId)) continue;
       s.ingestedJobs.push(r.jobId);

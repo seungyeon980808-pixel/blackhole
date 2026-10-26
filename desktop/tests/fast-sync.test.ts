@@ -273,3 +273,52 @@ describe("hand-made changes on a phone draft reach the Mac's entry for the same 
     expect(macDraft.touched).toBe(true);
   });
 });
+
+describe("Drive 「달력.json」 is written only when it changes, at most every 10 s", () => {
+  it("skips unchanged copies and inbox scans, spaces real changes", async () => {
+    const { vi } = await import("vitest");
+    const published: string[] = [];
+    let scan = "2026-10-21T09:00:00";
+    const on: InboxStatus = { available: true, enabled: true, root: "/x", lastScanAt: scan, lastError: null, running: false };
+    const adapter: BlackholeAdapter = {
+      ...memoryAdapter(),
+      origin: "데스크톱",
+      inboxStatus: async () => ({ ...on, lastScanAt: scan }),
+      setInbox: async () => on,
+      inboxResults: async () => [],
+      analyze: async () => proposal,
+      publishShared: async (s) => {
+        published.push(s.exportedAt);
+        return "ok";
+      }
+    };
+    await mount(adapter);
+    app!.state.settings.sharePhone = true;
+    vi.useFakeTimers();
+    try {
+      // Scans finishing every few seconds change nothing: no write.
+      for (let i = 0; i < 5; i++) {
+        scan = `2026-10-21T09:00:0${i + 1}`;
+        await app!.poll();
+        await vi.advanceTimersByTimeAsync(5000);
+      }
+      expect(published).toHaveLength(0);
+      await app!.submitText("내일 3시 회의");
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(published).toHaveLength(1);
+      // Another change right away waits for the 10 s gap, then one write for both.
+      await app!.submitText("모레 4시 상담");
+      await app!.submitText("글피 5시 면담");
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(published).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(8000);
+      expect(published).toHaveLength(2);
+      // Saving with nothing new: no write.
+      await app!.poll();
+      await vi.advanceTimersByTimeAsync(20000);
+      expect(published).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

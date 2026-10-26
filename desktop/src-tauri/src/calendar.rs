@@ -125,7 +125,9 @@ pub fn find_drive_blackhole(home: &Path) -> Option<PathBuf> {
 /// Write the shared calendar copy into `<root>/달력.json`, but only into a file that already
 /// exists: the phone creates it, because its Drive permission (drive.file) only reaches files it
 /// made itself. Written in place (same Drive file), never created or renamed here.
-pub fn write_shared(root: &Path, shared: &serde_json::Value) -> Result<(), String> {
+/// Returns false when the file already holds the same content (ignoring `exportedAt`): every
+/// write makes Google Drive upload the file again, so an unchanged copy is never rewritten.
+pub fn write_shared(root: &Path, shared: &serde_json::Value) -> Result<bool, String> {
     if shared.get("kind").and_then(|k| k.as_str()) != Some("blackhole-calendar") {
         return Err("공유 사본 형식이 아닙니다.".into());
     }
@@ -133,9 +135,22 @@ pub fn write_shared(root: &Path, shared: &serde_json::Value) -> Result<(), Strin
     if !path.is_file() {
         return Err("휴대폰이 아직 「달력.json」을 만들지 않았습니다. 휴대폰에서 블랙홀 달력을 한 번 열어 주세요.".into());
     }
+    let without_stamp = |v: &serde_json::Value| {
+        let mut v = v.clone();
+        if let Some(o) = v.as_object_mut() {
+            o.remove("exportedAt");
+        }
+        v
+    };
+    if let Ok(old) = fs::read(&path).map_err(|_| ()).and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).map_err(|_| ())) {
+        if without_stamp(&old) == without_stamp(shared) {
+            return Ok(false);
+        }
+    }
     let bytes = serde_json::to_vec(shared).map_err(|e| e.to_string())?;
     let mut file = fs::OpenOptions::new().write(true).truncate(true).open(&path).map_err(|e| format!("「달력.json」을 열 수 없습니다: {e}"))?;
-    file.write_all(&bytes).and_then(|_| file.sync_all()).map_err(|e| format!("「달력.json」을 쓰지 못했습니다: {e}"))
+    file.write_all(&bytes).and_then(|_| file.sync_all()).map_err(|e| format!("「달력.json」을 쓰지 못했습니다: {e}"))?;
+    Ok(true)
 }
 
 /// Phone actions: every `인박스/*.bhact` file (one JSON action or a list). Read only.
@@ -287,6 +302,8 @@ pub fn inbox_results(state_dir: &Path) -> io::Result<Vec<InboxResult>> {
             };
             match job.state {
                 JobState::HasResult => Some(InboxResult { job_id: job.job_id, file_name, proposal: job.proposal, error: None }),
+                // Waiting for the analyzer (off, missing) is not a final failure.
+                JobState::Failed if job.last_error.as_ref().is_some_and(|e| e.code.is_waiting()) => None,
                 JobState::Failed if job.attempts >= crate::worker::inbox::MAX_ATTEMPTS => Some(InboxResult {
                     job_id: job.job_id,
                     file_name,
@@ -375,8 +392,16 @@ mod tests {
         assert!(write_shared(root.path(), &shared).unwrap_err().contains("휴대폰이 아직"));
         assert!(!root.path().join(SHARED_FILE).exists(), "never created here");
         fs::write(root.path().join(SHARED_FILE), b"{}").unwrap();
-        write_shared(root.path(), &shared).unwrap();
+        assert!(write_shared(root.path(), &shared).unwrap());
         assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(root.path().join(SHARED_FILE)).unwrap()).unwrap(), shared);
+        // Same content with a new exportedAt: not written again (Google Drive would re-upload it).
+        let modified = fs::metadata(root.path().join(SHARED_FILE)).unwrap().modified().unwrap();
+        let mut later = shared.clone();
+        later["exportedAt"] = json!("2026-10-26T15:01");
+        assert!(!write_shared(root.path(), &later).unwrap());
+        assert_eq!(fs::metadata(root.path().join(SHARED_FILE)).unwrap().modified().unwrap(), modified);
+        later["events"] = json!([{"id": "e-1"}]);
+        assert!(write_shared(root.path(), &later).unwrap());
         assert!(write_shared(root.path(), &json!({"x": 1})).is_err());
 
         let inbox = root.path().join("인박스");
@@ -450,7 +475,8 @@ mod tests {
             {"jobId": "job-1", "sourceSha256": "a", "sourcePath": "/x/원본/2026/10/0123abcd-공문.hwp", "sourceText": "", "engine": "A", "state": "HAS_RESULT", "attempts": 1, "lastError": null, "proposal": proposal, "createdAt": "", "updatedAt": ""},
             {"jobId": "job-2", "sourceSha256": "b", "sourcePath": "/x/b.png", "sourceText": "", "engine": "A", "state": "ANALYZING", "attempts": 1, "lastError": null, "proposal": null, "createdAt": "", "updatedAt": ""},
             {"jobId": "job-3", "sourceSha256": "c", "sourcePath": "/x/c.png", "sourceText": "", "engine": "A", "state": "FAILED", "attempts": 1, "lastError": {"code": "RUNNER_UNAVAILABLE", "message": "꺼짐"}, "proposal": null, "createdAt": "", "updatedAt": ""},
-            {"jobId": "job-4", "sourceSha256": "d", "sourcePath": "/x/d.png", "sourceText": "", "engine": "A", "state": "FAILED", "attempts": 3, "lastError": {"code": "RUNNER_UNAVAILABLE", "message": "꺼짐"}, "proposal": null, "createdAt": "", "updatedAt": ""}
+            {"jobId": "job-5", "sourceSha256": "e", "sourcePath": "/x/e.png", "sourceText": "", "engine": "A", "state": "FAILED", "attempts": 3, "lastError": {"code": "RUNNER_UNAVAILABLE", "message": "꺼짐"}, "proposal": null, "createdAt": "", "updatedAt": ""},
+            {"jobId": "job-4", "sourceSha256": "d", "sourcePath": "/x/d.png", "sourceText": "", "engine": "A", "state": "FAILED", "attempts": 3, "lastError": {"code": "RUNNER_FAILED", "message": "꺼짐"}, "proposal": null, "createdAt": "", "updatedAt": ""}
         ]});
         let path = dir.path().join("jobs-v1.json");
         fs::write(&path, serde_json::to_vec(&queue).unwrap()).unwrap();

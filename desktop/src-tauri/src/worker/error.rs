@@ -24,6 +24,14 @@ pub enum ErrorCode {
     Io,
 }
 
+impl ErrorCode {
+    /// The analyzer itself is not available (model or service off, not installed): the input
+    /// is fine, so the job waits instead of failing for good.
+    pub fn is_waiting(self) -> bool {
+        matches!(self, Self::RunnerUnavailable | Self::ModelMissing | Self::SttUnavailable | Self::SttModelMissing | Self::ReaderUnavailable)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkerError {
