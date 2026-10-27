@@ -456,6 +456,8 @@ fn time_matches(text: &str) -> Vec<TimeMatch> {
 fn to_time(m: &TimeMatch) -> Option<NaiveTime> {
     let mut hour = m.hour;
     match m.period.as_deref() {
+        // 「밤 12시」 is midnight at the end of that day, not noon (2026-10-28 밤샘).
+        Some("저녁" | "밤") if hour == 12 && m.minute == 0 => return NaiveTime::from_hms_opt(23, 59, 0),
         Some("오후" | "낮" | "저녁" | "밤") if hour < 12 => hour += 12,
         Some("오전" | "아침" | "새벽") if hour == 12 => hour = 0,
         // A bare 「1시」~「6시」 is the afternoon (nobody puts a meeting at 3 a.m.; the screen's rule too).
@@ -783,6 +785,7 @@ mod tests {
         assert_eq!(start("오늘", "밤", "SCHEDULE"), "2026-10-21T21:00:00+09:00");
         // The date phrase's part of day applies to a bare hour ("오늘 밤" + "10시" → 22:00).
         assert_eq!(start("오늘 밤", "10시", "TODO"), "2026-10-21T22:00:00+09:00");
+        assert_eq!(start("오늘", "밤 12시", "TODO"), "2026-10-21T23:59:00+09:00");
         assert_eq!(start("내일 아침", "7시", "SCHEDULE"), "2026-10-22T07:00:00+09:00");
         assert_eq!(start("내일 저녁", "15:00", "SCHEDULE"), "2026-10-22T15:00:00+09:00");
         // An hour still wins over the default.

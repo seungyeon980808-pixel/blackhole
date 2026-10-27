@@ -286,7 +286,8 @@ export function dateWords(raw: string, now: Date): string {
   v = v.replace(/(?:지난|저번)\s*([월화수목금토일])요일/g, (_m, c: string) => past(addDays(today, -(((today.getDay() - dow(c) + 7) % 7) || 7))));
   v = v.replace(/그저께|그제/g, () => past(addDays(today, -2))).replace(/어제/g, () => past(addDays(today, -1)));
   // 다음 달 N일 · 이번 달 N일 · 다음 달 말 · 월말 · 이번 달 안에
-  v = v.replace(/다음\s*달\s*(\d{1,2})\s*일/g, (m, n: string) => { const d = monthDay(today.getFullYear(), today.getMonth() + 1, Number(n)); return d ? md(d) : m; });
+  // A day the month does not have (「다음 달 31일」 in November) stays 「11월 31일」: no date, to be checked (not this month's 31st).
+  v = v.replace(/다음\s*달\s*(\d{1,2})\s*일/g, (_m, n: string) => { const d = monthDay(today.getFullYear(), today.getMonth() + 1, Number(n)); return d ? md(d) : `${((today.getMonth() + 1) % 12) + 1}월 ${n}일`; });
   v = v.replace(/이번\s*달\s*(\d{1,2})\s*일/g, (m, n: string) => { const d = monthDay(today.getFullYear(), today.getMonth(), Number(n)); return d ? md(d) : m; });
   v = v.replace(/다음\s*달\s*(?:말|말일)/g, () => md(new Date(today.getFullYear(), today.getMonth() + 2, 0)));
   v = v.replace(/이번\s*달\s*(?:안에|안으로|중에|중|내로|내)/g, () => `${md(new Date(today.getFullYear(), today.getMonth() + 1, 0))}까지`);
@@ -305,6 +306,8 @@ export function dateWords(raw: string, now: Date): string {
     return d ? md(d) : m;
   });
   // 정오 · 자정 · named holidays (the next one from today)
+  // 「밤 12시」 is midnight, not noon.
+  v = v.replace(/(?:밤|저녁)\s*(?:12|열두)\s*시(?!\s*\d+\s*분|\s*반)/g, "23:59");
   v = v.replace(/정오/g, "12시").replace(/자정\s*(?:전까지|까지|전)/g, "23:59까지").replace(/자정(?:에)?/g, "23:59");
   v = v.replace(/크리스마스|성탄절|한글날|개천절|삼일절|어린이날|현충일|광복절|신정|부처님오신날|추석\s*연휴|추석|설날\s*연휴|설날/g, (m) => {
     const name = HOLIDAY_ALIAS[m.replace(/\s+/g, " ")] ?? m;
