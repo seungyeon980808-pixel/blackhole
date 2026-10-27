@@ -163,7 +163,8 @@ describe("calendar app", () => {
 
   it("shows the full-window alarm until 완료 or 10분 뒤", async () => {
     const root = await mount(fakeAdapter(proposal));
-    await app!.submitText("문장");
+    // (a sentence with a day: one with no day or time is kept as a 기억 without the AI)
+    await app!.submitText("내일 3시 회의 문장");
     const task = app!.state.tasks.find((t) => !t.sample)!;
     const alarm: Alarm = upcomingAlarms(app!.state, NOW).find((a) => a.ref === task.id)!;
     app!.fireAlarm(alarm);
@@ -189,7 +190,7 @@ describe("calendar app", () => {
     const p = structuredClone(proposal);
     p.items = [{ ...p.items[0], title: '<img src=x onerror="alert(1)">' }];
     const root = await mount(fakeAdapter(p));
-    await app!.submitText("x");
+    await app!.submitText("내일 3시 x");
     app!.setView("day", app!.state.events.find((e) => !e.sample)!.date);
     expect(root.querySelector("img[src=x]")).toBeNull();
     expect(root.textContent).toContain("<img src=x");

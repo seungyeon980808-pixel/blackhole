@@ -9,12 +9,12 @@ import { addDays, fromStamp, hm, mins, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
-import { clockText, isSimpleCertain, parseDraft } from "./rules";
+import { clockText, isSimpleCertain, memoDraft, parseDraft } from "./rules";
 import { seedState } from "./samples";
 import {
   applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
 } from "./store";
-import type { Ctx, ThemeView, ViewName } from "./views/common";
+import { memoList, type Ctx, type ThemeView, type ViewName } from "./views/common";
 import { doc, printSheet } from "./views/doc";
 import { glass } from "./views/glass";
 
@@ -75,7 +75,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let view: ViewName = "day";
   try {
     const v = localStorage.getItem("bh-view");
-    if (v === "month" || v === "week" || v === "day") view = v;
+    if (v === "month" || v === "week" || v === "day" || v === "memo") view = v;
   } catch {
     /* private storage: start on the day view */
   }
@@ -382,7 +382,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   function render(): void {
     const c = ctx();
     const t = theme();
-    const head = t.head(c);
+    const nNotes = s.notes.filter((n) => !n.gone && (s.settings.showSamples || !n.sample)).length;
+    const head = view === "memo" ? { title: `기억 ${nNotes}개`, summary: "날짜·시간 없이 넣은 것과 「메모 …」 · 지우지 않고 계속 보관 · 대화창에 물으면 찾아 줌" } : t.head(c);
     const title = root.querySelector<HTMLElement>("#bhTitle");
     if (title) title.textContent = head.title;
     const sum = root.querySelector<HTMLElement>("#bhSum");
@@ -392,7 +393,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       b.setAttribute("aria-pressed", String(b.dataset.v === view));
     });
     const main = root.querySelector<HTMLElement>("#bhMain")!;
-    const custom = view === "day" ? t.day(c) : view === "week" ? t.week(c) : null;
+    const custom = view === "day" ? t.day(c) : view === "week" ? t.week(c) : view === "memo" ? memoList(c, t.fd) : null;
     if (custom === null) {
       let host = main.querySelector<HTMLElement>(":scope > .fchost");
       if (!host) {
@@ -722,8 +723,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const now = clock();
       const src = "휴대폰";
       const at = d.at ? new Date(d.at) : now;
-      const simple = skipsAi(d.text, at);
       const x = draftFromText(s, d.text, src, at, d.jobId);
+      const memo = x.kind === "note" && !x.draft;
+      const simple = memo || skipsAi(d.text, at);
       s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: d.text, kind: d.kind === "voice" ? "voice" : "text", src });
       const line = describe(s, x.id, theme().fd);
       if (simple) {
@@ -732,7 +734,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         skip.push(d.jobId);
         log(s, { label: line.label, msg: line.msg, src, ref: x.id }, now);
         s.inbox.push({ at: stamp(now), title: d.text.slice(0, 40), src, state: "완료", out: "1건" });
-        card("휴대폰에서 받아 바로 넣었어요(간단한 문장이라 AI 생략).", [x.id]);
+        card(memo ? "휴대폰에서 받아 기억으로 저장했어요 · 달력에는 넣지 않았어요" : "휴대폰에서 받아 바로 넣었어요(간단한 문장이라 AI 생략).", [x.id]);
+        if (memo) void adapter.writeMemo?.(d.text, src).catch(() => undefined);
       } else {
         log(s, { label: "초안", msg: line.msg, src, ref: x.id }, now);
         card("휴대폰에서 받아 초안으로 넣었어요 · AI가 다듬는 중", [x.id]);
@@ -779,6 +782,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   function afterApplied(refs: string[], missing: string[], src: string, now: Date, updated: string[] = [], suggested: string[] = []): void {
     for (const id of refs) {
+      const x = findEntry(s, id);
+      // Every 기억 is also an Obsidian note (all of them, wherever they came from).
+      if (x?.kind === "note") void adapter.writeMemo?.(`${x.title}${x.details ? `\n${x.details}` : ""}`, src).catch(() => undefined);
       const d = describe(s, id, theme().fd);
       log(s, { label: updated.includes(id) ? "다듬음" : d.label, msg: d.msg, src, ref: id }, now);
     }
@@ -900,6 +906,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         return;
       }
     }
+    // Nothing about a day or time (or 「메모 …」): a 기억 at once, no AI, never on the calendar.
+    if (memoDraft(v, clock())?.final) return saveMemoText(v, src);
     if (skipsAi(v, clock())) {
       const now = clock();
       s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: v, kind: "text", src });
@@ -1014,6 +1022,50 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     } });
     toast(`고쳤어요: 「${x.title}」`, undefined, true);
     void act(() => undefined);
+  }
+
+  /** A sentence kept as a 기억 (rule: no day, no time, or 「메모 …」). Also an Obsidian note. */
+  async function saveMemoText(v: string, src: string): Promise<void> {
+    const now = clock();
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: v, kind: "text", src });
+    const x = draftFromText(s, v, src, now, `local-${Date.now().toString(36)}`);
+    log(s, { label: "기억", msg: x.title, src, ref: x.id }, now);
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: "기억으로 저장했어요 · 달력에는 넣지 않았어요", refs: [x.id] });
+    adapter.aiSkipped?.("rule");
+    void adapter.writeMemo?.(v.replace(/^\s*(메모|기억|노트)\s*[:：,]?\s+/, ""), src).catch(() => undefined);
+    toast(`기억 · ${x.title}`, x.id);
+    await save();
+    renderComposer();
+    render();
+  }
+
+  /** 「일정으로」·「할 일로」 on a 기억 card: the note goes, an entry comes, its edit form opens. */
+  function convertMemo(to: "event" | "task", key: string): void {
+    const msgId = key.slice(0, key.indexOf("|"));
+    const id = key.slice(key.indexOf("|") + 1);
+    const x = findEntry(s, id);
+    if (!x || x.kind !== "note") return;
+    const now = clock();
+    const text = `${x.title}${x.details ? ` ${x.details}` : ""}`;
+    const r = parseDraft(text, now);
+    const day = r.date ?? ymd(now);
+    const common = { title: r.title && r.title !== "음성 메모" ? r.title : x.title, details: x.details, area: x.area, source: x.source, createdAt: stamp(now), touched: true };
+    const made: Entry = to === "event"
+      ? { ...common, id: newId(s, "e"), kind: "event", date: day, start: r.hasTime ? r.time : null, end: r.hasTime ? r.end ?? hm(Math.min(mins(r.time!) + 60, 23 * 60 + 59)) : null, provisional: false, reminders: r.hasTime ? [stamp(new Date(fromStamp(`${day}T${r.time}`).getTime() - 30 * 60e3))] : [] }
+      : { ...common, id: newId(s, "t"), kind: "task", due: day, dueTime: r.hasTime ? r.time : null, done: false, reminders: [], subs: [], noDue: !r.date ? true : undefined };
+    if (made.kind === "event") s.events.push(made);
+    else s.tasks.push(made);
+    userAction({ type: "cancel", ref: x.id }, false, false);
+    undoStack.push({ label: `「${x.title}」 ${to === "event" ? "일정" : "할 일"}으로`, run: () => {
+      made.gone = true;
+      userAction({ type: "restore", ref: x.id }, false, false);
+      void act(() => undefined);
+    } });
+    const m = s.chat.find((c) => c.id === msgId);
+    if (m) m.refs = [...(m.refs ?? []).filter((r2) => r2 !== x.id), made.id];
+    log(s, { label: to === "event" ? "일정으로" : "할 일로", msg: made.title, src: adapter.origin, ref: made.id }, now);
+    editing = `${msgId}|${made.id}`;
+    void act(() => undefined).then(() => [...root.querySelectorAll<HTMLElement>("[data-editing]")].find((e) => e.dataset.editing === editing)?.querySelector<HTMLInputElement>(".ed-d, .ed-t")?.focus());
   }
 
   /** ⌘Enter: a 기억 exactly as typed (no AI; also an Obsidian note under 노트/기억/). */
@@ -1287,6 +1339,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return [...root.querySelectorAll<HTMLElement>("[data-editing]")].find((e) => e.dataset.editing === editing)?.querySelector<HTMLInputElement>(".ed-t")?.focus();
     }
     if (q("[data-editsave]")) return saveEdit(q("[data-editsave]")!.dataset.editsave!);
+    if (q("[data-convert]")) {
+      const v = q("[data-convert]")!.dataset.convert!;
+      return convertMemo(v.slice(0, v.indexOf("|")) as "event" | "task", v.slice(v.indexOf("|") + 1));
+    }
     if (q("[data-editcancel]")) {
       editing = null;
       return render();
@@ -1691,6 +1747,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (cmd && e.code === "KeyN") return go(() => root.querySelector<HTMLInputElement>("#bhIn")?.focus());
     if (cmd && e.code === "KeyF") return go(() => (adapter.openQuick ? adapter.openQuick() : root.querySelector<HTMLInputElement>("#bhIn")?.focus()));
     if (cmd && e.code === "KeyZ" && !e.shiftKey && !typing) return go(undo);
+    if (cmd && e.code === "Digit4") return go(() => root.querySelector<HTMLButtonElement>('[data-v="memo"]')?.click());
     if (typing || cmd || e.altKey || settingsOpen) return;
     if (e.code === "ArrowLeft" || e.code === "ArrowRight") return go(() => root.querySelector<HTMLButtonElement>(`[data-nav="${e.code === "ArrowLeft" ? -1 : 1}"]`)?.click());
     if (e.code === "KeyT") return go(() => root.querySelector<HTMLButtonElement>('[data-nav="0"]')?.click());

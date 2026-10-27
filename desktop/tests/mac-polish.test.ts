@@ -174,7 +174,9 @@ describe("secrets, 기억, undo", () => {
     expect(root.querySelector("#bhLast")!.textContent).toContain("비밀번호 같아요");
     expect(app!.state.chat).toHaveLength(0);
     root.querySelector<HTMLElement>('[data-secret="no"]')!.click();
-    await vi.waitFor(() => expect(a.calls).toEqual(["analyze"]));
+    // No day, no time: it goes in as a 기억 (no AI), not onto the calendar.
+    await vi.waitFor(() => expect(app!.state.notes.map((n) => n.title)).toEqual(["넷플릭스 Qz8!mPw2x"]));
+    expect(a.calls).toEqual(["skip:rule"]);
   });
 
   it("⌘Enter 기억 is kept as typed; a search result opens its day; ⌘Z undoes", async () => {

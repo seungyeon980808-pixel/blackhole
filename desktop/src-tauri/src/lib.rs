@@ -136,6 +136,7 @@ pub fn run() {
             mac::ask_sources,
             mac::ask_records,
             mac::note_open,
+            mac::memo_note,
             mac::quick_open,
             mac::quick_query_take,
             mac::secret_copy,

@@ -113,6 +113,7 @@ export function tauriAdapter(): BlackholeAdapter {
     askAi: (question, lines) => invoke("ask_records", { question, lines }),
     secretCopy: (name) => invoke("secret_copy", { name }),
     openNote: (path) => invoke("note_open", { path }),
+    writeMemo: (text, via) => invoke("memo_note", { text, via }),
     claude: () => invoke<ClaudeStatus>("claude_status"),
     setClaudeKey: (key) => invoke<ClaudeStatus>("claude_set_key", { key }),
     clearClaudeKey: () => invoke<ClaudeStatus>("claude_clear_key"),

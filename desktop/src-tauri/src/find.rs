@@ -222,6 +222,11 @@ fn safe_name(s: &str) -> String {
 
 /// A 기억 as an Obsidian note: `<블랙홀>/노트/기억/YYYY-MM-DD 제목.md` (never overwrites).
 pub fn write_memo_note(root: &Path, text: &str) -> Result<std::path::PathBuf, String> {
+    write_memo_note_from(root, text, "Mac 빠른 입력")
+}
+
+/// The same, saying where the 기억 came from (Mac 입력, 휴대폰, 인박스).
+pub fn write_memo_note_from(root: &Path, text: &str, via: &str) -> Result<std::path::PathBuf, String> {
     let now = chrono::Local::now();
     let title = safe_name(text.lines().next().unwrap_or("기억"));
     let dir = root.join("노트").join("기억");
@@ -232,7 +237,7 @@ pub fn write_memo_note(root: &Path, text: &str) -> Result<std::path::PathBuf, St
         path = dir.join(format!("{} {} ({n}).md", now.format("%Y-%m-%d"), title));
         n += 1;
     }
-    let body = format!("---\n종류: 기억\n받은 시각: {}\n출처: Mac 빠른 입력\n---\n\n{}\n", now.format("%Y-%m-%dT%H:%M"), text.trim());
+    let body = format!("---\n종류: 기억\n받은 시각: {}\n출처: {}\n---\n\n{}\n", now.format("%Y-%m-%dT%H:%M"), via.replace('\n', " "), text.trim());
     std::fs::write(&path, body).map_err(|e| e.to_string())?;
     Ok(path)
 }

@@ -4,7 +4,7 @@
 import type { Proposal, ProposalItem } from "../worker/proposal";
 import { addDays, diffDays, fdShort, fromStamp, isoToStamp, mins, nowHM, parseDay, stamp, ymd } from "./dates";
 import { NO_DUE_NOTE, type Area, type CalEvent, type CalendarState, type Entry, type LogEntry, type Memo, type Period, type Suggestion, type Task, type UserAction } from "./model";
-import { parseDraft } from "./rules";
+import { memoDraft, parseDraft } from "./rules";
 
 export const newId = (s: CalendarState, prefix: string): string => `${prefix}-${s.nextId++}`;
 
@@ -158,6 +158,13 @@ const plusMinutes = (day: string, hhmm: string, n: number): string => stamp(new 
  * schedules are 가승인, reminders 30 minutes before a time (a dated to-do: that day 09:00).
  */
 export function draftFromText(s: CalendarState, text: string, source: string, now: Date, srcKey: string): Entry {
+  // A note to remember is never forced into an appointment (「차 번호 12가 3456」, 「메모 …」).
+  const m = memoDraft(text, now);
+  if (m) {
+    const note: Memo = { id: draftId("n"), kind: "note", title: m.title || "기억", details: m.details, area: "personal", source, createdAt: stamp(now), draft: !m.final, srcKey };
+    s.notes.push(note);
+    return note;
+  }
   const r = parseDraft(text, now);
   const base = { title: r.title, area: "personal" as Area, source, createdAt: stamp(now), draft: true, srcKey, review: r.needsReview ? [r.explanation] : undefined };
   if (r.kind === "SCHEDULE" && r.date && r.time) {
@@ -243,7 +250,8 @@ export function refineDrafts(s: CalendarState, key: string, p: Proposal, source:
   if (!p.items.length) {
     for (const d of group) {
       d.draft = false;
-      d.review = [...(d.review ?? []), "AI가 따로 찾은 것이 없어 규칙 초안 그대로 둠"];
+      // A 기억 the AI found nothing more in simply stays a 기억 (nothing to review).
+      if (d.kind !== "note") d.review = [...(d.review ?? []), "AI가 따로 찾은 것이 없어 규칙 초안 그대로 둠"];
       out.updated.push(d.id);
     }
     out.refs = out.updated.slice();

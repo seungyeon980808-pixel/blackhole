@@ -3,7 +3,7 @@ import type { CalendarState, ChatMessage, Entry, Task } from "../model";
 import { findEntry, type Alarm } from "../store";
 import { KIND_LABEL, type AskHit } from "../ask";
 
-export type ViewName = "month" | "week" | "day";
+export type ViewName = "month" | "week" | "day" | "memo";
 
 export interface Ctx {
   s: CalendarState;
@@ -195,6 +195,8 @@ export function resultCard(ctx: Ctx, id: string, fd: (k: string) => string, answ
   else {
     if (x.kind === "event" && x.provisional) acts.push(b(`data-ok="${x.id}"`, "확정"), b(`data-no="${x.id}"`, "취소"));
     if (x.kind === "task") acts.push(b(`data-tdone="${x.id}"`, x.done ? "완료 취소" : "완료"));
+    // A 기억 is never forced onto the calendar; one click makes it an appointment or a to-do.
+    if (x.kind === "note" && ctx.canEdit) acts.push(b(`data-convert="event|${esc(key)}"`, "일정으로"), b(`data-convert="task|${esc(key)}"`, "할 일로"));
     if (ctx.canEdit) acts.push(b(`data-edit="${esc(key)}"`, "수정"));
     if (x.kind !== "note") acts.push(b(`data-open="${x.id}"`, "열기"));
     if (answer) acts.push(b(`data-copy="${x.id}"`, "복사"));
@@ -218,4 +220,25 @@ export function chatCards(ctx: Ctx, m: ChatMessage, fd: (k: string) => string): 
     : (m.refs ?? []).map((r) => resultCard(ctx, r, fd, false, m.id)).join("");
   const choice = m.choice ? `<div class="ra"><button class="mini" data-choose="ask" data-cmsg="${m.id}">찾아보기</button><button class="mini" data-choose="put" data-cmsg="${m.id}">넣기</button></div>` : "";
   return cards + choice;
+}
+
+/**
+ * 「기억」: every note, newest first, as cards (수정 · 일정으로 · 할 일로 · 되돌리기). Notes are kept
+ * forever and found by asking; there is no filing.
+ */
+export function memoList(ctx: Ctx, fd: (k: string) => string): string {
+  // Newest first; the same minute keeps the order they came in (latest on top).
+  const notes = ctx.s.notes.filter((n) => !n.gone && (ctx.s.settings.showSamples || !n.sample)).reverse().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  if (!notes.length) return `<div class="memov"><div class="none">아직 기억이 없어요 · 날짜·시간 없이 쓰거나 「메모 …」로 시작하면 여기에 모입니다.</div></div>`;
+  let day = "";
+  let h = "";
+  for (const n of notes) {
+    const d = n.createdAt.slice(0, 10);
+    if (d !== day) {
+      day = d;
+      h += `<div class="memod">${d === ctx.today ? "오늘" : fd(d)}</div>`;
+    }
+    h += resultCard(ctx, n.id, fd, false, "memo");
+  }
+  return `<div class="memov">${h}</div>`;
 }

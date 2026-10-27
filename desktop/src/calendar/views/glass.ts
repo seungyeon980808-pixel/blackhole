@@ -106,7 +106,7 @@ export const glass: ThemeView = {
       <button class="nb" data-nav="-1" aria-label="이전">‹</button><button class="nb" data-nav="1" aria-label="다음">›</button><button class="nb" data-nav="0">오늘</button>
       <span class="sp"></span>
       <span class="conn" title="${esc(ctx.connection.detail)}" data-testid="connection">${esc(ctx.connection.label)}</span>
-      <div class="seg" role="group" aria-label="보기"><button data-v="month">월</button><button data-v="week">주</button><button data-v="day">일</button></div>
+      <div class="seg" role="group" aria-label="보기"><button data-v="month">월</button><button data-v="week">주</button><button data-v="day">일</button><button data-v="memo">기억</button></div>
       <button class="nb" data-print>출력</button><button class="nb" data-settings aria-haspopup="dialog">설정</button>
     </header>
     <main class="content" id="bhMain"></main>

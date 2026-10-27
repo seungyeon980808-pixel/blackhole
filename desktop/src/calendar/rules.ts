@@ -7,7 +7,8 @@
 import { addDays, pad, ymd } from "./dates";
 
 export interface RuleResult {
-  kind: "SCHEDULE" | "TODO";
+  /** NOTE: Mac drafts only (parseDraft) — a 기억, never on the calendar. */
+  kind: "SCHEDULE" | "TODO" | "NOTE";
   title: string;
   /** YYYY-MM-DD, null when no usable date. */
   date: string | null;
@@ -237,6 +238,30 @@ export function timeRange(raw: string): { start: string; end: string; rest: stri
   if (h2 * 60 + m2 <= h1 * 60 + m1 && h2 < 12) h2 += 12;
   if (h1 > 23 || h2 > 23 || h2 * 60 + m2 <= h1 * 60 + m1) return null;
   return { start: `${pad(h1)}:${pad(m1)}`, end: `${pad(h2)}:${pad(m2)}`, rest: raw.replace(h[0], " ") };
+}
+
+/** 「메모 …」 「기억: …」 at the start: always a 기억, whatever else is in it. */
+const MEMO_HEAD = /^\s*(메모|기억|노트)\s*[:：,]?\s+/;
+
+/**
+ * What the words alone make: a 기억 unless they clearly say when. `final`: no AI needed (an
+ * explicit 「메모 …」, or nothing about a day or time at all). A date without a time and without
+ * appointment/to-do words (「11월 3일에 엄마가 김치 보내준대」) is a 기억 draft the AI may turn
+ * into an entry; when the AI is unsure it stays a 기억 (with 「일정으로」·「할 일로」 on its card).
+ */
+export function memoDraft(raw: string, now: Date): { title: string; details?: string; final: boolean } | null {
+  const head = MEMO_HEAD.exec(raw);
+  const body = head ? raw.slice(head[0].length) : raw;
+  const [first, ...rest] = body.trim().split("\n");
+  const memo = (final: boolean) => ({ title: first.trim().slice(0, 80), details: rest.join("\n").trim() || undefined, final });
+  if (head) return body.trim() ? memo(true) : null;
+  if (timeRange(raw)) return null;
+  const r = parseRule(raw, now);
+  if (!r.date && !r.hasTime) return memo(true);
+  // Hearsay (「…보내준대」, 「…온다고」) is something to remember, even with a to-do word in it.
+  const hearsay = /(대|래|더라|다고|라고|한다)\s*[.!]?\s*$/.test(raw.trim());
+  if (r.date && !r.hasTime && !EVENT_WORDS.test(raw) && (hearsay || !TASK_WORDS.test(raw)) && !/까지|마감|일정|약속|예약/.test(raw)) return memo(false);
+  return null;
 }
 
 export function parseDraft(raw: string, now: Date): RuleResult {

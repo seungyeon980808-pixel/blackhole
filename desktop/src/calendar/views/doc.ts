@@ -101,7 +101,7 @@ export const doc: ThemeView = {
   shell: (ctx) => `
     <div class="tool" data-tauri-drag-region><button class="btn" data-nav="-1">‹ 이전</button><button class="btn" data-nav="1">다음 ›</button><button class="btn" data-nav="0">오늘</button><span class="sp"></span>
       <span class="conn" title="${esc(ctx.connection.detail)}" data-testid="connection">${esc(ctx.connection.label)}</span>
-      <span class="seg" role="group" aria-label="보기"><button class="btn" data-v="month">월</button><button class="btn" data-v="week">주</button><button class="btn" data-v="day">일</button></span><button class="btn" data-print>출력</button><button class="btn" data-settings aria-haspopup="dialog">설정</button></div>
+      <span class="seg" role="group" aria-label="보기"><button class="btn" data-v="month">월</button><button class="btn" data-v="week">주</button><button class="btn" data-v="day">일</button><button class="btn" data-v="memo">기억</button></span><button class="btn" data-print>출력</button><button class="btn" data-settings aria-haspopup="dialog">설정</button></div>
     <div class="head"><div class="dtitle" id="bhTitle"></div><div class="summary" id="bhSum"></div></div>
     <main class="content" id="bhMain"></main>
     <footer class="composer" id="bhComp"></footer>`,

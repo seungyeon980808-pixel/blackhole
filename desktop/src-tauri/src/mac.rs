@@ -1144,6 +1144,21 @@ pub async fn ask_records(question: String, lines: Vec<String>) -> Result<AskRepl
         .map_err(|e| e.to_string())?
 }
 
+/// Every 기억 made in the main window (a sentence with no day or time, 「메모 …」, the AI's NOTE,
+/// a phone note) is also an Obsidian note under Drive 「블랙홀/노트/기억/」. No Drive → nothing.
+#[tauri::command]
+pub fn memo_note(text: String, via: Option<String>) -> Result<(), String> {
+    let text = text.trim().to_string();
+    if text.is_empty() || !matches!(crate::secret::guess(&text), crate::secret::Guess::None) {
+        return Ok(());
+    }
+    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    if let Some(root) = calendar::find_drive_blackhole(&home) {
+        crate::find::write_memo_note_from(&root, &text, &via.unwrap_or_else(|| "Mac".into()))?;
+    }
+    Ok(())
+}
+
 /// Open an Obsidian note from an answer card (only files under Drive 「블랙홀/노트/」).
 #[tauri::command]
 pub fn note_open(path: String) -> Result<(), String> {

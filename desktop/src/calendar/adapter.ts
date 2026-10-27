@@ -123,6 +123,8 @@ export interface BlackholeAdapter {
   askAi?(question: string, lines: string[]): Promise<{ answer: string; ids: string[] }>;
   /** Copy a secret's value (Touch ID first; the clipboard is cleared after 30 s). */
   secretCopy?(name: string): Promise<void>;
+  /** Keep a 기억 also as an Obsidian note (Drive 「블랙홀/노트/기억/」). */
+  writeMemo?(text: string, via: string): Promise<void>;
   /** Open an Obsidian note under Drive 「블랙홀/노트/」. */
   openNote?(path: string): Promise<void>;
 
