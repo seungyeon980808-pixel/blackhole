@@ -20,7 +20,7 @@ use std::{
 
 const STATE_FILE: &str = "messenger-v1.json";
 const MAX_ATTACHMENT: u64 = 25 * 1024 * 1024;
-const ATTACHMENT_EXTS: [&str; 12] = ["png", "jpg", "jpeg", "webp", "pdf", "hwp", "hwpx", "docx", "xlsx", "txt", "wav", "md"];
+const ATTACHMENT_EXTS: [&str; 14] = ["png", "jpg", "jpeg", "webp", "heic", "csv", "md", "pdf", "hwp", "hwpx", "docx", "xlsx", "txt", "wav"];
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

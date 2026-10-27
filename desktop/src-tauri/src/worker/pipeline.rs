@@ -112,13 +112,15 @@ pub fn source_type_for(path: &Path) -> Result<(SourceType, String), WorkerError>
     let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
     let kind = match ext.as_str() {
         "wav" => SourceType::Audio,
-        "txt" | "md" => SourceType::Text,
+        // CSV: a 나이스·spreadsheet export is plain text (often EUC-KR, see decode_text).
+        "txt" | "md" | "csv" => SourceType::Text,
         "pdf" | "hwp" | "hwpx" | "hwpml" | "docx" | "xlsx" | "xls" => SourceType::Document,
-        "png" | "jpg" | "jpeg" | "webp" => SourceType::Image,
+        // HEIC: an iPhone photo (read as a JPEG copy, see heic_as_jpeg).
+        "png" | "jpg" | "jpeg" | "webp" | "heic" | "heif" => SourceType::Image,
         _ => {
             return Err(WorkerError::new(
                 ErrorCode::UnsupportedInput,
-                format!("지원하지 않는 파일 형식입니다: .{ext} (WAV, PDF, HWP, HWPX, DOCX, XLSX, PNG, JPG, WebP, TXT)"),
+                format!("지원하지 않는 파일 형식입니다: .{ext} (WAV, PDF, HWP, HWPX, DOCX, XLSX, PNG, JPG, HEIC, WebP, TXT, CSV)"),
             ))
         }
     };
@@ -245,12 +247,35 @@ fn cp949(bytes: &[u8]) -> Option<String> {
     String::from_utf8(out.stdout).ok()
 }
 
+/// A JPEG copy of a HEIC photo in the temp folder (macOS `sips`, no extra crate; the long side kept ≤ 2400 px).
+fn heic_as_jpeg(path: &Path) -> Result<std::path::PathBuf, WorkerError> {
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let out = std::env::temp_dir().join(format!("blackhole-heic-{}-{stamp}.jpg", std::process::id()));
+    let ok = std::process::Command::new("sips")
+        .args(["-s", "format", "jpeg", "-Z", "2400"])
+        .arg(path)
+        .arg("--out")
+        .arg(&out)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success())
+        && out.exists();
+    if ok {
+        Ok(out)
+    } else {
+        let _ = std::fs::remove_file(&out);
+        Err(WorkerError::new(ErrorCode::UnsupportedInput, "HEIC 사진을 열지 못했어요 · 사진 앱에서 JPG로 내보내 넣어 주세요"))
+    }
+}
+
 pub fn check_file_bytes(ext: &str, bytes: &[u8]) -> Result<(), WorkerError> {
     let ok = match ext {
         "pdf" => bytes.starts_with(b"%PDF"),
         "png" => bytes.starts_with(b"\x89PNG"),
         "jpg" | "jpeg" => bytes.starts_with(&[0xFF, 0xD8, 0xFF]) && bytes.len() >= 100 && bytes[bytes.len().saturating_sub(4096)..].windows(2).any(|w| w == [0xFF, 0xD9]),
         "webp" => bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP",
+        "heic" | "heif" => bytes.len() >= 12 && &bytes[4..8] == b"ftyp",
         "docx" | "xlsx" | "hwpx" => bytes.starts_with(b"PK"),
         "hwp" | "xls" => bytes.starts_with(&[0xD0, 0xCF, 0x11, 0xE0]),
         _ => true,
@@ -263,6 +288,21 @@ pub fn check_file_bytes(ext: &str, bytes: &[u8]) -> Result<(), WorkerError> {
 }
 
 pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOffset>, engines: &Engines, options: &AnalyzeOptions) -> Result<Proposal, WorkerError> {
+    // An iPhone photo: the readers and the model take JPEG, so read a converted copy; the result still names the original.
+    if let Input::File(path) = input {
+        if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("heic") || e.eq_ignore_ascii_case("heif")) {
+            let original = read_original(path)?;
+            check_file_bytes("heic", &original)?;
+            let jpg = heic_as_jpeg(path)?;
+            let result = analyze_with(&Input::File(&jpg), engine, reference, engines, options);
+            let _ = std::fs::remove_file(&jpg);
+            let mut p = result?;
+            p.source.format = "heic".into();
+            p.source.sha256 = sha256_hex(&original);
+            p.source.bytes = original.len() as u64;
+            return Ok(p);
+        }
+    }
     let started = Instant::now();
     let (source_type, format, bytes) = match input {
         Input::File(path) => {
@@ -678,6 +718,15 @@ mod tests {
             assert_eq!(decode_text(euc).unwrap(), "11월 5일");
             assert_eq!(decode_text(&[0xFF, 0xFF, 0x80, 0xFF]).unwrap_err().message, UNREADABLE_TEXT);
         }
+    }
+
+    #[test]
+    fn iphone_photos_and_csv_exports_are_accepted() {
+        assert_eq!(source_type_for(Path::new("a.HEIC")).unwrap(), (SourceType::Image, "heic".to_string()));
+        assert_eq!(source_type_for(Path::new("나이스.csv")).unwrap(), (SourceType::Text, "csv".to_string()));
+        assert!(check_file_bytes("heic", b"\0\0\0\x18ftypheic\0\0").is_ok());
+        assert!(check_file_bytes("heic", b"not a photo at all").is_err());
+        assert!(source_type_for(Path::new("a.pptx")).unwrap_err().message.contains("HEIC"));
     }
 
     #[test]

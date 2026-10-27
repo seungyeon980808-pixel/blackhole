@@ -254,7 +254,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <div class="ctxm" id="bhCtx" role="menu" aria-label="날짜 옮기기" hidden></div>
       <div class="ctxm pick" id="bhPick" role="dialog" aria-label="날짜 고르기" hidden></div>
       <div class="findres" id="bhFindRes" role="listbox" aria-label="찾은 것" hidden></div>
-      <input type="file" id="bhFile" hidden accept="image/*,.pdf,.hwp,.hwpx,.docx,.xlsx,.txt,.wav">`;
+      <input type="file" id="bhFile" hidden accept="image/*,.heic,.pdf,.hwp,.hwpx,.docx,.xlsx,.txt,.md,.csv,.wav">`;
     if (sideCapable) {
       // 「대화」 in the header: shows the folded panel again (the panel has 「접기」 itself).
       const set = root.querySelector<HTMLElement>("[data-settings]");
