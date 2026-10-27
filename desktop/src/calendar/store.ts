@@ -193,14 +193,14 @@ export function draftFromText(s: CalendarState, text: string, source: string, no
     const ev: CalEvent = {
       ...base, id: draftId("e"), kind: "event", date: r.date, start: r.time,
       end: `${String(Math.floor(endM / 60)).padStart(2, "0")}:${String(endM % 60).padStart(2, "0")}`,
-      provisional: true, reminders: [plusMinutes(r.date, r.time, -30)]
+      provisional: true, reminders: [plusMinutes(r.date, r.time, -(r.remindBefore ?? 30))]
     };
     s.events.push(ev);
     return ev;
   }
   const task: Task = {
     ...base, id: draftId("t"), kind: "task", due: r.date ?? ymd(now), dueTime: r.hasTime ? r.time : null, done: false,
-    reminders: r.date ? [r.hasTime && r.time ? plusMinutes(r.date, r.time, -30) : `${r.date}T09:00`] : [], subs: []
+    reminders: r.date ? [r.hasTime && r.time ? plusMinutes(r.date, r.time, -(r.remindBefore ?? 30)) : r.remindBefore ? plusMinutes(r.date, "09:00", -r.remindBefore) : `${r.date}T09:00`] : [], subs: []
   };
   if (!r.date) task.noDue = true;
   s.tasks.push(task);

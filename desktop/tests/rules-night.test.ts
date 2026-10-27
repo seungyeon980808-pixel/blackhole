@@ -173,3 +173,16 @@ describe("ranges, am/pm and leftovers (2026-10-28)", () => {
     expect([r.date, r.hasTime, r.title]).toEqual(["2026-10-28", false, "출장"]);
   });
 });
+
+describe("a reminder said against the start (2026-10-28)", () => {
+  it.each([
+    ["내일 3시 치과 30분 전에 알려줘", "치과", 30],
+    ["내일 3시 치과 1시간 전 알림", "치과", 60],
+    ["금요일까지 보고서 제출 하루 전에 알림", "보고서 제출", 1440],
+    ["모레 10시 면담 전날 알려줘", "면담", 1440]
+  ])("「%s」 → 「%s」, %i분 전", (v, title, before) => {
+    const r = d(v);
+    expect([r.title, r.remindBefore]).toEqual([title, before]);
+  });
+  it("a plain sentence has none", () => expect(d("내일 3시 치과").remindBefore).toBeUndefined());
+});

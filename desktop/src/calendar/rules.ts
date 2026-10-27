@@ -23,6 +23,8 @@ export interface RuleResult {
   end?: string;
   /** Last day when a span of days was said (「11월 2일부터 6일까지」, 「내일부터 사흘간」): a 기간. Mac drafts only. */
   until?: string;
+  /** 「30분 전에 알려줘」 「하루 전에 알림」: the reminder, minutes before the start/due. Mac drafts only. */
+  remindBefore?: number;
 }
 
 const TITLE_POSTPOSITION = "(?:은|는|이|가|을|를|에|에서|까지|부터)?";
@@ -518,8 +520,17 @@ export function memoDraft(raw0: string, now: Date, day: DayClock = {}): { title:
   return null;
 }
 
+/** 「30분 전에 알려줘」 「1시간 전 알림」 「하루 전에」 「전날」 (with an asking word after it, or at the end). */
+const REMIND_BEFORE = /(?:(\d{1,3})\s*분|(\d{1,2}|한|두|세)\s*시간|(하루|전날|\d{1,2}\s*일|일주일))\s*(?:전에?)?\s*(?:미리\s*)?(알려\s*줘|알려\s*주세요|알려|알림|알람)/;
+
 export function parseDraft(raw0: string, now: Date, day: DayClock = {}): RuleResult {
-  return tidyDraft(parseDraftRaw(raw0, now, day));
+  // The reminder phrase comes off first (it left 「치과 30분 전에」 / 「치과 간 전 알림」 in titles).
+  const rb = REMIND_BEFORE.exec(raw0);
+  if (!rb || !/전/.test(rb[0])) return tidyDraft(parseDraftRaw(raw0, now, day));
+  const n = (x: string) => ({ 한: 1, 두: 2, 세: 3 } as Record<string, number>)[x] ?? Number(x);
+  const minutes = rb[1] ? Number(rb[1]) : rb[2] ? n(rb[2]) * 60 : rb[3] === "일주일" ? 7 * 1440 : /^\d/.test(rb[3]) ? Number(rb[3].replace(/\D/g, "")) * 1440 : 1440;
+  const r = tidyDraft(parseDraftRaw(raw0.replace(rb[0], " ").replace(/\s+/g, " ").trim(), now, day));
+  return { ...r, remindBefore: minutes };
 }
 
 /** Leftovers the shared parser keeps in titles: 「(화)」, an ISO date, a leading 「부터」 or 「매주」. */
