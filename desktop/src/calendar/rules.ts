@@ -372,6 +372,14 @@ export function timeWords(raw: string, day: DayClock = {}, now?: Date): string {
   const per = day.periods ?? [];
   let v = fixNumbers(raw);
   if (now) v = dateWords(v, now);
+  // 「3:30 PM」 「Due Friday 5pm」 「tomorrow 10am」: English am/pm and day words (the worker reads them the same way).
+  v = v.replace(/\b(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m\b\.?/gi, (_m, h: string, mm: string | undefined, ap: string) => `${/p/i.test(ap) ? "오후" : "오전"} ${mm ? `${h}:${mm}` : `${h}시`}`);
+  v = v.replace(/\b(mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/gi, (_m, d: string) => `${"월화수목금토일"[["mon", "tue", "wed", "thu", "fri", "sat", "sun"].findIndex((x) => d.toLowerCase().startsWith(x))]}요일`);
+  v = v.replace(/\btomorrow\b/gi, "내일").replace(/\btonight\b/gi, "오늘 밤").replace(/\btoday\b/gi, "오늘").replace(/\bdue\b\s*/gi, "");
+  // 「오후 3~5시」: both ends are hours (it read 「5시」 alone: 05:00 / 17:00).
+  v = v.replace(/(?<![\d/.:\-월])(\d{1,2})\s*([~\-–])\s*(\d{1,2})\s*시/g, "$1시$2$3시");
+  // 「4시쯤」 「12시 정각」 「3시경」: the hour itself.
+  v = v.replace(/(\d{1,2}\s*시(?:\s*\d{1,2}\s*분|\s*반)?)\s*(?:쯤|경|정각)(?:에)?/g, "$1");
   // 「오후 2:40」 「저녁 7:30」: a clock time after a part of the day (it came out 02:40 / 07:30).
   v = v.replace(/(오후|저녁|밤|낮)\s*(\d{1,2}):([0-5]\d)/g, (m, w: string, h: string, mm: string) => {
     const n = Number(h);
@@ -527,6 +535,8 @@ function tidyDraft(r: RuleResult): RuleResult {
     .replace(/(?:^|\s)(?:해\s*)?줘$/g, " ")
     .replace(/^(?:\s*(?:부터|까지|에서|에|~|-|,|매주|매일|매달|매월|격주|평일|주말|마다|이따|이따가|이후|이전|중으로|중에|안에|내로|낼|담주))+\s*/g, "")
     .replace(/(?:^|\s)(?:오전|오후)에(?=\s)/g, " ")
+    .replace(/(?:^|\s)(?:하루\s*종일|온종일|종일)(?=\s|$)/g, " ")
+    .replace(/^[\s:·,]+|[\s:·,]+$/g, "")
     .replace(/\s+/g, " ")
     .trim();
   // 「내일 3시에 알려줘」: nothing left but the asking → 「알림」.
@@ -609,7 +619,9 @@ function parseDraftRaw(raw0: string, now: Date, day: DayClock = {}): RuleResult 
   const time = `${pad(hh + 12)}:${pad(mm)}`;
   let date = r.date;
   // No day said: parseRule moved 03:00 to tomorrow because it had passed; 15:00 may still be today.
-  if (r.explanation === "시간을 찾고 다음 시점으로 날짜를 추정함" && !/(?<!\d)24시/.test(raw)) {
+  // (A to-do too: 「4시 전화하기」 at 9 a.m. went to tomorrow — its explanation differs, so ask without the hour.)
+  const noDay = r.explanation === "시간을 찾고 다음 시점으로 날짜를 추정함" || parseRule(raw.replace(/\d{1,2}\s*시(?:\s*\d{1,2}\s*분|\s*반)?/, " "), now).date === null;
+  if (noDay && !/(?<!\d)24시/.test(raw)) {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const at = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hh + 12, mm);
     date = ymd(at > now ? today : addDays(today, 1));

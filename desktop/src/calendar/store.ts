@@ -115,7 +115,8 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       continue;
     }
     // 「상담 전에 성적표 출력」: the worker set it due when the appointment starts — keep that time.
-    const timed = item.evidence.timeText.trim() !== "" || item.reviewReasons.some((r) => r.endsWith("전까지로 둠"));
+    // 「하루 종일」 is said but is no time (the worker leaves it at 09:00 with no note: an all-day entry here).
+    const timed = (item.evidence.timeText.trim() !== "" && !/종일|하루\s*내내/.test(item.evidence.timeText)) || item.reviewReasons.some((r) => r.endsWith("전까지로 둠"));
     if (item.kind === "TODO") {
       const start = item.startAt ? new Date(item.startAt) : now;
       const task: Task = {

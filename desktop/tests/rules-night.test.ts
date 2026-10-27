@@ -152,3 +152,24 @@ describe("everyday sentences (2026-10-28)", () => {
     expect([r.date, r.until, r.title]).toEqual(["2026-11-07", "2026-11-08", "부산 여행"]);
   });
 });
+
+describe("ranges, am/pm and leftovers (2026-10-28)", () => {
+  // NOW: Tuesday 10:40.
+  it.each([
+    ["10월 31일 핼러윈 파티 오후 3~5시", "2026-10-31", "15:00", "17:00", "핼러윈 파티"], // was 17:00 alone
+    ["3~5시 회의", "2026-10-27", "15:00", "17:00", "회의"],
+    ["수요일 3:30 PM zoom 미팅", "2026-10-28", "15:30", null, "zoom 미팅"], // was 03:30
+    ["Due Friday 5pm: lesson plan", "2026-10-30", "17:00", null, "lesson plan"],
+    ["tomorrow 10am dentist", "2026-10-28", "10:00", null, "dentist"],
+    ["4시 전화하기", "2026-10-27", "16:00", null, "전화하기"], // a to-do went to tomorrow
+    ["이따 4시쯤 전화하기", "2026-10-27", "16:00", null, "전화하기"],
+    ["12시 정각에 점심 약속", "2026-10-27", "12:00", null, "점심 약속"]
+  ])("「%s」", (v, date, time, end, title) => {
+    const r = d(v);
+    expect([r.date, r.time, r.end ?? null, r.title]).toEqual([date, time, end, title]);
+  });
+  it("「내일 하루 종일 출장」: the day, no time, no 「하루 종일」 in the title", () => {
+    const r = d("내일 하루 종일 출장");
+    expect([r.date, r.hasTime, r.title]).toEqual(["2026-10-28", false, "출장"]);
+  });
+});

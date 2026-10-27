@@ -41,3 +41,9 @@ it("a to-do the worker set due before an appointment keeps that time", () => {
   applyProposal(s, { items: [it0] } as unknown as Proposal, "인박스", new Date(2026, 9, 27, 10, 40));
   expect([s.tasks[0].due, s.tasks[0].dueTime]).toEqual(["2026-10-28", "16:00"]);
 });
+
+it("「내일 하루 종일 출장」 from the worker is an all-day entry, not 09:00 (2026-10-28)", () => {
+  const s = emptyState();
+  applyProposal(s, { items: [item("SCHEDULE", "출장", "2026-10-28T09:00:00+09:00", "하루 종일")] } as unknown as Proposal, "문장", new Date(2026, 9, 27, 10, 40));
+  expect([s.events[0].date, s.events[0].start]).toEqual(["2026-10-28", null]);
+});

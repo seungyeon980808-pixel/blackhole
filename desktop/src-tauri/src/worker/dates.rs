@@ -137,7 +137,42 @@ pub fn normalize(text: &str) -> String {
     for (from, to) in HOURS {
         value = value.replace(from, to);
     }
-    spoken_days(&value)
+    spoken_days(&english_words(&hour_ranges(&value)))
+}
+
+/// 「오후 3~5시」: both ends are hours (it read only 「5시」: 17:00~18:00). → 「오후 3시~5시」.
+fn hour_ranges(text: &str) -> String {
+    static R: OnceLock<Regex> = OnceLock::new();
+    re(&R, r"(^|[^\d/.:\-월])(\d{1,2})\s*(~|-|–)\s*(\d{1,2})\s*시").replace_all(text, "${1}${2}시${3}${4}시").into_owned()
+}
+
+/// 「Due Friday 5pm」 「3:30 PM」: English weekdays and am/pm (3:30 PM came out 03:30).
+fn english_words(text: &str) -> String {
+    static PM: OnceLock<Regex> = OnceLock::new();
+    static DAY: OnceLock<Regex> = OnceLock::new();
+    let v = re(&PM, r"(?i)\b(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m\b\.?").replace_all(text, |c: &regex::Captures| {
+        let part = if c[3].eq_ignore_ascii_case("p") { "오후" } else { "오전" };
+        match c.get(2) {
+            Some(m) => format!("{part} {}:{}", &c[1], m.as_str()),
+            None => format!("{part} {}시", &c[1]),
+        }
+    });
+    re(&DAY, r"(?i)\b(mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b|\b(today|tomorrow|tonight|noon)\b")
+        .replace_all(&v, |c: &regex::Captures| {
+            if let Some(w) = c.get(2) {
+                return match w.as_str().to_lowercase().as_str() {
+                    "today" => "오늘",
+                    "tomorrow" => "내일",
+                    "tonight" => "오늘 밤",
+                    _ => "12시",
+                }
+                .to_string();
+            }
+            let d = c[1].to_lowercase();
+            let k = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].iter().position(|x| d.starts_with(x)).unwrap_or(0);
+            format!("{}요일", ["월", "화", "수", "목", "금", "토", "일"][k])
+        })
+        .into_owned()
 }
 
 /// 「낼」 → 내일 · 「담주」 → 다음 주 · 「수욜」 → 수요일 · 「삼월 이일」 → 3월 2일 · 「이십일」 → 20일
@@ -726,6 +761,9 @@ pub fn resolve(date_text: &str, time_text: &str, kind: &str, reference: DateTime
     };
     // A part of the day without an hour ("저녁", "오늘 저녁") gets its default time, marked approximate.
     // 「30분 뒤」 「2시간 후」 (from now), 「정오」, 「자정」 (a deadline at the day's end).
+    // 「내일 하루 종일 출장」: the whole day, no time (it used to drop the day too: 「시간 표현을 해석하지 못함」).
+    let all_day = ["하루 종일", "하루종일", "온종일", "종일", "하루 내내"].iter().any(|w| time_text.contains(w));
+    let time_text = if all_day { String::new() } else { time_text };
     let relative = relative_time(&time_text, reference).or_else(|| relative_time(&date_text, reference));
     let time_text = time_text.replace("정오", "12:00").replace("자정", "23:59");
     if let Some(at) = relative {
@@ -775,7 +813,7 @@ pub fn resolve(date_text: &str, time_text: &str, kind: &str, reference: DateTime
             Some(day.and_time(time))
         }
         (Some(date), None) => {
-            if kind == "SCHEDULE" {
+            if kind == "SCHEDULE" && !all_day {
                 reasons.push("날짜만 있어 오전 9시로 임시 지정".to_string());
             }
             Some(date.and_time(NaiveTime::from_hms_opt(9, 0, 0).expect("09:00")))
@@ -933,6 +971,14 @@ mod tests {
         assert_eq!(start("오늘", "오전 12:10", "SCHEDULE"), "2026-10-21T00:10:00+09:00");
         assert_eq!(start("11월 말", "", "TODO"), "2026-11-30T09:00:00+09:00");
         assert_eq!(start("설날 연휴", "", "TODO"), "2027-02-06T09:00:00+09:00");
+        assert_eq!(start("10월 31일", "오후 3~5시", "SCHEDULE"), "2026-10-31T15:00:00+09:00");
+        assert_eq!(resolve("10월 31일", "오후 3~5시", "SCHEDULE", reference()).end_at.unwrap().to_rfc3339(), "2026-10-31T17:00:00+09:00");
+        assert_eq!(start("수요일", "3:30 PM", "SCHEDULE"), "2026-10-28T15:30:00+09:00");
+        assert_eq!(start("Friday", "5pm", "TODO"), "2026-10-23T17:00:00+09:00");
+        assert_eq!(start("tomorrow", "10am", "SCHEDULE"), "2026-10-22T10:00:00+09:00");
+        let all_day = resolve("내일", "하루 종일", "SCHEDULE", reference());
+        assert_eq!(all_day.start_at.unwrap().to_rfc3339(), "2026-10-22T09:00:00+09:00");
+        assert!(all_day.review_reasons.is_empty(), "{:?}", all_day.review_reasons);
         assert_eq!(start("추석", "", "TODO"), "2027-09-15T09:00:00+09:00");
         assert_eq!(start("내일 아침", "7시", "SCHEDULE"), "2026-10-22T07:00:00+09:00");
         assert_eq!(start("내일 저녁", "15:00", "SCHEDULE"), "2026-10-22T15:00:00+09:00");
