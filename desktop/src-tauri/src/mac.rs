@@ -550,6 +550,8 @@ pub fn show_board(app: &AppHandle, on: bool) {
                 // kCGDesktopIconWindowLevel (-2147483603) + 1: over the desktop icons, under apps.
                 ns.setLevel(-2_147_483_602);
                 ns.setCollectionBehavior(NSWindowCollectionBehavior::CanJoinAllSpaces | NSWindowCollectionBehavior::Stationary | NSWindowCollectionBehavior::IgnoresCycle);
+                // Created unfocused it is not ordered in: put it on screen without taking the keyboard.
+                ns.orderFrontRegardless();
             }
         });
     }
