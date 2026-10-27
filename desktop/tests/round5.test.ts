@@ -72,15 +72,16 @@ describe("the day (A-2, A-5, B-10, B-11)", () => {
   it("bars say their time range; no end is drawn the default length and marked; done to-dos fold at the bottom", async () => {
     const root = await mount(base());
     app!.setView("day", "2026-10-27");
-    const bar = root.querySelector<HTMLElement>('.strip [data-ev="e1"]')!;
-    expect(bar.textContent).toContain("16:20–21:20 초과근무");
-    const open = root.querySelector<HTMLElement>('.strip [data-ev="e2"]')!;
+    const bar = root.querySelector<HTMLElement>('.dtg [data-ev="e1"]')!;
+    expect(bar.querySelector(".t")!.textContent).toBe("초과근무");
+    expect(bar.querySelector(".r")!.textContent).toBe("16:20–21:20");
+    const open = root.querySelector<HTMLElement>('.dtg [data-ev="e2"]')!;
     expect(open.classList.contains("noend")).toBe(true);
     expect(open.textContent).toContain("끝 미정");
-    expect(root.querySelector(".box.grow h4")!.textContent).toContain("완료 1");
-    expect([...root.querySelectorAll(".box.grow > .trow .t")].map((x) => x.textContent)).toEqual(["보고서"]);
-    expect(root.querySelector(".box.grow details.fold summary")!.textContent).toBe("완료 1");
-    expect(root.querySelector('.trow[data-ev="t1"] .lft')!.textContent).toBe("8시간 남음");
+    expect(root.querySelector(".tl .ph")!.textContent).toContain("완료 1");
+    expect([...root.querySelectorAll(".tl > .task .tn")].map((x) => x.textContent)).toEqual(["보고서1/2 ▸"]); // the title and its x/y steps
+    expect(root.querySelector(".tl details.fold summary")!.textContent).toBe("완료 1");
+    expect(root.querySelector('.task[data-ev="t1"] .due')!.textContent).toBe("17:00 · 8시간"); // 24-hour deadline, then the time left
   });
 
   it("the strip is 24-hour only", () => {
@@ -94,7 +95,7 @@ describe("the day (A-2, A-5, B-10, B-11)", () => {
 describe("changing the time (A-3)", () => {
   it("the card's time box takes 1620~1730 and ↑↓ moves by 10 minutes; ⌘Z puts it back", async () => {
     const root = await mount(base());
-    root.querySelector<HTMLElement>('.strip [data-ev="e1"]')!.click();
+    root.querySelector<HTMLElement>('.dtg [data-ev="e1"]')!.click();
     root.querySelector<HTMLButtonElement>("#bhPop [data-edit]")!.click();
     const box = root.querySelector<HTMLInputElement>("#bhPop .ed-h, [data-editing] .ed-h")!;
     expect(box.value).toBe("16:20~21:20");

@@ -87,7 +87,7 @@ describe("no repeated information", () => {
     app!.setView("day", "2026-10-27");
     expect(root.querySelector(".checks")).toBeNull(); // nothing unsettled, nothing overlapping
     const eye = st.events.find((e) => e.title === "안과 진료")!;
-    root.querySelector<HTMLElement>(`.strip [data-ev="${eye.id}"]`)!.click();
+    root.querySelector<HTMLElement>(`.dtg [data-ev="${eye.id}"]`)!.click();
     root.querySelector<HTMLButtonElement>(`#bhPop [data-ok="${eye.id}"]`)!.click();
     await new Promise((r) => setTimeout(r, 0));
     expect(eye.provisional).toBe(false);
@@ -109,28 +109,21 @@ describe("empty states and the input", () => {
   it("no to-dos: one line instead of three empty groups; the input says how to put things in", async () => {
     const root = await mount(mac());
     app!.setView("day", "2026-10-27");
-    const box = root.querySelector(".box.grow")!.textContent!;
+    const box = root.querySelector(".tl")!.textContent!;
     expect(box).toContain("없음 · 「금요일까지 보고서」");
     expect(box).not.toContain("나중 0");
     expect(root.querySelector<HTMLInputElement>("#bhIn")!.placeholder).toContain("내일 3시 치과");
   });
 
-  it("today's to-dos in full; 「이번 주 · 나중」 one folded line, drawn when opened", async () => {
+  it("today's to-dos in full; 「나중」 listed below by date, fainter", async () => {
     const st = seedState(NOW);
     for (let i = 0; i < 20; i++) st.tasks.push({ id: `x${i}`, kind: "task", title: `먼 일 ${i}`, area: "personal", source: "t", createdAt: "2026-10-01T00:00", due: "2026-12-20", dueTime: null, done: false, reminders: [], subs: [] });
     const root = await mount({ ...mac(), load: async () => st });
     app!.setView("day", "2026-10-27");
-    const fold = root.querySelector(".box.grow details.fold")!;
-    expect(fold.querySelector("summary")!.textContent).toMatch(/나중 22/); // this week is shown open (B-11)
-    // An opened fold stays open after a re-render (a check, the minute tick).
-    expect(fold.querySelectorAll(".trow").length).toBe(0); // rows drawn only when opened
-    (fold as HTMLDetailsElement).open = true;
-    fold.dispatchEvent(new Event("toggle"));
-    const again = root.querySelector(".box.grow details.fold")!;
-    expect(again.hasAttribute("open")).toBe(true);
-    expect(again.querySelectorAll(".trow").length).toBe(22);
-    app!.render();
-    expect(root.querySelector(".box.grow details.fold")!.hasAttribute("open")).toBe(true);
+    const later = root.querySelector(".tl .grp.later")!;
+    expect(later.textContent).toMatch(/나중\s*2\d/);
+    const dues = [...root.querySelectorAll(".laterl .task")].map((x) => x.getAttribute("data-ev"));
+    expect(dues.slice(-20).every((id) => id!.startsWith("x"))).toBe(true); // the far ones last
   });
 });
 

@@ -80,7 +80,7 @@ describe("draft first, AI later (Mac input)", () => {
     expect(kept.provisional).toBe(false);
     expect(kept.suggest?.length).toBe(3);
     // The AI's offer is in the entry's card (a click on its bar on the day band).
-    root.querySelector<HTMLElement>(`.strip [data-ev="${draft.id}"]`)!.click();
+    root.querySelector<HTMLElement>(`.dtg [data-ev="${draft.id}"]`)!.click();
     expect(app!.state.events.filter((e) => !e.gone)).toHaveLength(1);
     app!.render();
     expect(root.textContent).toContain("AI 제안 있음");
@@ -233,12 +233,12 @@ describe("deadlines on the calendar (month · week · day, both themes)", () => 
     expect(week.querySelector(".fc-timegrid-event.bh-due")).not.toBeNull();
 
     app!.setView("day", timed.due);
-    // 안 2: a timed deadline is a thin mark on the day band (its name on hover).
-    const mark = root.querySelector<HTMLElement>(`.strip .sd[data-ev="${timed.id}"]`)!;
-    expect(mark.title).toBe(`마감 ${timed.dueTime} 연수 보고서 제출`);
+    // 오늘 화면: a timed deadline is a line on the day table with 「번호 · 시각 · 제목」.
+    const mark = root.querySelector<HTMLElement>(`.dtg .pin[data-ev="${timed.id}"]`)!;
+    expect(mark.textContent).toContain(`${timed.dueTime}연수 보고서 제출`);
     app!.setView("day", "2026-10-21");
-    expect(root.querySelector(".cols2")!.textContent).toContain("출석부 마감");
-    expect(root.querySelector(".cols2 .dd.hot")).not.toBeNull();
+    expect(root.querySelector(".tl")!.textContent).toContain("출석부 마감");
+    expect(root.querySelector(".tl .due.urg")).not.toBeNull();
   });
 
   it("공문서: month chips, week table with time and urgency, day timetable", async () => {
@@ -251,8 +251,7 @@ describe("deadlines on the calendar (month · week · day, both themes)", () => 
     const row = root.querySelector(`table.tb.week tr[data-day="${timed.due}"]`)!;
     expect(row.textContent).toContain(`${timed.dueTime} 연수 보고서 제출`);
     app!.setView("day", timed.due);
-    // 공문서 안 A: the day's to-dos list it with its time (no timetable grid).
-    expect(root.querySelector(".dcols")!.textContent).toContain("연수 보고서 제출");
+    expect(root.querySelector(".tl")!.textContent).toContain("연수 보고서 제출");
     expect(dueOn(app!.state, "2026-10-21").map((t) => t.title)).toEqual(["출석부 마감"]);
   });
 

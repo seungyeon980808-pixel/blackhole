@@ -33,6 +33,10 @@ interface Base {
   touched?: boolean;
   /** What the AI would have made, kept when the entry was touched (「AI 제안 있음」). */
   suggest?: Suggestion[];
+  /** Importance the user set: 0 ☆, 1 yellow ★, 2 red ★ (Mac only for now; not in 달력.json). */
+  star?: 0 | 1 | 2;
+  /** The AI thinks this matters (출제·결재·평가·제출…): offered, never set by itself. */
+  starHint?: 1 | 2;
 }
 
 /** An AI version of an entry, offered instead of applied. */
@@ -50,6 +54,25 @@ export interface CalEvent extends Base {
   end: string | null;
   provisional: boolean;
   reminders: string[];
+  /** 「작업 시간」: time blocked on the day table for this to-do (its id). The to-do stays one. */
+  workFor?: string;
+}
+
+/**
+ * 루틴: something done again and again at a time (매일 · 평일 · chosen weekdays), checked per day.
+ * Mac only for now (not in 달력.json until the phone knows it).
+ */
+export interface Routine {
+  id: string;
+  title: string;
+  /** HH:MM */
+  at: string;
+  /** "daily" · "weekdays" · weekday numbers (0 = 일 … 6 = 토) */
+  repeat: "daily" | "weekdays" | number[];
+  /** Days it was done (YYYY-MM-DD). */
+  done: string[];
+  createdAt: string;
+  gone?: boolean;
 }
 
 export interface SubTask {
@@ -170,6 +193,7 @@ export interface CalendarState {
   appliedActions: string[];
   settings: Settings;
   nextId: number;
+  routines: Routine[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -214,7 +238,8 @@ export function emptyState(): CalendarState {
     draftedJobs: [],
     appliedActions: [],
     settings: { ...DEFAULT_SETTINGS },
-    nextId: 1
+    nextId: 1,
+    routines: []
   };
 }
 
@@ -239,7 +264,8 @@ export function normalizeState(value: unknown): CalendarState | null {
     draftedJobs: list<string>(v.draftedJobs),
     appliedActions: list<string>(v.appliedActions),
     settings: schoolTimes({ ...DEFAULT_SETTINGS, ...(v.settings ?? {}) }),
-    nextId: typeof v.nextId === "number" && v.nextId > 0 ? v.nextId : 1
+    nextId: typeof v.nextId === "number" && v.nextId > 0 ? v.nextId : 1,
+    routines: list<Routine>(v.routines)
   };
 }
 
@@ -269,8 +295,14 @@ export interface SharedCalendar {
 
 export function sharedFrom(s: CalendarState, now: string): SharedCalendar {
   // Fake sample data stays on the Mac: it is never sent to Drive or the phone.
+  // New Mac-only fields (★, 작업 시간 blocks, 루틴) stay out until the phone's reader knows them.
   const real = <T extends { sample?: boolean }>(list: T[]) => list.filter((x) => !x.sample);
-  return { kind: "blackhole-calendar", schemaVersion: 1, exportedAt: now, events: real(s.events), tasks: real(s.tasks), periods: real(s.periods), notes: real(s.notes), appliedActions: s.appliedActions.slice(-500), sources: [...new Set([...s.ingestedJobs, ...s.draftedJobs])].slice(-500) };
+  const plain = <T extends Entry>(x: T): T => {
+    if (x.star === undefined && x.starHint === undefined) return x;
+    const { star: _s, starHint: _h, ...rest } = x;
+    return rest as T;
+  };
+  return { kind: "blackhole-calendar", schemaVersion: 1, exportedAt: now, events: real(s.events).filter((e) => !e.workFor).map(plain), tasks: real(s.tasks).map(plain), periods: real(s.periods).map(plain), notes: real(s.notes).map(plain), appliedActions: s.appliedActions.slice(-500), sources: [...new Set([...s.ingestedJobs, ...s.draftedJobs])].slice(-500) };
 }
 
 export function isShared(v: unknown): v is SharedCalendar {

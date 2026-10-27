@@ -110,8 +110,11 @@ describe("calendar app", () => {
     const root = await mount(fakeAdapter(proposal));
     expect(root.querySelector('[data-testid="connection"]')?.textContent).toBe("로컬·미연결");
     // 안 2: the day as one band on top, to-dos and tomorrow below.
-    expect(root.querySelector(".strip")).not.toBeNull();
-    expect(root.querySelector(".cols2")).not.toBeNull();
+    // 「오늘」 화면: vertical day table · to-dos · upcoming + 루틴, and the week line on top.
+    expect(root.querySelector(".dtg")).not.toBeNull();
+    expect(root.querySelector(".tl")).not.toBeNull();
+    expect(root.querySelector(".rstack")).not.toBeNull();
+    expect(root.querySelectorAll(".wkd .wd")).toHaveLength(7);
     expect(root.textContent).toContain("할 일");
     // No 「확인 대기 0 / 없음 / 오늘 들어온 것」 lines: fake data only, nothing came in today.
     expect(root.textContent).not.toContain("확인 대기");
@@ -134,7 +137,7 @@ describe("calendar app", () => {
     expect(app!.state.events.filter((e) => !e.sample && !e.gone)).toHaveLength(1);
     app!.setView("day", ev.date);
     // A click on its bar on the day band shows its card; ✓ confirms.
-    root.querySelector<HTMLElement>(`.strip [data-ev="${ev.id}"]`)!.click();
+    root.querySelector<HTMLElement>(`.dtg [data-ev="${ev.id}"]`)!.click();
     root.querySelector<HTMLButtonElement>(`#bhPop [data-ok="${ev.id}"]`)!.click();
     await Promise.resolve();
     expect(app!.state.events.find((e) => e.id === ev.id)!.provisional).toBe(false);
@@ -163,7 +166,7 @@ describe("calendar app", () => {
     expect(root.querySelector("table.tb.week")).not.toBeNull();
     expect(root.querySelector(".dtitle")?.textContent).toContain("주간 업무 계획");
     app!.setView("day");
-    expect(root.querySelectorAll(".sec .no").length).toBeGreaterThanOrEqual(4);
+    expect(root.querySelector(".dtg")).not.toBeNull(); // the 오늘 layout in 공문서 too
   });
 
   it("shows the full-window alarm until 완료 or 10분 뒤", async () => {

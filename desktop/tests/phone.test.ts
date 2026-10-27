@@ -82,7 +82,7 @@ describe("phone calendar (Android WebView adapter)", () => {
     const fake = await mountPhone(macCopy().json);
     const ev = app!.state.events[0];
     app!.setView("day", ev.date);
-    document.querySelector<HTMLElement>(`.strip [data-ev="${ev.id}"]`)!.click();
+    document.querySelector<HTMLElement>(`.dtg [data-ev="${ev.id}"]`)!.click();
     document.querySelector<HTMLButtonElement>(`#bhPop [data-ok="${ev.id}"]`)!.click();
     expect(fake.calls.actions.map((a) => a.type)).toEqual(["confirm"]);
     expect(app!.state.events[0].provisional).toBe(false);
@@ -110,7 +110,7 @@ describe("phone calendar (Android WebView adapter)", () => {
 
     const ev = app!.state.events.find((e) => e.provisional && !e.gone)!;
     app!.setView("day", ev.date);
-    document.querySelector<HTMLElement>(`.strip [data-ev="${ev.id}"]`)!.click();
+    document.querySelector<HTMLElement>(`.dtg [data-ev="${ev.id}"]`)!.click();
     document.querySelector<HTMLElement>(`#bhPop [data-no="${ev.id}"]`)!.click();
     await new Promise((r) => setTimeout(r, 0));
     expect(app!.state.events.find((e) => e.id === ev.id)!.gone).toBe(true);

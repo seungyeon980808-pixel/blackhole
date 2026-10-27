@@ -63,7 +63,7 @@ describe("chat panel on the right", () => {
     expect(root.classList.contains("side")).toBe(true);
     expect(root.querySelector("#bhChat #bhIn")).not.toBeNull();
     expect(root.querySelector("#bhComp")!.innerHTML).toBe("");
-    expect(root.style.getPropertyValue("--panel-w")).toBe("360px");
+    expect(root.style.getPropertyValue("--panel-w")).toBe("290px"); // compact by default
   });
 
   it("folding is remembered; the header 「대화」 brings it back; width is remembered", async () => {

@@ -352,3 +352,30 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .fc .fc-bg-event.bh-pd { background: rgba(255, 255, 255, .05); opacity: 1; }
 .bh.glass .fc .fc-bg-event.bh-lunch { background: rgba(255, 211, 110, .06); opacity: 1; }
 .bh.glass .settings input.tin { background: var(--glass2); border: 1px solid var(--line); border-radius: 6px; color: var(--ink); padding: 2px 4px; }
+
+/* ── 색은 별의 노랑·빨강만: 나머지는 흰색 밝기(밝은 모드는 먹색 농도) ── */
+.bh.glass {
+  --school: rgba(255,255,255,.92); --personal: rgba(255,255,255,.72); --todo: rgba(255,255,255,.92); --note: rgba(255,255,255,.8); --now: #fff;
+  --wall: radial-gradient(1100px 700px at 15% 0%, #1763b8, transparent 60%), radial-gradient(900px 800px at 60% 100%, #2e8796, transparent 60%), #0b3a8c;
+  --page: #0b2a5a;
+  --x-hair: rgba(255,255,255,.1); --x-line: rgba(255,255,255,.4); --x-chip: rgba(255,255,255,.08); --x-sel: rgba(255,255,255,.22); --x-box: rgba(255,255,255,.18);
+  --x-hatch: rgba(255,255,255,.05); --x-off: rgba(0,10,40,.18); --x-pinbg: rgba(12,40,100,.92); --x-inv: #0b2a5a; --x-star0: rgba(255,255,255,.3);
+}
+.bh.glass[data-mode="light"] {
+  --school: rgba(22,23,42,.85); --personal: rgba(22,23,42,.6); --todo: rgba(22,23,42,.85); --note: rgba(22,23,42,.7); --now: #16172a;
+  --wall: radial-gradient(1100px 700px at 15% 0%, #dfe7f3, transparent 60%), radial-gradient(900px 800px at 60% 100%, #e6eef0, transparent 60%), #eef1f6;
+  --page: #eef1f6;
+  --x-hair: rgba(22,23,42,.08); --x-line: rgba(22,23,42,.3); --x-chip: rgba(22,23,42,.05); --x-sel: rgba(22,23,42,.1); --x-box: rgba(255,255,255,.75);
+  --x-hatch: rgba(22,23,42,.05); --x-off: rgba(22,23,42,.05); --x-pinbg: rgba(255,255,255,.96); --x-inv: #fff; --x-star0: rgba(22,23,42,.28);
+}
+.bh.glass .ic.go { background: var(--ink); color: var(--page); }
+.bh.glass .bub.me { background: var(--x-sel); color: var(--ink); }
+.bh.glass .al-b.ok { background: #fff; color: #0b2a5a; }
+.bh.glass .settings input:focus, .bh.glass .rc.edit input:focus { border-color: var(--ink2); }
+.bh.glass .settings .kbd.rec { border-color: var(--ink); color: var(--ink); }
+.bh.glass .fc-dayGridMonth-view .fc-col-header-cell:first-child .fc-col-header-cell-cushion, .bh.glass .fc .fc-day-sun .fc-daygrid-day-number { color: #ff5a5f; }
+.bh.glass .dd.hot::before, .bh.glass .inbox h4.warn::before, .bh.glass .fc .hol::before, .bh.glass .fc .c.mdot.hot::before { background: #ff5a5f; }
+.bh.side .resizer:hover, .bh.side .resizer:focus-visible { background: linear-gradient(90deg, transparent 3px, var(--x-line) 3px, var(--x-line) 5px, transparent 5px); }
+/* 대화: 좁고 촘촘하게 */
+.bh.glass.side .bub { font-size: 12.5px; line-height: 1.45; padding: 6px 10px; }
+.bh.glass.side .rc { padding: 6px 9px; font-size: 12.5px; }

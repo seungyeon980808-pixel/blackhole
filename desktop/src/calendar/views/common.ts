@@ -3,7 +3,7 @@ import type { CalendarState, ChatMessage, Entry, Task } from "../model";
 import { findEntry, type Alarm } from "../store";
 import { KIND_LABEL, type AskHit } from "../ask";
 
-export type ViewName = "month" | "week" | "day" | "memo";
+export type ViewName = "month" | "week" | "day" | "pri" | "memo";
 
 export interface Ctx {
   s: CalendarState;
@@ -91,6 +91,8 @@ export const ICON = {
   print: svg('<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v6H7z"/>'),
   gear: svg('<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3"/>'),
   chat: svg('<path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-8l-4 3v-3H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>'),
+  move: svg('<rect x="3.5" y="5" width="13" height="14" rx="2"/><path d="M3.5 10h13M14 15h7M18 12l3 3-3 3"/>'),
+  swap: svg('<path d="M7 7h11l-3-3M17 17H6l3 3"/>'),
   merge: svg('<path d="M7 4v5a5 5 0 0 0 5 5h5M17 4v5"/><path d="M14 17l3-3-3-3"/>'),
   find: svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'),
   today: svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/>'),
@@ -220,6 +222,8 @@ export function resultCard(ctx: Ctx, id: string, fd: (k: string) => string, answ
     if (x.kind === "task") acts.push(b(`data-tdone="${x.id}"`, x.done ? "완료 취소" : "완료", x.done ? ICON.undo : ICON.ok));
     if (x.kind === "note" && ctx.canEdit) acts.push(b(`data-convert="event|${esc(key)}"`, "일정으로", ICON.cal), b(`data-convert="task|${esc(key)}"`, "할 일로", ICON.todo));
     if (ctx.canEdit) acts.push(b(`data-edit="${esc(key)}"`, "수정", ICON.edit));
+    if (ctx.canEdit && x.kind !== "note") acts.push(b(`data-moveto="${x.id}"`, "날짜 옮기기", ICON.move));
+    if (ctx.canEdit && (x.kind === "event" || x.kind === "task") && !(x.kind === "event" && x.workFor)) acts.push(b(`data-swap="${esc(key)}"`, x.kind === "event" ? "할 일로 바꾸기" : "일정으로 바꾸기", ICON.swap));
     if (answer) acts.push(b(`data-copy="${x.id}"`, "복사", ICON.copy));
     if (x.kind === "event" && x.provisional) acts.push(b(`data-no="${x.id}"`, "취소", ICON.x));
     else if (!answer) acts.push(b(`data-no="${x.id}"`, "되돌리기(지우기)", ICON.x));

@@ -7,13 +7,14 @@ import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type BoardOptio
 import { answer as answerQuestion, AskIndex, classify, docsOf, type AskSources } from "./ask";
 import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
-import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
+import { normalizeState, sharedFrom, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
-import { clockText, isSimpleCertain, memoDraft, parseDraft, singleTime, timeRange, timeWords } from "./rules";
+import { clockText, isSimpleCertain, memoDraft, parseDraft, parseRule, singleTime, timeRange, timeWords } from "./rules";
 import { seedState } from "./samples";
 import {
   applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
 } from "./store";
+import { priorityView, todayView, type TodayOpts } from "./views/today";
 import { checksBar, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
 import { doc, printSheet } from "./views/doc";
 import { glass } from "./views/glass";
@@ -67,6 +68,8 @@ export function friendlyError(e: unknown): string {
   return `처리하지 못함 · 다시 해 보고, 계속되면 블랙홀을 다시 열어 주세요${detail ? ` (${detail})` : ""}`;
 }
 
+const MOVE_RE = /^(.+?)\s*(?:을|를|은|는|도)?\s*((?:다음\s*주\s*)?[월화수목금토일]요일|내일|모레|글피|다음\s*주|\d{1,2}월\s*\d{1,2}일|\d{1,2}일|\d{1,2}\/\d{1,2})\s*(?:로|으로|에)\s*(?:옮겨|옮기기|옮겨\s*줘|미뤄|미뤄\s*줘|미루기|바꿔|변경|이동)/;
+
 export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapter, options: MountOptions = {}): Promise<BlackholeApp> {
   const clock = options.now ?? (() => new Date());
   const stored = normalizeState(await adapter.load().catch(() => null));
@@ -75,7 +78,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let view: ViewName = "day";
   try {
     const v = localStorage.getItem("bh-view");
-    if (v === "month" || v === "week" || v === "day" || v === "memo") view = v;
+    if (v === "month" || v === "week" || v === "day" || v === "memo" || v === "pri") view = v;
   } catch {
     /* private storage: start on the day view */
   }
@@ -97,10 +100,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   /** Right-hand chat panel (desktop): open unless the user folded it; width in px. Remembered. */
   const sideCapable = adapter.origin !== "휴대폰";
   let sidePref = true;
-  let panelW = 360;
+  let panelW = 290;
   try {
     sidePref = localStorage.getItem("bh-panel") !== "closed";
-    panelW = Math.max(PANEL_MIN, Math.min(PANEL_MAX, Number(localStorage.getItem("bh-panel-w")) || 360));
+    panelW = Math.max(PANEL_MIN, Math.min(PANEL_MAX, Number(localStorage.getItem("bh-panel-w")) || 290));
   } catch {
     /* defaults */
   }
@@ -145,6 +148,15 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let setGroup: string | null = null;
   /** The card shown over the day band. */
   let popId: { id: string; x: number; y: number } | null = null;
+  /** 오늘 화면: 업무 08–17 / 하루 전체, and the to-do filter chip (both remembered). */
+  const today: TodayOpts = { range: "work", filter: "all" };
+  try {
+    if (localStorage.getItem("bh-dayrange") === "all") today.range = "all";
+  } catch {
+    /* default */
+  }
+  /** The entry last clicked or hovered (⌥←/⌥→ move it a day). */
+  let picked: string | null = null;
   /** The 「기억」 find box. */
   let memoQuery = "";
   let guideLines: Record<string, string> = {};
@@ -229,6 +241,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <div class="toast" id="bhToast" role="status" aria-live="polite" hidden></div>
       <div class="pop" id="bhPop" role="dialog" aria-label="항목" hidden></div>
       <div class="tip" id="bhTip" role="tooltip" hidden></div>
+      <div class="ctxm" id="bhCtx" role="menu" aria-label="날짜 옮기기" hidden></div>
       <input type="file" id="bhFile" hidden accept="image/*,.pdf,.hwp,.hwpx,.docx,.xlsx,.txt,.wav">`;
     if (sideCapable) {
       // 「대화」 in the header: shows the folded panel again (the panel has 「접기」 itself).
@@ -394,7 +407,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const c = ctx();
     const t = theme();
     const nNotes = s.notes.filter((n) => !n.gone && (s.settings.showSamples || !n.sample)).length;
-    const head = view === "memo" ? { title: `기억 ${nNotes}개`, summary: "날짜·시간 없이 넣은 것과 「메모 …」 · 지우지 않고 계속 보관 · 대화창에 물으면 찾아 줌" } : t.head(c);
+    const head = view === "pri" ? { title: "우선순위", summary: "★ 중요도 × 마감까지 6시간(자동) · 끌어서 칸을 옮기면 ★·마감이 바뀜" } : view === "memo" ? { title: `기억 ${nNotes}개`, summary: "날짜·시간 없이 넣은 것과 「메모 …」 · 지우지 않고 계속 보관 · 대화창에 물으면 찾아 줌" } : t.head(c);
     const title = root.querySelector<HTMLElement>("#bhTitle");
     if (title) title.textContent = head.title;
     const sum = root.querySelector<HTMLElement>("#bhSum");
@@ -404,7 +417,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       b.setAttribute("aria-pressed", String(b.dataset.v === view));
     });
     const main = root.querySelector<HTMLElement>("#bhMain")!;
-    const custom = view === "day" ? t.day(c) : view === "week" ? t.week(c) : view === "memo" ? memoList(c, t.fd, memoQuery) : null;
+    // The day is the 「오늘」 layout (user-approved plan) in both themes; the phone stacks it.
+    const custom = view === "day" ? todayView(c, today, t.fd, side ? "" : checksBar(c, t.fd)) : view === "pri" ? priorityView(c, t.fd) : view === "week" ? t.week(c) : view === "memo" ? memoList(c, t.fd, memoQuery) : null;
     if (custom === null) {
       let host = main.querySelector<HTMLElement>(":scope > .fchost");
       if (!host) {
@@ -503,6 +517,22 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
    * 설정 (정리안, 사용자 선택): group names with a one-line summary; only the clicked group opens.
    * Explanations sit behind ⓘ (hover); warnings stay visible in the open group.
    */
+  /** 설정 → 루틴: 이름 · 시간 · 반복(매일/평일/요일), 지우기; 맨 아래 한 줄로 추가. */
+  function routineRows(): string {
+    const DAYS = "일월화수목금토";
+    const row = (r: Routine) => {
+      const kind = r.repeat === "daily" ? "daily" : r.repeat === "weekdays" ? "weekdays" : "days";
+      const days = Array.isArray(r.repeat) ? r.repeat : [];
+      return `<div class="set-row rtset"><input class="tin w2" data-rtf="${r.id}|title" value="${escapeHtml(r.title)}" aria-label="루틴 이름"><input class="tin" data-rtf="${r.id}|at" value="${r.at}" aria-label="시간">
+        <select data-rtf="${r.id}|repeat" aria-label="반복"><option value="daily" ${kind === "daily" ? "selected" : ""}>매일</option><option value="weekdays" ${kind === "weekdays" ? "selected" : ""}>평일</option><option value="days" ${kind === "days" ? "selected" : ""}>요일 고르기</option></select>
+        ${kind === "days" ? `<span class="rtdays">${[1, 2, 3, 4, 5, 6, 0].map((d) => `<button class="${days.includes(d) ? "on" : ""}" data-rtday="${r.id}|${d}" aria-pressed="${days.includes(d)}">${DAYS[d]}</button>`).join("")}</span>` : ""}
+        <button class="ib" data-rtdel="${r.id}" title="지우기" aria-label="${escapeHtml(r.title)} 지우기">${ICON.x}</button></div>`;
+    };
+    return `${s.routines.filter((r) => !r.gone).sort((a, b) => a.at.localeCompare(b.at)).map(row).join("")}
+      <div class="set-row rtset"><input class="tin w2" data-rtnew placeholder="+ 「매일 8시 20분 메일 확인」 · Enter" aria-label="새 루틴"></div>
+      <div class="set-note">대화창에 「평일 16시 10분 업무일지 루틴」처럼 써도 됩니다. 오늘 화면 오른쪽에서 체크하면 연속 일수가 쌓입니다.</div>`;
+  }
+
   function renderSettings(): void {
     const el = root.querySelector<HTMLElement>("#bhSettings")!;
     const st = s.settings;
@@ -548,6 +578,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         <div class="set-row">끝 없는 일정 기본 길이 <input class="tin" data-time="eventMinutes" value="${st.eventMinutes}" style="width:44px">분</div>
         <label class="set-row"><input type="checkbox" data-set="showPeriods" ${st.showPeriods ? "checked" : ""}> 하루 띠·주 화면에 교시 구간 옅게</label>
         <div class="set-note">「퇴근 전」 「출근 전」 「점심시간에」 「3교시 전/에/끝나고」를 이 시간으로 읽습니다. 24시간(예: 08:50-09:35).</div>` },
+      { id: "routine", name: "루틴", sum: `${s.routines.filter((r) => !r.gone).length}개`, body: routineRows() },
       { id: "alarm", name: "알람", sum: desk?.settings.alarmSound ?? "", body: `${soundRow}<div class="set-row"><button class="mini" data-testalarm>알람 시험 (1분 뒤)</button>${adapter.desk ? '<button class="mini" data-guide>처음 쓰기 안내</button>' : ""}</div>` }
     ];
     const info = (body: string) => {
@@ -879,6 +910,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   function afterApplied(refs: string[], missing: string[], src: string, now: Date, updated: string[] = [], suggested: string[] = []): void {
     for (const id of refs) {
       const x = findEntry(s, id);
+      // The AI only suggests a ★ (출제·결재·평가·제출 …); the user sets it.
+      if (x && (x.kind === "task" || x.kind === "event") && x.star === undefined && /출제|결재|평가|제출|기안|마감|보고서|성적|생기부|생활기록부/.test(x.title)) x.starHint = 1;
       // Every 기억 is also an Obsidian note (all of them, wherever they came from).
       if (x?.kind === "note") void adapter.writeMemo?.(`${x.title}${x.details ? `\n${x.details}` : ""}`, src).catch(() => undefined);
       const d = describe(s, id, theme().fd);
@@ -988,6 +1021,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   async function submitText(text: string, src = adapter.origin, checked = false, mode?: "put"): Promise<void> {
     const v = text.trim();
     if (!v) return;
+    // 「대의원회 18일로 옮겨」 moves; 「매일 8시 20분 메일 확인 루틴」 makes a 루틴 (no AI either way).
+    // (Checked synchronously first: the rule draft must appear before the first await.)
+    if (!checked && mode !== "put" && MOVE_RE.test(v) && (await moveBySentence(v, src))) return;
+    if (!checked && mode !== "put" && addRoutineBySentence(v, src)) return;
     // A question gets an answer from the records; 「내일 3시에 알려줘」 (both) asks once with two buttons.
     if (!checked && mode !== "put") {
       const c = classify(v, clock());
@@ -1156,8 +1193,204 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       void act(() => undefined);
     } });
     const w = x.kind === "event" ? `${theme().fd(x.date)} ${x.start ? `${x.start}${x.end ? "–" + x.end : ""}` : "종일"}` : x.kind === "task" ? `${theme().fd(x.due)}${x.dueTime ? " " + x.dueTime : ""}까지` : "";
-    toast(`${label === "수정" ? "고쳤어요" : "옮겼어요"}: 「${x.title}」 ${w}`, undefined, true);
+    toast(label === "옮김" ? `${x.title} → ${w}` : `고쳤어요: 「${x.title}」 ${w}`, undefined, true);
     void act(() => undefined);
+  }
+
+  /** ☆ → ★(노랑) → ★(빨강) → ☆, set by hand (the AI only suggests). One ⌘Z. */
+  function cycleStar(id: string): void {
+    const x = findEntry(s, id);
+    if (!x) return;
+    const before = x.star ?? 0;
+    x.star = ((before + 1) % 3) as 0 | 1 | 2;
+    delete x.starHint;
+    undoStack.push({ label: `「${x.title}」 별`, run: () => {
+      x.star = before as 0 | 1 | 2;
+      void act(() => undefined);
+    } });
+    void act(() => undefined);
+  }
+
+  /** A 루틴 done (or not) today. */
+  function toggleRoutine(id: string): void {
+    const r = s.routines.find((x) => x.id === id);
+    if (!r) return;
+    const k = ymd(cur);
+    r.done = r.done.includes(k) ? r.done.filter((d) => d !== k) : [...r.done, k];
+    void act(() => undefined);
+  }
+
+  /** 작업 시간: a to-do dragged onto the day table blocks time for it (1 hour, resizable). */
+  function blockWork(taskId: string, day: string, at: number): void {
+    const t = findEntry(s, taskId);
+    if (!t || t.kind !== "task") return;
+    const a = Math.max(0, Math.min(Math.round(at / 10) * 10, 23 * 60));
+    const ev: CalEvent = { id: newId(s, "e"), kind: "event", title: t.title, area: t.area, source: "하루표", createdAt: stamp(clock()), date: day, start: hm(a), end: hm(Math.min(a + 60, 23 * 60 + 59)), provisional: false, reminders: [], workFor: t.id, touched: true };
+    s.events.push(ev);
+    undoStack.push({ label: `「${t.title}」 작업 시간`, run: () => {
+      ev.gone = true;
+      void act(() => undefined);
+    } });
+    toast(`작업 시간: 「${t.title}」 ${hm(a)}–${ev.end}`, undefined, true);
+    void act(() => undefined);
+  }
+
+  /** A new appointment drawn on the day table: asks for its title right there. */
+  function askNewEvent(day: string, a: number, b: number): void {
+    const grid = root.querySelector<HTMLElement>(".dtg");
+    if (!grid) return;
+    const S = Number(grid.dataset.s);
+    const E = Number(grid.dataset.e);
+    const top = ((a - S) / (E - S)) * 100;
+    const h = ((b - a) / (E - S)) * 100;
+    grid.querySelector(".newev")?.remove();
+    grid.insertAdjacentHTML("beforeend", `<div class="newev" style="top:${top}%;height:max(26px, ${h}%)"><input placeholder="${hm(a)}–${hm(b)} 일정 이름 · Enter" aria-label="새 일정 이름" data-newev="${day}|${a}|${b}"></div>`);
+    grid.querySelector<HTMLInputElement>(".newev input")?.focus();
+  }
+
+  function addEventAt(day: string, a: number, b: number, title: string): void {
+    const ev: CalEvent = { id: newId(s, "e"), kind: "event", title: title.slice(0, 80), area: "personal", source: "하루표", createdAt: stamp(clock()), date: day, start: hm(a), end: hm(b), provisional: false, reminders: [stamp(new Date(fromStamp(`${day}T${hm(a)}`).getTime() - 30 * 60e3))], touched: true };
+    s.events.push(ev);
+    undoStack.push({ label: `「${ev.title}」 넣기`, run: () => {
+      ev.gone = true;
+      void act(() => undefined);
+    } });
+    log(s, { label: "넣음", msg: `${theme().fd(day)} ${ev.start}–${ev.end} ${ev.title}`, src: "하루표", ref: ev.id }, clock());
+    toast(`넣었어요: 「${ev.title}」 ${ev.start}–${ev.end}`, undefined, true);
+    void act(() => undefined);
+  }
+
+  /** 다른 날로: keeps the time, moves the reminders with it. */
+  function moveTo(id: string, day: string): void {
+    const x = findEntry(s, id);
+    if (!x || (x.kind !== "event" && x.kind !== "task" && x.kind !== "period")) return;
+    retime(id, day, false, "", "옮김");
+  }
+
+  /** The day a move menu choice means, from the entry's own day. */
+  function moveTarget(id: string, how: string): string | null {
+    const x = findEntry(s, id);
+    if (!x) return null;
+    const base = parseDay(x.kind === "event" ? x.date : x.kind === "task" ? x.due : x.kind === "period" ? x.from : ymd(clock()));
+    const from = parseDay(ymd(clock())) > base ? parseDay(ymd(clock())) : base;
+    if (how === "tomorrow") return ymd(addDays(from, 1));
+    if (how === "weekday") {
+      let d = addDays(from, 1);
+      while (d.getDay() === 0 || d.getDay() === 6) d = addDays(d, 1);
+      return ymd(d);
+    }
+    if (how === "nextweek") return ymd(addDays(base, 7));
+    return /^\d{4}-\d{2}-\d{2}$/.test(how) ? how : null;
+  }
+
+  /** 「날짜 옮기기」 menu (right click, or the card's ↦): 내일 · 다음 평일 · 다음 주 같은 요일 · 달력. */
+  let ctxMenu: { id: string; month: Date } | null = null;
+  function renderCtx(x = 0, y = 0): void {
+    const el = root.querySelector<HTMLElement>("#bhCtx");
+    if (!el) return;
+    if (!ctxMenu) {
+      el.hidden = true;
+      return;
+    }
+    const e = findEntry(s, ctxMenu.id);
+    if (!e) return;
+    const fd = theme().fd;
+    const pick = (how: string, label: string) => {
+      const d = moveTarget(ctxMenu!.id, how);
+      return d ? `<button data-mv="${d}">${label}<span>${fd(d)}</span></button>` : "";
+    };
+    const m = ctxMenu.month;
+    const first = new Date(m.getFullYear(), m.getMonth(), 1);
+    const cells = Array.from({ length: 42 }, (_, i) => addDays(first, i - first.getDay()));
+    el.innerHTML = `<div class="cm-h">「${escapeHtml(e.title)}」 날짜 옮기기</div>${pick("tomorrow", "내일")}${pick("weekday", "다음 평일")}${pick("nextweek", "다음 주 같은 요일")}
+      <div class="cm-cal"><div class="cm-mh"><button data-mvm="-1" aria-label="이전 달">‹</button><b>${m.getFullYear()}. ${m.getMonth() + 1}.</b><button data-mvm="1" aria-label="다음 달">›</button></div><div class="cm-g">${"일월화수목금토".split("").map((d) => `<i>${d}</i>`).join("")}${cells.map((d) => `<button data-mv="${ymd(d)}" class="${d.getMonth() === m.getMonth() ? "" : "out"} ${ymd(d) === ymd(clock()) ? "td" : ""}">${d.getDate()}</button>`).join("")}</div></div>`;
+    el.hidden = false;
+    if (x || y) {
+      const base = root.getBoundingClientRect();
+      el.style.left = `${Math.max(6, Math.min(x - base.left, base.width - 236))}px`;
+      el.style.top = `${Math.max(6, Math.min(y - base.top, base.height - el.offsetHeight - 6))}px`;
+    }
+  }
+
+  /** 「일정 ↔ 할 일」 on a card: an appointment becomes a deadline (its start) and back. */
+  function swapKind(key: string): void {
+    const id = key.slice(key.indexOf("|") + 1);
+    const x = findEntry(s, id);
+    if (!x || (x.kind !== "event" && x.kind !== "task")) return;
+    const common = { title: x.title, details: x.details, area: x.area, source: x.source, createdAt: stamp(clock()), touched: true, star: x.star };
+    const made: Entry = x.kind === "event"
+      ? { ...common, id: newId(s, "t"), kind: "task", due: x.date, dueTime: x.start, done: false, reminders: x.reminders.slice(), subs: [] }
+      : { ...common, id: newId(s, "e"), kind: "event", date: x.due, start: x.dueTime, end: x.dueTime ? hm(Math.min(mins(x.dueTime) + (s.settings.eventMinutes || 60), 23 * 60 + 59)) : null, provisional: false, reminders: x.reminders.slice() };
+    if (made.kind === "event") s.events.push(made);
+    else s.tasks.push(made);
+    x.gone = true;
+    for (const m of s.chat) if (m.refs?.includes(x.id)) m.refs = m.refs.map((r) => (r === x.id ? made.id : r));
+    undoStack.push({ label: `「${x.title}」 ${made.kind === "event" ? "일정으로" : "할 일로"}`, run: () => {
+      made.gone = true;
+      x.gone = false;
+      void act(() => undefined);
+    } });
+    toast(`${made.kind === "event" ? "일정" : "할 일"}으로 바꿨어요: 「${x.title}」`, undefined, true);
+    void act(() => undefined);
+  }
+
+  /** 「X 18일로 옮겨」 「X 내일로 미뤄」: the entry whose title matches goes to that day. */
+  async function moveBySentence(v: string, src: string): Promise<boolean> {
+    const m = MOVE_RE.exec(v.trim());
+    if (!m) return false;
+    const now = clock();
+    const today = ymd(now);
+    let day: string | null = null;
+    const d1 = /^(\d{1,2})일$/.exec(m[2]);
+    if (d1) {
+      let d = new Date(now.getFullYear(), now.getMonth(), Number(d1[1]));
+      if (ymd(d) < today) d = new Date(now.getFullYear(), now.getMonth() + 1, Number(d1[1]));
+      day = ymd(d);
+    } else if (m[2].replace(/\s/g, "") === "다음주") day = ymd(addDays(parseDay(today), 7));
+    else day = parseRule(`${m[2]} 일정`, now).date;
+    if (!day) return false;
+    const name = m[1].trim();
+    const hits = (await askIndex()).search(name).filter((h) => h.cover >= 0.6 && ["event", "task", "period"].includes(h.doc.kind));
+    const x = hits.map((h) => findEntry(s, h.doc.id)).find((e) => e && !e.gone && !(e.kind === "task" && e.done));
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: v, kind: "text", src });
+    if (!x) {
+      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: `「${name}」을(를) 찾지 못했어요` });
+      await save();
+      render();
+      return true;
+    }
+    moveTo(x.id, day);
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: `→ ${theme().fd(day)}`, refs: [x.id] });
+    await save();
+    render();
+    return true;
+  }
+
+  /** 「매일 8시 20분 메일 확인 루틴」 「평일 15:55 종례」 「화·목 12시 20분 급식 지도 루틴」 → 루틴. */
+  function addRoutineBySentence(v: string, src: string): boolean {
+    const rep = /(매일|평일|주중|(?:매주\s*)?([월화수목금토일](?:\s*[·,]?\s*[월화수목금토일])*)\s*(?:요일)?(?:마다)?)/.exec(v);
+    if (!rep || !/루틴|마다|매일|평일/.test(v)) return false;
+    const w = timeWords(v.replace(rep[0], " "), s.settings);
+    const one = singleTime(w);
+    const r0 = parseRule(w, clock());
+    const at = one?.time ?? (r0.hasTime ? r0.time : null);
+    if (!at) return false;
+    const days = rep[2] ? [...new Set(rep[2].replace(/[\s·,]/g, "").split("").map((c) => "일월화수목금토".indexOf(c)).filter((n) => n >= 0))] : null;
+    const repeat = rep[1].startsWith("매일") ? "daily" as const : /평일|주중/.test(rep[1]) ? "weekdays" as const : days ?? "daily";
+    const title = (one ? one.rest : r0.title).replace(/루틴|마다|에\s|하기\s*$/g, " ").replace(/\d{1,2}시(\s*\d{1,2}분)?/g, " ").replace(/\s+/g, " ").trim() || "루틴";
+    const now = clock();
+    const r: Routine = { id: newId(s, "r"), title: title.slice(0, 60), at, repeat, done: [], createdAt: stamp(now) };
+    s.routines.push(r);
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: v, kind: "text", src });
+    const label = repeat === "daily" ? "매일" : repeat === "weekdays" ? "평일" : (repeat as number[]).map((d) => "일월화수목금토"[d]).join("·");
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: `루틴 · ${label} ${at} ${r.title}` });
+    undoStack.push({ label: `루틴 「${r.title}」`, run: () => {
+      r.gone = true;
+      void act(() => undefined);
+    } });
+    toast(`루틴: ${label} ${at} ${r.title}`, undefined, true);
+    void act(() => undefined);
+    return true;
   }
 
   /** A sentence kept as a 기억 (rule: no day, no time, or 「메모 …」). Also an Obsidian note. */
@@ -1491,13 +1724,59 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       else openFolds.add(key);
       return render();
     }
+    if (q("#bhCtx")) {
+      const mv = q("[data-mv]");
+      const mm = q("[data-mvm]");
+      if (mm && ctxMenu) {
+        ctxMenu.month = new Date(ctxMenu.month.getFullYear(), ctxMenu.month.getMonth() + Number(mm.dataset.mvm), 1);
+        return renderCtx();
+      }
+      if (mv && ctxMenu) {
+        const id = ctxMenu.id;
+        ctxMenu = null;
+        renderCtx();
+        return moveTo(id, mv.dataset.mv!);
+      }
+      return;
+    }
+    if (ctxMenu) {
+      ctxMenu = null;
+      renderCtx();
+    }
+    if (q("[data-ev]")) picked = q("[data-ev]")!.dataset.ev!;
+    if (q("[data-dr]")) {
+      today.range = q("[data-dr]")!.dataset.dr === "all" ? "all" : "work";
+      try {
+        localStorage.setItem("bh-dayrange", today.range);
+      } catch {
+        /* not kept */
+      }
+      return render();
+    }
+    if (q("[data-tf]")) {
+      today.filter = q("[data-tf]")!.dataset.tf as TodayOpts["filter"];
+      return render();
+    }
+    if (q("[data-star]")) return cycleStar(q("[data-star]")!.dataset.star!);
+    if (q("[data-rt]")) return toggleRoutine(q("[data-rt]")!.dataset.rt!);
+    if (q("[data-wd]")) return openDay(q("[data-wd]")!.dataset.wd!);
+    if (q("[data-swap]")) return swapKind(q("[data-swap]")!.dataset.swap!);
+    if (q("[data-moveto]")) {
+      const r = q("[data-moveto]")!.getBoundingClientRect();
+      const id = q("[data-moveto]")!.dataset.moveto!;
+      const x = findEntry(s, id);
+      ctxMenu = { id, month: parseDay(x?.kind === "event" ? x.date : x?.kind === "task" ? x.due : ymd(clock())) };
+      return renderCtx(r.left, r.bottom + 4);
+    }
     if (barJustDragged) {
       // The click that ends a drag does not also open the card.
       barJustDragged = false;
       return;
     }
-    if (view === "day" && q(".strip [data-ev], .dstrip [data-ev]")) {
-      const t = q<HTMLElement>(".strip [data-ev], .dstrip [data-ev]")!;
+    const POP = ".strip [data-ev], .dstrip [data-ev], .dtg [data-ev], .tl .task[data-ev] .tn, .ups .ms[data-ev], .dta .chip[data-ev]";
+    if ((view === "day" || view === "pri") && (q(POP) || q(".quad .mq[data-ev] .tn")) && !q("button, [role=checkbox], input")) {
+      const hit = q<HTMLElement>(POP) ?? q<HTMLElement>(".quad .mq[data-ev] .tn")!;
+      const t = hit.dataset.ev ? hit : hit.closest<HTMLElement>("[data-ev]")!;
       const r = t.getBoundingClientRect();
       const base = root.getBoundingClientRect();
       // Next to where it was clicked (a long 공문서 row would put it over the rows below).
@@ -1597,6 +1876,28 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       renderSettings();
       return;
     }
+    if (q("[data-rtday]")) {
+      const [id, d] = q("[data-rtday]")!.dataset.rtday!.split("|");
+      const r = s.routines.find((x) => x.id === id);
+      if (r && Array.isArray(r.repeat)) {
+        const n = Number(d);
+        const next = r.repeat.includes(n) ? r.repeat.filter((x) => x !== n) : [...r.repeat, n].sort();
+        if (next.length) r.repeat = next;
+        return void act(() => undefined);
+      }
+      return;
+    }
+    if (q("[data-rtdel]")) {
+      const r = s.routines.find((x) => x.id === q("[data-rtdel]")!.dataset.rtdel);
+      if (!r) return;
+      r.gone = true;
+      undoStack.push({ label: `루틴 「${r.title}」 지움`, run: () => {
+        r.gone = undefined;
+        void act(() => undefined);
+      } });
+      toast(`루틴 「${r.title}」 지움`, undefined, true);
+      return void act(() => undefined);
+    }
     if (q("[data-testalarm]")) {
       const at = new Date(clock().getTime() + 60_000);
       const a: Alarm = { key: `test@${at.getTime()}`, ref: "", kind: "event", at: stamp(at), atMs: at.getTime(), title: "알람 시험", body: "1분 뒤 시험 알람입니다 · 확인을 누르면 꺼집니다" };
@@ -1674,6 +1975,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return root.querySelector<HTMLInputElement>("#bhIn")?.focus();
     }
     if (e.key === "Escape") {
+      if (ctxMenu) {
+        ctxMenu = null;
+        return renderCtx();
+      }
+      if (root.querySelector(".newev")) {
+        root.querySelector(".newev")!.remove();
+        return;
+      }
       if (popId) {
         popId = null;
         return renderPop();
@@ -1704,6 +2013,19 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
     if (el.matches("[data-drag]")) {
       setChat(!chatOpen);
+      return;
+    }
+    if (el instanceof HTMLInputElement && el.matches("[data-rtnew]")) {
+      const v = el.value.trim();
+      if (!v) return;
+      if (!addRoutineBySentence(/매일|평일|주중|[월화수목금토일]요일|마다/.test(v) ? `${v} 루틴` : `매일 ${v} 루틴`, adapter.origin)) toast("시간을 함께 써 주세요 · 예: 「평일 8시 20분 메일 확인」");
+      return;
+    }
+    if (el instanceof HTMLInputElement && el.dataset.newev) {
+      const [day, a, b] = el.dataset.newev.split("|");
+      const v = el.value.trim();
+      el.closest(".newev")?.remove();
+      if (v) addEventAt(day, Number(a), Number(b), v);
       return;
     }
     if (el instanceof HTMLInputElement && el.dataset.subadd) {
@@ -1779,6 +2101,20 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (el.dataset.desk === "sound") {
       adapter.trySound?.(el.value);
       return void saveDesk((d) => (d.alarmSound = el.value));
+    }
+    if (el.dataset.rtf) {
+      const [id, f] = el.dataset.rtf.split("|");
+      const r = s.routines.find((x) => x.id === id);
+      if (!r) return;
+      if (f === "title") r.title = el.value.trim().slice(0, 60) || r.title;
+      if (f === "at") {
+        const m = /^(\d{1,2}):?(\d{2})$/.exec(el.value.trim());
+        if (m && +m[1] < 24 && +m[2] < 60) r.at = `${pad(+m[1])}:${m[2]}`;
+      }
+      if (f === "repeat") r.repeat = el.value === "daily" ? "daily" : el.value === "weekdays" ? "weekdays" : Array.isArray(r.repeat) ? r.repeat : [new Date().getDay()];
+      await save();
+      render();
+      return;
     }
     if (el.dataset.time || el.dataset.period) {
       // 학교 시간: 「0820」 「8:20」 「08:50-09:35」 「0850~0935」 are all fine; anything else is not taken.
@@ -1977,6 +2313,157 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     else openFolds.delete(key);
     render();
   }, true);
+  /*
+   * The day table: drag a box to move it (10 min), its bottom edge to make it longer, an empty part
+   * to draw a new appointment; drop a box on a day in the week line to move it there.
+   */
+  let dt: { mode: "move" | "end" | "new"; id?: string; y0: number; px: number; S: number; E: number; a: number; b: number; el?: HTMLElement; ghost?: HTMLElement; day: string; moved: boolean } | null = null;
+  const dtMin = (d: NonNullable<typeof dt>, clientY: number) => Math.round((clientY - d.y0) / d.px / 10) * 10;
+  root.addEventListener("pointerdown", (e) => {
+    const t = e.target as HTMLElement;
+    const grid = t.closest<HTMLElement>(".dtg");
+    if (!grid || e.button !== 0) return;
+    const S = Number(grid.dataset.s);
+    const E = Number(grid.dataset.e);
+    const px = grid.clientHeight / (E - S);
+    const box = t.closest<HTMLElement>("[data-evbox]");
+    const day = grid.dataset.dtg!;
+    if (box) {
+      const x = findEntry(s, box.dataset.evbox!);
+      if (x?.kind !== "event" || !x.start) return;
+      const a = mins(x.start);
+      dt = { mode: t.closest(".grip") ? "end" : "move", id: x.id, y0: e.clientY, px, S, E, a, b: x.end ? mins(x.end) : a + (s.settings.eventMinutes || 60), el: box, day, moved: false };
+      return;
+    }
+    if (t.closest("[data-dtc]")) {
+      const r = grid.getBoundingClientRect();
+      const a = Math.round((S + (e.clientY - r.top) / px) / 10) * 10;
+      dt = { mode: "new", y0: e.clientY, px, S, E, a, b: a + 30, day, moved: false };
+      e.preventDefault();
+    }
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (!dt) return;
+    if (!dt.moved && Math.abs(e.clientY - dt.y0) < 4) return;
+    dt.moved = true;
+    hideTip();
+    const d = dtMin(dt, e.clientY);
+    const grid = root.querySelector<HTMLElement>(".dtg");
+    if (!grid) return;
+    const top = (m: number) => `${(((m - dt!.S) / (dt!.E - dt!.S)) * 100).toFixed(3)}%`;
+    if (dt.mode === "new") {
+      if (!dt.ghost) {
+        grid.insertAdjacentHTML("beforeend", '<div class="ev ghost"></div>');
+        dt.ghost = grid.lastElementChild as HTMLElement;
+      }
+      const end = dt.a + Math.max(10, d);
+      const [a, b] = d >= 0 ? [dt.a, end] : [dt.a + d, dt.a];
+      dt.ghost.style.top = top(a);
+      dt.ghost.style.height = `calc(${top(b)} - ${top(a)})`;
+      dt.ghost.textContent = `${hm(Math.max(0, a))}–${hm(Math.min(1439, b))}`;
+      return;
+    }
+    const el = dt.el!;
+    const len = dt.b - dt.a;
+    const a = dt.mode === "move" ? dt.a + d : dt.a;
+    const b = dt.mode === "move" ? a + len : Math.max(dt.a + 10, dt.b + d);
+    el.style.top = top(a);
+    el.style.height = `max(20px, calc(${top(b)} - ${top(a)}))`;
+    el.querySelector(".r")!.textContent = `${hm(Math.max(0, a))}–${hm(Math.min(1439, b))}`;
+    // Over the week line: show where it would go.
+    root.querySelectorAll(".wd.drop").forEach((w) => w.classList.remove("drop"));
+    (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest(".wd")?.classList.add("drop");
+  });
+  window.addEventListener("pointerup", (e) => {
+    const d0 = dt;
+    dt = null;
+    if (!d0 || !d0.moved) return;
+    barJustDragged = true;
+    root.querySelectorAll(".wd.drop").forEach((w) => w.classList.remove("drop"));
+    const d = dtMin(d0, e.clientY);
+    if (d0.mode === "new") {
+      d0.ghost?.remove();
+      const [a, b] = d >= 0 ? [d0.a, d0.a + Math.max(10, d)] : [d0.a + d, d0.a];
+      return askNewEvent(d0.day, Math.max(0, a), Math.min(1439, b));
+    }
+    const wd = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>(".wd");
+    if (wd && d0.mode === "move") return moveTo(d0.id!, wd.dataset.wd!);
+    const len = d0.b - d0.a;
+    let a = d0.mode === "move" ? d0.a + d : d0.a;
+    a = Math.max(0, Math.min(a, 24 * 60 - 10));
+    const b = Math.min(24 * 60 - 1, d0.mode === "move" ? a + len : Math.max(d0.a + 10, d0.b + d));
+    if (d) retime(d0.id!, null, { start: hm(a), end: hm(b) });
+    else render();
+  });
+  // To-dos (and the 우선순위 rows) are dragged with the browser's drag and drop.
+  root.addEventListener("dragstart", (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>("[data-task]");
+    if (!t || !e.dataTransfer) return;
+    e.dataTransfer.setData("text/bh-task", t.dataset.task!);
+    e.dataTransfer.effectAllowed = "move";
+    hideTip();
+  });
+  const dropZone = (t: EventTarget | null) => (t as HTMLElement | null)?.closest?.<HTMLElement>(".dtg, .wd, .quad");
+  root.addEventListener("dragover", (e) => {
+    const z = dropZone(e.target);
+    if (!z || !e.dataTransfer?.types.includes("text/bh-task")) return;
+    e.preventDefault();
+    root.querySelectorAll(".drop").forEach((x) => x !== z && x.classList.remove("drop"));
+    z.classList.add("drop");
+  });
+  root.addEventListener("dragleave", (e) => dropZone(e.target)?.classList.remove("drop"));
+  root.addEventListener("drop", (e) => {
+    const z = dropZone(e.target);
+    const id = e.dataTransfer?.getData("text/bh-task");
+    root.querySelectorAll(".drop").forEach((x) => x.classList.remove("drop"));
+    if (!z || !id) return;
+    e.preventDefault();
+    if (z.classList.contains("wd")) return moveTo(id, z.dataset.wd!);
+    if (z.classList.contains("dtg")) {
+      const r = z.getBoundingClientRect();
+      const S = Number(z.dataset.s);
+      const E = Number(z.dataset.e);
+      return blockWork(id, z.dataset.dtg!, S + ((e.clientY - r.top) / r.height) * (E - S));
+    }
+    // 우선순위: ①② = 중요(★ at least one), ③④ = 보통; ①③ = 급함 → the deadline becomes today.
+    const x = findEntry(s, id);
+    if (!x || x.kind !== "task") return;
+    const q = z.dataset.quad;
+    const before = structuredClone(x);
+    if ((q === "now" || q === "imp") && !(x.star ?? 0)) x.star = 1;
+    if (q === "urgent" || q === "rest") x.star = 0;
+    if ((q === "now" || q === "urgent") && (x.noDue || x.due > ymd(clock()))) {
+      x.due = ymd(clock());
+      x.noDue = false;
+      x.dueTime = x.dueTime ?? s.settings.offWork;
+    }
+    x.touched = true;
+    undoStack.push({ label: `「${x.title}」 우선순위`, run: () => {
+      Object.assign(x, before);
+      void act(() => undefined);
+    } });
+    toast(`「${x.title}」 → ${z.querySelector("h4")?.firstChild?.textContent ?? ""}`, undefined, true);
+    void act(() => undefined);
+  });
+  // The same number lights up in the list and on the day table.
+  root.addEventListener("mouseover", (e) => {
+    const n = (e.target as HTMLElement).closest<HTMLElement>("[data-num]")?.dataset.num;
+    root.querySelectorAll(".no.hl").forEach((x) => x.classList.remove("hl"));
+    if (n) root.querySelectorAll(`.no[data-num="${n}"]`).forEach((x) => x.classList.add("hl"));
+  });
+  // Right click on anything with a day: 「날짜 옮기기」.
+  root.addEventListener("contextmenu", (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>("[data-ev]");
+    if (!t || t.closest("#bhSettings")) return;
+    const x = findEntry(s, t.dataset.ev!);
+    if (!x || (x.kind !== "event" && x.kind !== "task" && x.kind !== "period")) return;
+    e.preventDefault();
+    picked = x.id;
+    hideTip();
+    ctxMenu = { id: x.id, month: parseDay(x.kind === "event" ? x.date : x.kind === "task" ? x.due : x.from) };
+    renderCtx(e.clientX, e.clientY);
+  });
+
   // Hover card (A-4): shows within 150 ms, stays inside the window, never in the way of a drag.
   let tipTimer: number | undefined;
   let tipFor = "";
@@ -2071,6 +2558,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (cmd && e.code === "KeyF") return go(() => (adapter.openQuick ? adapter.openQuick() : root.querySelector<HTMLInputElement>("#bhIn")?.focus()));
     if (cmd && e.code === "KeyZ" && !e.shiftKey && !typing) return go(undo);
     if (cmd && e.code === "Digit4") return go(() => root.querySelector<HTMLButtonElement>('[data-v="memo"]')?.click());
+    if (e.altKey && !typing && !cmd && picked && (e.code === "ArrowLeft" || e.code === "ArrowRight")) {
+      const x = findEntry(s, picked);
+      const k = x?.kind === "event" ? x.date : x?.kind === "task" ? x.due : x?.kind === "period" ? x.from : null;
+      if (k) return go(() => moveTo(picked!, ymd(addDays(parseDay(k), e.code === "ArrowLeft" ? -1 : 1))));
+    }
     if (typing || cmd || e.altKey || settingsOpen) return;
     if (e.code === "ArrowLeft" || e.code === "ArrowRight") return go(() => root.querySelector<HTMLButtonElement>(`[data-nav="${e.code === "ArrowLeft" ? -1 : 1}"]`)?.click());
     if (e.code === "KeyT") return go(() => root.querySelector<HTMLButtonElement>('[data-nav="0"]')?.click());
