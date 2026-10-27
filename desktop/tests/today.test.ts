@@ -142,6 +142,21 @@ describe("moving to another day", () => {
     expect(app!.state.events.find((x) => x.id === "e1")!.reminders).toEqual(["2026-10-27T13:30"]);
   });
 
+  it("「대의원회 4시로 변경」 · 「대의원회 내일 3시 반으로 옮겨」 change the time (no second event); 되돌리기 puts it back", async () => {
+    const root = await mount(base());
+    const n = app!.state.events.length;
+    await app!.submitText("대의원회 4시로 변경");
+    const e = () => app!.state.events.find((x) => x.id === "e1")!;
+    expect([e().date, e().start, e().end]).toEqual(["2026-10-27", "16:00", "16:50"]); // the same 50 minutes
+    expect(e().reminders).toEqual(["2026-10-27T15:50"]);
+    expect(app!.state.events).toHaveLength(n);
+    await app!.submitText("대의원회 내일 3시 반으로 옮겨");
+    expect([e().date, e().start]).toEqual(["2026-10-28", "15:30"]);
+    root.querySelector<HTMLElement>("[data-undo]")!.click();
+    await Promise.resolve();
+    expect([e().date, e().start]).toEqual(["2026-10-27", "16:00"]);
+  });
+
   it("⌥→ moves the picked entry one day; dropping on the header's › moves it to the next day", async () => {
     const root = await mount(base());
     root.querySelector<HTMLElement>('.tl .task[data-ev="t3"] .due')!.click();

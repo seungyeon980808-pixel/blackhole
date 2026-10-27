@@ -71,6 +71,8 @@ export function friendlyError(e: unknown): string {
 }
 
 const MOVE_RE = /^(.+?)\s*(?:을|를|은|는|도)?\s*((?:다음\s*주\s*)?[월화수목금토일]요일|내일|모레|글피|다음\s*주|\d{1,2}월\s*\d{1,2}일|\d{1,2}일|\d{1,2}\/\d{1,2})\s*(?:로|으로|에)\s*(?:옮겨|옮기기|옮겨\s*줘|미뤄|미뤄\s*줘|미루기|바꿔|변경|이동)/;
+// 「학년 협의회 4시로 변경」 「치과 내일 3시 반으로 옮겨」: a time too (the AI made a second 「시간 변경」 event).
+const RETIME_RE = /^(.+?)\s*(?:을|를|은|는|도)?\s*(?:((?:다음\s*주\s*)?[월화수목금토일]요일|내일|모레|글피|\d{1,2}월\s*\d{1,2}일|\d{1,2}일|\d{1,2}\/\d{1,2})\s*)?((?:오전|오후|아침|저녁|밤)?\s*\d{1,2}\s*시(?:\s*\d{1,2}\s*분|\s*반)?|\d{1,2}:\d{2})\s*(?:로|으로)\s*(?:옮겨|옮기기|미뤄|미루기|바꿔|변경|이동|당겨)/;
 
 export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapter, options: MountOptions = {}): Promise<BlackholeApp> {
   const clock = options.now ?? (() => new Date());
@@ -1084,7 +1086,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (!v) return;
     // 「대의원회 18일로 옮겨」 moves; 「매일 8시 20분 메일 확인 루틴」 makes a 루틴 (no AI either way).
     // (Checked synchronously first: the rule draft must appear before the first await.)
-    if (!checked && mode !== "put" && MOVE_RE.test(v) && (await moveBySentence(v, src))) return;
+    if (!checked && mode !== "put" && (MOVE_RE.test(v) || RETIME_RE.test(v)) && (await moveBySentence(v, src))) return;
     if (!checked && mode !== "put" && addRoutineBySentence(v, src)) return;
     // A question gets an answer from the records; 「내일 3시에 알려줘」 (both) asks once with two buttons.
     if (!checked && mode !== "put") {
@@ -1540,10 +1542,15 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   /** 「X 18일로 옮겨」 「X 내일로 미뤄」: the entry whose title matches goes to that day. */
   async function moveBySentence(v: string, src: string): Promise<boolean> {
-    const m = MOVE_RE.exec(v.trim());
+    const rt = MOVE_RE.test(v.trim()) ? null : RETIME_RE.exec(v.trim());
+    const m = rt ? ([rt[0], rt[1], rt[2] ?? ""] as const) : MOVE_RE.exec(v.trim());
     if (!m) return false;
     const now = clock();
     const today = ymd(now);
+    // The new time (「4시」 is the afternoon, as everywhere else).
+    const said = rt ? parseDraft(`${rt[3]} 회의`, now, s.settings) : null;
+    const at = said?.hasTime ? said.time : null;
+    if (rt && !at) return false;
     let day: string | null = null;
     const d1 = /^(\d{1,2})일$/.exec(m[2]);
     if (d1) {
@@ -1551,8 +1558,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (ymd(d) < today) d = new Date(now.getFullYear(), now.getMonth() + 1, Number(d1[1]));
       day = ymd(d);
     } else if (m[2].replace(/\s/g, "") === "다음주") day = ymd(addDays(parseDay(today), 7));
-    else day = parseRule(`${m[2]} 일정`, now).date;
-    if (!day) return false;
+    else if (m[2]) day = parseRule(`${m[2]} 일정`, now).date;
+    if (!day && !at) return false;
     const name = m[1].trim();
     const hits = (await askIndex()).search(name).filter((h) => h.cover >= 0.6 && ["event", "task", "period"].includes(h.doc.kind));
     const x = hits.map((h) => findEntry(s, h.doc.id)).find((e) => e && !e.gone && !(e.kind === "task" && e.done));
@@ -1563,8 +1570,17 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       render();
       return true;
     }
-    moveTo(x.id, day);
-    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: `→ ${theme().fd(day)}`, refs: [x.id] });
+    if (at && x.kind !== "period") retime(x.id, day, { start: at }, "", "옮김");
+    else if (day) moveTo(x.id, day);
+    else {
+      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: `「${x.title}」은(는) 시각이 없는 기간이에요` });
+      await save();
+      render();
+      return true;
+    }
+    const y = findEntry(s, x.id)!;
+    const when = y.kind === "event" ? `${theme().fd(y.date)}${y.start ? " " + y.start : ""}` : y.kind === "task" ? `${theme().fd(y.due)}${y.dueTime ? " " + y.dueTime : ""}` : theme().fd(day!);
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: `→ ${when}`, refs: [x.id] });
     await save();
     render();
     return true;
