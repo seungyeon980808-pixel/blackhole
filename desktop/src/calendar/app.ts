@@ -4,6 +4,7 @@
  * window, a browser and the phone WebView.
  */
 import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type BoardOptions, type ClaudeStatus, type DeskStatus, type GoogleCalendars, type InboxStatus, type MessengerStatus, type PutItem } from "./adapter";
+import { looksSecret } from "./secret";
 import { answer as answerQuestion, AskIndex, classify, docsOf, KIND_LABEL, lineOf, whenOf, type AskDoc, type AskHit, type AskSources } from "./ask";
 import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
@@ -1096,6 +1097,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         render();
         return;
       }
+    }
+    // The phone has no keychain: a password or a card number is not sent at all (it stays in the box).
+    if (!adapter.secretIntake && looksSecret(v)) {
+      const box = root.querySelector<HTMLInputElement>("#bhIn");
+      if (box && !box.value) box.value = v;
+      return toast("비밀번호·카드번호 같은 내용은 휴대폰에서 보내지 않아요 · Mac 빠른 입력창에 넣으면 키체인에만 저장됩니다");
     }
     // Secrets never reach the calendar, the chat or the AI (Mac: keychain only).
     if (!checked && adapter.secretIntake) {

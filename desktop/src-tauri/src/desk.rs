@@ -540,6 +540,10 @@ pub fn start(app: &AppHandle) {
                 if skip.lock().unwrap().contains(&job) {
                     return crate::worker::pipeline::rule_only_proposal(input, now);
                 }
+                // A password or a card number typed on the phone never goes to the AI (or into a note).
+                if let Some(p) = withheld_secret(input, now) {
+                    return Ok(p);
+                }
                 run_analysis_in(input, now, Some(&Layout::new(&root).inbox()))
             });
             let mut run = inbox.lock().unwrap();
@@ -559,9 +563,49 @@ pub fn start(app: &AppHandle) {
     });
 }
 
+/// A short text from the phone that looks like a secret (비번 1234, 카드번호 …): a result with no
+/// items and no text, only the reason — the value is not sent to Claude and not kept in the calendar.
+pub fn withheld_secret(input: &crate::worker::pipeline::Input, now: chrono::DateTime<chrono::FixedOffset>) -> Option<crate::worker::proposal::Proposal> {
+    use crate::worker::pipeline::Input;
+    let text = match input {
+        Input::Text(t) => t.to_string(),
+        Input::File(path) => {
+            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+            if ext != "txt" || std::fs::metadata(path).map(|m| m.len() > 2_000).unwrap_or(true) {
+                return None;
+            }
+            std::fs::read_to_string(path).ok()?
+        }
+    };
+    if matches!(crate::secret::guess(&text), crate::secret::Guess::None) {
+        return None;
+    }
+    let mut p = crate::worker::pipeline::rule_only_proposal(&Input::Text(""), now).ok()?;
+    p.source_text = String::new();
+    p.summary = "비밀 같아 AI로 보내지 않음".into();
+    p.needs_review = true;
+    p.review_reasons = vec!["비밀번호·카드번호 같은 내용이라 AI로 보내지 않았어요 · Mac 빠른 입력창에 넣으면 키체인에만 저장됩니다".into()];
+    Some(p)
+}
+
 #[cfg(test)]
 mod tests {
     use super::percent_decode;
+
+    #[test]
+    fn a_secret_from_the_phone_is_withheld() {
+        use crate::worker::pipeline::Input;
+        let now = chrono::Local::now().fixed_offset();
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("note.txt");
+        std::fs::write(&f, "현관 비밀번호 4821").unwrap();
+        let p = super::withheld_secret(&Input::File(&f), now).expect("withheld");
+        assert!(p.items.is_empty() && p.source_text.is_empty() && p.needs_review);
+        assert!(!serde_json::to_string(&p).unwrap().contains("4821"));
+        std::fs::write(&f, "내일 3시 치과").unwrap();
+        assert!(super::withheld_secret(&Input::File(&f), now).is_none());
+        assert!(super::withheld_secret(&Input::Text("카드번호 1234-5678-9012-3456"), now).is_some());
+    }
 
     #[test]
     fn decodes_file_name_header() {

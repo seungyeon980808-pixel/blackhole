@@ -30,7 +30,7 @@ pub enum Guess {
 
 fn key_words() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| Regex::new(r"(?i)비번|비밀번호|패스워드|암호|password|passwd|\bpw\b|\bpin\b|핀번호|핀 번호|카드\s*번호|카드|보안\s*코드|cvc|cvv|otp|인증\s*키|api\s*key|api키|토큰|token|계좌\s*번호|계좌|공인인증|아이디|계정").unwrap())
+    R.get_or_init(|| Regex::new(r"(?i)비번|비밀번호|패스워드|암호|password|passwd|\bpw\b|\bpin\b|핀번호|핀 번호|카드\s*번호|카드|보안\s*코드|cvc|cvv|otp|인증\s*키|api\s*key|api키|토큰|token|계좌\s*번호|계좌|공인인증|아이디|계정|주민\s*(?:등록)?\s*번호|여권\s*번호|면허\s*번호|운전\s*면허|외국인\s*등록\s*번호").unwrap())
 }
 
 fn is_hangul(c: char) -> bool {
@@ -210,6 +210,24 @@ mod tests {
         assert_eq!(sure("카드번호 1234-5678-9012-3456"), ("카드번호".into(), "1234-5678-9012-3456".into()));
         assert_eq!(sure("나이스 pw=hello2026").1, "hello2026");
         assert_eq!(sure("claude api key sk-ant-abc123def456").1, "sk-ant-abc123def456");
+    }
+
+    #[test]
+    fn id_numbers_and_accounts_are_secrets() {
+        // 2026-10-27 밤 안정화: 주민·여권·면허 번호도 키체인으로(달력·AI에 가지 않음).
+        assert_eq!(sure("주민번호 900101-1234567").1, "900101-1234567");
+        assert_eq!(sure("주민등록번호: 900101-1234567").1, "900101-1234567");
+        assert_eq!(sure("여권번호 M12345678").1, "M12345678");
+        assert_eq!(sure("운전면허 12-34-567890-12").1, "12-34-567890-12");
+        assert_eq!(sure("계좌 110-123-456789").1, "110-123-456789");
+        assert_eq!(sure("와이파이 비밀번호는 qwer5678").1, "qwer5678");
+    }
+
+    #[test]
+    fn phone_numbers_times_and_dates_are_not_secrets() {
+        for t in ["010-1234-5678 학부모 연락처", "학부모 연락처 010-1234-5678", "15:30 회의", "2026-10-30 연수", "1620~2120 초과근무", "11.5 연수", "차 번호 12가 3456"] {
+            assert_eq!(guess(t), Guess::None, "{t}");
+        }
     }
 
     #[test]
