@@ -398,7 +398,6 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
   .bh .matrix .mh, .bh .matrix .mr, .bh .matrix > span { display: none; }
 }
 .bh .content:has(.tdv), .bh .content:has(.matrix) { overflow-y: auto; }
-}
 /* 설정 → 루틴 */
 .bh .settings .rtset { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .bh .settings .rtset .w2 { flex: 1; min-width: 110px; }
