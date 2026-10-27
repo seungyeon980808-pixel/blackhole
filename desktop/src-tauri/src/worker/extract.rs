@@ -211,6 +211,55 @@ pub struct Extraction {
     pub items: Vec<ProposalItem>,
 }
 
+/// KakaoTalk-style export lines without their message time and date header (「[오후 3:13] 김선생님: …」
+/// 「오후 8:01, 교무부장 : …」 「2026년 10월 27일 화요일」 alone on a line).
+fn chat_stamps_removed(text: &str) -> String {
+    use std::sync::OnceLock;
+    static STAMP: OnceLock<regex::Regex> = OnceLock::new();
+    static HEADER: OnceLock<regex::Regex> = OnceLock::new();
+    let t = STAMP
+        .get_or_init(|| regex::Regex::new(r"(?m)^(\s*(?:\[[^\]\n]{1,20}\]\s*)?)(?:\[(?:오전|오후)\s*\d{1,2}:\d{2}\]|(?:오전|오후)\s*\d{1,2}:\d{2},)\s*").unwrap())
+        .replace_all(text, "$1");
+    HEADER
+        .get_or_init(|| regex::Regex::new(r"(?m)^\s*-*\s*\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s*[월화수목금토일]요일\s*-*\s*$").unwrap())
+        .replace_all(&t, "")
+        .into_owned()
+}
+
+/// A reminder said against the start: 「30분 전」 「1시간 전」 「하루 전」/「전날」 (same time, or 「전날 저녁 8시」 at that
+/// time) · 「3일 전」 · 「일주일 전」. None when it is not that kind of phrase.
+fn reminder_before(text: &str, time: &str, start: DateTime<FixedOffset>, reference: DateTime<FixedOffset>) -> Option<DateTime<FixedOffset>> {
+    use std::sync::OnceLock;
+    static MIN: OnceLock<regex::Regex> = OnceLock::new();
+    static HOUR: OnceLock<regex::Regex> = OnceLock::new();
+    static DAYS: OnceLock<regex::Regex> = OnceLock::new();
+    let t = text.replace("한 시간", "1시간").replace("두 시간", "2시간").replace("세 시간", "3시간").replace("반 시간", "30분");
+    if let Some(c) = MIN.get_or_init(|| regex::Regex::new(r"(\d{1,3})\s*분\s*(?:전|일찍)").unwrap()).captures(&t) {
+        return Some(start - Duration::minutes(c[1].parse().ok()?));
+    }
+    if let Some(c) = HOUR.get_or_init(|| regex::Regex::new(r"(\d{1,2})\s*시간\s*(?:전|일찍)").unwrap()).captures(&t) {
+        return Some(start - Duration::hours(c[1].parse().ok()?));
+    }
+    let days = if t.contains("일주일 전") || t.contains("1주일 전") || t.contains("한 주 전") {
+        7
+    } else if t.contains("하루 전") || t.contains("전날") {
+        1
+    } else if let Some(c) = DAYS.get_or_init(|| regex::Regex::new(r"(\d{1,2})\s*일\s*전").unwrap()).captures(&t) {
+        c[1].parse().ok()?
+    } else if t.contains("당일") {
+        0
+    } else {
+        return None;
+    };
+    let day = start - Duration::days(days);
+    if time.is_empty() {
+        return Some(day);
+    }
+    // 「전날 저녁 8시」: that clock time on that day.
+    let at = resolve(&format!("{}월 {}일", day.format("%-m"), day.format("%-d")), time, "SCHEDULE", reference).start_at?;
+    Some(reference.offset().from_local_datetime(&day.date_naive().and_time(at.time())).single()?)
+}
+
 fn invalid(message: impl Into<String>) -> WorkerError {
     WorkerError::new(ErrorCode::InvalidModelOutput, message)
 }
@@ -302,7 +351,9 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
     // resolver's own phrase from the context is used, still under review. With a single
     // item the whole source is its context; otherwise only its own evidence sentence.
     if kind != "NOTE" {
-        let context = if single_item { source_text } else { sentence.as_str() };
+        // Chat exports carry each message's own time (「[오후 3:13] 김선생님:」 「오후 8:01, 교무부장 :」): not the item's.
+        let cleaned = chat_stamps_removed(if single_item { source_text } else { sentence.as_str() });
+        let context = cleaned.as_str();
         if date_text.is_empty() && mentions_date(context, reference.date_naive()) {
             match find_date_phrase(context).filter(|_| options.fill_missing) {
                 Some(phrase) => {
@@ -388,9 +439,14 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
     };
     if !reminder_text.is_empty() {
         let asked = if quoted_in(source_text, &reminder_text) {
-            let date = find_date_phrase(&reminder_text).unwrap_or_default();
+            // 「30분 전에 알려줘」 「하루 전에 알림」 「전날 저녁 8시」: from the item's own start (2026-10-28 밤샘: these
+            // were 「알림 때를 해석하지 못함」 and the default reminder stayed).
             let time = find_time_phrase(&reminder_text).unwrap_or_default();
-            if time.is_empty() { None } else { resolve(&date, &time, "SCHEDULE", reference).start_at }
+            let relative = start.and_then(|at| reminder_before(&reminder_text, &time, at, reference));
+            relative.or_else(|| {
+                let date = find_date_phrase(&reminder_text).unwrap_or_default();
+                if time.is_empty() { None } else { resolve(&date, &time, "SCHEDULE", reference).start_at }
+            })
         } else {
             None
         };
@@ -496,6 +552,31 @@ mod tests {
         assert_eq!(first.end_at, "2026-10-22T16:00:00+09:00");
         assert!(!first.needs_review);
         assert_eq!(first.confidence, 0.9);
+    }
+
+    #[test]
+    fn chat_message_times_are_not_item_times() {
+        let text = "[오후 3:12] 김선생님: 내일 학년회의 4시로 바뀌었어요\n[오후 3:13] 김선생님: 회의 자료 미리 출력 부탁드려요";
+        assert_eq!(chat_stamps_removed(text), "김선생님: 내일 학년회의 4시로 바뀌었어요\n김선생님: 회의 자료 미리 출력 부탁드려요");
+        assert_eq!(chat_stamps_removed("2026년 10월 27일 화요일\n오후 8:01, 교무부장 : 노트북 지참"), "\n교무부장 : 노트북 지참");
+        assert_eq!(chat_stamps_removed("[김선생님] [오후 3:12] 자료 출력"), "[김선생님] 자료 출력");
+        // A plain line that starts with a time is not a chat stamp.
+        assert_eq!(chat_stamps_removed("오후 3:30 회의"), "오후 3:30 회의");
+    }
+
+    #[test]
+    fn reminders_said_against_the_start() {
+        // reference(): Wednesday 2026-10-21 09:00.
+        let one = |text: &str, date: &str, time: &str, rem: &str| {
+            let v = json!({"kind":"SCHEDULE","area":"PERSONAL","title":"치과","details":"","dateText":date,"timeText":time,"endDateText":"","subtasks":[],"reminderText":rem,"evidence":text,"confidence":0.9});
+            let e = validate(&answer(vec![v]).to_string(), Some(text), reference()).unwrap();
+            (e.items[0].reminders.clone(), e.items[0].review_reasons.clone())
+        };
+        assert_eq!(one("내일 3시 치과 30분 전에 알려줘", "내일", "3시", "30분 전"), (vec!["2026-10-22T14:30:00+09:00".to_string()], vec![]));
+        assert_eq!(one("내일 3시 치과 한 시간 전에 알려줘", "내일", "3시", "한 시간 전").0, vec!["2026-10-22T14:00:00+09:00"]);
+        assert_eq!(one("금요일 3시 치과 하루 전에 알림", "금요일", "3시", "하루 전").0, vec!["2026-10-22T15:00:00+09:00"]);
+        assert_eq!(one("금요일 3시 치과 전날 저녁 8시에 알려줘", "금요일", "3시", "전날 저녁 8시").0, vec!["2026-10-22T20:00:00+09:00"]);
+        assert_eq!(one("금요일 3시 치과 목요일 9시에 알려줘", "금요일", "3시", "목요일 9시").0, vec!["2026-10-22T09:00:00+09:00"]);
     }
 
     #[test]
