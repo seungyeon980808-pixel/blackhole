@@ -64,6 +64,9 @@ pub fn run() {
             if settings.board {
                 mac::show_board(handle, true);
             }
+            if settings.main_widget {
+                mac::main_as_widget(handle, true);
+            }
             if at_login {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.hide();
@@ -83,6 +86,9 @@ pub fn run() {
             if let tauri::WindowEvent::Focused(false) = event {
                 if window.label() == mac::QUICK {
                     let _ = window.hide();
+                }
+                if window.label() == mac::BOARD || window.label() == "main" {
+                    mac::widget_settle(window.app_handle(), window.label());
                 }
             }
         })
@@ -142,6 +148,7 @@ pub fn run() {
             mac::memo_note,
             mac::board_toggle,
             mac::board_fit,
+            mac::board_size,
             mac::board_open,
             mac::quick_open,
             mac::quick_query_take,

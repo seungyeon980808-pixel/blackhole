@@ -217,20 +217,25 @@ export interface PutItem {
 }
 
 export interface DeskSettings {
-  shortcuts: { quick: string; clipboard: string; capture: string };
+  shortcuts: { quick: string; clipboard: string; capture: string; widget?: string };
   autostart: boolean;
   alarmSound: string;
   onboarded: boolean;
   autostartOffered?: boolean;
   rightCmdTwice: boolean;
-  /** The 「오늘」 board pinned to the desktop. */
+  /** The widget (small/large) on the desktop. */
   board?: boolean;
+  boardSize?: "small" | "large";
+  /** desktop: under other windows · top: above them · peek: desktop, ⌃⌥⌘W brings it up. */
+  boardMode?: "desktop" | "top" | "peek";
+  /** The main window also sits on the desktop like a widget. */
+  mainWidget?: boolean;
 }
 
 export interface DeskStatus {
   settings: DeskSettings;
   autostartOn: boolean;
-  pretty: { quick: string; clipboard: string; capture: string };
+  pretty: { quick: string; clipboard: string; capture: string; widget?: string };
   problems: string[];
   sounds: string[];
   /** 손쉬운 사용 allowed (right ⌘ twice needs it). */

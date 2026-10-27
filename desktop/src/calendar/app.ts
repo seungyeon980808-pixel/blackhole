@@ -537,6 +537,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       ...(adapter.claude ? [{ id: "ai", name: "AI", sum: claude ? (claude.analyzer === "local" ? "로컬 모델" : `${modelName(claude.model)} · ${claude.hasKey ? `이번 달 ${Math.round(claude.monthUsd * 1400).toLocaleString("ko-KR")}원` : "키 없음"}`) : "", body: strip(claudeBlock()) }] : []),
       ...(inbox.available || adapter.publishShared || adapter.board || adapter.googleCalendars ? [{ id: "inbox", name: adapter.board ? "휴대폰" : "인박스 · 휴대폰", sum: inbox.available ? `${inbox.enabled ? "켜짐" : "꺼짐"}${inbox.lastScanAt ? ` · ${inbox.lastScanAt.slice(11, 16)} 확인` : ""}${st.sharePhone ? " · 공유" : ""}` : "", body: inboxPart }] : []),
       ...(adapter.desk ? [{ id: "mac", name: "단축키 · 시작", sum: desk ? (desk.settings.shortcuts.quick ? desk.pretty.quick : "단축키 끔") : "", body: desk2.replace(soundRow, "") }] : []),
+      ...(adapter.desk ? [{ id: "widget", name: "위젯", sum: desk ? `${desk.settings.board ? (desk.settings.boardSize === "large" ? "큰 위젯" : "작은 위젯") : "꺼짐"}${desk.settings.mainWidget ? " · 전체 창도" : ""} · ${{ desktop: "바탕화면에", top: "항상 위", peek: "단축키로 잠깐" }[desk.settings.boardMode ?? "desktop"]}` : "", body: desk ? `<label class="set-row"><input type="checkbox" data-desk="board" ${desk.settings.board ? "checked" : ""}> 위젯 켜기</label>
+        <label class="set-row">크기 <select data-desk="boardSize"><option value="small" ${desk.settings.boardSize !== "large" ? "selected" : ""}>작게(320×400)</option><option value="large" ${desk.settings.boardSize === "large" ? "selected" : ""}>크게(720×560)</option></select></label>
+        <label class="set-row"><input type="checkbox" data-desk="mainWidget" ${desk.settings.mainWidget ? "checked" : ""}> 프로그램 큰 화면도 위젯처럼(바탕화면에 붙이기)</label>
+        <label class="set-row">표시 방식 <select data-desk="boardMode"><option value="desktop" ${(desk.settings.boardMode ?? "desktop") === "desktop" ? "selected" : ""}>바탕화면에(다른 창 아래)</option><option value="top" ${desk.settings.boardMode === "top" ? "selected" : ""}>항상 위</option><option value="peek" ${desk.settings.boardMode === "peek" ? "selected" : ""}>단축키로 잠깐 앞으로</option></select></label>
+        <div class="set-note">모든 데스크톱에 보입니다. 위치·크기는 기억합니다. ${escapeHtml(desk.pretty.widget || "⌃⌥⌘W")}를 누르면 위젯이 잠깐 맨 앞으로 옵니다(단축키는 「단축키 · 시작」에서 바꿈).</div>` : "" }] : []),
       { id: "alarm", name: "알람", sum: desk?.settings.alarmSound ?? "", body: `${soundRow}<div class="set-row"><button class="mini" data-testalarm>알람 시험 (1분 뒤)</button>${adapter.desk ? '<button class="mini" data-guide>처음 쓰기 안내</button>' : ""}</div>` }
     ];
     const info = (body: string) => {
@@ -605,13 +610,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (!desk) return '<div class="set-sep"></div><div class="set-note">Mac 설정을 읽는 중…</div>';
     const d = desk.settings;
     // A key field like System Settings: click it, press the new keys; Delete turns it off.
-    const sc = (k: "quick" | "clipboard" | "capture", label: string) =>
-      `<label class="set-row">${label} <input class="kbd push" data-desk-sc="${k}" value="${escapeHtml(d.shortcuts[k] ? desk!.pretty[k] : "끔")}" readonly aria-label="${label} 단축키. 누른 뒤 새 키를 누르면 바뀌고, Delete는 끄기" title="눌러서 새 단축키 누르기 · Delete 끄기"></label>`;
+    const sc = (k: "quick" | "clipboard" | "capture" | "widget", label: string) =>
+      `<label class="set-row">${label} <input class="kbd push" data-desk-sc="${k}" value="${escapeHtml(d.shortcuts[k] ? desk!.pretty[k] ?? "" : "끔")}" readonly aria-label="${label} 단축키. 누른 뒤 새 키를 누르면 바뀌고, Delete는 끄기" title="눌러서 새 단축키 누르기 · Delete 끄기"></label>`;
     return `<div class="set-sep"></div><div class="set-g">Mac</div>
       <label class="set-row"><input type="checkbox" data-desk="autostart" ${desk.autostartOn ? "checked" : ""}> 로그인하면 블랙홀 켜기(메뉴 막대에만)</label>
-      <label class="set-row"><input type="checkbox" data-desk="board" ${d.board ? "checked" : ""}> 바탕화면에 「오늘」 판 늘 띄우기(다른 창 아래, 모든 데스크톱)</label>
       <label class="set-row"><input type="checkbox" data-desk="rightCmd" ${d.rightCmdTwice ? "checked" : ""}> 오른쪽 ⌘ 두 번: 빠른 입력·찾기${d.rightCmdTwice && !desk.accessibility ? ' <button class="mini" data-perm="accessibility">손쉬운 사용 허용</button>' : ""}</label>
-      ${sc("quick", "빠른 입력·찾기")}${sc("clipboard", "클립보드 보내기")}${sc("capture", "화면 캡처해 넣기")}
+      ${sc("quick", "빠른 입력·찾기")}${sc("clipboard", "클립보드 보내기")}${sc("capture", "화면 캡처해 넣기")}${sc("widget", "위젯 잠깐 앞으로")}
       <label class="set-row">알람 소리 <select data-desk="sound">${desk.sounds.map((x) => `<option ${x === d.alarmSound ? "selected" : ""}>${x}</option>`).join("")}</select><button class="mini" data-desk-try>들어 보기</button></label>
       <div class="set-row">Raycast <button class="mini" data-raycast>스크립트 만들기</button></div>
       <div class="set-note">Raycast 설정 → Extensions → Script Commands → Add Directories에서 만든 폴더를 고르면 「블랙홀 넣기·찾기·기억·클립보드」가 생깁니다.<br>창을 닫아도 메뉴 막대의 블랙홀이 인박스·알람을 계속 돌립니다.${desk.problems.length || deskLine ? `<br><span class="warn">${escapeHtml([...desk.problems, deskLine].filter(Boolean).join(" · "))}</span>` : ""}</div>`;
@@ -622,7 +626,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (e.key === "Tab") return;
     e.preventDefault();
     e.stopPropagation();
-    const k = el.dataset.deskSc as "quick" | "clipboard" | "capture";
+    const k = el.dataset.deskSc as "quick" | "clipboard" | "capture" | "widget";
     const mods = [e.ctrlKey && "Ctrl", e.altKey && "Alt", e.shiftKey && "Shift", e.metaKey && "Super"].filter(Boolean) as string[];
     const glyph = [e.ctrlKey && "⌃", e.altKey && "⌥", e.shiftKey && "⇧", e.metaKey && "⌘"].filter(Boolean).join("");
     if (e.key === "Escape") return el.blur();
@@ -1763,6 +1767,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (el.dataset.desk === "autostart") return void saveDesk((d) => (d.autostart = (el as HTMLInputElement).checked));
     if (el.dataset.desk === "rightCmd") return void saveDesk((d) => (d.rightCmdTwice = (el as HTMLInputElement).checked));
     if (el.dataset.desk === "board") return void saveDesk((d) => (d.board = (el as HTMLInputElement).checked));
+    if (el.dataset.desk === "boardSize") return void saveDesk((d) => (d.boardSize = el.value === "large" ? "large" : "small"));
+    if (el.dataset.desk === "boardMode") return void saveDesk((d) => (d.boardMode = el.value as "desktop" | "top" | "peek"));
+    if (el.dataset.desk === "mainWidget") return void saveDesk((d) => (d.mainWidget = (el as HTMLInputElement).checked));
     if (el.dataset.desk === "sound") {
       adapter.trySound?.(el.value);
       return void saveDesk((d) => (d.alarmSound = el.value));
@@ -1985,8 +1992,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const el = e.target as HTMLInputElement;
     if (!el.matches?.("[data-desk-sc]")) return;
     el.classList.remove("rec");
-    const k = el.dataset.deskSc as "quick" | "clipboard" | "capture";
-    if (desk) el.value = desk.settings.shortcuts[k] ? desk.pretty[k] : "끔";
+    const k = el.dataset.deskSc as "quick" | "clipboard" | "capture" | "widget";
+    if (desk) el.value = desk.settings.shortcuts[k] ? desk.pretty[k] ?? "" : "끔";
   });
   root.addEventListener("pointerdown", onDown);
   window.addEventListener("pointermove", onMove);

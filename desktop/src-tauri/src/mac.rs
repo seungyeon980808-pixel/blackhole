@@ -32,13 +32,15 @@ pub struct Shortcuts {
     pub quick: String,
     pub clipboard: String,
     pub capture: String,
+    /// Bring the widget(s) to the front for a moment (⌃⌥⌘W).
+    pub widget: String,
 }
 
 impl Default for Shortcuts {
     fn default() -> Self {
         // ⌃⌥⌘: free on a Korean Mac with Raycast (⌃Space/⌃⌥Space switch input, ⌥⌘Space is Finder,
         // ⌥Space is Raycast). Registered by key code, so they work with the Korean input on.
-        Self { quick: "Ctrl+Alt+Super+Space".into(), clipboard: "Ctrl+Alt+Super+V".into(), capture: "Ctrl+Alt+Super+S".into() }
+        Self { quick: "Ctrl+Alt+Super+Space".into(), clipboard: "Ctrl+Alt+Super+V".into(), capture: "Ctrl+Alt+Super+S".into(), widget: "Ctrl+Alt+Super+W".into() }
     }
 }
 
@@ -57,11 +59,18 @@ pub struct DeskSettings {
     pub right_cmd_twice: bool,
     /// The 「오늘」 board on the desktop.
     pub board: bool,
+    /// Widget size: "small" (320×400) or "large" (720×560).
+    pub board_size: String,
+    /// Where widgets sit: "desktop" (under other windows), "top" (above them), "peek" (desktop;
+    /// ⌃⌥⌘W brings them up until another window is used).
+    pub board_mode: String,
+    /// The main window also sits on the desktop like a widget.
+    pub main_widget: bool,
 }
 
 impl Default for DeskSettings {
     fn default() -> Self {
-        Self { shortcuts: Shortcuts::default(), autostart: false, alarm_sound: "Glass".into(), onboarded: false, autostart_offered: false, right_cmd_twice: true, board: false }
+        Self { shortcuts: Shortcuts::default(), autostart: false, alarm_sound: "Glass".into(), onboarded: false, autostart_offered: false, right_cmd_twice: true, board: false, board_size: "small".into(), board_mode: "desktop".into(), main_widget: false }
     }
 }
 
@@ -526,10 +535,12 @@ pub fn show_board(app: &AppHandle, on: bool) {
     if !on {
         return;
     }
+    let st = data_dir(app).map(|d| load_settings(&d)).unwrap_or_default();
+    let (bw, bh) = board_dims(&st.board_size);
     let built = WebviewWindowBuilder::new(app, BOARD, WebviewUrl::App("index.html".into()))
         .initialization_script("window.__BH_WINDOW = 'board';")
         .title("블랙홀 오늘")
-        .inner_size(260.0, 300.0)
+        .inner_size(bw, bh)
         .min_inner_size(240.0, 160.0)
         .resizable(true)
         .decorations(false)
@@ -547,8 +558,8 @@ pub fn show_board(app: &AppHandle, on: bool) {
             if let Ok(ptr) = w2.ns_window() {
                 // SAFETY: the live NSWindow of this webview window, on the main thread.
                 let ns: &NSWindow = unsafe { &*(ptr as *const NSWindow) };
-                // kCGDesktopIconWindowLevel (-2147483603) + 1: over the desktop icons, under apps.
-                ns.setLevel(-2_147_483_602);
+                // Desktop: kCGDesktopIconWindowLevel (-2147483603) + 1, over the icons, under apps.
+                ns.setLevel(widget_level(&st.board_mode));
                 ns.setCollectionBehavior(NSWindowCollectionBehavior::CanJoinAllSpaces | NSWindowCollectionBehavior::Stationary | NSWindowCollectionBehavior::IgnoresCycle);
                 // Created unfocused it is not ordered in: put it on screen without taking the keyboard.
                 ns.orderFrontRegardless();
@@ -557,6 +568,104 @@ pub fn show_board(app: &AppHandle, on: bool) {
     }
     #[cfg(not(target_os = "macos"))]
     let _ = built;
+}
+
+pub fn board_dims(size: &str) -> (f64, f64) {
+    if size == "large" { (720.0, 560.0) } else { (320.0, 400.0) }
+}
+
+/// Window level for a widget: under every window on the desktop, or above them (floating).
+pub fn widget_level(mode: &str) -> isize {
+    if mode == "top" { 3 } else { -2_147_483_602 }
+}
+
+#[allow(unused_variables)]
+fn set_level(w: &tauri::WebviewWindow, level: isize) {
+    #[cfg(target_os = "macos")]
+    {
+        let w2 = w.clone();
+        let _ = w.run_on_main_thread(move || {
+            use objc2_app_kit::NSWindow;
+            if let Ok(ptr) = w2.ns_window() {
+                // SAFETY: the live NSWindow of this webview window, on the main thread.
+                let ns: &NSWindow = unsafe { &*(ptr as *const NSWindow) };
+                ns.setLevel(level);
+                ns.orderFrontRegardless();
+            }
+        });
+    }
+}
+
+fn size_board(app: &AppHandle, size: &str) {
+    if let Some(w) = app.get_webview_window(BOARD) {
+        let (bw, bh) = board_dims(size);
+        let _ = w.set_size(tauri::LogicalSize::new(bw, bh));
+        let _ = w.emit("bh-board-refresh", ());
+    }
+}
+
+/// The widget's ⤢: small ↔ large (saved).
+#[tauri::command]
+pub fn board_size(app: AppHandle, size: String) -> Result<(), String> {
+    let dir = data_dir(&app)?;
+    let mut st = load_settings(&dir);
+    st.board_size = if size == "large" { "large".into() } else { "small".into() };
+    save_settings(&dir, &st)?;
+    size_board(&app, &st.board_size);
+    Ok(())
+}
+
+/// ⌃⌥⌘W: the widget (and the main window when it is a widget) come up to the front until another
+/// window is used; then they go back to the desktop (unless 「항상 위」).
+pub fn widget_peek(app: &AppHandle) {
+    let st = data_dir(app).map(|d| load_settings(&d)).unwrap_or_default();
+    if !st.board && !st.main_widget {
+        show_board(app, true);
+    }
+    activate_app(app);
+    for label in [BOARD, "main"] {
+        if label == "main" && !st.main_widget {
+            continue;
+        }
+        if let Some(w) = app.get_webview_window(label) {
+            let _ = w.show();
+            set_level(&w, 3);
+            let _ = w.set_focus();
+        }
+    }
+}
+
+/// A peeked widget lost focus: back to its place (desktop), unless 「항상 위」.
+pub fn widget_settle(app: &AppHandle, label: &str) {
+    let st = data_dir(app).map(|d| load_settings(&d)).unwrap_or_default();
+    if let Some(w) = app.get_webview_window(label) {
+        if label == BOARD {
+            set_level(&w, widget_level(&st.board_mode));
+        } else if label == "main" && st.main_widget {
+            set_level(&w, widget_level(&st.board_mode));
+        }
+    }
+}
+
+/// 「전체 창도 위젯처럼」: the main window sits on the desktop on every Space (or back to normal).
+pub fn main_as_widget(app: &AppHandle, on: bool) {
+    #[cfg(target_os = "macos")]
+    if let Some(w) = app.get_webview_window("main") {
+        let st = data_dir(app).map(|d| load_settings(&d)).unwrap_or_default();
+        let level = if on { widget_level(&st.board_mode) } else { 0 };
+        let w2 = w.clone();
+        let _ = w.run_on_main_thread(move || {
+            use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior};
+            if let Ok(ptr) = w2.ns_window() {
+                // SAFETY: the live NSWindow of the main window, on the main thread.
+                let ns: &NSWindow = unsafe { &*(ptr as *const NSWindow) };
+                ns.setLevel(level);
+                ns.setCollectionBehavior(if on { NSWindowCollectionBehavior::CanJoinAllSpaces | NSWindowCollectionBehavior::Stationary } else { NSWindowCollectionBehavior::Default });
+                ns.orderFrontRegardless();
+            }
+        });
+    }
+    let _ = (app, on);
 }
 
 /// The board fits its window to what it shows (width stays the user's; height 160–760).
@@ -734,7 +843,7 @@ pub fn register_shortcuts(app: &AppHandle, s: &Shortcuts) -> Vec<String> {
     let mut map = state.shortcuts.lock().unwrap();
     map.clear();
     let mut problems = Vec::new();
-    for (action, text) in [("quick", &s.quick), ("clipboard", &s.clipboard), ("capture", &s.capture)] {
+    for (action, text) in [("quick", &s.quick), ("clipboard", &s.clipboard), ("capture", &s.capture), ("widget", &s.widget)] {
         if text.trim().is_empty() {
             continue;
         }
@@ -761,6 +870,7 @@ pub fn run_action(app: &AppHandle, action: &str) {
             });
         }
         "capture" => capture(app),
+        "widget" => widget_peek(app),
         "open" => show_main(app),
         "quit" => app.exit(0),
         _ => {}
@@ -1044,7 +1154,7 @@ fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
 fn status_of(app: &AppHandle, problems: Vec<String>) -> Result<DeskStatus, String> {
     let settings = load_settings(&data_dir(app)?);
     let s = &settings.shortcuts;
-    let pretty = Shortcuts { quick: pretty_shortcut(&s.quick), clipboard: pretty_shortcut(&s.clipboard), capture: pretty_shortcut(&s.capture) };
+    let pretty = Shortcuts { quick: pretty_shortcut(&s.quick), clipboard: pretty_shortcut(&s.clipboard), capture: pretty_shortcut(&s.capture), widget: pretty_shortcut(&s.widget) };
     let raycast_dir = crate::worker::claude::data_dir().join("raycast");
     Ok(DeskStatus { autostart_on: autostart_on(), pretty, settings, problems, sounds: SOUNDS.iter().map(|s| s.to_string()).collect(), accessibility: accessibility_ok(), raycast_dir: raycast_dir.to_string_lossy().into_owned() })
 }
@@ -1071,8 +1181,17 @@ pub fn desk_set(app: AppHandle, settings: DeskSettings) -> Result<DeskStatus, St
         settings.alarm_sound = "Glass".into();
     }
     *app.state::<MacState>().sound.lock().unwrap() = settings.alarm_sound.clone();
-    if settings.board != before.board {
+    if settings.board != before.board || settings.board_mode != before.board_mode {
         show_board(&app, settings.board);
+        if let Some(w) = app.get_webview_window(BOARD) {
+            set_level(&w, widget_level(&settings.board_mode));
+        }
+    }
+    if settings.board_size != before.board_size {
+        size_board(&app, &settings.board_size);
+    }
+    if settings.main_widget != before.main_widget {
+        main_as_widget(&app, settings.main_widget);
     }
     if settings.shortcuts != before.shortcuts {
         problems.extend(register_shortcuts(&app, &settings.shortcuts));

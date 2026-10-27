@@ -68,3 +68,30 @@ html.bhw-board[data-theme="doc"] .bh-board { color: #111; background: #fff; bord
 .bh-board .bo { border: 0; opacity: .5; font-size: 13px; padding: 0 2px; }
 .bh-board .bsep { height: 1px; background: currentColor; opacity: .14; margin: 4px 0; }
 .bh-board .bt { width: 34px; }
+
+/* widget: small / large, one input line, a named day bar */
+.bh-board .bic { display: flex; gap: 2px; }
+.bh-board .bl { font-size: 10.5px; font-weight: 700; opacity: .55; margin: 7px 0 1px; }
+.bh-board .lf { flex: none; font-size: 10.5px; opacity: .6; margin-left: 4px; }
+.bh-board .bt.r { width: auto; margin-left: auto; }
+.bh-board .bin { width: 100%; margin-top: 8px; border-radius: 7px; padding: 4px 8px; font: inherit; font-size: 12px; color: inherit; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); outline: 0; }
+.bh-board .bin::placeholder { color: inherit; opacity: .5; }
+html.bhw-board[data-theme="light"] .bh-board .bin { background: rgba(255,255,255,.55); border-color: rgba(22,23,42,.15); }
+html.bhw-board[data-theme="doc"] .bh-board .bin { background: #fff; border: 1px solid #1e3264; border-radius: 0; }
+.bh-board.large { font-size: 12.5px; }
+.bh-board .sline { position: relative; margin: 4px 0 2px; }
+.bh-board .sbar { position: absolute; height: 14px; line-height: 14px; font-size: 10.5px; padding: 0 4px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: rgba(120, 190, 255, .5); cursor: pointer; box-sizing: border-box; }
+.bh-board .sbar.prov { outline: 1px dashed currentColor; outline-offset: -1px; background: rgba(255,255,255,.12); }
+html.bhw-board[data-theme="doc"] .bh-board .sbar { background: #e3e8f4; border: 1px solid #9aa6c4; border-radius: 0; }
+.bh-board .snow { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #ff4d5e; }
+.bh-board .bcols { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 14px; }
+.bh-board .bb { font-size: 11.5px; padding: 2px 7px; border-radius: 8px; margin: 2px 0; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgba(255,255,255,.12); }
+.bh-board .bb.me { margin-left: auto; background: rgba(91, 120, 240, .8); color: #fff; }
+html.bhw-board[data-theme="doc"] .bh-board .bb { background: #fff; border: 1px solid #bbb; color: #111; border-radius: 0; }
+/* time ranges on one line; titles never squeezed away; columns stay inside */
+.bh-board .bt { width: auto; min-width: 74px; white-space: nowrap; flex: none; font-variant-numeric: tabular-nums; }
+.bh-board .bn { min-width: 4em; }
+.bh-board .lf, .bh-board .bd { white-space: nowrap; }
+.bh-board .bcols { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); }
+.bh-board .bcols > div { min-width: 0; }
+.bh-board .bb { max-width: 100%; }

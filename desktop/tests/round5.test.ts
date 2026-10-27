@@ -117,3 +117,23 @@ describe("duplicates (B-6)", () => {
     expect(s.events.find((e) => e.id === "e9")!.gone).toBeFalsy();
   });
 });
+
+describe("widget sizes (C, user's choice)", () => {
+  it("small: today's ranges, open to-dos, deadlines soon, an input; large adds the day bar, tomorrow, this week and recent chat", async () => {
+    const { boardHTML } = await import("../src/mac/board");
+    const s = base();
+    s.tasks.push({ id: "t3", kind: "task", title: "선물 주문", area: "personal", source: "t", createdAt: "2026-10-20T08:00", due: "2026-10-28", dueTime: null, done: false, reminders: [], subs: [] });
+    s.chat.push({ id: "c1", at: "2026-10-27T08:00", who: "me", text: "오늘 16202120 초과근무" });
+    document.body.innerHTML = boardHTML(s, NOW, "small");
+    expect(document.body.textContent).toContain("16:20–21:20");
+    expect(document.body.textContent).toContain("마감 임박");
+    expect(document.querySelector(".bin")).not.toBeNull();
+    expect(document.querySelector('[data-size="large"]')).not.toBeNull();
+    expect(document.body.textContent).not.toMatch(/오전|오후|AM|PM/);
+    document.body.innerHTML = boardHTML(s, NOW, "large");
+    expect(document.querySelector(".sline .sbar")!.textContent).toContain("10:00");
+    expect(document.body.textContent).toContain("이번 주 마감");
+    expect(document.querySelector(".bb.me")!.textContent).toBe("오늘 16202120 초과근무");
+    expect(document.querySelector('[data-size="small"]')).not.toBeNull();
+  });
+});
