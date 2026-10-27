@@ -61,6 +61,9 @@ pub fn run() {
             }
             #[cfg(target_os = "macos")]
             mac::watch_right_cmd(handle);
+            if settings.board {
+                mac::show_board(handle, true);
+            }
             if at_login {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.hide();
@@ -137,6 +140,8 @@ pub fn run() {
             mac::ask_records,
             mac::note_open,
             mac::memo_note,
+            mac::board_toggle,
+            mac::board_open,
             mac::quick_open,
             mac::quick_query_take,
             mac::secret_copy,

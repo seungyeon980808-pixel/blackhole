@@ -105,3 +105,37 @@ describe("memo or calendar", () => {
     expect([...root.querySelectorAll(".memov .rc b")].map((b) => b.textContent)).toEqual(["둘째", "첫째"]);
   });
 });
+
+describe("desktop board", () => {
+  it("shows today's appointments, late and due to-dos, the next days; checks go to the main page", async () => {
+    const { boardHTML } = await import("../src/mac/board");
+    const { emptyState } = await import("../src/calendar/model");
+    const s = emptyState();
+    const b = { area: "personal" as const, source: "t", createdAt: "2026-10-20T09:00" };
+    s.events.push({ ...b, id: "e1", kind: "event", title: "초과근무", date: "2026-10-27", start: "16:20", end: "21:20", provisional: false, reminders: [] });
+    s.events.push({ ...b, id: "e2", kind: "event", title: "조회", date: "2026-10-27", start: "08:00", end: "08:30", provisional: false, reminders: [] });
+    s.tasks.push({ ...b, id: "t1", kind: "task", title: "관리비 납부", due: "2026-10-25", dueTime: null, done: false, reminders: [], subs: [] });
+    s.tasks.push({ ...b, id: "t2", kind: "task", title: "출석부 정리", due: "2026-10-27", dueTime: "17:00", done: false, reminders: [], subs: [] });
+    s.events.push({ ...b, id: "e3", kind: "event", title: "치과", date: "2026-10-28", start: "15:00", end: "16:00", provisional: false, reminders: [] });
+    s.notes.push({ ...b, id: "n1", kind: "note", title: "차 번호" });
+    const html = boardHTML(s, NOW);
+    document.body.innerHTML = html;
+    expect(document.querySelector(".bhd")!.textContent).toContain("10/27(화)");
+    expect([...document.querySelectorAll("[data-open].br .bn")].map((x) => x.textContent)).toEqual(["조회", "초과근무"]);
+    expect(document.querySelector('[data-open="e2"]')!.classList.contains("past")).toBe(true);
+    expect(document.querySelector('[data-toggle="t1"]')!.closest(".br")!.textContent).toContain("2일 지남");
+    expect(document.querySelector('[data-toggle="t2"]')).not.toBeNull();
+    expect(document.querySelector(".bnx")!.textContent).toContain("15:00 치과");
+    expect(html).not.toContain("차 번호");
+  });
+
+  it("a check from the board reaches the main page", async () => {
+    let put: ((p: import("../src/calendar/adapter").PutItem) => void) | null = null;
+    await mount(mac({ onPut: (h) => (put = h) }));
+    const t = { id: "t9", kind: "task" as const, title: "출석부 정리", area: "school" as const, source: "t", createdAt: "2026-10-27T08:00", due: "2026-10-27", dueTime: "17:00", done: false, reminders: [], subs: [] };
+    app!.state.tasks.push(t);
+    put!({ toggle: t.id, via: "바탕화면" });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(t.done).toBe(true);
+  });
+});

@@ -542,6 +542,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       `<label class="set-row">${label} <input class="kbd push" data-desk-sc="${k}" value="${escapeHtml(d.shortcuts[k] ? desk!.pretty[k] : "끔")}" readonly aria-label="${label} 단축키. 누른 뒤 새 키를 누르면 바뀌고, Delete는 끄기" title="눌러서 새 단축키 누르기 · Delete 끄기"></label>`;
     return `<div class="set-sep"></div><div class="set-g">Mac</div>
       <label class="set-row"><input type="checkbox" data-desk="autostart" ${desk.autostartOn ? "checked" : ""}> 로그인하면 블랙홀 켜기(메뉴 막대에만)</label>
+      <label class="set-row"><input type="checkbox" data-desk="board" ${d.board ? "checked" : ""}> 바탕화면에 「오늘」 판 늘 띄우기(다른 창 아래, 모든 데스크톱)</label>
       <label class="set-row"><input type="checkbox" data-desk="rightCmd" ${d.rightCmdTwice ? "checked" : ""}> 오른쪽 ⌘ 두 번: 빠른 입력·찾기${d.rightCmdTwice && !desk.accessibility ? ' <button class="mini" data-perm="accessibility">손쉬운 사용 허용</button>' : ""}</label>
       ${sc("quick", "빠른 입력·찾기")}${sc("clipboard", "클립보드 보내기")}${sc("capture", "화면 캡처해 넣기")}
       <label class="set-row">알람 소리 <select data-desk="sound">${desk.sounds.map((x) => `<option ${x === d.alarmSound ? "selected" : ""}>${x}</option>`).join("")}</select><button class="mini" data-desk-try>들어 보기</button></label>
@@ -1105,6 +1106,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (p.link) return submitLink(p.link, p.via);
     if (p.text) return submitText(p.text, p.via, true);
     if (p.memo) return addMemo(p.memo, p.via);
+    if (p.toggle) return userAction({ type: "toggleTask", ref: p.toggle });
     if (p.open) {
       const x = findEntry(s, p.open);
       if (x) {
@@ -1570,6 +1572,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
     if (el.dataset.desk === "autostart") return void saveDesk((d) => (d.autostart = (el as HTMLInputElement).checked));
     if (el.dataset.desk === "rightCmd") return void saveDesk((d) => (d.rightCmdTwice = (el as HTMLInputElement).checked));
+    if (el.dataset.desk === "board") return void saveDesk((d) => (d.board = (el as HTMLInputElement).checked));
     if (el.dataset.desk === "sound") {
       adapter.trySound?.(el.value);
       return void saveDesk((d) => (d.alarmSound = el.value));

@@ -3,7 +3,7 @@
  * scheduling (window forward + sound). The only module in the calendar path that imports Tauri.
  */
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { AnalyzeError, type BlackholeAdapter, type ClaudeStatus, type DeskStatus, type InboxDraft, type InboxResult, type InboxStatus, type MessengerStatus, type PutItem } from "../calendar/adapter";
 import { isoWithOffset } from "../calendar/dates";
@@ -44,7 +44,8 @@ export function tauriAdapter(): BlackholeAdapter {
       detail: "달력은 이 Mac의 앱 데이터 폴더에 저장하고 구글 캘린더에는 쓰지 않습니다. AI 다듬기는 Claude API(키를 넣은 경우)로 글·사진·PDF를 보내 정리합니다."
     },
     load: () => invoke("load_calendar_state"),
-    save: (state: CalendarState) => invoke("save_calendar_state", { state }),
+    // The desktop board reads the saved calendar again after each save.
+    save: (state: CalendarState) => invoke("save_calendar_state", { state }).then(() => void emit("bh-board-refresh").catch(() => undefined)),
     async analyze(input) {
       const now = isoWithOffset(input.now);
       try {

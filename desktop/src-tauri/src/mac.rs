@@ -19,6 +19,8 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 pub const QUICK: &str = "quick";
 pub const ALARM: &str = "alarm";
+/// The 「오늘」 board pinned to the desktop (below other windows, on every Space).
+pub const BOARD: &str = "board";
 const RING_LIMIT: Duration = Duration::from_secs(10 * 60);
 pub const SOUNDS: [&str; 8] = ["Glass", "Hero", "Submarine", "Sosumi", "Ping", "Funk", "Blow", "Purr"];
 
@@ -53,11 +55,13 @@ pub struct DeskSettings {
     pub autostart_offered: bool,
     /// Right ⌘ pressed twice quickly opens the quick window (needs 손쉬운 사용).
     pub right_cmd_twice: bool,
+    /// The 「오늘」 board on the desktop.
+    pub board: bool,
 }
 
 impl Default for DeskSettings {
     fn default() -> Self {
-        Self { shortcuts: Shortcuts::default(), autostart: false, alarm_sound: "Glass".into(), onboarded: false, autostart_offered: false, right_cmd_twice: true }
+        Self { shortcuts: Shortcuts::default(), autostart: false, alarm_sound: "Glass".into(), onboarded: false, autostart_offered: false, right_cmd_twice: true, board: false }
     }
 }
 
@@ -210,6 +214,9 @@ pub struct Put {
     /// Open this entry (search result, Raycast).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub open: Option<String>,
+    /// Check or uncheck this to-do (the desktop board).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub toggle: Option<String>,
     /// 빠른 입력, 클립보드, 화면 캡처, Dock, 끌어 놓기
     pub via: String,
 }
@@ -506,6 +513,66 @@ pub fn open_quick(app: &AppHandle, query: Option<String>, toggle: bool) {
     if let Ok(w) = built {
         raise_window(&w, false);
     }
+}
+
+/// The 「오늘」 board: a small window on the desktop layer — above the wallpaper and its icons,
+/// below every other window — on all Spaces, out of ⌘Tab. Its place and size are remembered
+/// (window-state plugin). Off: hidden.
+pub fn show_board(app: &AppHandle, on: bool) {
+    if let Some(w) = app.get_webview_window(BOARD) {
+        let _ = if on { w.show() } else { w.hide() };
+        return;
+    }
+    if !on {
+        return;
+    }
+    let built = WebviewWindowBuilder::new(app, BOARD, WebviewUrl::App("index.html".into()))
+        .initialization_script("window.__BH_WINDOW = 'board';")
+        .title("블랙홀 오늘")
+        .inner_size(300.0, 460.0)
+        .min_inner_size(240.0, 220.0)
+        .resizable(true)
+        .decorations(false)
+        .transparent(true)
+        .skip_taskbar(true)
+        .shadow(false)
+        .visible_on_all_workspaces(true)
+        .focused(false)
+        .build();
+    #[cfg(target_os = "macos")]
+    if let Ok(w) = built {
+        let w2 = w.clone();
+        let _ = w.run_on_main_thread(move || {
+            use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior};
+            if let Ok(ptr) = w2.ns_window() {
+                // SAFETY: the live NSWindow of this webview window, on the main thread.
+                let ns: &NSWindow = unsafe { &*(ptr as *const NSWindow) };
+                // kCGDesktopIconWindowLevel (-2147483603) + 1: over the desktop icons, under apps.
+                ns.setLevel(-2_147_483_602);
+                ns.setCollectionBehavior(NSWindowCollectionBehavior::CanJoinAllSpaces | NSWindowCollectionBehavior::Stationary | NSWindowCollectionBehavior::IgnoresCycle);
+            }
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = built;
+}
+
+/// The board checks a to-do: the main page applies it (and shares it like any check).
+#[tauri::command]
+pub fn board_toggle(app: AppHandle, id: String) {
+    app.state::<MacState>().puts.lock().unwrap().push(Put { toggle: Some(id), via: "바탕화면".into(), ..Put::default() });
+    let _ = app.emit_to("main", "bh-put", ());
+}
+
+/// The board opens an entry (its day) or, with no id, the main window.
+#[tauri::command]
+pub fn board_open(app: AppHandle, id: Option<String>) {
+    if let Some(id) = id.filter(|x| !x.is_empty()) {
+        app.state::<MacState>().puts.lock().unwrap().push(Put { open: Some(id), via: "바탕화면".into(), ..Put::default() });
+        let _ = app.emit_to("main", "bh-put", ());
+    }
+    activate_app(&app);
+    show_main(&app);
 }
 
 /// Bring Blackhole to the front (the quick window opened from a shortcut, the menu bar or Raycast
@@ -993,6 +1060,9 @@ pub fn desk_set(app: AppHandle, settings: DeskSettings) -> Result<DeskStatus, St
         settings.alarm_sound = "Glass".into();
     }
     *app.state::<MacState>().sound.lock().unwrap() = settings.alarm_sound.clone();
+    if settings.board != before.board {
+        show_board(&app, settings.board);
+    }
     if settings.shortcuts != before.shortcuts {
         problems.extend(register_shortcuts(&app, &settings.shortcuts));
         let _ = build_tray(&app, &settings.shortcuts);

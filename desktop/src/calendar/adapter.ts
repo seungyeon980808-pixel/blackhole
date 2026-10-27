@@ -210,6 +210,8 @@ export interface PutItem {
   memo?: string;
   /** Open this entry (search result). */
   open?: string;
+  /** Check or uncheck this to-do (the desktop board). */
+  toggle?: string;
   link?: { url: string; title: string; text: string };
   via: string;
 }
@@ -221,6 +223,8 @@ export interface DeskSettings {
   onboarded: boolean;
   autostartOffered?: boolean;
   rightCmdTwice: boolean;
+  /** The 「오늘」 board pinned to the desktop. */
+  board?: boolean;
 }
 
 export interface DeskStatus {

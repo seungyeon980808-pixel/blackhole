@@ -1,11 +1,12 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-capability",
-  "description": "Blackhole windows (main, quick input, alarm): Tauri core APIs plus window dragging for the transparent title bar.",
+  "description": "Blackhole windows (main, quick input, alarm, desktop board): Tauri core APIs plus window dragging for the transparent title bar.",
   "windows": [
     "main",
     "quick",
-    "alarm"
+    "alarm",
+    "board"
   ],
   "permissions": [
     "core:default",

@@ -35,3 +35,28 @@ html.bhw-quick #app { align-items: flex-start; }
 .qask button { border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.1); color: #fff; border-radius: 7px; padding: 5px 12px; }
 .qask button[data-secret=yes] { background: #2f5bd8; border-color: #2f5bd8; }
 .qmsg.warn { color: #ff8a8a; }
+
+/* 「오늘」 board on the desktop: dense, navy, red only for what is late or due now. */
+html.bhw-board, html.bhw-board body { background: transparent; }
+html.bhw-board #app { height: 100%; padding: 6px; }
+.bh-board { height: 100%; overflow: auto; border-radius: 14px; padding: 10px 12px 12px; font: 12.5px -apple-system, "Apple SD Gothic Neo", sans-serif; color: #f4f5fb; background: rgba(16, 24, 52, .58); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); border: 1px solid rgba(255,255,255,.16); }
+html.bhw-board[data-theme="light"] .bh-board { color: #16172a; background: rgba(255,255,255,.62); border-color: rgba(22,23,42,.12); }
+html.bhw-board[data-theme="doc"] .bh-board { color: #111; background: #fff; border: 1.5px solid #1e3264; border-radius: 2px; font-family: "Nanum Gothic", sans-serif; }
+.bh-board .bhd { display: flex; align-items: center; justify-content: space-between; font-weight: 800; font-size: 15px; margin-bottom: 6px; cursor: default; }
+.bh-board .bo { font: inherit; font-size: 11px; font-weight: 600; border: 1px solid currentColor; opacity: .55; background: none; color: inherit; border-radius: 6px; padding: 1px 7px; cursor: pointer; }
+.bh-board .bs { margin-top: 8px; }
+.bh-board .bl { font-size: 10.5px; font-weight: 700; opacity: .55; margin-bottom: 2px; }
+.bh-board .br { display: flex; align-items: center; gap: 7px; padding: 2px 0; cursor: pointer; min-width: 0; }
+.bh-board .br.past { opacity: .45; }
+.bh-board .br.done .bn { text-decoration: line-through; opacity: .5; }
+.bh-board .bt { flex: none; width: 38px; font-variant-numeric: tabular-nums; opacity: .75; }
+.bh-board .bn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bh-board .bd { flex: none; font-size: 11px; opacity: .7; }
+.bh-board .bd.hot { color: #ff6b6b; opacity: 1; font-weight: 700; }
+html.bhw-board[data-theme="doc"] .bh-board .bd.hot, html.bhw-board[data-theme="light"] .bh-board .bd.hot { color: #d12b2b; }
+.bh-board .bx { flex: none; width: 15px; height: 15px; border-radius: 4px; border: 1.4px solid currentColor; background: none; color: inherit; font-size: 10px; line-height: 12px; padding: 0; cursor: pointer; opacity: .8; }
+.bh-board .ga { font-style: normal; font-size: 9px; font-weight: 800; padding: 0 3px; border-radius: 3px; background: currentColor; margin-left: 4px; }
+.bh-board .ga { color: inherit; outline: 1px dashed currentColor; background: none; }
+.bh-board .bz { opacity: .45; }
+.bh-board .bnx { padding: 1px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bh-board .bnx b { font-weight: 700; margin-right: 4px; }
