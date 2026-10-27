@@ -34,3 +34,10 @@ it("the worker's 「9시로 임시」 note goes when the period's time is set", 
   applyProposal(s, { items: [it0] } as unknown as Proposal, "인박스", new Date(2026, 9, 27, 10, 40));
   expect([s.events[0].start, s.events[0].review]).toEqual(["10:40", undefined]);
 });
+
+it("a to-do the worker set due before an appointment keeps that time", () => {
+  const s = emptyState();
+  const it0 = { ...item("TODO", "성적표 출력", "2026-10-28T16:00:00+09:00", ""), needsReview: true, reviewReasons: ["「학부모 상담」 전까지로 둠"] } as ProposalItem;
+  applyProposal(s, { items: [it0] } as unknown as Proposal, "인박스", new Date(2026, 9, 27, 10, 40));
+  expect([s.tasks[0].due, s.tasks[0].dueTime]).toEqual(["2026-10-28", "16:00"]);
+});

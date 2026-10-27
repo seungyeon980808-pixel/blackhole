@@ -137,7 +137,154 @@ pub fn normalize(text: &str) -> String {
     for (from, to) in HOURS {
         value = value.replace(from, to);
     }
-    value
+    spoken_days(&value)
+}
+
+/// 「낼」 → 내일 · 「담주」 → 다음 주 · 「수욜」 → 수요일 · 「삼월 이일」 → 3월 2일 · 「이십일」 → 20일
+/// (2026-10-27 밤 안정화: the model wrote 「내일」 for 「낼」 and the quote check then dropped the day).
+fn spoken_days(text: &str) -> String {
+    static NAEL: OnceLock<Regex> = OnceLock::new();
+    static YOL: OnceLock<Regex> = OnceLock::new();
+    static MD: OnceLock<Regex> = OnceLock::new();
+    static D: OnceLock<Regex> = OnceLock::new();
+    let mut v = re(&NAEL, r"(^|\s)낼(\s|$|부터|까지)").replace_all(text, "${1}내일${2}").into_owned();
+    v = v.replace("담주", "다음 주");
+    v = re(&YOL, r"([월화수목금토일])욜").replace_all(&v, "${1}요일").into_owned();
+    let sino = |w: &str| -> u32 {
+        let (mut n, mut cur) = (0u32, 0u32);
+        for c in w.chars() {
+            if c == '십' {
+                n += if cur == 0 { 10 } else { cur * 10 };
+                cur = 0;
+            } else {
+                cur = "일이삼사오육칠팔구".chars().position(|x| x == c).map(|i| i as u32 + 1).unwrap_or(0);
+            }
+        }
+        n + cur
+    };
+    v = re(&MD, r"(^|[^가-힣])([일이삼사오육칠팔구십]{1,3})월\s*([일이삼사오육칠팔구십]{1,3})일")
+        .replace_all(&v, |c: &regex::Captures| {
+            let (m, d) = (sino(&c[2]), sino(&c[3]));
+            if (1..=12).contains(&m) && (1..=31).contains(&d) { format!("{}{m}월 {d}일", &c[1]) } else { c[0].to_string() }
+        })
+        .into_owned();
+    v = re(&D, r"(^|[^가-힣\d])((?:[이삼]?십)[일이삼사오육칠팔구]?)일(\s|$|까지|에|부터)")
+        .replace_all(&v, |c: &regex::Captures| {
+            let d = sino(&c[2]);
+            if (10..=31).contains(&d) { format!("{}{d}일{}", &c[1], &c[3]) } else { c[0].to_string() }
+        })
+        .into_owned();
+    v
+}
+
+/// 「30분 뒤」 「2시간 후」 「한 시간 반 뒤」 → that moment from the reference.
+fn relative_time(text: &str, reference: DateTime<FixedOffset>) -> Option<chrono::NaiveDateTime> {
+    static R: OnceLock<Regex> = OnceLock::new();
+    let t = text.replace("한 시간", "1시간").replace("두 시간", "2시간").replace("세 시간", "3시간").replace("반 시간", "30분");
+    let c = re(&R, r"(?:(\d{1,2})\s*시간\s*)?(?:(\d{1,3})\s*분\s*|(반)\s*)?(?:뒤|후)").captures(&t)?;
+    let hours: i64 = c.get(1).and_then(|m| m.as_str().parse().ok()).unwrap_or(0);
+    let minutes: i64 = c.get(2).and_then(|m| m.as_str().parse().ok()).unwrap_or(if c.get(3).is_some() { 30 } else { 0 });
+    if hours == 0 && minutes == 0 {
+        return None;
+    }
+    Some(reference.naive_local() + Duration::minutes(hours * 60 + minutes))
+}
+
+/// The fixed-date public holidays by name (the lunar ones need the app's own table).
+const NAMED_DAYS: [(&str, u32, u32); 9] = [
+    ("크리스마스", 12, 25), ("성탄절", 12, 25), ("한글날", 10, 9), ("개천절", 10, 3), ("삼일절", 3, 1),
+    ("어린이날", 5, 5), ("현충일", 6, 6), ("광복절", 8, 15), ("신정", 1, 1),
+];
+
+/// Day words beyond the phone parser's: 다음 달 N일 · N일 · 월말 · 주말 · 이번 주 안에 · 다음 주 중에 ·
+/// 이번 달 안에 · 다다음 주 X요일 · 지난 X요일 · N일/일주일 뒤 · 공휴일 이름.
+fn more_days(text: &str, today: NaiveDate) -> Option<NaiveDate> {
+    static NEXT_MONTH_DAY: OnceLock<Regex> = OnceLock::new();
+    static THIS_MONTH_DAY: OnceLock<Regex> = OnceLock::new();
+    static BARE_DAY: OnceLock<Regex> = OnceLock::new();
+    static AFTER_DAYS: OnceLock<Regex> = OnceLock::new();
+    static AFTER_WEEKS: OnceLock<Regex> = OnceLock::new();
+    static NEXT_NEXT: OnceLock<Regex> = OnceLock::new();
+    static LAST: OnceLock<Regex> = OnceLock::new();
+    let t = text;
+    let ymd = |y: i32, m: u32, d: u32| NaiveDate::from_ymd_opt(y, m, d);
+    let month_end = |d: NaiveDate| {
+        let (y, m) = if d.month() == 12 { (d.year() + 1, 1) } else { (d.year(), d.month() + 1) };
+        ymd(y, m, 1).map(|x| x - Duration::days(1))
+    };
+    let next_month = |d: NaiveDate| if d.month() == 12 { (d.year() + 1, 1) } else { (d.year(), d.month() + 1) };
+    let next_monday = today + Duration::days(7 - today.weekday().num_days_from_monday() as i64);
+    let wd = |c: &str| "월화수목금토일".chars().position(|x| x.to_string() == c).map(|i| i as i64);
+    if let Some(c) = re(&AFTER_DAYS, r"(\d{1,3})\s*일\s*(?:뒤|후)").captures(t) {
+        return Some(today + Duration::days(c[1].parse().ok()?));
+    }
+    if t.contains("일주일 뒤") || t.contains("일주일 후") || t.contains("한 주 뒤") {
+        return Some(today + Duration::days(7));
+    }
+    if let Some(c) = re(&AFTER_WEEKS, r"(\d)\s*주\s*(?:뒤|후)").captures(t) {
+        return Some(today + Duration::days(7 * c[1].parse::<i64>().ok()?));
+    }
+    if let Some(c) = re(&NEXT_NEXT, r"다다음\s*주\s*([월화수목금토일])요일").captures(t) {
+        return Some(next_monday + Duration::days(7 + wd(&c[1])?));
+    }
+    if let Some(c) = re(&LAST, r"(?:지난|저번)\s*(주\s*)?([월화수목금토일])요일").captures(t) {
+        let w = wd(&c[2])?;
+        return if c.get(1).is_some() {
+            Some(next_monday - Duration::days(14) + Duration::days(w))
+        } else {
+            let back = (today.weekday().num_days_from_monday() as i64 - w + 7) % 7;
+            Some(today - Duration::days(if back == 0 { 7 } else { back }))
+        };
+    }
+    if let Some(c) = re(&NEXT_MONTH_DAY, r"다음\s*달\s*(\d{1,2})\s*일").captures(t) {
+        let (y, m) = next_month(today);
+        return ymd(y, m, c[1].parse().ok()?);
+    }
+    if let Some(c) = re(&THIS_MONTH_DAY, r"이번\s*달\s*(\d{1,2})\s*일").captures(t) {
+        return ymd(today.year(), today.month(), c[1].parse().ok()?);
+    }
+    if t.contains("다음 달 말") || t.contains("다음달 말") {
+        let (y, m) = next_month(today);
+        return ymd(y, m, 1).and_then(month_end);
+    }
+    if t.contains("월말") || t.contains("말일") || t.contains("이번 달 안") || t.contains("이번달 안") || t.contains("이번 달 중") || t.contains("이번 달 내") {
+        return month_end(today);
+    }
+    if t.contains("다음 주말") || t.contains("다음주말") {
+        return Some(next_monday + Duration::days(5));
+    }
+    if t.contains("주말") {
+        let ahead = (5 - today.weekday().num_days_from_monday() as i64 + 7) % 7;
+        return Some(if today.weekday() == Weekday::Sun { today } else { today + Duration::days(ahead) });
+    }
+    if ["이번 주 안", "이번주 안", "이번 주 중", "이번주 중", "이번 주 내", "금주 안", "금주 중"].iter().any(|w| t.contains(w)) {
+        let ahead = (4 - today.weekday().num_days_from_monday() as i64 + 7) % 7;
+        return Some(today + Duration::days(ahead));
+    }
+    if ["다음 주 안", "다음주 안", "다음 주 중", "다음주 중", "다음 주 내", "다음주 내"].iter().any(|w| t.contains(w)) {
+        return Some(next_monday + Duration::days(4));
+    }
+    for (name, m, d) in NAMED_DAYS {
+        if t.contains(name) {
+            let this = ymd(today.year(), m, d)?;
+            return if this >= today { Some(this) } else { ymd(today.year() + 1, m, d) };
+        }
+    }
+    // A bare 「5일」 (not 「5일 동안」): this month, or next month when it has passed.
+    if let Some(c) = re(&BARE_DAY, r"(?:^|[^\d월\s]\s*|\s)(\d{1,2})\s*일(?:\s|$|까지|에|부터|은|는|이)").captures(t) {
+        let d: u32 = c[1].parse().ok()?;
+        if t.contains("동안") || t.contains("일간") {
+            return None;
+        }
+        if d >= today.day() {
+            if let Some(x) = ymd(today.year(), today.month(), d) {
+                return Some(x);
+            }
+        }
+        let (y, m) = next_month(today);
+        return ymd(y, m, d);
+    }
+    None
 }
 
 /// Whitespace-insensitive containment, used to check that model evidence was really heard.
@@ -241,6 +388,11 @@ fn parse_date(text: &str, today: NaiveDate) -> DateOutcome {
     if text.contains("어제") {
         return DateOutcome::Valid(today - Duration::days(1));
     }
+    if text.contains("다다음") || text.contains("지난") || text.contains("저번") {
+        if let Some(date) = more_days(text, today) {
+            return DateOutcome::Valid(date);
+        }
+    }
     if let Some(weekday) = weekday_in(text) {
         if text.contains("다음 주") || text.contains("다음주") {
             let days_to_next_monday = 7 - today.weekday().num_days_from_monday() as i64;
@@ -253,7 +405,10 @@ fn parse_date(text: &str, today: NaiveDate) -> DateOutcome {
         }
         return DateOutcome::Valid(same_or_next);
     }
-    DateOutcome::Unrecognised
+    match more_days(text, today) {
+        Some(date) => DateOutcome::Valid(date),
+        None => DateOutcome::Unrecognised,
+    }
 }
 
 /// One time phrase found in text: spoken ("오후 3시 반") or 24-hour ("15:30").
@@ -433,7 +588,7 @@ pub fn resolve(date_text: &str, time_text: &str, kind: &str, reference: DateTime
 
     // Flags that keep the resolved date (unlike `reasons`, which stop resolution).
     let mut soft_reasons = Vec::new();
-    let date = match parse_date(&date_text, today) {
+    let mut date = match parse_date(&date_text, today) {
         DateOutcome::Absent => None,
         DateOutcome::Valid(date) => {
             // A month/day just behind us is rolled to next year by the Android rule. That is
@@ -454,7 +609,15 @@ pub fn resolve(date_text: &str, time_text: &str, kind: &str, reference: DateTime
         }
     };
     // A part of the day without an hour ("저녁", "오늘 저녁") gets its default time, marked approximate.
-    let time = if time_text.is_empty() {
+    // 「30분 뒤」 「2시간 후」 (from now), 「정오」, 「자정」 (a deadline at the day's end).
+    let relative = relative_time(&time_text, reference).or_else(|| relative_time(&date_text, reference));
+    let time_text = time_text.replace("정오", "12:00").replace("자정", "23:59");
+    if let Some(at) = relative {
+        date = Some(at.date());
+    }
+    let time = if let Some(at) = relative {
+        Some((at.time(), false))
+    } else if time_text.is_empty() {
         daypart_in(&date_text).map(|(word, t)| {
             soft_reasons.push(approx_reason(&word, t));
             (t, false)
@@ -500,6 +663,11 @@ pub fn resolve(date_text: &str, time_text: &str, kind: &str, reference: DateTime
                 reasons.push("날짜만 있어 오전 9시로 임시 지정".to_string());
             }
             Some(date.and_time(NaiveTime::from_hms_opt(9, 0, 0).expect("09:00")))
+        }
+        // 「4,5,6교시 수행평가」 「퇴근 전 공문 회신」 with no day said: today (the app sets the period's time).
+        (None, None) if ["교시", "점심", "출근", "퇴근", "조회", "종례", "방과후"].iter().any(|w| time_text.contains(w)) => {
+            reasons.push("날짜만 있어 오전 9시로 임시 지정".to_string());
+            Some(today.and_time(NaiveTime::from_hms_opt(9, 0, 0).expect("09:00")))
         }
         (None, None) => None,
     };
@@ -686,6 +854,29 @@ mod tests {
         assert_eq!(start("", "9:30", "SCHEDULE"), "2026-10-21T09:30:00+09:00");
         // Spreadsheet and 공문 dates (2026-10-27 밤 안정화: an xlsx schedule came in with no days).
         assert_eq!(start("2026-11-02", "08:30", "SCHEDULE"), "2026-11-02T08:30:00+09:00");
+        // 2026-10-27 밤 안정화: day words the AI quoted but the code could not read.
+        assert_eq!(start("다음 달 3일", "", "SCHEDULE"), "2026-11-03T09:00:00+09:00");
+        assert_eq!(start("30일", "", "TODO"), "2026-10-30T09:00:00+09:00");
+        assert_eq!(start("5일", "", "TODO"), "2026-11-05T09:00:00+09:00");
+        assert_eq!(start("월말", "", "TODO"), "2026-10-31T09:00:00+09:00");
+        assert_eq!(start("이번 주말", "", "SCHEDULE"), "2026-10-24T09:00:00+09:00");
+        assert_eq!(start("이번 주 안", "", "TODO"), "2026-10-23T09:00:00+09:00");
+        assert_eq!(start("다음 주 중", "", "TODO"), "2026-10-30T09:00:00+09:00");
+        assert_eq!(start("다다음 주 월요일", "", "SCHEDULE"), "2026-11-02T09:00:00+09:00");
+        assert_eq!(start("지난 금요일", "", "TODO"), "2026-10-16T09:00:00+09:00");
+        assert_eq!(start("3일 뒤", "", "TODO"), "2026-10-24T09:00:00+09:00");
+        assert_eq!(start("일주일 뒤", "", "TODO"), "2026-10-28T09:00:00+09:00");
+        assert_eq!(start("크리스마스", "", "SCHEDULE"), "2026-12-25T09:00:00+09:00");
+        assert_eq!(start("담주 수욜", "", "SCHEDULE"), "2026-10-28T09:00:00+09:00");
+        assert_eq!(start("낼", "3시", "SCHEDULE"), "2026-10-22T15:00:00+09:00");
+        assert_eq!(start("삼월 이일", "", "SCHEDULE"), "2027-03-02T09:00:00+09:00");
+        assert_eq!(start("", "2시간 후", "SCHEDULE"), "2026-10-21T11:00:00+09:00");
+        assert_eq!(start("", "30분 뒤", "TODO"), "2026-10-21T09:30:00+09:00");
+        assert_eq!(start("", "자정", "TODO"), "2026-10-21T23:59:00+09:00");
+        assert_eq!(start("", "정오", "SCHEDULE"), "2026-10-21T12:00:00+09:00");
+        assert_eq!(start("", "4,5,6교시", "SCHEDULE"), "2026-10-21T09:00:00+09:00");
+        assert!(quoted_in("낼 3시 치과", "내일"));
+        assert!(quoted_in("삼월 이일 개학", "3월 2일"));
         // A school time word keeps the day (the app sets the period's time).
         assert_eq!(start("11월 11일", "3교시", "SCHEDULE"), "2026-11-11T09:00:00+09:00");
         assert!(resolve("11월 11일", "모르는 때", "SCHEDULE", reference()).start_at.is_none());

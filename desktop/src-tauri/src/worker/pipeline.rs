@@ -3,7 +3,7 @@
 use super::{
     error::{ErrorCode, WorkerError},
     extract::{chunk_text, direct_messages_with, looks_invented, output_schema, recheck_messages, text_messages_with, validate_with, ExtractOptions, Extraction},
-    proposal::{EngineId, EngineInfo, Proposal, ProposalSource, SourceType, Timings, PROMPT_VERSION, PROPOSAL_SCHEMA_VERSION, WORKER_VERSION},
+    proposal::{EngineId, EngineInfo, Proposal, ProposalItem, ProposalSource, SourceType, Timings, PROMPT_VERSION, PROPOSAL_SCHEMA_VERSION, WORKER_VERSION},
     runners::{ChatModel, DocumentReader, Transcriber},
     runners::split_words,
     source::{inspect_wav, read_original, sha256_hex, WavInfo},
@@ -183,6 +183,25 @@ pub fn analyze(input: &Input, engine: EngineId, reference: DateTime<FixedOffset>
     analyze_with(input, engine, reference, engines, &AnalyzeOptions::default())
 }
 
+/// 「상담 전에 성적표 출력」 「그 전에 학습지 인쇄」: a to-do with no day of its own, said to be done
+/// before an appointment found in the same input, is due when that appointment starts.
+pub fn before_the_event(mut items: Vec<ProposalItem>) -> Vec<ProposalItem> {
+    let events: Vec<(String, String, String)> = items.iter().filter(|i| i.kind == "SCHEDULE" && !i.start_at.is_empty()).map(|i| (i.title.clone(), i.start_at.clone(), i.evidence.sentence.clone())).collect();
+    let Some(first) = events.first().cloned() else { return items };
+    for item in items.iter_mut().filter(|i| i.kind == "TODO" && i.start_at.is_empty()) {
+        let said = format!("{} {}", item.evidence.sentence, item.title);
+        if !(said.contains("전에") || said.contains("전까지") || said.contains("앞서") || said.contains("그 전")) {
+            continue;
+        }
+        // The appointment named in its sentence, else the first one.
+        let (title, start, _) = events.iter().find(|(t, _, _)| !t.is_empty() && said.contains(t.split_whitespace().last().unwrap_or(t))).cloned().unwrap_or(first.clone());
+        item.start_at = start;
+        item.needs_review = true;
+        item.review_reasons.push(format!("「{title}」 전까지로 둠"));
+    }
+    items
+}
+
 /// The first bytes say what a file really is: a broken or renamed file is caught here, in Korean,
 /// before it costs a model call (it used to come back as 「HTTP 400 (invalid_request_error)」).
 pub fn check_file_bytes(ext: &str, bytes: &[u8]) -> Result<(), WorkerError> {
@@ -343,6 +362,7 @@ pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOf
     // The same thing found twice (in two chunks, or a pasted text repeated): once.
     let mut seen = std::collections::HashSet::new();
     let items: Vec<_> = items.into_iter().filter(|i| seen.insert((i.kind.clone(), i.title.trim().to_string(), i.start_at.clone(), i.end_at.clone()))).collect();
+    let items = before_the_event(items);
     let mut review_reasons = Vec::new();
     if items.is_empty() {
         review_reasons.push("정리할 일정·할 일·기억할 내용을 찾지 못함".to_string());
@@ -578,6 +598,24 @@ mod tests {
         assert_eq!(p.engine.id, EngineId::Direct);
         assert_eq!(p.source_text, "내일 오후 3시에 학부모 상담");
         assert_eq!(*unused.calls.borrow(), 0);
+    }
+
+    #[test]
+    fn a_to_do_said_before_an_appointment_is_due_then() {
+        let mk = |kind: &str, title: &str, start: &str, sentence: &str| {
+            let mut i: ProposalItem = serde_json::from_value(json!({"kind":kind,"area":"SCHOOL","title":title,"details":"","startAt":start,"endAt":"","reminderAt":"","reminders":[],"subtasks":[],
+                "evidence":{"sentence":sentence,"dateText":"","timeText":"","endDateText":"","reminderText":""},"confidence":0.9,"needsReview":false,"reviewReasons":[]})).unwrap();
+            i.title = title.into();
+            i
+        };
+        let out = before_the_event(vec![
+            mk("SCHEDULE", "학부모 상담", "2026-10-28T16:00:00+09:00", "학부모님께서 내일 오후 4시에 오시기로 하셨고"),
+            mk("TODO", "성적표 출력", "", "상담 전에 성적표 출력해야 함"),
+            mk("TODO", "도서 반납", "", "도서 반납"),
+        ]);
+        assert_eq!(out[1].start_at, "2026-10-28T16:00:00+09:00");
+        assert!(out[1].review_reasons[0].contains("학부모 상담"));
+        assert_eq!(out[2].start_at, "");
     }
 
     #[test]

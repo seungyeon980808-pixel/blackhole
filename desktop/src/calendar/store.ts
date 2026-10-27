@@ -114,7 +114,8 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       out.refs.push(period.id);
       continue;
     }
-    const timed = item.evidence.timeText.trim() !== "";
+    // 「상담 전에 성적표 출력」: the worker set it due when the appointment starts — keep that time.
+    const timed = item.evidence.timeText.trim() !== "" || item.reviewReasons.some((r) => r.endsWith("전까지로 둠"));
     if (item.kind === "TODO") {
       const start = item.startAt ? new Date(item.startAt) : now;
       const task: Task = {
