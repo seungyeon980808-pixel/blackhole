@@ -197,13 +197,14 @@ export function mountBoard(root: HTMLElement): void {
     dial.setPointerCapture(e.pointerId);
     setTimer(minutesAt(dial, e));
     const move = (ev: PointerEvent) => setTimer(minutesAt(dial, ev));
+    // Also on a cancelled pointer (the window lost focus mid-turn): otherwise `turning` stayed on and the widget never redrew.
     const up = () => {
       turning = false;
       dial.removeEventListener("pointermove", move);
-      dial.removeEventListener("pointerup", up);
+      for (const k of ["pointerup", "pointercancel", "lostpointercapture"] as const) dial.removeEventListener(k, up);
     };
     dial.addEventListener("pointermove", move);
-    dial.addEventListener("pointerup", up);
+    for (const k of ["pointerup", "pointercancel", "lostpointercapture"] as const) dial.addEventListener(k, up);
   });
   root.addEventListener("click", (e) => {
     const t = e.target as HTMLElement;
