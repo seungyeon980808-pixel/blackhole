@@ -5,6 +5,7 @@
  * Shared cases: tests/fixtures/rule-cases.json (also run against the Java parser).
  */
 import { addDays, pad, ymd } from "./dates";
+import { holiday } from "./holidays";
 
 export interface RuleResult {
   /** NOTE: Mac drafts only (parseDraft) — a 기억, never on the calendar. */
@@ -226,12 +227,94 @@ export function fixNumbers(raw: string): string {
  * 「12:10까지」, 「점심시간에」 → 「12:10~13:00」, 「3교시 전」 → 「10:40까지」, 「3교시 후」 →
  * 「11:20」, 「5교시에」 → 「13:00~13:40」. Four digits before 까지·에·부터 (「1320까지」) are a time.
  */
-export function timeWords(raw: string, day: DayClock = {}): string {
+const HOLIDAY_ALIAS: Record<string, string> = { 크리스마스: "성탄절", 성탄절: "성탄절", 한글날: "한글날", 개천절: "개천절", 삼일절: "삼일절", 어린이날: "어린이날", 현충일: "현충일", 광복절: "광복절", 신정: "신정", 부처님오신날: "부처님오신날", "추석 연휴": "추석 연휴", 추석: "추석", "설날 연휴": "설날 연휴", 설날: "설날", 설: "설날" };
+
+/**
+ * Day words the shared parser (same answers as the phone's Java parser) does not know, said as
+ * dates it does (2026-10-27 밤 안정화): 「다음 달 3일」 「5일」 「월말」 「주말」 「3일 뒤」
+ * 「일주일 뒤」 「30분 뒤」 「2시간 후」 「다다음 주 월요일」 「지난 금요일」 「어제」 「이번 주 안에」
+ * 「다음 주 중에」 「이번 달 안에」 「정오」 「자정까지」 「크리스마스」 「추석」, and a lone 「1530 회의」.
+ * Past days carry the year so they are not moved to next year.
+ */
+export function dateWords(raw: string, now: Date): string {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const md = (d: Date) => `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  const past = (d: Date) => `${d.getFullYear()}년 ${md(d)}`;
+  const hm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const at = (d: Date) => `${d < today ? past(d) : md(d)} ${hm(d)}`;
+  const DOW = "일월화수목금토";
+  const dow = (c: string) => DOW.indexOf(c);
+  const nextMonday = () => addDays(today, ((8 - today.getDay()) % 7) || 7);
+  const monthDay = (y: number, m: number, d: number) => {
+    const x = new Date(y, m, d);
+    return x.getMonth() === ((m % 12) + 12) % 12 ? x : null;
+  };
+  let v = raw;
+  // 「한 시간 뒤」 「두 시간 후」 「반 시간 뒤」 (before the hour words turn 「한 시」 into 「1시」).
+  v = v.replace(/(한|두|세|네)\s*시간/g, (_m, n: string) => `${"한두세네".indexOf(n) + 1}시간`).replace(/반\s*시간/g, "30분");
+  v = v.replace(/(\d{1,3})\s*분\s*(?:뒤|후)(?:에)?/g, (_m, n: string) => at(new Date(now.getTime() + Number(n) * 60_000)));
+  v = v.replace(/(\d{1,2})\s*시간\s*(?:뒤|후)(?:에)?(?:\s*(\d{1,2})\s*분\s*(?:뒤|후)?)?/g, (_m, h: string, mm?: string) => at(new Date(now.getTime() + (Number(h) * 60 + Number(mm ?? 0)) * 60_000)));
+  v = v.replace(/(?:일주일|1\s*주일|한\s*주)\s*(?:뒤|후)(?:에)?/g, () => md(addDays(today, 7)));
+  v = v.replace(/(\d)\s*주\s*(?:뒤|후)(?:에)?/g, (_m, n: string) => md(addDays(today, 7 * Number(n))));
+  v = v.replace(/(\d{1,3})\s*일\s*(?:뒤|후)(?:에)?/g, (_m, n: string) => md(addDays(today, Number(n))));
+  // 다다음 주 X요일 · 지난(주) X요일 · 어제 · 그저께
+  v = v.replace(/다다음\s*주\s*([월화수목금토일])요일/g, (_m, c: string) => md(addDays(nextMonday(), 7 + ((dow(c) + 6) % 7))));
+  v = v.replace(/(?:지난|저번)\s*주\s*([월화수목금토일])요일/g, (_m, c: string) => past(addDays(nextMonday(), -14 + ((dow(c) + 6) % 7))));
+  v = v.replace(/(?:지난|저번)\s*([월화수목금토일])요일/g, (_m, c: string) => past(addDays(today, -(((today.getDay() - dow(c) + 7) % 7) || 7))));
+  v = v.replace(/그저께|그제/g, () => past(addDays(today, -2))).replace(/어제/g, () => past(addDays(today, -1)));
+  // 다음 달 N일 · 이번 달 N일 · 다음 달 말 · 월말 · 이번 달 안에
+  v = v.replace(/다음\s*달\s*(\d{1,2})\s*일/g, (m, n: string) => { const d = monthDay(today.getFullYear(), today.getMonth() + 1, Number(n)); return d ? md(d) : m; });
+  v = v.replace(/이번\s*달\s*(\d{1,2})\s*일/g, (m, n: string) => { const d = monthDay(today.getFullYear(), today.getMonth(), Number(n)); return d ? md(d) : m; });
+  v = v.replace(/다음\s*달\s*(?:말|말일)/g, () => md(new Date(today.getFullYear(), today.getMonth() + 2, 0)));
+  v = v.replace(/이번\s*달\s*(?:안에|안으로|중에|중|내로|내)/g, () => `${md(new Date(today.getFullYear(), today.getMonth() + 1, 0))}까지`);
+  v = v.replace(/(?:이번\s*달\s*)?(?:월말|말일)/g, () => md(new Date(today.getFullYear(), today.getMonth() + 1, 0)));
+  // 이번 주 안에 → 이번 주 금요일까지 · 다음 주 중에 → 다음 주 금요일까지
+  v = v.replace(/(?:이번\s*주|금주)\s*(?:안에|안으로|중에|중|내로|내)/g, () => `${md(addDays(today, ((5 - today.getDay() + 7) % 7)))}까지`);
+  v = v.replace(/다음\s*주\s*(?:안에|안으로|중에|중|내로|내)/g, () => `${md(addDays(nextMonday(), 4))}까지`);
+  // 주말 (토요일): 다음 주말 · 이번 주말 · 주말
+  v = v.replace(/다음\s*주말/g, () => md(addDays(nextMonday(), 5)));
+  v = v.replace(/(?:이번\s*)?주말/g, () => md(today.getDay() === 0 ? today : addDays(today, (6 - today.getDay() + 7) % 7)));
+  // A bare 「5일」 (not 「11월 5일」, not 「5일 동안」): this month, or next month when it has passed.
+  v = v.replace(/(?<!월\s*)(?<![\d.\-/])(\d{1,2})\s*일(?!\s*(?:동안|간|째|분|만에|정도|씩|에\s*한|마다))(?=\s|까지|에|부터|$|[,.]|은|는|이|도)/g, (m, n: string) => {
+    const k = Number(n);
+    if (k < 1 || k > 31) return m;
+    const d = (k >= today.getDate() ? monthDay(today.getFullYear(), today.getMonth(), k) : null) ?? monthDay(today.getFullYear(), today.getMonth() + 1, k);
+    return d ? md(d) : m;
+  });
+  // 정오 · 자정 · named holidays (the next one from today)
+  v = v.replace(/정오/g, "12시").replace(/자정\s*(?:전까지|까지|전)/g, "23:59까지").replace(/자정(?:에)?/g, "23:59");
+  v = v.replace(/크리스마스|성탄절|한글날|개천절|삼일절|어린이날|현충일|광복절|신정|부처님오신날|추석\s*연휴|추석|설날\s*연휴|설날/g, (m) => {
+    const name = HOLIDAY_ALIAS[m.replace(/\s+/g, " ")] ?? m;
+    for (let i = 0; i < 400; i++) {
+      const d = addDays(today, i);
+      if (holiday(ymd(d)) === name) return md(d);
+    }
+    return m;
+  });
+  // 「1530 회의」: four digits at the very start, then words, are a time.
+  v = v.replace(/^\s*([01]\d|2[0-3])([0-5]\d)(?=\s+[가-힣])/, "$1:$2");
+  return v;
+}
+
+export function timeWords(raw: string, day: DayClock = {}, now?: Date): string {
   const on = day.onWork || "08:20";
   const off = day.offWork || "16:20";
   const [l0, l1] = (day.lunch || "12:20-13:20").split("-");
   const per = day.periods ?? [];
   let v = fixNumbers(raw);
+  if (now) v = dateWords(v, now);
+  // 「3교시~5교시」 「1~2교시」 「4,5,6교시」: from the first period's start to the last one's end.
+  v = v.replace(/(\d{1,2})\s*(?:교시)?\s*(?:~|-|–|부터)\s*(\d{1,2})\s*교시(?:\s*까지)?/g, (m, a: string, b: string) => {
+    const x = per[Number(a) - 1];
+    const y = per[Number(b) - 1];
+    return x && y && Number(b) > Number(a) ? `${x.split("-")[0]}~${y.split("-")[1]} ` : m;
+  });
+  v = v.replace(/(\d{1,2})((?:\s*,\s*\d{1,2})+)\s*교시/g, (m, a: string, rest: string) => {
+    const nums = [a, ...rest.split(",").map((x) => x.trim()).filter(Boolean)].map(Number);
+    const x = per[Math.min(...nums) - 1];
+    const y = per[Math.max(...nums) - 1];
+    return x && y ? `${x.split("-")[0]}~${y.split("-")[1]} ` : m;
+  });
   v = v.replace(/출근\s*(?:하기\s*)?(?:전에|전까지|전)/g, `${on}까지`).replace(/출근\s*(?:하면|후에|후|하고|해서)/g, `${on}`).replace(/아침에(?!\s*\d)/g, `${on}에`);
   v = v.replace(/퇴근\s*(?:하기\s*)?(?:전에|전까지|전|까지)/g, `${off}까지`).replace(/퇴근\s*(?:후에|후|하고)/g, `${off}`);
   v = v.replace(/점심\s*(?:시간\s*)?(?:전에|전까지|전)/g, `${l0}까지`).replace(/점심\s*(?:시간\s*)?(?:후에|후|먹고)/g, `${l1}`).replace(/점심\s*(?:시간|때)\s*(?:에)?/g, `${l0}~${l1} `);
@@ -333,7 +416,7 @@ const MEMO_HEAD = /^\s*(메모|기억|노트)\s*[:：,]?\s+/;
  * into an entry; when the AI is unsure it stays a 기억 (with 「일정으로」·「할 일로」 on its card).
  */
 export function memoDraft(raw0: string, now: Date, day: DayClock = {}): { title: string; details?: string; final: boolean } | null {
-  const raw = MEMO_HEAD.test(raw0) ? raw0 : timeWords(raw0, day);
+  const raw = MEMO_HEAD.test(raw0) ? raw0 : timeWords(raw0, day, now);
   const head = MEMO_HEAD.exec(raw);
   const body = head ? raw.slice(head[0].length) : raw;
   const [first, ...rest] = body.trim().split("\n");
@@ -341,7 +424,9 @@ export function memoDraft(raw0: string, now: Date, day: DayClock = {}): { title:
   if (head) return body.trim() ? memo(true) : null;
   if (timeRange(raw) || singleTime(raw)) return null;
   const r = parseRule(raw, now);
-  if (!r.date && !r.hasTime) return memo(true);
+  // Something about a day the rules could not read: not a sure 기억 — let the AI decide.
+  const dayHint = /(?<![\d-])\d{1,2}\s*일(?!\s*(?:동안|간|째))|주말|월말|말일|(?:뒤|후)(?:에)?(?:\s|$)|안에|중에|내로|자정|정오|연휴|다음\s*달|이번\s*달|오전|오후|저녁|아침|새벽|방과\s*후/.test(raw);
+  if (!r.date && !r.hasTime) return memo(!dayHint);
   // Hearsay (「…보내준대」, 「…온다고」) is something to remember, even with a to-do word in it.
   const hearsay = /(대|래|더라|다고|라고|한다)\s*[.!]?\s*$/.test(raw.trim());
   if (r.date && !r.hasTime && !EVENT_WORDS.test(raw) && (hearsay || !TASK_WORDS.test(raw)) && !/까지|마감|일정|약속|예약/.test(raw)) return memo(false);
@@ -349,14 +434,33 @@ export function memoDraft(raw0: string, now: Date, day: DayClock = {}): { title:
 }
 
 export function parseDraft(raw0: string, now: Date, day: DayClock = {}): RuleResult {
-  const raw = timeWords(raw0, day);
+  return tidyDraft(parseDraftRaw(raw0, now, day));
+}
+
+/** Leftovers the shared parser keeps in titles: 「(화)」, an ISO date, a leading 「부터」 or 「매주」. */
+function tidyDraft(r: RuleResult): RuleResult {
+  const title = r.title
+    .replace(/\(\s*[월화수목금토일]\s*\)/g, " ")
+    .replace(/(?<!\d)\d{4}-\d{1,2}-\d{1,2}(?!\d)/g, " ")
+    .replace(/(?<!\d)\d{4}-(?=\s|$)/g, " ")
+    .replace(/(?:^|\s)(?:내년|올해|금년)(?=\s|$)/g, " ")
+    .replace(/^(?:\s*(?:부터|까지|에서|에|~|-|,|매주|매일|평일|이따|이따가))+\s*/g, "")
+    .replace(/(?:^|\s)(?:오전|오후)에(?=\s)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return title && title !== r.title ? { ...r, title } : r;
+}
+
+function parseDraftRaw(raw0: string, now: Date, day: DayClock = {}): RuleResult {
+  const raw = timeWords(raw0, day, now);
   const range = timeRange(raw);
   if (range) {
     // The day and the title from the rest of the sentence; the range is the time.
     const r = parseRule(range.rest, now);
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const date = r.date ?? ymd(today);
-    const taskOnly = r.kind === "TODO" && !/일정|약속|근무|회의|수업|모임|출장|진료|상담/.test(raw);
+    // A time range is something that takes that time (an appointment), unless it is a hand-in.
+    const taskOnly = r.kind === "TODO" && /제출|마감|내기|납부|신청|보내/.test(range.rest) && !/일정|약속|근무|회의|수업|모임|출장|진료|상담|연수/.test(raw);
     return { ...r, kind: taskOnly ? "TODO" : "SCHEDULE", date, time: range.start, end: range.end, hasTime: true, needsReview: false, explanation: "날짜와 시간을 찾음" };
   }
   const one = singleTime(raw);
