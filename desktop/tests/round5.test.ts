@@ -133,7 +133,7 @@ describe("duplicates (B-6)", () => {
 });
 
 describe("widget sizes (C, user's choice)", () => {
-  it("small: today's ranges, open to-dos, deadlines soon, an input; large adds the day bar, tomorrow, this week and recent chat", async () => {
+  it("small: today's ranges, open to-dos, deadlines soon, an input; large: the four tiles of 시안 H", async () => {
     const { boardHTML } = await import("../src/mac/board");
     const s = base();
     s.tasks.push({ id: "t3", kind: "task", title: "선물 주문", area: "personal", source: "t", createdAt: "2026-10-20T08:00", due: "2026-10-28", dueTime: null, done: false, reminders: [], subs: [] });
@@ -144,10 +144,17 @@ describe("widget sizes (C, user's choice)", () => {
     expect(document.querySelector(".bin")).not.toBeNull();
     expect(document.querySelector('[data-size="large"]')).not.toBeNull();
     expect(document.body.textContent).not.toMatch(/오전|오후|AM|PM/);
+    // Large (시안 H): four labelled tiles — 지금 · 집중 타이머 · 일정 · 할 일 — and the input below.
     document.body.innerHTML = boardHTML(s, NOW, "large");
-    expect(document.querySelector(".sline .sbar")!.textContent).toContain("10:00");
-    expect(document.body.textContent).toContain("이번 주 마감");
-    expect(document.querySelector(".bb.me")!.textContent).toBe("오늘 16202120 초과근무");
+    expect([...document.querySelectorAll(".bh-board.h .ch")].map((x) => [...x.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim())).toEqual(["지금", "집중 타이머", "일정", "할 일"]);
+    expect(document.querySelector("[data-clk]")!.textContent).toBe("09:00");
+    expect(document.querySelector(".nx")!.textContent).toContain("10:00"); // the next thing today
+    expect(document.querySelector("[data-dial]")).not.toBeNull();
+    expect(document.querySelectorAll("[data-m]")).toHaveLength(4);
+    expect(document.querySelector(".hgrid")!.textContent).toContain("내일 10/28(수)");
+    expect(document.querySelector('[data-toggle="t1"]')!.closest(".hr")!.querySelector(".no")!.textContent).toBe("1");
+    expect(document.querySelector(".hin .bin")).not.toBeNull();
+    expect(document.body.textContent).not.toMatch(/오전|오후|AM|PM/);
     expect(document.querySelector('[data-size="small"]')).not.toBeNull();
   });
 });

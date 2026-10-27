@@ -59,7 +59,7 @@ pub struct DeskSettings {
     pub right_cmd_twice: bool,
     /// The 「오늘」 board on the desktop.
     pub board: bool,
-    /// Widget size: "small" (320×400) or "large" (720×560).
+    /// Widget size: "small" (320×400) or "large" (820 wide, as tall as its tiles).
     pub board_size: String,
     /// Where widgets sit: "desktop" (under other windows), "top" (above them), "peek" (desktop;
     /// ⌃⌥⌘W brings them up until another window is used).
@@ -571,7 +571,8 @@ pub fn show_board(app: &AppHandle, on: bool) {
 }
 
 pub fn board_dims(size: &str) -> (f64, f64) {
-    if size == "large" { (720.0, 560.0) } else { (320.0, 400.0) }
+    // Large = 시안 H (four tiles side by side); the height follows what it shows (board_fit).
+    if size == "large" { (820.0, 520.0) } else { (320.0, 400.0) }
 }
 
 /// Window level for a widget: under every window on the desktop, or above them (floating).
@@ -675,6 +676,19 @@ pub fn board_fit(app: AppHandle, height: f64) {
         let width = w.inner_size().ok().zip(w.scale_factor().ok()).map(|(s, f)| s.width as f64 / f).unwrap_or(300.0);
         let _ = w.set_size(tauri::LogicalSize::new(width, height.clamp(160.0, 760.0)));
     }
+}
+
+/// The widget's 집중 타이머 ran out: a notification and the alarm sound (twice).
+#[tauri::command]
+pub fn board_timer_done(app: AppHandle) {
+    notify(&app, "블랙홀 · 집중 타이머", "시간이 다 됐어요.");
+    let sound = data_dir(&app).map(|d| load_settings(&d).alarm_sound).unwrap_or_else(|_| "Glass".into());
+    let sound = if SOUNDS.contains(&sound.as_str()) { sound } else { "Glass".into() };
+    std::thread::spawn(move || {
+        for _ in 0..2 {
+            let _ = Command::new("/usr/bin/afplay").args(["-v", "1.6", &format!("/System/Library/Sounds/{sound}.aiff")]).status();
+        }
+    });
 }
 
 /// The board checks a to-do: the main page applies it (and shares it like any check).

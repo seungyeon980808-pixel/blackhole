@@ -95,3 +95,57 @@ html.bhw-board[data-theme="doc"] .bh-board .bb { background: #fff; border: 1px s
 .bh-board .bcols { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); }
 .bh-board .bcols > div { min-width: 0; }
 .bh-board .bb { max-width: 100%; }
+
+/* 색은 별의 노랑·빨강만: 급함은 빨간 점 대신 굵게 */
+.bh-board .bd.hot::before { display: none; }
+
+/* 큰 위젯 = 시안 H: 칸 네 개(지금 · 집중 타이머 · 일정 · 할 일), 각 칸에 아이콘 제목 */
+.bh-board.h { padding: 12px 14px 12px; font-size: 13.5px; border-radius: 20px; }
+.bh-board.h .bhd { margin-bottom: 8px; }
+.bh-board.h .hgrid { display: grid; grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: start; }
+.bh-board.h .hcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.bh-board.h .card { border-radius: 14px; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.14); padding: 10px 12px; min-width: 0; }
+.bh-board.h .ch { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 700; margin-bottom: 6px; }
+.bh-board.h .ch i { font-style: normal; width: 22px; height: 22px; border-radius: 7px; background: rgba(255,255,255,.16); display: grid; place-items: center; font-size: 12px; flex: none; }
+.bh-board.h .ch .c { margin-left: auto; font-size: 11.5px; font-weight: 600; opacity: .8; background: rgba(255,255,255,.1); border-radius: 999px; padding: 1px 8px; }
+.bh-board.h .ch .why { font-size: 11.5px; font-weight: 400; opacity: .5; }
+.bh-board.h .clk { font-size: 40px; font-weight: 300; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
+.bh-board.h .dt { font-size: 13px; font-weight: 700; margin-top: 4px; } .bh-board.h .dt span { font-weight: 400; opacity: .7; }
+.bh-board.h .nx { margin-top: 10px; padding: 8px 10px; border-radius: 11px; background: rgba(255,255,255,.12); font-size: 13px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.bh-board.h .nx .l { font-size: 11.5px; opacity: .7; } .bh-board.h .nx b { font-variant-numeric: tabular-nums; }
+.bh-board.h .sub { font-size: 11.5px; font-weight: 700; opacity: .5; margin: 8px 0 2px; }
+.bh-board.h .hr { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 3px 0; cursor: default; }
+.bh-board.h .hr[data-open] { cursor: pointer; }
+.bh-board.h .hr.past { opacity: .45; }
+.bh-board.h .tm { font-size: 12.5px; opacity: .75; font-variant-numeric: tabular-nums; white-space: nowrap; } .bh-board.h .tm.b { opacity: 1; font-weight: 700; }
+.bh-board.h .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.bh-board.h .nm { cursor: pointer; }
+.bh-board.h .x { font-style: normal; font-size: 11.5px; opacity: .5; white-space: nowrap; } .bh-board.h .x.b { opacity: 1; font-weight: 700; }
+.bh-board.h .no { display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; border-radius: 5px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,.1); margin-right: 5px; vertical-align: 1px; }
+.bh-board.h .ck { width: 14px; height: 14px; border: 1.5px solid currentColor; opacity: .8; border-radius: 4px; background: none; color: inherit; padding: 0; margin-right: 6px; vertical-align: -2px; cursor: pointer; font-size: 9px; line-height: 10px; }
+.bh-board.h .s1 { color: #ffd84a; } .bh-board.h .s2 { color: #ff5a5f; }
+.bh-board.h .dd { font-weight: 700; font-size: 12.5px; opacity: .75; } .bh-board.h .dd.soon { opacity: 1; }
+.bh-board.h .later { opacity: .7; }
+.bh-board.h .bz { opacity: .45; padding: 2px 0; }
+.bh-board.h .tmr { display: flex; gap: 12px; align-items: center; }
+.bh-board.h .dial { width: 96px; height: 96px; border-radius: 50%; position: relative; flex: none; cursor: grab; touch-action: none; background: rgba(255,255,255,.92); }
+.bh-board.h .dial .face { position: absolute; inset: 7%; border-radius: 50%; background: conic-gradient(#ff5a5f var(--a, 0deg), transparent 0); transform: scaleX(-1); pointer-events: none; }
+.bh-board.h .dial .hub { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); pointer-events: none; }
+.bh-board.h .dial .tick { position: absolute; left: 50%; top: 2px; width: 1.5px; height: 5px; margin-left: -.75px; background: #0b2a5a; opacity: .6; transform-origin: 50% 46px; pointer-events: none; }
+.bh-board.h .rd { font-size: 24px; font-weight: 300; font-variant-numeric: tabular-nums; }
+.bh-board.h .pre { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+.bh-board.h .pre button { border: 1px solid rgba(255,255,255,.24); background: rgba(255,255,255,.1); color: inherit; border-radius: 7px; padding: 2px 8px; font: inherit; font-size: 11.5px; cursor: pointer; }
+.bh-board.h .hin { display: flex; align-items: center; gap: 10px; margin-top: 10px; border: 1px solid rgba(255,255,255,.22); border-radius: 11px; padding: 0 0 0 12px; background: rgba(255,255,255,.06); }
+.bh-board.h .hin b { white-space: nowrap; font-size: 13px; }
+.bh-board.h .hin .bin { margin: 0; border: 0; background: none; padding: 8px 12px 8px 0; flex: 1; font-size: 13px; }
+html.bhw-board[data-theme="light"] .bh-board.h .card, html.bhw-board[data-theme="light"] .bh-board.h .nx { background: rgba(255,255,255,.55); border-color: rgba(22,23,42,.1); }
+html.bhw-board[data-theme="light"] .bh-board.h .ch i, html.bhw-board[data-theme="light"] .bh-board.h .no, html.bhw-board[data-theme="light"] .bh-board.h .ch .c { background: rgba(22,23,42,.07); }
+html.bhw-board[data-theme="light"] .bh-board.h .dial { background: #fff; box-shadow: inset 0 0 0 1px rgba(22,23,42,.15); }
+html.bhw-board[data-theme="doc"] .bh-board.h { border-radius: 2px; }
+html.bhw-board[data-theme="doc"] .bh-board.h .card { background: #fff; border: 1px solid #111; border-radius: 0; }
+html.bhw-board[data-theme="doc"] .bh-board.h .ch i, html.bhw-board[data-theme="doc"] .bh-board.h .no, html.bhw-board[data-theme="doc"] .bh-board.h .ch .c, html.bhw-board[data-theme="doc"] .bh-board.h .nx { background: #eee; border-radius: 0; }
+html.bhw-board[data-theme="doc"] .bh-board.h .dial { box-shadow: inset 0 0 0 1.5px #111; }
+html.bhw-board[data-theme="doc"] .bh-board.h .hin { border: 1px solid #111; border-radius: 0; }
+html.bhw-board[data-theme="doc"] .bh-board.h .pre button { border: 1px solid #777; border-radius: 0; background: #fff; }
+html.bhw-board[data-theme="doc"] .bh-board.h .hin .bin { border: 0; }
+html.bhw-board[data-theme="doc"] .bh-board.h .dial .hub { box-shadow: 0 0 0 1.5px #111; }

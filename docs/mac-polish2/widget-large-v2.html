@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>블랙홀 위젯 시안 2</title>
+<style>
+:root { --ink:#f4f6fb; --ink2:rgba(244,246,251,.74); --ink3:rgba(244,246,251,.46); --line:rgba(255,255,255,.24); --hair:rgba(255,255,255,.1); }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; color: var(--ink); background: #15171c; }
+.pick { display: flex; gap: 8px; align-items: center; padding: 12px 18px; background: #0f1114; position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
+.pick b { color: #aab; font-size: 12px; margin-right: 4px; }
+.pick button { background: #22252b; color: #dde; border: 1px solid #333842; border-radius: 7px; padding: 5px 11px; font: inherit; font-size: 12.5px; cursor: pointer; }
+.pick button.on { background: #e8ebf2; color: #111; font-weight: 700; }
+.pick span { color: #889; font-size: 12px; margin-left: 10px; }
+.desk { min-height: calc(100vh - 50px); padding: 36px; display: flex; justify-content: center; align-items: flex-start;
+  background: linear-gradient(180deg, #7fb6e6 0%, #6aa6d8 38%, #3f86b7 52%, #2c7a8f 70%, #3e8a7a 100%); }
+.w { border-radius: 22px; padding: 18px 20px; background: rgba(40,90,160,.42); border: 1px solid rgba(255,255,255,.3);
+  backdrop-filter: blur(30px) saturate(160%); -webkit-backdrop-filter: blur(30px) saturate(160%); box-shadow: inset 0 1px 0 rgba(255,255,255,.3), 0 20px 50px rgba(0,0,0,.25); }
+.cap { color: rgba(255,255,255,.9); font-size: 13px; margin: 10px 0 0; text-align: center; }
+.sh { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink3); font-weight: 700; margin: 0 0 4px; }
+.row { display: grid; grid-template-columns: 46px minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 3px 0; font-size: 14px; }
+.row .tm { color: var(--ink2); font-size: 12.5px; font-variant-numeric: tabular-nums; } .row .tm.b { color: #fff; font-weight: 700; }
+.row .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .row.past { opacity: .45; } .row .x { font-size: 11.5px; color: var(--ink3); white-space: nowrap; }
+.no { display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; border-radius: 5px; font-size: 11px; font-weight: 600; color: var(--ink2); background: rgba(255,255,255,.1); margin-right: 5px; }
+.ck { width: 14px; height: 14px; border: 1.5px solid var(--ink2); border-radius: 4px; display: inline-block; vertical-align: -2px; margin-right: 6px; }
+.s1 { color: #ffd84a; } .s2 { color: #ff5a5f; } .dd { font-weight: 700; color: var(--ink2); font-size: 12.5px; } .dd.soon { color: #fff; }
+.inp { border: 1px solid var(--line); border-radius: 11px; padding: 8px 12px; color: var(--ink3); font-size: 13px; background: rgba(255,255,255,.06); }
+.clk { font-size: 40px; font-weight: 300; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
+.dt { font-size: 13.5px; font-weight: 700; margin-top: 4px; } .dt span { color: var(--ink2); font-weight: 400; }
+.nx { padding: 8px 10px; border-radius: 11px; background: rgba(255,255,255,.12); font-size: 13px; line-height: 1.4; }
+.nx .l { color: var(--ink2); font-size: 11.5px; } .nx b { font-variant-numeric: tabular-nums; }
+.tile { border-radius: 14px; background: rgba(255,255,255,.08); padding: 10px 12px; min-width: 0; }
+/* mini timer */
+.dial { border-radius: 50%; position: relative; flex: none; cursor: grab; touch-action: none; background: rgba(255,255,255,.92); }
+.dial .face { position: absolute; inset: 7%; border-radius: 50%; background: conic-gradient(#ff5a5f var(--a, 0deg), transparent 0); transform: scaleX(-1); }
+.dial .hub { position: absolute; left: 50%; top: 50%; width: 14%; height: 14%; transform: translate(-50%, -50%); border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.dial .tick { position: absolute; left: 50%; top: 1.5%; width: 1.5px; height: 5%; margin-left: -.75px; background: #0b2a5a; opacity: .6; }
+.tm2 { font-size: 22px; font-weight: 300; font-variant-numeric: tabular-nums; }
+.pre { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; } .pre button { border: 1px solid var(--line); background: rgba(255,255,255,.1); color: var(--ink); border-radius: 7px; padding: 2px 7px; font: inherit; font-size: 11.5px; cursor: pointer; }
+/* H: every area is a tile with an icon title saying what it is for */
+.card { border-radius: 14px; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.14); padding: 10px 12px 10px; min-width: 0; display: flex; flex-direction: column; }
+.ch { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+.ch i { font-style: normal; width: 22px; height: 22px; border-radius: 7px; background: rgba(255,255,255,.16); display: grid; place-items: center; font-size: 12px; }
+.ch .c { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--ink2); background: rgba(255,255,255,.1); border-radius: 999px; padding: 1px 8px; }
+.ch .why { font-size: 11.5px; font-weight: 400; color: var(--ink3); }
+.sub2 { font-size: 11.5px; color: var(--ink3); font-weight: 700; margin: 8px 0 2px; }
+.hidden { display: none !important; }
+</style></head>
+<body>
+<div class="pick"><b>시안</b><button data-v="h" class="on">H 영역이 드러나는 가로형 (E 개선)</button><button data-v="e">E 가로형 두 칸</button><button data-v="f">F 타일 네 칸</button><button data-v="g">G 내용만큼 높이(띠 시계)</button>
+<span>가짜 자료 · 모두 지금 위젯의 약 4배 넓이 · 타이머 다이얼은 실제로 돌려 볼 수 있음</span></div>
+<div class="desk">
+
+<!-- H: E with clear areas -->
+<div id="vh"><div class="w" style="width:820px;display:grid;grid-template-columns:230px minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto;gap:10px">
+  <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
+    <div class="card"><div class="ch"><i>◷</i>지금</div>
+      <div class="clk" data-clk>20:59</div><div class="dt">10월 27일 화요일 <span>· 퇴근 16:20</span></div>
+      <div class="nx" style="margin-top:10px"><div class="l">다음 · 12시간 뒤</div><b>내일 09:00</b> 방과후 명단 확인 후 대응 결정</div></div>
+    <div class="card"><div class="ch"><i>⏲</i>집중 타이머<span class="why">· 최대 60분</span></div>
+      <div style="display:flex;gap:12px;align-items:center"><div class="dial" data-dial style="width:96px;height:96px"><div class="face"></div><div class="hub"></div></div>
+        <div><div class="tm2" data-rd>25:00</div><div class="pre"><button data-m="10">10</button><button data-m="25">25</button><button data-m="45">45</button><button data-m="0">↺</button></div></div></div></div>
+  </div>
+  <div class="card"><div class="ch"><i>▦</i>일정<span class="c">오늘 3 · 내일 2</span></div>
+    <div class="row past"><span class="tm">09:00</span><span class="t">2학년 3반 수업</span><span></span></div>
+    <div class="row past"><span class="tm">11:00</span><span class="t">학년 협의회</span><span></span></div>
+    <div class="row past"><span class="tm">13:40</span><span class="t">대의원회</span><span></span></div>
+    <div class="row"><span class="tm">종일</span><span class="t">초과근무 <span class="x">×2</span></span><span></span></div>
+    <div class="sub2">내일 10/28(수)</div>
+    <div class="row"><span class="tm">09:00</span><span class="t">방과후 명단 확인</span><span></span></div>
+    <div class="row"><span class="tm">15:00</span><span class="t">연수 보고서 제출</span><span></span></div>
+    <div class="sub2">다가오는 주요 일정</div>
+    <div class="row"><span class="tm">10/29</span><span class="t"><span class="s2">★</span> 공개수업</span><span class="dd soon">D-2</span></div>
+    <div class="row"><span class="tm">11/5</span><span class="t"><span class="s1">★</span> 교육청 연수</span><span class="dd">D-9</span></div></div>
+  <div class="card"><div class="ch"><i>☑</i>할 일<span class="c">4 남음 · 완료 9</span></div>
+    <div class="row"><span class="tm b">18:00</span><span class="t"><span class="ck"></span><span class="no">1</span>스티커 디자인 파일</span><span class="x" style="color:#fff;font-weight:700">지남</span></div>
+    <div class="row"><span class="tm">오늘</span><span class="t"><span class="ck"></span><span class="no">2</span><span class="s1">★</span> 수행평가 안내문</span><span></span></div>
+    <div class="row"><span class="tm">오늘</span><span class="t"><span class="ck"></span><span class="no">3</span>10만원 송금</span><span></span></div>
+    <div class="row"><span class="tm">—</span><span class="t"><span class="ck"></span><span class="no">4</span>시행 기안 올리기</span><span class="x">마감 없음</span></div>
+    <div class="sub2">나중</div>
+    <div class="row" style="opacity:.65"><span class="tm">10/30</span><span class="t"><span class="ck"></span><span class="no">5</span>생기부 점검</span><span></span></div></div>
+  <div class="inp" style="grid-column:1/-1;display:flex;align-items:center;gap:8px"><span style="color:#fff;font-weight:700">＋ 넣기</span>「내일 3시 상담」·「금요일까지 보고서」처럼 쓰고 Enter</div>
+</div><p class="cap">H · 820 폭, 높이는 내용만큼 — 영역마다 칸과 아이콘 제목(지금 · 집중 타이머 · 일정 · 할 일), 왼쪽→오른쪽이 지금→오늘·내일→할 일, 넣기는 맨 아래 한 줄</p></div>
+
+<!-- E: landscape, left = time column, right = lists -->
+<div id="ve" class="hidden"><div class="w" style="width:800px;height:420px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px">
+  <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+    <div><div class="clk" data-clk>20:57</div><div class="dt">10/27(화) <span>· 퇴근 16:20</span></div></div>
+    <div class="nx"><div class="l">다음 · 12시간 뒤</div><b>10/28 09:00</b> 방과후 명단 확인 후 대응 결정</div>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:auto"><div class="dial" data-dial style="width:92px;height:92px"><div class="face"></div><div class="hub"></div></div>
+      <div><div class="tm2" data-rd>25:00</div><div class="pre"><button data-m="10">10</button><button data-m="25">25</button><button data-m="45">45</button><button data-m="0">↺</button></div></div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;min-width:0;align-content:start">
+    <div><div class="sh"><span>오늘 일정</span><span>3</span></div>
+      <div class="row past"><span class="tm">09:00</span><span class="t">2학년 3반 수업</span><span></span></div>
+      <div class="row past"><span class="tm">11:00</span><span class="t">학년 협의회</span><span></span></div>
+      <div class="row past"><span class="tm">13:40</span><span class="t">대의원회</span><span></span></div>
+      <div class="row"><span class="tm">종일</span><span class="t">초과근무 <span class="x">×2</span></span><span></span></div>
+      <div class="sh" style="margin-top:10px"><span>내일 10/28(수)</span><span>2</span></div>
+      <div class="row"><span class="tm">09:00</span><span class="t">방과후 명단 확인</span><span></span></div>
+      <div class="row"><span class="tm">15:00</span><span class="t">연수 보고서 제출</span><span></span></div>
+      <div class="sh" style="margin-top:10px"><span>주요 일정</span><span></span></div>
+      <div class="row"><span class="tm">10/29</span><span class="t"><span class="s2">★</span> 공개수업</span><span class="dd soon">D-2</span></div>
+      <div class="row"><span class="tm">11/5</span><span class="t"><span class="s1">★</span> 교육청 연수</span><span class="dd">D-9</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;min-width:0"><div class="sh"><span>할 일</span><span>4 · 완료 9</span></div>
+      <div class="row"><span class="tm b">18:00</span><span class="t"><span class="ck"></span><span class="no">1</span>스티커 디자인 파일</span><span class="x" style="color:#fff;font-weight:700">지남</span></div>
+      <div class="row"><span class="tm">오늘</span><span class="t"><span class="ck"></span><span class="no">2</span><span class="s1">★</span> 수행평가 안내문</span><span></span></div>
+      <div class="row"><span class="tm">오늘</span><span class="t"><span class="ck"></span><span class="no">3</span>10만원 송금</span><span></span></div>
+      <div class="row"><span class="tm">—</span><span class="t"><span class="ck"></span><span class="no">4</span>시행 기안 올리기</span><span></span></div>
+      <div class="row" style="opacity:.6"><span class="tm">10/30</span><span class="t"><span class="ck"></span><span class="no">5</span>생기부 점검</span><span></span></div>
+      <div class="inp" style="margin-top:auto">넣기 · Enter</div>
+    </div>
+  </div>
+</div><p class="cap">E · 가로 800×420 — 왼쪽 좁은 줄에 시각·다음·타이머, 오른쪽 두 칸에 일정과 할 일. 세로로 쌓지 않아 빈 곳이 거의 없음</p></div>
+
+<!-- F: 2x2 tiles -->
+<div id="vf" class="hidden"><div class="w" style="width:640px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  <div class="tile" style="display:flex;flex-direction:column;gap:8px"><div class="clk" data-clk>20:57</div><div class="dt" style="margin:0">10월 27일 화요일</div><div class="nx" style="margin-top:auto"><div class="l">다음 · 12시간 뒤</div><b>내일 09:00</b> 방과후 명단 확인</div></div>
+  <div class="tile" style="display:flex;gap:12px;align-items:center"><div class="dial" data-dial style="width:120px;height:120px"><div class="face"></div><div class="hub"></div></div>
+    <div><div class="tm2" data-rd>25:00</div><div class="pre"><button data-m="5">5</button><button data-m="15">15</button><button data-m="25">25</button><button data-m="45">45</button><button data-m="0">↺</button></div></div></div>
+  <div class="tile"><div class="sh"><span>오늘 · 내일</span><span></span></div>
+    <div class="row past"><span class="tm">09:00</span><span class="t">2학년 3반 수업</span><span></span></div>
+    <div class="row past"><span class="tm">11:00</span><span class="t">학년 협의회</span><span></span></div>
+    <div class="row"><span class="tm">종일</span><span class="t">초과근무 <span class="x">×2</span></span><span></span></div>
+    <div class="row"><span class="tm">내일</span><span class="t">09:00 방과후 명단</span><span></span></div>
+    <div class="row"><span class="tm">10/29</span><span class="t"><span class="s2">★</span> 공개수업</span><span class="dd soon">D-2</span></div></div>
+  <div class="tile"><div class="sh"><span>할 일</span><span>4</span></div>
+    <div class="row"><span class="tm b">18:00</span><span class="t"><span class="ck"></span>스티커 파일 제출</span><span></span></div>
+    <div class="row"><span class="tm">오늘</span><span class="t"><span class="ck"></span><span class="s1">★</span> 수행평가 안내문</span><span></span></div>
+    <div class="row"><span class="tm">오늘</span><span class="t"><span class="ck"></span>10만원 송금</span><span></span></div>
+    <div class="row"><span class="tm">—</span><span class="t"><span class="ck"></span>시행 기안</span><span></span></div></div>
+  <div class="inp" style="grid-column:1/-1">넣기 · Enter</div>
+</div><p class="cap">F · 타일 네 칸 640 폭 — 시계·타이머·일정·할 일이 같은 크기 칸에, 높이는 내용만큼(빈 바닥 없음)</p></div>
+
+<!-- G: content height, clock as a band -->
+<div id="vg" class="hidden"><div class="w" style="width:600px;display:flex;flex-direction:column;gap:10px">
+  <div style="display:flex;align-items:center;gap:14px"><div class="clk" data-clk style="font-size:34px">20:57</div><div class="dt" style="margin:0">10/27(화)</div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px"><div class="dial" data-dial style="width:46px;height:46px"><div class="face"></div><div class="hub"></div></div><span class="tm2" data-rd style="font-size:18px">25:00</span></div></div>
+  <div class="nx"><span class="l">다음</span> <b>내일 09:00</b> 방과후 명단 확인 후 대응 결정 <span class="l" style="float:right">12시간 뒤</span></div>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px">
+    <div><div class="sh"><span>오늘 일정</span><span>3</span></div>
+      <div class="row past"><span class="tm">09:00</span><span class="t">2학년 3반 수업</span><span></span></div>
+      <div class="row past"><span class="tm">11:00</span><span class="t">학년 협의회</span><span></span></div>
+      <div class="row"><span class="tm">종일</span><span class="t">초과근무 <span class="x">×2</span></span><span></span></div>
+      <div class="sh" style="margin-top:8px"><span>주요 일정</span><span></span></div>
+      <div class="row"><span class="tm">10/29</span><span class="t"><span class="s2">★</span> 공개수업</span><span class="dd soon">D-2</span></div>
+      <div class="row"><span class="tm">11/5</span><span class="t"><span class="s1">★</span> 교육청 연수</span><span class="dd">D-9</span></div></div>
+    <div><div class="sh"><span>할 일</span><span>4 · 완료 9</span></div>
+      <div class="row"><span class="tm b">18:00</span><span class="t"><span class="ck"></span><span class="no">1</span>스티커 디자인 파일</span><span></span></div>
+      <div class="row"><span class="tm">오늘</span><span class="t"><span class="ck"></span><span class="no">2</span><span class="s1">★</span> 수행평가 안내문</span><span></span></div>
+      <div class="row"><span class="tm">오늘</span><span class="t"><span class="ck"></span><span class="no">3</span>10만원 송금</span><span></span></div>
+      <div class="row"><span class="tm">—</span><span class="t"><span class="ck"></span><span class="no">4</span>시행 기안 올리기</span><span></span></div></div>
+  </div>
+  <div class="inp">넣기 · Enter</div>
+</div><p class="cap">G · 600 폭, 높이는 내용만큼 — 시계는 맨 위 한 줄(작은 타이머 포함), 아래 두 칸. 할 일이 늘면 위젯이 길어지고 줄면 짧아짐</p></div>
+
+</div>
+<script>
+const p2 = (n) => String(n).padStart(2, "0");
+let endAt = Date.now() + 25 * 60000;
+document.querySelectorAll("[data-dial]").forEach((d) => d.insertAdjacentHTML("beforeend", Array.from({ length: 12 }, (_, i) => `<span class="tick" style="transform-origin:50% ${d.offsetWidth / 2 - d.offsetWidth * .015}px;transform:rotate(${i * 30}deg)"></span>`).join("")));
+function draw() {
+  const now = new Date();
+  document.querySelectorAll("[data-clk]").forEach((e) => (e.textContent = `${p2(now.getHours())}:${p2(now.getMinutes())}`));
+  const left = Math.max(0, endAt - Date.now());
+  document.querySelectorAll("[data-dial] .face").forEach((f) => f.style.setProperty("--a", `${(left / 3600000) * 360}deg`));
+  const s = Math.ceil(left / 1000);
+  document.querySelectorAll("[data-rd]").forEach((e) => (e.textContent = left ? `${p2(Math.floor(s / 60))}:${p2(s % 60)}` : "끝!"));
+}
+setInterval(draw, 250); draw();
+const setMin = (m) => { endAt = Date.now() + m * 60000; draw(); };
+document.querySelectorAll("[data-dial]").forEach((dial) => {
+  const ang = (e) => { const r = dial.getBoundingClientRect(); const x = e.clientX - r.left - r.width / 2; const y = e.clientY - r.top - r.height / 2; let deg = Math.atan2(x, -y) * 180 / Math.PI; deg = (360 - (deg + 360) % 360) % 360; return Math.max(0, Math.min(60, Math.round(deg / 6))); };
+  let on = false;
+  dial.addEventListener("pointerdown", (e) => { on = true; dial.setPointerCapture(e.pointerId); setMin(ang(e)); });
+  dial.addEventListener("pointermove", (e) => on && setMin(ang(e)));
+  dial.addEventListener("pointerup", () => (on = false));
+});
+document.querySelectorAll("[data-m]").forEach((b) => b.addEventListener("click", () => setMin(Number(b.dataset.m))));
+document.querySelectorAll(".pick button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".pick button").forEach((x) => x.classList.toggle("on", x === b));
+  for (const v of ["h", "e", "f", "g"]) document.getElementById("v" + v).classList.toggle("hidden", v !== b.dataset.v);
+}));
+</script>
+</body></html>

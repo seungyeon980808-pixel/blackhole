@@ -148,6 +148,7 @@ pub fn run() {
             mac::memo_note,
             mac::board_toggle,
             mac::board_fit,
+            mac::board_timer_done,
             mac::board_size,
             mac::board_open,
             mac::quick_open,
