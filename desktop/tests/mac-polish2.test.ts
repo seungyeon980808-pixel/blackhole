@@ -167,7 +167,8 @@ describe("said time ranges (「오늘 1620~2120 초과근무 일정」 went in a
     expect(timeRange("모레 4시~6시 상담")).toMatchObject({ start: "16:00", end: "18:00" });
     expect(timeRange("오전 10시부터 12시까지 연수")).toMatchObject({ start: "10:00", end: "12:00" });
     expect(timeRange("택배 1620개")).toBeNull();
-    expect(clockText("오늘 1620~2120 초과근무 일정")).toBe("오늘 초과근무 일정 16:20~21:20");
+    expect(clockText("오늘 1620~2120 초과근무 일정")).toBe("오늘 16:20~21:20 초과근무 일정");
+    expect(clockText("오늘 1320까지 안내 메세지 보내기")).toBe("오늘 13:20까지 안내 메세지 보내기");
   });
 
   it("goes in at once as 16:20–21:20 (no AI needed), alarm 30 min before", async () => {
@@ -246,5 +247,24 @@ describe("times written the way people type them", () => {
     const ev = app!.state.events.find((e) => e.title === "초과근무")!;
     expect([ev.date, ev.start, ev.end]).toEqual(["2026-10-27", "16:20", "21:20"]);
     expect(a.calls).toEqual(["skip:rule"]);
+  });
+});
+
+describe("「오늘 1320까지 …」 (a deadline time)", () => {
+  it("is a to-do due today 13:20, and the AI losing the time does not undo it", async () => {
+    const { parseDraft } = await import("../src/calendar/rules");
+    const r = parseDraft("오늘 1320까지 학교폭력유공교원가산점대상자 안내 메세지 보내기", NOW);
+    expect([r.kind, r.date, r.time]).toEqual(["TODO", "2026-10-27", "13:20"]);
+    const { emptyState } = await import("../src/calendar/model");
+    const { draftFromText, refineDrafts } = await import("../src/calendar/store");
+    const s = emptyState();
+    const d = draftFromText(s, "오늘 1320까지 안내 메세지 보내기", "데스크톱", NOW, "k2");
+    const p = structuredClone(proposal);
+    p.items = [{ ...p.items.find((i) => i.kind === "TODO")!, title: "안내 메세지 보내기", startAt: "", endAt: "", reminders: [], reminderAt: "", needsReview: true, reviewReasons: ["시간 표현을 해석하지 못함: 「1320」"] }];
+    p.items[0].evidence = { ...p.items[0].evidence, timeText: "" };
+    refineDrafts(s, "k2", p, "데스크톱", NOW);
+    const t = s.tasks.find((x) => x.id === d.id)!;
+    expect([t.due, t.dueTime, t.noDue]).toEqual(["2026-10-27", "13:20", undefined]);
+    expect(t.review ?? []).toEqual([]);
   });
 });

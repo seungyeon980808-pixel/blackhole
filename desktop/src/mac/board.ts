@@ -45,6 +45,8 @@ export function mountBoard(root: HTMLElement): void {
     if (!s) return;
     document.documentElement.dataset.theme = s.settings.theme === "doc" ? "doc" : s.settings.mode;
     root.innerHTML = boardHTML(s, new Date());
+    // The window takes the height of what it shows (no empty half board).
+    requestAnimationFrame(() => void invoke("board_fit", { height: Math.ceil(document.documentElement.scrollHeight) }).catch(() => undefined));
   };
   const load = async () => {
     s = normalizeState(await invoke("load_calendar_state").catch(() => null)) ?? s;

@@ -141,6 +141,7 @@ pub fn run() {
             mac::note_open,
             mac::memo_note,
             mac::board_toggle,
+            mac::board_fit,
             mac::board_open,
             mac::quick_open,
             mac::quick_query_take,

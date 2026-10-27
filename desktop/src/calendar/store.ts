@@ -269,11 +269,20 @@ export function refineDrafts(s: CalendarState, key: string, p: Proposal, source:
     }
     const d = left.splice(i, 1)[0];
     removeEntry(s, n);
-    // The words said a clock time and the AI answer lost it (all-day): keep the said time.
+    // The words said a clock time and the AI answer lost it (all-day, no deadline): keep it.
     if (d.kind === "event" && n.kind === "event" && d.start && !n.start && d.date === n.date) {
       n.start = d.start;
       n.end = d.end;
       if (!n.reminders.length) n.reminders = d.reminders;
+    }
+    if (d.kind === "task" && n.kind === "task" && d.dueTime && !n.dueTime && (n.noDue || n.due === d.due)) {
+      n.due = d.due;
+      n.dueTime = d.dueTime;
+      delete n.noDue;
+      if (!n.reminders.length) n.reminders = d.reminders;
+      // Its notes about the time it could not read no longer apply.
+      n.review = n.review?.filter((r) => !/시간|마감 날짜/.test(r));
+      if (!n.review?.length) delete n.review;
     }
     const keep = { id: d.id, createdAt: d.createdAt };
     for (const k of Object.keys(d)) delete (d as unknown as Record<string, unknown>)[k];

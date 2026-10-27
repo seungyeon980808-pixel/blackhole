@@ -529,8 +529,8 @@ pub fn show_board(app: &AppHandle, on: bool) {
     let built = WebviewWindowBuilder::new(app, BOARD, WebviewUrl::App("index.html".into()))
         .initialization_script("window.__BH_WINDOW = 'board';")
         .title("블랙홀 오늘")
-        .inner_size(300.0, 460.0)
-        .min_inner_size(240.0, 220.0)
+        .inner_size(320.0, 420.0)
+        .min_inner_size(240.0, 160.0)
         .resizable(true)
         .decorations(false)
         .transparent(true)
@@ -557,6 +557,15 @@ pub fn show_board(app: &AppHandle, on: bool) {
     }
     #[cfg(not(target_os = "macos"))]
     let _ = built;
+}
+
+/// The board fits its window to what it shows (width stays the user's; height 160–760).
+#[tauri::command]
+pub fn board_fit(app: AppHandle, height: f64) {
+    if let Some(w) = app.get_webview_window(BOARD) {
+        let width = w.inner_size().ok().zip(w.scale_factor().ok()).map(|(s, f)| s.width as f64 / f).unwrap_or(300.0);
+        let _ = w.set_size(tauri::LogicalSize::new(width, height.clamp(160.0, 760.0)));
+    }
 }
 
 /// The board checks a to-do: the main page applies it (and shares it like any check).

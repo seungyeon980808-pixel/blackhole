@@ -225,10 +225,11 @@ const meantHour = (p: string | undefined, v: number, bare: boolean) => (p && PM.
 
 /** The sentence with the said time written as clock times, for the AI (「16202120」 → 「16:20~21:20」). */
 export function clockText(raw: string): string {
+  // In place, so 「오늘 1320까지 …」 reads 「오늘 13:20까지 …」 (the time keeps its 까지·부터).
   const t = timeRange(raw);
-  if (t) return `${t.rest.replace(/\s+/g, " ").trim()} ${t.start}~${t.end}`;
+  if (t) return raw.replace(t.match, `${t.start}~${t.end}${/까지\s*$/.test(t.match) ? "까지" : ""}`);
   const one = singleTime(raw);
-  return one ? `${one.rest.replace(/\s+/g, " ").trim()} ${one.time}` : raw;
+  return one ? raw.replace(one.match, one.time) : raw;
 }
 
 /**
@@ -236,9 +237,9 @@ export function clockText(raw: string): string {
  * as written; 「4시~6시」 follows the afternoon guess, and an end earlier than the start moves to
  * the afternoon too. The end must come after the start (so 「20261027」 is not a range).
  */
-export function timeRange(raw: string): { start: string; end: string; rest: string } | null {
+export function timeRange(raw: string): { start: string; end: string; rest: string; match: string } | null {
   const ok = (h1: number, m1: number, h2: number, m2: number, text: string) =>
-    h1 <= 23 && h2 <= 23 && h2 * 60 + m2 > h1 * 60 + m1 ? { start: `${pad(h1)}:${pad(m1)}`, end: `${pad(h2)}:${pad(m2)}`, rest: raw.replace(text, " ") } : null;
+    h1 <= 23 && h2 <= 23 && h2 * 60 + m2 > h1 * 60 + m1 ? { start: `${pad(h1)}:${pad(m1)}`, end: `${pad(h2)}:${pad(m2)}`, rest: raw.replace(text, " "), match: text } : null;
   const p = PACKED_RANGE.exec(raw);
   if (p) {
     const r = ok(+p[1], +p[2], +p[3], +p[4], p[0]);
@@ -264,16 +265,16 @@ export function timeRange(raw: string): { start: string; end: string; rest: stri
 }
 
 /** One clock time parseRule cannot read: 「16:20」, 「16시 20」, 「오늘 1620」. */
-export function singleTime(raw: string): { time: string; rest: string } | null {
+export function singleTime(raw: string): { time: string; rest: string; match: string } | null {
   const c = CLOCK_ONE.exec(raw);
-  if (c) return { time: `${pad(+c[1])}:${c[2]}`, rest: raw.replace(c[0], " ") };
+  if (c) return { time: `${pad(+c[1])}:${c[2]}`, rest: raw.replace(c[0], " "), match: c[0] };
   const h = HOUR_MIN.exec(raw);
   if (h && +h[3] <= 59) {
     const hh = meantHour(h[1], +h[2], !MARKED.test(raw));
-    if (hh <= 23) return { time: `${pad(hh)}:${pad(+h[3])}`, rest: raw.replace(h[0], " ") };
+    if (hh <= 23) return { time: `${pad(hh)}:${pad(+h[3])}`, rest: raw.replace(h[0], " "), match: h[0] };
   }
   const p = PACKED_ONE.exec(raw);
-  if (p && DAY_WORD.test(raw.replace(p[0], " "))) return { time: `${p[1]}:${p[2]}`, rest: raw.replace(p[0], " ") };
+  if (p && DAY_WORD.test(raw.replace(p[0], " "))) return { time: `${p[1]}:${p[2]}`, rest: raw.replace(p[0], " "), match: p[0] };
   return null;
 }
 
