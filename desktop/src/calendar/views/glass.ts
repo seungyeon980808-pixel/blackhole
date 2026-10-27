@@ -174,6 +174,7 @@ export const glass: ThemeView = {
       <div class="title" id="bhTitle" data-nav="0" title="눌러서 오늘로 (T)"></div>
       <button class="nb" data-nav="-1" aria-label="이전" title="이전 (←)">‹</button><button class="nb" data-nav="1" aria-label="다음" title="다음 (→)">›</button><button class="nb ibn today" data-nav="0" aria-label="오늘로" title="오늘로 (T)">${ICON.today}</button>
       <span class="sp"></span>
+      <label class="find" title="찾기 (⌘F) · 내 기록에서만, 0원">${ICON.find}<input id="bhFind" type="search" placeholder="찾기" autocomplete="off" spellcheck="false" aria-label="찾기" aria-controls="bhFindRes"><kbd>⌘F</kbd></label>
       <span class="conn" title="${esc(ctx.connection.detail)}" data-testid="connection">${esc(ctx.connection.label)}</span>
       <div class="seg" role="group" aria-label="보기"><button data-v="month">월</button><button data-v="week">주</button><button data-v="day">일</button><button data-v="pri">우선순위</button><button data-v="memo">기억</button></div>
       <button class="nb ibn" data-print title="출력 (⌘P)" aria-label="출력">${ICON.print}</button><button class="nb ibn" data-settings aria-haspopup="dialog" title="설정 (⌘,)" aria-label="설정">${ICON.gear}</button>

@@ -328,7 +328,7 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .day2 details.fold > summary { margin-top: 6px; }
 /* header: 「로컬·미연결」 as a quiet dot (its words on hover / for screen readers) */
 .bh.glass .conn { font-size: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--ink3); margin: 0 4px; padding: 0; flex: none; }
-.bh.glass .conn.warn { background: #ffc94d; }
+.bh.glass .conn.warn { background: var(--ink); }
 .bh.glass .msearch { background: var(--glass); border: 1px solid var(--line); color: var(--ink2); }
 .bh.glass .msearch input { color: var(--ink); }
 .bh.glass .msearch input::placeholder { color: var(--ink3); }
@@ -379,3 +379,13 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 /* 대화: 좁고 촘촘하게 */
 .bh.glass.side .bub { font-size: 12.5px; line-height: 1.45; padding: 6px 10px; }
 .bh.glass.side .rc { padding: 6px 9px; font-size: 12.5px; }
+
+/* 머리줄: 단추·묶음·찾기 칸 모두 같은 높이(30px)·같은 모서리(9px)·같은 중심선 */
+.bh.glass .bar { gap: 6px; align-items: center; }
+.bh.glass .bar .nb, .bh.glass .bar .seg, .bh.glass .bar .find { height: 30px; border-radius: 9px; box-sizing: border-box; }
+.bh.glass .bar .nb { min-width: 30px; padding: 0 8px; display: inline-grid; place-items: center; line-height: 1; font-size: 14px; }
+.bh.glass .bar .nb.ibn { width: 30px; padding: 0; }
+.bh.glass .bar .nb svg { width: 16px; height: 16px; }
+.bh.glass .bar .seg button { height: 100%; padding: 0 12px; display: inline-grid; place-items: center; }
+.bh.glass .bar .find { background: var(--glass); }
+.bh.glass .bar .conn { margin: 0 2px; }

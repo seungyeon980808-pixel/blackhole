@@ -4,7 +4,7 @@
  * window, a browser and the phone WebView.
  */
 import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type BoardOptions, type ClaudeStatus, type DeskStatus, type GoogleCalendars, type InboxStatus, type MessengerStatus, type PutItem } from "./adapter";
-import { answer as answerQuestion, AskIndex, classify, docsOf, type AskSources } from "./ask";
+import { answer as answerQuestion, AskIndex, classify, docsOf, KIND_LABEL, lineOf, whenOf, type AskDoc, type AskHit, type AskSources } from "./ask";
 import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
@@ -15,7 +15,7 @@ import {
   applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
 } from "./store";
 import { priorityView, todayView, type TodayOpts } from "./views/today";
-import { checksBar, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
+import { checksBar, dictationFixes, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
 import { doc, printSheet } from "./views/doc";
 import { glass } from "./views/glass";
 
@@ -46,6 +46,7 @@ const COMPACT = 760;
 export const SIDE_MIN = 1100;
 const PANEL_MIN = 280;
 const PANEL_MAX = 560;
+const CHAT_NOISE = /^(?:초안 \d+건을 AI가 다듬었어요\.?\s*|\d+건 (?:더 )?넣었어요\.?\s*)+/;
 /** Messages drawn in the chat (older ones stay saved). */
 const CHAT_SHOWN = 200;
 /** Worker codes that mean 「the analyzer is not available now」, not 「this input failed」. */
@@ -115,6 +116,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let sources: AskSources | null = null;
   let sourcesAt = 0;
   let askCache: { ver: number; idx: AskIndex } | null = null;
+  /** 「그대로 두기」 on the dictation-fix question (this device only). */
+  const fixSkip = new Set<string>();
+  try {
+    for (const id of JSON.parse(localStorage.getItem("bh-fixskip") ?? "[]") as string[]) fixSkip.add(id);
+  } catch {
+    /* none kept */
+  }
   /** Lazy folds the user opened (「N개 더」, 「오래 지난 것」); kept for this session. */
   const openFolds = new Set<string>();
   const fcHost = new FcHost();
@@ -217,6 +225,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       recording: !!recording,
       busy: busy > 0,
       open: openFolds,
+      fixSkip,
       editing,
       canEdit: !adapter.recordAction,
       side,
@@ -242,6 +251,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <div class="pop" id="bhPop" role="dialog" aria-label="항목" hidden></div>
       <div class="tip" id="bhTip" role="tooltip" hidden></div>
       <div class="ctxm" id="bhCtx" role="menu" aria-label="날짜 옮기기" hidden></div>
+      <div class="findres" id="bhFindRes" role="listbox" aria-label="찾은 것" hidden></div>
       <input type="file" id="bhFile" hidden accept="image/*,.pdf,.hwp,.hwpx,.docx,.xlsx,.txt,.wav">`;
     if (sideCapable) {
       // 「대화」 in the header: shows the folded panel again (the panel has 「접기」 itself).
@@ -377,13 +387,26 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     el.innerHTML = `<b>${escapeHtml(l.label)}</b> ${escapeHtml(l.msg)}${act}`;
   }
 
+  /**
+   * Lines the chat no longer says (older versions saved them): a local search that found
+   * nothing, and 「초안 N건을 AI가 다듬었어요」 / 「N건 넣었어요」 over cards that already show it.
+   */
+  function shownMsg(m: ChatMessage): ChatMessage | null {
+    if (m.who !== "ai") return m;
+    if (!m.hits?.length && !m.refs?.length && /기록을 찾지 못했어요|기록이 없어요$|무엇을 찾을지/.test(m.text)) return null;
+    const text = m.text.replace(CHAT_NOISE, "").trim();
+    return text === m.text ? m : { ...m, text };
+  }
+
   function renderChat(): void {
     const el = root.querySelector<HTMLElement>("#bhThread");
     if (!el) return;
     const c = ctx();
     let day = "";
     let h = "";
-    for (const m of s.chat.slice(-CHAT_SHOWN)) {
+    for (const raw of s.chat.slice(-CHAT_SHOWN)) {
+      const m = shownMsg(raw);
+      if (!m) continue;
       const d = m.at.slice(0, 10);
       if (d !== day) {
         day = d;
@@ -1085,33 +1108,146 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
    * 질문하면 답하기: the local index answers clear questions at once (no AI, 0원). Fuzzy ones or a
    * summary go to the AI with only the few lines found (secret names, never values).
    */
-  async function askQuestion(q: string): Promise<void> {
+  const aiReady = () => !!adapter.askAi && !!claude?.hasKey && !((claude.budgetUsd ?? 0) > 0 && claude.monthUsd >= (claude.budgetUsd ?? 0));
+  const hitOfDoc = (d: AskDoc): AskHit => ({ id: d.id, kind: d.kind, title: d.title, when: whenOf(d), where: d.where });
+
+  /**
+   * The chat is for putting in and asking the AI: a question goes to the AI with the closest
+   * records as its only grounds (names of secrets, never values), and the answer links them.
+   * Nothing close → a passing note, not a chat line. No key/budget → the local answer.
+   */
+  async function askQuestion(q: string, picked?: AskDoc[]): Promise<void> {
     const now = clock();
+    const idx = await askIndex();
+    const a = answerQuestion(idx, q, now);
+    let docs = picked ?? [];
+    if (!picked) {
+      const ids = new Set(a.hits.map((h) => h.id));
+      docs = idx.docs.filter((d) => ids.has(d.id));
+      if (!docs.length) docs = idx.find(q, 8).map((x) => x.doc);
+    }
+    if (!docs.length) return toast(a.mode === "none" && a.text.startsWith("무엇을") ? a.text : "내 기록에서 가까운 것을 찾지 못했어요 · 다른 낱말로 위 찾기 칸에 써 보세요");
     s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: q, kind: "text", src: "질문" });
     if (!side) setChat(true);
-    const a = answerQuestion(await askIndex(), q, now);
-    const aiReady = !!adapter.askAi && !!claude?.hasKey && !((claude.budgetUsd ?? 0) > 0 && claude.monthUsd >= (claude.budgetUsd ?? 0));
-    if (a.mode === "ai" && aiReady) {
-      const m: ChatMessage = { id: newId(s, "c"), at: stamp(now), who: "ai", text: "기록을 보고 정리하는 중…", hits: a.hits };
+    const hits = docs.slice(0, 12).map(hitOfDoc);
+    // Secret names stay here: the AI could only repeat the name, and copying needs Touch ID anyway.
+    if (aiReady() && !docs.every((d) => d.kind === "secret")) {
+      const m: ChatMessage = { id: newId(s, "c"), at: stamp(now), who: "ai", text: "기록을 보고 정리하는 중…", hits };
       s.chat.push(m);
       busy++;
       render();
       try {
-        const r = await adapter.askAi!(q, a.lines);
+        const r = await adapter.askAi!(q, docs.slice(0, 12).map(lineOf));
         m.text = r.answer || "기록에 없어요.";
-        const used = a.hits.filter((h) => r.ids.includes(h.id));
-        m.hits = used.length ? used : a.hits.slice(0, 3);
+        const used = hits.filter((h) => r.ids.includes(h.id));
+        m.hits = used.length ? used : hits.slice(0, 3);
       } catch (e) {
         m.text = `AI로 정리하지 못했어요(${friendlyError(e)}) · 가까운 기록입니다`;
       } finally {
         busy--;
       }
     } else {
-      const text = a.mode === "ai" ? `${a.text}${adapter.askAi ? " · AI 키가 없거나 예산을 다 써서 AI 없이 찾은 것" : ""}` : a.text;
-      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text, hits: a.hits });
+      const text = a.mode === "local" || docs.every((d) => d.kind === "secret") ? a.text : `가까운 기록${adapter.askAi ? " · AI 키가 없거나 예산을 다 써서 AI 없이 찾은 것" : ""}`;
+      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text, hits });
     }
     await save();
     render();
+  }
+
+  /* ---------- 찾기 칸 (머리줄): 치는 대로, 내 기록에서만, 0원 ---------- */
+  let findQ = "";
+  let findSel = 0;
+  let findDocs: AskDoc[] = [];
+  const FIND_ORDER: [string, AskDoc["kind"][]][] = [["기억", ["note"]], ["할 일", ["task"]], ["일정", ["event", "period"]], ["노트", ["obsidian"]], ["비밀 이름", ["secret"]], ["인박스", ["inbox"]]];
+  /** One AI question's rough cost in 원, from this month's average (₩1,400 per $, rough). */
+  function askCost(): string {
+    const n = claude?.monthRequests ?? 0;
+    const won = n ? ((claude!.monthUsd ?? 0) / n) * 1400 : 0;
+    return !won ? "" : won < 1 ? `약 ${won.toFixed(1)}원` : `약 ${Math.round(won)}원`;
+  }
+  function renderFind(): void {
+    const el = root.querySelector<HTMLElement>("#bhFindRes");
+    const box = root.querySelector<HTMLElement>(".find");
+    if (!el) return;
+    if (!findQ.trim()) {
+      el.hidden = true;
+      findDocs = [];
+      return;
+    }
+    if (!askCache || askCache.ver !== dataVer) askCache = { ver: dataVer, idx: new AskIndex(docsOf(s, sources)) };
+    const found = askCache.idx.find(findQ, 40).map((x) => x.doc);
+    findDocs = FIND_ORDER.flatMap(([, kinds]) => found.filter((d) => kinds.includes(d.kind)));
+    findSel = Math.max(0, Math.min(findSel, findDocs.length - 1));
+    const fd = theme().fd;
+    let i = 0;
+    const row = (d: AskDoc) => {
+      const n = i++;
+      const x = findEntry(s, d.id);
+      const acts = [
+        d.kind === "task" && !d.done ? `<button class="ib" data-fdone="${escapeHtml(d.id)}" title="완료" aria-label="완료">${ICON.ok}</button>` : "",
+        x && (d.kind === "event" || d.kind === "task" || d.kind === "period") ? `<button class="ib" data-fmove="${escapeHtml(d.id)}" title="날짜 옮기기" aria-label="날짜 옮기기">${ICON.move}</button>` : "",
+        `<button class="ib" data-fcopy="${escapeHtml(d.id)}" title="${d.kind === "secret" ? "복사 (Touch ID)" : "복사"}" aria-label="복사">${ICON.copy}</button>`
+      ].join("");
+      const when = d.kind === "note" || d.kind === "obsidian" ? fd(d.date) : whenOf(d);
+      return `<div class="fr ${n === findSel ? "on" : ""} ${d.done ? "done" : ""}" role="option" aria-selected="${n === findSel}" data-fopen="${escapeHtml(d.id)}" data-fi="${n}"><span class="ft">${escapeHtml(d.title)}</span><span class="fw">${escapeHtml(when)} · ${escapeHtml(d.where)}</span><span class="fa">${acts}</span></div>`;
+    };
+    const groups = FIND_ORDER.map(([name, kinds]) => {
+      const g = findDocs.filter((d) => kinds.includes(d.kind));
+      return g.length ? `<div class="fg">${name}<span>${g.length}</span></div>${g.map(row).join("")}` : "";
+    }).join("");
+    const cost = askCost();
+    el.innerHTML = `${groups || '<div class="fnone">내 기록에서 찾지 못했어요</div>'}
+      ${adapter.askAi ? `<button class="fask" data-fask ${claude?.hasKey ? "" : "disabled"}>${ICON.chat}<span>AI에게 묻기${findDocs.length ? ` · 위 ${Math.min(findDocs.length, 12)}개를 근거로` : ""}</span><small>${claude?.hasKey ? cost || "한 번" : "Claude 키 없음"}</small></button>` : ""}`;
+    if (box) {
+      const r = box.getBoundingClientRect();
+      const base = root.getBoundingClientRect();
+      el.style.top = `${r.bottom - base.top + 6}px`;
+      el.style.left = `${Math.max(8, Math.min(r.left - base.left, base.width - 448))}px`;
+    }
+    el.hidden = false;
+  }
+  function closeFind(clear = false): void {
+    if (clear) {
+      findQ = "";
+      const inp = root.querySelector<HTMLInputElement>("#bhFind");
+      if (inp) inp.value = "";
+    }
+    root.querySelector<HTMLElement>("#bhFindRes")?.setAttribute("hidden", "");
+  }
+  async function findOpen(id: string): Promise<void> {
+    const d = findDocs.find((x) => x.id === id);
+    if (!d) return;
+    if (d.kind === "secret") return findCopy(id);
+    closeFind();
+    if (d.kind === "obsidian") return void adapter.openNote?.(id.replace(/^obsidian:/, "")).catch((e: unknown) => toast(friendlyError(e)));
+    if (d.kind === "note") {
+      memoQuery = d.title;
+      view = "memo";
+      return render();
+    }
+    if (d.kind === "inbox") return;
+    picked = id;
+    view = "day";
+    cur = parseDay(d.date);
+    render();
+    const el = root.querySelector<HTMLElement>(`#bhMain [data-ev="${id.replace(/["\\]/g, "\\$&")}"]`);
+    if (!el) return;
+    el.scrollIntoView?.({ block: "center" });
+    const r = el.getBoundingClientRect();
+    const base = root.getBoundingClientRect();
+    popId = { id, x: r.left - base.left, y: r.bottom - base.top + 4 };
+    renderPop();
+  }
+  async function findCopy(id: string): Promise<void> {
+    const d = findDocs.find((x) => x.id === id);
+    if (!d) return;
+    if (d.kind === "secret") {
+      if (!adapter.secretCopy) return toast("비밀은 Mac 앱에서만 복사할 수 있어요");
+      toast("Touch ID로 확인해 주세요…");
+      return void adapter.secretCopy(id.replace(/^secret:/, "")).then(() => toast("복사했어요 · 30초 뒤 클립보드에서 지웁니다"), (e: unknown) => toast(friendlyError(e)));
+    }
+    const text = d.kind === "note" || d.kind === "obsidian" ? `${d.title}${d.text ? `\n${d.text}` : ""}` : `${d.title} (${whenOf(d)})`;
+    await navigator.clipboard?.writeText(text).then(() => toast("복사했어요"), () => toast("복사하지 못했어요"));
   }
 
   /** 수정 on a card: title, day and time in place (Mac). One ⌘Z puts it back. */
@@ -1828,6 +1964,45 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (q("[data-note]")) return void adapter.openNote?.(q("[data-note]")!.dataset.note!).catch((e: unknown) => toast(friendlyError(e)));
     if (q("[data-ok]")) return userAction({ type: "confirm", ref: q("[data-ok]")!.dataset.ok! });
     if (q("[data-no]")) return userAction({ type: "cancel", ref: q("[data-no]")!.dataset.no! });
+    if (q("[data-fixall]")) {
+      const fixes = dictationFixes(s, fixSkip);
+      const was = fixes.map((f) => [f.x, f.x.title] as const);
+      for (const f of fixes) f.x.title = f.to;
+      undoStack.push({ label: `받아쓰기 교정 ${fixes.length}건`, run: () => {
+        for (const [x, title] of was) x.title = title;
+        void act(() => undefined);
+      } });
+      toast(`받아쓰기 교정 ${fixes.length}건 고침`, undefined, true);
+      return void act(() => undefined);
+    }
+    if (q("[data-fixskip]")) {
+      for (const f of dictationFixes(s, fixSkip)) fixSkip.add(f.x.id);
+      try {
+        localStorage.setItem("bh-fixskip", JSON.stringify([...fixSkip]));
+      } catch {
+        /* this time only */
+      }
+      return render();
+    }
+    if (q("[data-fdone]")) {
+      userAction({ type: "toggleTask", ref: q("[data-fdone]")!.dataset.fdone! });
+      return renderFind();
+    }
+    if (q("[data-fmove]")) {
+      const r = q("[data-fmove]")!.getBoundingClientRect();
+      ctxMenu = { id: q("[data-fmove]")!.dataset.fmove!, month: new Date(clock().getFullYear(), clock().getMonth(), 1) };
+      closeFind();
+      return renderCtx(r.left, r.bottom);
+    }
+    if (q("[data-fcopy]")) return void findCopy(q("[data-fcopy]")!.dataset.fcopy!);
+    if (q("[data-fask]")) {
+      const query = findQ.trim();
+      const docs = findDocs.filter((d) => d.kind !== "inbox").slice(0, 12);
+      closeFind(true);
+      return void askQuestion(query, docs.length ? docs : undefined);
+    }
+    if (q("[data-fopen]")) return void findOpen(q("[data-fopen]")!.dataset.fopen!);
+    if (!q(".find") && !q("#bhFindRes")) closeFind();
     if (q("[data-tdone]")) return userAction({ type: "toggleTask", ref: q("[data-tdone]")!.dataset.tdone! });
     if (q("[data-aiok]")) return userAction({ type: "aiAccept", ref: q("[data-aiok]")!.dataset.aiok! });
     if (q("[data-aino]")) return userAction({ type: "aiDismiss", ref: q("[data-aino]")!.dataset.aino! });
@@ -2288,6 +2463,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   // Sliders: show the look while dragging; it is saved on 「change」.
   root.addEventListener("input", (e) => {
     const el = e.target as HTMLInputElement;
+    if (el.id === "bhFind") {
+      findQ = el.value;
+      findSel = 0;
+      renderFind();
+      // Secret names and notes come from the Mac (refreshed at most once a minute).
+      void askIndex().then(() => findQ && renderFind());
+      return;
+    }
     if (el.matches("[data-memoq]")) {
       // Only the list is drawn again (the find box keeps the cursor and the 한글 being typed).
       memoQuery = el.value;
@@ -2555,7 +2738,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     };
     if (cmd && e.code === "Comma") return go(() => root.querySelector<HTMLButtonElement>("[data-settings]")?.click());
     if (cmd && e.code === "KeyN") return go(() => root.querySelector<HTMLInputElement>("#bhIn")?.focus());
-    if (cmd && e.code === "KeyF") return go(() => (adapter.openQuick ? adapter.openQuick() : root.querySelector<HTMLInputElement>("#bhIn")?.focus()));
+    if (cmd && e.code === "KeyF") return go(() => {
+      const f = root.querySelector<HTMLInputElement>("#bhFind");
+      if (f && f.offsetParent) return void (f.focus(), f.select());
+      return adapter.openQuick ? adapter.openQuick() : root.querySelector<HTMLInputElement>("#bhIn")?.focus();
+    });
     if (cmd && e.code === "KeyZ" && !e.shiftKey && !typing) return go(undo);
     if (cmd && e.code === "Digit4") return go(() => root.querySelector<HTMLButtonElement>('[data-v="memo"]')?.click());
     if (e.altKey && !typing && !cmd && picked && (e.code === "ArrowLeft" || e.code === "ArrowRight")) {
@@ -2568,6 +2755,25 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (e.code === "KeyT") return go(() => root.querySelector<HTMLButtonElement>('[data-nav="0"]')?.click());
   };
   document.addEventListener("keydown", onGlobalKey);
+  root.addEventListener("keydown", (e) => {
+    const el = e.target as HTMLElement;
+    if (el.id !== "bhFind" || e.isComposing) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeFind(true);
+      return (el as HTMLInputElement).blur();
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      findSel = Math.max(0, Math.min(findDocs.length - 1, findSel + (e.key === "ArrowDown" ? 1 : -1)));
+      renderFind();
+      return root.querySelector<HTMLElement>(`.fr[data-fi="${findSel}"]`)?.scrollIntoView?.({ block: "nearest" });
+    }
+    if (e.key === "Enter" && findDocs[findSel]) {
+      e.preventDefault();
+      void findOpen(findDocs[findSel].id);
+    }
+  });
   // Mac menu bar (its key equivalents reach the page only through here).
   adapter.onMenu?.((id) => {
     const click = (sel: string) => root.querySelector<HTMLElement>(sel)?.click();

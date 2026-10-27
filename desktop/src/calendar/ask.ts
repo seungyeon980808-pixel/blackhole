@@ -159,12 +159,48 @@ function grams(text: string): string[] {
   return out;
 }
 
+/** Words that mean the same (the first is the one kept): 「끝난」 finds 「종료」. */
+const SAME: string[][] = [
+  ["종료", "끝나", "끝났", "끝난", "끝내", "끝냈", "끝낸", "마치", "마쳤", "마친", "완료", "다했", "끝"],
+  ["진도", "수업진도"],
+  ["비번", "비밀번호", "암호", "패스워드"],
+  ["회의", "협의", "미팅"],
+  ["상담", "면담"],
+  ["시험", "고사"],
+  ["제출", "내기", "냈", "보내"],
+  ["연수", "교육"]
+];
+const flat = (v: string) => norm(v).replace(/[^0-9a-z가-힣]+/g, "");
+/** One canonical word per synonym group found in the text. */
+function sameWords(v: string): string[] {
+  return SAME.filter((g) => g.some((w) => v.includes(w))).map((g) => g[0]);
+}
+/** A search word without its ending/particle: 「반이지」 → 「반」, 「진도가」 → 「진도」. */
+function stems(w: string): string[] {
+  const out = [w];
+  let x = w;
+  for (let i = 0; i < 3 && x.length > 1; i++) {
+    const y = x.replace(/(이지|이야|이니|인지|이에요|예요|이|가|지|요|야)$/, "");
+    if (y === x || !y) break;
+    out.push((x = y));
+  }
+  return out;
+}
+
 export class AskIndex {
   readonly docs: AskDoc[];
   private readonly post = new Map<string, Map<number, number>>();
+  /** Title / everything, spaces and marks removed, plus the canonical synonyms (for `find`). */
+  private readonly flatTitle: string[];
+  private readonly flatAll: string[];
 
   constructor(docs: AskDoc[]) {
     this.docs = docs;
+    this.flatTitle = docs.map((d) => flat(d.title));
+    this.flatAll = docs.map((d) => {
+      const f = flat(`${d.title} ${d.text}`);
+      return `${f}${sameWords(f).join("")}`;
+    });
     docs.forEach((d, i) => {
       const add = (g: string, w: number) => {
         let m = this.post.get(g);
@@ -193,12 +229,54 @@ export class AskIndex {
     }
     return [...score].map(([i, v]) => ({ doc: this.docs[i], score: v / qg.length, cover: cover.get(i)! / qg.length })).sort((a, b) => b.score - a.score || b.cover - a.cover);
   }
+
+  /**
+   * The search box (and the chat's candidates): forgiving about words. Spaces are ignored,
+   * endings are cut (「진도가」 → 진도), synonyms meet (「끝난」 → 종료), and a word that is
+   * mostly there by letter pairs still counts. `score` 0–1.5: share of the words found
+   * (in the title counts more).
+   */
+  find(query: string, limit = 40): { doc: AskDoc; score: number }[] {
+    const words = termsOf(query).split(" ").filter(Boolean).map((w) => w.replace(/^몇/, "")).filter(Boolean);
+    if (!words.length) {
+      const f = flat(query);
+      if (f.length < 2) return [];
+      words.push(f);
+    }
+    // One form per word root (「반이」 and 「몇반이지」 are the same 「반」); a one-letter root weighs half.
+    const seen = new Set<string>();
+    const forms = words.map((w) => {
+      const f = flat(w);
+      const all = stems(f);
+      const same = sameWords(f);
+      const root = same[0] ?? all[all.length - 1];
+      return { root, all: [...all, ...same], grams: grams(f), w: root.length > 1 || same.length ? 1 : 0.5 };
+    }).filter((x) => !seen.has(x.root) && !!seen.add(x.root));
+    const total = forms.reduce((n, x) => n + x.w, 0);
+    const long = forms.some((x) => x.w === 1);
+    const out: { doc: AskDoc; score: number }[] = [];
+    this.docs.forEach((doc, i) => {
+      let sum = 0;
+      let hit = 0;
+      let longHit = false;
+      for (const w of forms) {
+        if (w.all.some((x) => x && this.flatTitle[i].includes(x))) sum += 1.5 * w.w;
+        else if (w.all.some((x) => x && this.flatAll[i].includes(x))) sum += w.w;
+        else if (w.grams.length > 1 && w.grams.filter((g) => this.flatAll[i].includes(g)).length / w.grams.length >= 0.6) sum += 0.6 * w.w;
+        else continue;
+        hit += w.w;
+        if (w.w === 1) longHit = true;
+      }
+      if (hit && hit / total >= 0.5 && (longHit || !long)) out.push({ doc, score: sum / total });
+    });
+    return out.sort((a, b) => b.score - a.score || b.doc.date.localeCompare(a.doc.date)).slice(0, limit);
+  }
 }
 
 /* ---------- answering ---------- */
 
 /** Words that only shape the question (dropped before searching), after endings are cut. */
-const STOP_WORDS = new Set(("뭐였지 뭐였더라 뭐더라 뭐지 뭐야 뭐 있어 있나 있었지 있었나 있지 있을까 언제 어디 몇시 몇 시 개 알려줘 알려 줘 무슨 누구 얼마 얼마나 찾아줘 찾아 기억나 했지 맞지 좀 거 것 어떻게 하기로 하기 해 해야 내야 해줘 할 하는 요약해 정리해 " +
+const STOP_WORDS = new Set(("지금 다 몇 몇개 뭐였지 뭐였더라 뭐더라 뭐지 뭐야 뭐 있어 있나 있었지 있었나 있지 있을까 언제 어디 몇시 몇 시 개 알려줘 알려 줘 무슨 누구 얼마 얼마나 찾아줘 찾아 기억나 했지 맞지 좀 거 것 어떻게 하기로 하기 해 해야 내야 해줘 할 하는 요약해 정리해 " +
   "오늘 내일 모레 어제 그제 그저께 주 이번 지난 다음 저번 지난주 이번주 다음주 저번주 금주 주말 달 이번달 지난달 다음달 저번달 " +
   "마감 일 일정 약속 스케줄 기간 비번 비밀번호 암호 메모 기억 노트 무엇 뭘 어떤 그거 거기").split(" "));
 /** Endings cut from each word (「언제까지야」 → 「언제」, 「수거는」 → 「수거」). 이/가 stay (와이파이). */
@@ -296,5 +374,8 @@ export function answer(index: AskIndex, question: string, now: Date): Answer {
     return done({ mode: "local", text: strong.length > 1 ? `${head} · 찾은 것 ${strong.length}개` : head, hits: strong.slice(0, 8).map(hitOf), lines: [] });
   }
   if (near.length) return done({ mode: "ai", text: "가까운 기록", hits: near.map(hitOf), lines: near.map(lineOf) });
+  // Different words for the same thing (「끝난 반」 ↔ 「진도 종료」): the forgiving search.
+  const loose = index.find(question, 8).filter((x) => okKind(x.doc) && (!range || inRange(x.doc, range, bySaid))).map((x) => x.doc);
+  if (loose.length) return done({ mode: "ai", text: "가까운 기록", hits: loose.map(hitOf), lines: loose.map(lineOf) });
   return done({ mode: "none", text: range ? `${range.label}에는 「${terms}」 기록이 없어요` : `「${terms}」 기록을 찾지 못했어요`, hits: [], lines: [] });
 }

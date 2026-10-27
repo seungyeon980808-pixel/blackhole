@@ -222,7 +222,7 @@
 .bh.doc .ib { color: var(--ink); border-radius: 2px; }
 .bh.doc .ib:hover { background: var(--shade); }
 .bh.doc .rc .ra { background: #fff; border: 1px solid var(--hair); }
-.bh.doc .chkbar { background: #fff8e0; border: 1px solid #c9a227; font-family: var(--sans); }
+.bh.doc .chkbar { background: #f6f6f6; border: 1px solid #999; font-family: var(--sans); }
 .bh.doc .msearch { border: 1px solid var(--rule); background: #fff; border-radius: 2px; }
 .bh.doc .memol { border: 1px solid var(--rule); border-radius: 0; }
 .bh.doc .mrow + .mrow { border-top: 1px solid var(--hair); }
@@ -232,7 +232,7 @@
 /* header: icons and a dot, like the glass theme (정리안) */
 .bh.doc .btn.ibn { width: 28px; padding: 0; display: inline-grid; place-items: center; }
 .bh.doc .conn { font-size: 0; width: 7px; height: 7px; border-radius: 50%; background: #9aa3b8; border: 0; padding: 0; margin: 0 6px; flex: none; }
-.bh.doc .conn.warn { background: #c9a227; }
+.bh.doc .conn.warn { background: #111; }
 .bh.doc .dtitle[data-nav] { cursor: pointer; }
 .bh.doc .tip { background: #fff; color: #111; border: 1.5px solid var(--rule); border-radius: 2px; font-family: var(--sans); }
 .bh.doc .fc .fc-bg-event.bh-pd { background: rgba(30, 50, 100, .04); opacity: 1; }
@@ -250,5 +250,14 @@
 .bh.doc .tdv, .bh.doc .matrix { font-family: var(--sans); }
 .bh.doc .dtg .ev { border-radius: 0; }
 .bh.doc .dtg .pin .lb { border: 1px solid var(--hair); border-radius: 0; }
-.bh.doc .chkbar { background: #f6f6f6; border-color: #999; }
-.bh.doc .conn.warn { background: #ffd84a; }
+.bh.doc .conn.warn { background: #111; }
+
+/* 머리줄: 같은 높이(28px)·같은 모서리 */
+.bh.doc .tool { align-items: center; }
+.bh.doc .tool .btn, .bh.doc .tool .find { height: 28px; box-sizing: border-box; border-radius: 2px; }
+.bh.doc .tool .btn { display: inline-grid; place-items: center; line-height: 1; }
+.bh.doc .tool .btn.ibn { width: 28px; padding: 0; }
+.bh.doc .tool .btn svg { width: 16px; height: 16px; }
+.bh.doc .tool .seg { margin: 0 2px; }
+.bh.doc .tool .find { border-color: #777; background: #fff; font-family: var(--sans); }
+.bh.doc .findres { border-radius: 0; border: 1.5px solid var(--rule); font-family: var(--sans); }

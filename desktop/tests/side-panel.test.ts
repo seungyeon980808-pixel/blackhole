@@ -129,15 +129,31 @@ describe("results as cards in the chat", () => {
 });
 
 describe("questions in the chat", () => {
-  it("a clear question is answered here (no AI), with cards to open and copy", async () => {
+  it("the chat asks the AI with the records found as grounds; its answer links them (cards to open and copy)", async () => {
     const a = mac();
     const root = await mount(a);
     await app!.submitText("이번 주 마감 뭐 있어?");
+    expect(a.calls).toEqual(["ai:2"]); // only the two deadlines of this week went
     const last = app!.state.chat.at(-1)!;
-    expect(last.text).toBe("이번 주 마감 2개");
-    expect(last.hits!.map((h) => h.id)).toEqual(["t2", "t1"]);
-    expect(a.calls).toEqual([]);
+    expect(last.hits!.map((h) => h.id)).toEqual(["t1"]);
     expect(root.querySelector("#bhThread [data-copy]")).not.toBeNull();
+  });
+
+  it("nothing close: a passing note, no chat line, no AI", async () => {
+    const a = mac();
+    await mount(a);
+    const before = app!.state.chat.length;
+    await app!.submitText("고양이 사료 언제 샀지?");
+    expect(app!.state.chat.length).toBe(before);
+    expect(a.calls).toEqual([]);
+  });
+
+  it("without a key the chat shows the local answer", async () => {
+    const a = mac({ claude: async () => ({ ...claude, hasKey: false }) });
+    await mount(a);
+    await app!.submitText("이번 주 마감 뭐 있어?");
+    expect(app!.state.chat.at(-1)!.text).toBe("이번 주 마감 2개");
+    expect(a.calls).toEqual([]);
   });
 
   it("a secret is found by name; the card copies after Touch ID (the value never shows)", async () => {

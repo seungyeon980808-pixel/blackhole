@@ -93,7 +93,8 @@ export function mountQuick(root: HTMLElement): void {
       hits = a.hits.map(toHit);
       heading = a.mode === "local" ? a.text : hits.length ? "가까운 기록 · Enter로 AI에 묻기" : "";
     } else {
-      hits = idx.search(q).filter((x) => x.cover >= 0.5).slice(0, 8).map((x) => toHit({ id: x.doc.id, kind: x.doc.kind, title: x.doc.title, when: whenOf(x.doc), where: x.doc.where }));
+      // The main window's find box engine: spaces, endings and synonyms forgiven.
+      hits = idx.find(q, 8).map((x) => toHit({ id: x.doc.id, kind: x.doc.kind, title: x.doc.title, when: whenOf(x.doc), where: x.doc.where }));
       heading = hits.length ? "찾음" : "";
     }
     sel = -1;

@@ -2,6 +2,7 @@ import { diffDays, hm, mins } from "../dates";
 import type { CalendarState, ChatMessage, Entry, Task } from "../model";
 import { findEntry, type Alarm } from "../store";
 import { KIND_LABEL, type AskHit } from "../ask";
+import { fixNumbers } from "../rules";
 
 export type ViewName = "month" | "week" | "day" | "pri" | "memo";
 
@@ -21,6 +22,8 @@ export interface Ctx {
   hint?: string;
   /** Folds the user opened (by key): their rows are drawn only then, so long lists stay light. */
   open?: Set<string>;
+  /** Records the user chose to keep as they are when asked about the dictation fix. */
+  fixSkip?: Set<string>;
   /** The entry whose card shows the edit form (Mac). */
   editing?: string | null;
   /** Cards may offer 수정 (not on the phone: its changes travel as actions only). */
@@ -302,16 +305,29 @@ export function checksOf(ctx: Ctx): { x: Entry; why: string }[] {
   return out;
 }
 
+/** Records put in before the dictation fix (「오반도」 → 「5반도」): asked once in 확인할 것, never changed by itself. */
+export function dictationFixes(s: CalendarState, skip: Set<string> = new Set()): { x: Entry; to: string }[] {
+  return [...s.events, ...s.tasks, ...s.periods, ...s.notes]
+    .filter((x) => !x.gone && !x.sample && !skip.has(x.id))
+    .map((x) => ({ x: x as Entry, to: fixNumbers(x.title) }))
+    .filter((f) => f.to !== f.x.title);
+}
+
 export function checksBar(ctx: Ctx, fd: (k: string) => string): string {
   const list = checksOf(ctx);
-  if (!list.length) return "";
+  const fixes = dictationFixes(ctx.s, ctx.fixSkip);
+  if (!list.length && !fixes.length) return "";
   const open = !!ctx.open?.has("checks");
   const card = ({ x, why }: { x: Entry; why: string }) =>
     resultCard(ctx, x.id, fd, false, "chk")
       .replace(/<button class="ib" data-(?:ok|tdone)="[^"]*"[^>]*>.*?<\/button>/, "")
       .replace(/<div class="rm2 warn">[\s\S]*?<\/div>/, "")
       .replace('<div class="ra">', `<div class="rm2 warn">${esc(why)}</div><div class="ra">${why.startsWith("같은") ? `<button class="ib" data-merge="${x.id}" title="합치기(이것을 지우고 하나만 남김)" aria-label="합치기">${ICON.merge}</button>` : `<button class="ib" data-accept="${x.id}" title="맞아요" aria-label="맞아요">${ICON.ok}</button>`}`);
-  return `<div class="checks"><button class="chkbar" data-checks aria-expanded="${open}"><span class="cdot"></span><span>확인할 것 ${list.length}</span><span class="chev">${open ? "▴" : "▾"}</span></button>${open ? list.map(card).join("") : ""}</div>`;
+  const fixCard = fixes.length
+    ? `<div class="rc chk fixq"><div class="rt">받아쓰기 교정을 이미 있는 기록에도 할까요?</div>${fixes.slice(0, 3).map((f) => `<div class="rm2">「${esc(f.x.title)}」 → 「${esc(f.to)}」</div>`).join("")}${fixes.length > 3 ? `<div class="rm2">외 ${fixes.length - 3}건</div>` : ""}<div class="ra on"><button class="ib" data-fixall title="모두 고치기 (⌘Z로 되돌림)" aria-label="모두 고치기">${ICON.ok}</button><button class="ib" data-fixskip title="그대로 두기 (다시 묻지 않음)" aria-label="그대로 두기">${ICON.x}</button></div></div>`
+    : "";
+  const n = list.length + (fixes.length ? 1 : 0);
+  return `<div class="checks"><button class="chkbar" data-checks aria-expanded="${open}"><span class="cdot"></span><span>확인할 것 ${n}</span><span class="chev">${open ? "▴" : "▾"}</span></button>${open ? fixCard + list.map(card).join("") : ""}</div>`;
 }
 
 /** Same thing twice (same kind, title, day and time): the later one, to offer 「합치기」. */

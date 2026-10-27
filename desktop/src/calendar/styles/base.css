@@ -4,7 +4,7 @@ html, body, #app { height: 100%; min-width: 320px; }
 body { overflow: hidden; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
-:focus-visible { outline: 2px solid #ffb020; outline-offset: 1px; }
+:focus-visible { outline: 2px solid var(--ink, #fff); outline-offset: 1px; }
 
 .bh { position: relative; height: 100%; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; overflow: hidden; }
 .bh.doc { grid-template-rows: auto auto 1fr auto; }
@@ -144,7 +144,7 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 .bh .checks { display: flex; flex-direction: column; gap: 4px; margin: 0 10px 4px; }
 .bh .chkbar { display: flex; align-items: center; gap: 7px; width: 100%; border-radius: 8px; padding: 4px 9px; font-size: 12px; text-align: left; }
 .bh .chkbar span:nth-child(2) { flex: 1; }
-.bh .chkbar .cdot { width: 7px; height: 7px; border-radius: 50%; background: #ffc94d; }
+.bh .chkbar .cdot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink2, #fff); }
 .bh .day2 .checks { margin: 0 0 6px; }
 /* day: band on top, two columns below */
 .bh .day2 { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }
@@ -241,7 +241,7 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 
 /* ── 오늘(일) 화면: [하루표 1.35fr][할 일 1fr][주요 일정·루틴 290px] — layout only; colors per theme (--x-*) ── */
 .bh .tdv { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }
-.bh .tgrid { display: grid; grid-template-columns: minmax(380px, 1.35fr) minmax(300px, 1fr) 290px; gap: 10px; flex: 1; min-height: 0; }
+.bh .tgrid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(230px, 290px); gap: 10px; flex: 1; min-height: 0; }
 .bh .tdv .ph { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .bh .tdv .ph b { font-size: 13.5px; } .bh .tdv .ph span { color: var(--ink3); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bh .tdv .none { color: var(--ink3); font-size: 12px; padding: 6px 0; }
@@ -379,7 +379,8 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 .bh .ctxm .cm-g button { justify-content: center; padding: 3px 0; font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .bh .ctxm .cm-g .td { font-weight: 800; outline: 1px solid var(--x-line); } .bh .ctxm .cm-g .out { color: var(--ink3); }
 /* narrow: everything stacks (phone width 360 too) */
-@media (max-width: 1100px) { .bh .tgrid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } .bh .tdv .rstack { grid-column: 1 / -1; flex-direction: row; } .bh .tdv .rstack > .panel { flex: 1 1 0; } }
+@container (max-width: 980px) { .bh .tgrid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } .bh .tdv .rstack { grid-column: 1 / -1; flex-direction: row; } .bh .tdv .rstack > .panel { flex: 1 1 0; } }
+@container (max-width: 620px) { .bh .tgrid { grid-template-columns: minmax(0, 1fr); } .bh .tdv .rstack { flex-direction: column; } }
 @media (max-width: 760px) {
   .bh .tdv { height: auto; }
   .bh .content:has(.tdv), .bh .content:has(.matrix) { overflow-y: auto; }
@@ -395,3 +396,39 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 .bh .settings .rtdays { display: inline-flex; gap: 2px; }
 .bh .settings .rtdays button { width: 22px; height: 22px; padding: 0; border: 1px solid var(--x-hair, #ccc); background: none; color: inherit; border-radius: 5px; font-size: 11px; cursor: pointer; }
 .bh .settings .rtdays button.on { background: var(--x-sel, #ddd); font-weight: 700; }
+
+/* 대화 패널은 진짜 격자 칸: 왼쪽 영역은 그 앞에서 끝남(겹침 0); 오늘 화면은 자기 폭으로 줄바꿈 */
+.bh.side > :not(.chatsheet) { min-width: 0; }
+.bh .content { container-type: inline-size; }
+.bh .wkd { min-width: 0; }
+/* 찾기 칸 (머리줄) */
+.bh .find { display: inline-flex; align-items: center; gap: 6px; width: clamp(150px, 20vw, 260px); padding: 0 8px; border: 1px solid var(--x-line, var(--line)); color: var(--ink2); cursor: text; box-sizing: border-box; }
+.bh .find svg { width: 15px; height: 15px; flex: none; }
+.bh .find input { flex: 1; min-width: 0; height: 100%; border: 0; background: none; outline: 0; padding: 0; color: var(--ink); font: inherit; font-size: 13px; }
+.bh .find input::placeholder { color: var(--ink3); }
+.bh .find input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.bh .find kbd { font: inherit; font-size: 10.5px; color: var(--ink3); }
+.bh .find:focus-within { border-color: var(--ink2); }
+.bh .find:focus-within kbd { display: none; }
+.bh .findres { position: absolute; z-index: 85; width: 440px; max-width: calc(100% - 16px); max-height: min(62vh, 560px); overflow-y: auto; padding: 6px; border-radius: 12px; background: var(--x-pinbg); border: 1px solid var(--x-line); box-shadow: 0 14px 40px rgba(0,0,0,.35); font-size: 13px; color: var(--ink); }
+.bh .findres .fg { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: var(--ink3); padding: 7px 8px 3px; }
+.bh .findres .fg span { font-weight: 500; }
+.bh .findres .fr { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 8px; padding: 5px 8px; border-radius: 7px; cursor: pointer; }
+.bh .findres .fr.on, .bh .findres .fr:hover { background: var(--x-sel); }
+.bh .findres .fr.done .ft { text-decoration: line-through; color: var(--ink3); }
+.bh .findres .ft { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bh .findres .fw { grid-row: 2; font-size: 11.5px; color: var(--ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bh .findres .fa { grid-row: 1 / 3; grid-column: 2; display: flex; align-items: center; gap: 2px; visibility: hidden; }
+.bh .findres .fr.on .fa, .bh .findres .fr:hover .fa { visibility: visible; }
+.bh .findres .fa .ib { width: 26px; height: 26px; display: inline-grid; place-items: center; background: none; border: 0; color: var(--ink2); border-radius: 6px; cursor: pointer; padding: 0; }
+.bh .findres .fa .ib:hover { background: var(--x-chip); color: var(--ink); }
+.bh .findres .fa svg { width: 15px; height: 15px; }
+.bh .findres .fnone { padding: 10px 8px; color: var(--ink3); }
+.bh .findres .fask { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 6px; padding: 8px; border: 0; border-top: 1px solid var(--x-hair); background: none; color: var(--ink); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; border-radius: 0 0 7px 7px; }
+.bh .findres .fask:hover:not(:disabled) { background: var(--x-sel); }
+.bh .findres .fask:disabled { color: var(--ink3); cursor: default; }
+.bh .findres .fask svg { width: 15px; height: 15px; flex: none; }
+.bh .findres .fask span { flex: 1; }
+.bh .findres .fask small { color: var(--ink3); font-size: 11px; font-variant-numeric: tabular-nums; }
+.bh .checks .fixq .rt { font-weight: 700; margin-bottom: 3px; }
+@media (max-width: 760px) { .bh .find { width: 100%; order: 5; flex: 1 1 100%; } .bh .find kbd { display: none; } }
