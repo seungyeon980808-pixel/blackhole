@@ -203,6 +203,47 @@ function bareHour(raw: string): number | null {
  * one human guess on top — 「3시 치과」 means 15:00, not 03:00. Hours 1–6 said alone are taken as
  * afternoon (nobody books a dentist at 3 a.m.); 7–12 stay as said. The AI still refines it.
  */
+/** The user's day (설정): 퇴근 시각, 점심, 교시표. */
+export interface DayClock {
+  offWork?: string;
+  lunch?: string;
+  periods?: string[];
+}
+
+const KO_NUM: Record<string, string> = { 일: "1", 이: "2", 삼: "3", 사: "4", 오: "5", 육: "6", 칠: "7", 팔: "8", 구: "9", 십: "10" };
+
+/**
+ * Speech-to-text slips in school words: 「오반도」 → 「5반도」, 「삼학년」 → 「3학년」, 「육교시」 →
+ * 「6교시」. Only a single number word glued to 반·학년·교시·모둠·번, at a word start.
+ */
+export function fixNumbers(raw: string): string {
+  return raw.replace(/(^|[^가-힣])(일|이|삼|사|오|육|칠|팔|구|십)(반|학년|교시|모둠|조)(?=$|[^가-힣]|도|은|는|이|가|에|의|과|와|을|를|만|부터|까지)/g, (_m, pre: string, n: string, unit: string) => `${pre}${KO_NUM[n]}${unit}`);
+}
+
+/**
+ * Words about the user's own day become clock times: 「퇴근 전」 → 「16:40까지」, 「점심 전」 →
+ * 「12:10까지」, 「점심시간에」 → 「12:10~13:00」, 「3교시 전」 → 「10:40까지」, 「3교시 후」 →
+ * 「11:20」, 「5교시에」 → 「13:00~13:40」. Four digits before 까지·에·부터 (「1320까지」) are a time.
+ */
+export function timeWords(raw: string, day: DayClock = {}): string {
+  const off = day.offWork || "16:40";
+  const [l0, l1] = (day.lunch || "12:10-13:00").split("-");
+  const per = day.periods ?? [];
+  let v = fixNumbers(raw);
+  v = v.replace(/퇴근\s*(?:하기\s*)?(?:전에|전까지|전|까지)/g, `${off}까지`).replace(/퇴근\s*(?:후에|후|하고)/g, `${off}`);
+  v = v.replace(/점심\s*(?:시간\s*)?(?:전에|전까지|전)/g, `${l0}까지`).replace(/점심\s*(?:시간\s*)?(?:후에|후|먹고)/g, `${l1}`).replace(/점심\s*(?:시간|때)\s*(?:에)?/g, `${l0}~${l1} `);
+  v = v.replace(/(\d{1,2})\s*교시\s*(전에|전까지|전|후에|후|끝나고|뒤|에|부터)?/g, (m, n: string, w = "") => {
+    const r = per[Number(n) - 1];
+    if (!r) return m;
+    const [a, b] = r.split("-");
+    if (/전/.test(w)) return `${a}까지`;
+    if (/후|끝나고|뒤/.test(w)) return `${b}`;
+    return `${a}~${b} `;
+  });
+  v = v.replace(/(?<![\d./:-])([01]\d|2[0-3])([0-5]\d)(?=\s*(?:까지|에|부터|시작|마감))/g, "$1:$2");
+  return v;
+}
+
 /** 「16202120」: two clock times written together (HHMMHHMM). */
 const PACKED_RANGE = /(?<![\d./:-])([01]\d|2[0-3])([0-5]\d)([01]\d|2[0-3])([0-5]\d)(?![\d./-])/;
 /** 「1620~2120」 「16:20-21:20」 「1620 2120」 「16:20부터 21:20까지」. */
@@ -224,7 +265,8 @@ const MARKED = /오전|오후|아침|점심|낮|저녁|밤|새벽/;
 const meantHour = (p: string | undefined, v: number, bare: boolean) => (p && PM.test(p) && v < 12 ? v + 12 : p && AM.test(p) && v === 12 ? 0 : !p && bare && v >= 1 && v <= 6 ? v + 12 : v);
 
 /** The sentence with the said time written as clock times, for the AI (「16202120」 → 「16:20~21:20」). */
-export function clockText(raw: string): string {
+export function clockText(raw0: string, day: DayClock = {}): string {
+  const raw = timeWords(raw0, day);
   // In place, so 「오늘 1320까지 …」 reads 「오늘 13:20까지 …」 (the time keeps its 까지·부터).
   const t = timeRange(raw);
   if (t) return raw.replace(t.match, `${t.start}~${t.end}${/까지\s*$/.test(t.match) ? "까지" : ""}`);
@@ -287,7 +329,8 @@ const MEMO_HEAD = /^\s*(메모|기억|노트)\s*[:：,]?\s+/;
  * appointment/to-do words (「11월 3일에 엄마가 김치 보내준대」) is a 기억 draft the AI may turn
  * into an entry; when the AI is unsure it stays a 기억 (with 「일정으로」·「할 일로」 on its card).
  */
-export function memoDraft(raw: string, now: Date): { title: string; details?: string; final: boolean } | null {
+export function memoDraft(raw0: string, now: Date, day: DayClock = {}): { title: string; details?: string; final: boolean } | null {
+  const raw = MEMO_HEAD.test(raw0) ? raw0 : timeWords(raw0, day);
   const head = MEMO_HEAD.exec(raw);
   const body = head ? raw.slice(head[0].length) : raw;
   const [first, ...rest] = body.trim().split("\n");
@@ -302,7 +345,8 @@ export function memoDraft(raw: string, now: Date): { title: string; details?: st
   return null;
 }
 
-export function parseDraft(raw: string, now: Date): RuleResult {
+export function parseDraft(raw0: string, now: Date, day: DayClock = {}): RuleResult {
+  const raw = timeWords(raw0, day);
   const range = timeRange(raw);
   if (range) {
     // The day and the title from the rest of the sentence; the range is the time.

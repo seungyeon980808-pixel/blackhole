@@ -50,7 +50,8 @@ describe("simple sentences skip the AI", () => {
     const ev = app!.state.events.find((e) => e.title === "미용실 예약")!;
     expect(ev.draft).toBe(false);
     expect(ev.start).toBe("13:00");
-    expect(app!.state.chat.at(-1)!.text).toContain("AI 생략");
+    expect(app!.state.chat.at(-1)!.text).toBe(""); // the card says it
+    expect(app!.state.chat.at(-1)!.refs).toEqual([ev.id]);
   });
 
   it("anything less simple still goes to the AI, and the setting turns skipping off", async () => {

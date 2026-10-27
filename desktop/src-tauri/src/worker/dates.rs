@@ -282,6 +282,43 @@ fn to_time(m: &TimeMatch) -> Option<NaiveTime> {
     NaiveTime::from_hms_opt(hour, m.minute, 0)
 }
 
+/// Clock times written as bare digits: 「1620」 → 「16:20」, 「16202120」 → 「16:20~21:20」
+/// (only valid HHMM groups, not parts of longer numbers).
+pub fn colon_times(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::new();
+    let mut i = 0;
+    let hhmm = |d: &[char]| -> Option<String> {
+        let h: u32 = d[..2].iter().collect::<String>().parse().ok()?;
+        let m: u32 = d[2..4].iter().collect::<String>().parse().ok()?;
+        (h < 24 && m < 60).then(|| format!("{:02}:{:02}", h, m))
+    };
+    while i < chars.len() {
+        if chars[i].is_ascii_digit() && (i == 0 || !chars[i - 1].is_ascii_digit()) {
+            let mut j = i;
+            while j < chars.len() && chars[j].is_ascii_digit() {
+                j += 1;
+            }
+            let run = &chars[i..j];
+            let joined = (i > 0 && matches!(chars[i - 1], ':' | '.' | '/' | '-')) || (j < chars.len() && matches!(chars[j], ':' | '.' | '/' | '-' | '년' | '원' | '개' | '명' | '번' | '호'));
+            let converted = match run.len() {
+                4 if !joined => hhmm(run),
+                8 if !joined => match (hhmm(&run[..4]), hhmm(&run[4..])) {
+                    (Some(a), Some(b)) if b > a => Some(format!("{a}~{b}")),
+                    _ => None,
+                },
+                _ => None,
+            };
+            out.push_str(&converted.unwrap_or_else(|| run.iter().collect()));
+            i = j;
+        } else {
+            out.push(chars[i]);
+            i += 1;
+        }
+    }
+    out
+}
+
 /// Returns `(time, rolls_to_next_day)`; `None` when no valid time phrase is present.
 fn parse_time(text: &str) -> Option<(NaiveTime, bool)> {
     let first = time_matches(text).into_iter().next()?;
@@ -361,7 +398,7 @@ pub fn resolve(date_text: &str, time_text: &str, kind: &str, reference: DateTime
     let mut reasons = Vec::new();
     let today = reference.date_naive();
     let date_text = normalize(date_text);
-    let time_text = normalize(time_text);
+    let time_text = colon_times(&normalize(time_text));
 
     // Flags that keep the resolved date (unlike `reasons`, which stop resolution).
     let mut soft_reasons = Vec::new();
@@ -461,6 +498,16 @@ pub fn mentions_time(text: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bare_digit_times_get_colons() {
+        assert_eq!(colon_times("1320"), "13:20");
+        assert_eq!(colon_times("16202120"), "16:20~21:20");
+        assert_eq!(colon_times("1620~2120"), "16:20~21:20");
+        assert_eq!(colon_times("20261027"), "20261027");
+        assert_eq!(colon_times("2026-1027"), "2026-1027");
+        assert_eq!(colon_times("오후 3시"), "오후 3시");
+    }
 
     /// Wednesday 2026-10-21 09:00 KST.
     fn reference() -> DateTime<FixedOffset> {

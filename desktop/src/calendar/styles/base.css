@@ -212,3 +212,19 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 .bh .dday2 .dstrip tr[data-ev] { cursor: pointer; }
 .bh .dday2 td { white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 760px) { .bh .dday2 .dcols { grid-template-columns: minmax(0, 1fr); } }
+
+/* batch A·B: hover card, draggable bars, 「끝 미정」, time left */
+.bh .tip { position: absolute; z-index: 80; max-width: 300px; padding: 7px 10px; border-radius: 9px; font-size: 12px; line-height: 1.5; pointer-events: none; box-shadow: 0 8px 26px rgba(0,0,0,.3); }
+.bh .tip[hidden] { display: none; }
+.bh .tip b { display: block; font-size: 12.5px; }
+.bh .tip .tsub { margin: 2px 0; }
+.bh .tip .tdet, .bh .tip .tsrc { opacity: .7; }
+.bh .strip .sb { user-select: none; -webkit-user-select: none; }
+.bh .strip .sb .rs { position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; }
+.bh .strip .sb .rs.l { left: 0; }
+.bh .strip .sb .rs.r { right: 0; }
+.bh .strip .sb .st { font-variant-numeric: tabular-nums; opacity: .85; }
+.bh .strip .sb.noend { border-right: 2px dashed currentColor; }
+.bh .strip .sb .ne { font-size: 9.5px; opacity: .7; margin-left: 4px; }
+.bh .trow .lft { font-size: 11px; opacity: .6; margin-right: 6px; font-weight: 400; }
+.bh .rc.edit .ed-h { flex: 1.3; font-variant-numeric: tabular-nums; }

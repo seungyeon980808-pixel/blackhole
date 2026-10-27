@@ -128,7 +128,9 @@ describe("calendar app", () => {
     const chat = app!.state.chat.slice(-2);
     expect(chat[0].who).toBe("me");
     // The rule draft (가승인 「학부모 상담」) is refined in place by the AI; two more items are added.
-    expect(chat[1].text).toBe("초안 1건을 AI가 다듬었어요. 2건 더 넣었어요.");
+    // B-9: no 「초안 1건을 AI가 다듬었어요」 line — the cards, and a small note when the AI changed it.
+    expect(chat[1].text).toBe("AI가 고침");
+    expect(chat[1].refs).toHaveLength(3);
     expect(app!.state.events.filter((e) => !e.sample && !e.gone)).toHaveLength(1);
     app!.setView("day", ev.date);
     // A click on its bar on the day band shows its card; ✓ confirms.

@@ -15,7 +15,7 @@ import { dueBadge, type Ctx, type ThemeView } from "./views/common";
 export function fcEvents(s: CalendarState, withBells: boolean): EventInput[] {
   const out: EventInput[] = [];
   for (const p of livePeriods(s)) {
-    out.push({ id: p.id, title: p.title, start: p.from, end: ymd(addDays(parseDay(p.to), 1)), allDay: true, classNames: ["bh-per", p.area], extendedProps: { kind: "period", order: 0 } });
+    out.push({ id: p.id, title: p.title, start: p.from, end: ymd(addDays(parseDay(p.to), 1)), allDay: true, classNames: ["bh-per", p.area], extendedProps: { kind: "period", order: 0 }, editable: false });
   }
   for (const e of liveEvents(s)) {
     out.push(e.start
@@ -39,6 +39,8 @@ export function fcEvents(s: CalendarState, withBells: boolean): EventInput[] {
 
 export interface FcHandlers {
   openDay: (k: string) => void;
+  /** An appointment or deadline was dragged or resized (10-minute steps); null end = keep length. */
+  onMove?: (id: string, start: Date, end: Date | null, allDay: boolean) => void;
 }
 
 export class FcHost {
@@ -119,6 +121,14 @@ export class FcHost {
         }
         return { html: view.monthChip(ctx, kind, x as unknown as Record<string, unknown>) };
       },
+      // Drag to another time or day, pull the end to make it longer/shorter (10-minute steps).
+      editable: !!handlers.onMove,
+      eventDurationEditable: true,
+      snapDuration: "00:10:00",
+      eventDrop: (arg) => handlers.onMove?.(arg.event.id, arg.event.start!, arg.event.end, arg.event.allDay),
+      eventResize: (arg) => handlers.onMove?.(arg.event.id, arg.event.start!, arg.event.end, arg.event.allDay),
+      // Hover cards find the entry by this.
+      eventDidMount: (arg) => arg.el.setAttribute("data-ev", arg.event.id),
       dateClick: (arg) => handlers.openDay(ymd(arg.date)),
       navLinks: false,
       eventClick: (arg) => {

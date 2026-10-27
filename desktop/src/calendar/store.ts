@@ -159,13 +159,13 @@ const plusMinutes = (day: string, hhmm: string, n: number): string => stamp(new 
  */
 export function draftFromText(s: CalendarState, text: string, source: string, now: Date, srcKey: string): Entry {
   // A note to remember is never forced into an appointment (「차 번호 12가 3456」, 「메모 …」).
-  const m = memoDraft(text, now);
+  const m = memoDraft(text, now, s.settings);
   if (m) {
     const note: Memo = { id: draftId("n"), kind: "note", title: m.title || "기억", details: m.details, area: "personal", source, createdAt: stamp(now), draft: !m.final, srcKey };
     s.notes.push(note);
     return note;
   }
-  const r = parseDraft(text, now);
+  const r = parseDraft(text, now, s.settings);
   const base = { title: r.title, area: "personal" as Area, source, createdAt: stamp(now), draft: true, srcKey, review: r.needsReview ? [r.explanation] : undefined };
   if (r.kind === "SCHEDULE" && r.date && r.time) {
     const endM = r.end ? mins(r.end) : Math.min(mins(r.time) + 60, 23 * 60 + 59);

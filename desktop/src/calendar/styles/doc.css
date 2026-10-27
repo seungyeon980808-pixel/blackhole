@@ -234,3 +234,4 @@
 .bh.doc .conn { font-size: 0; width: 7px; height: 7px; border-radius: 50%; background: #9aa3b8; border: 0; padding: 0; margin: 0 6px; flex: none; }
 .bh.doc .conn.warn { background: #c9a227; }
 .bh.doc .dtitle[data-nav] { cursor: pointer; }
+.bh.doc .tip { background: #fff; color: #111; border: 1.5px solid var(--rule); border-radius: 2px; font-family: var(--sans); }

@@ -63,7 +63,7 @@ describe("memo or calendar", () => {
     expect(app!.state.notes.map((n) => [n.title, n.draft])).toEqual([["차 번호 12가 3456", false]]);
     expect(app!.state.events.length + app!.state.tasks.length).toBe(0);
     expect(a.calls).toEqual(["skip:rule", "note:데스크톱:차 번호 12가 3456"]);
-    expect(app!.state.chat.at(-1)!.text).toContain("달력에는 넣지 않았어요");
+    expect(app!.state.chat.at(-1)!.refs).toEqual([app!.state.notes[0].id]); // its card (kind 「기억」) says it
     expect(root.querySelector('#bhThread [data-convert^="event|"]')).not.toBeNull();
   });
 

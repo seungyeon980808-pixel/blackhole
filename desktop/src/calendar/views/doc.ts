@@ -139,7 +139,7 @@ export const doc: ThemeView = {
       <div class="blk dstrip">${sec(0, k === ctx.today ? "오늘 일정" : "일정", fd(k))}${evTable(ctx, eventsOn(ctx.s, k), { act: false })}</div>
       <div class="dcols">
         <div class="colx">${sec(1, "할 일", `${G.today.filter((t) => t.done).length}/${G.today.length} 완료`)}
-          <div class="grp">가. 오늘까지</div>${G.today.map((t) => taskHTML(ctx, t)).join("") || none}
+          <div class="grp">가. 오늘까지</div>${[...G.today.filter((t) => !t.done), ...G.today.filter((t) => t.done)].map((t) => taskHTML(ctx, t)).join("") || none}
           ${rest ? lazyFold(ctx, "rest", [G.week.length ? `나. 7일 안 마감 ${G.week.length}` : "", G.later.length ? `다. 이후 ${G.later.length}` : ""].filter(Boolean).join(" · "), () => `${G.week.length ? `<div class="grp">나. 7일 안 마감</div>${G.week.map((t) => taskHTML(ctx, t)).join("")}` : ""}${G.later.length ? `<div class="grp">다. 이후</div>${G.later.map((t) => taskHTML(ctx, t, false)).join("")}` : ""}`) : ""}</div>
         <div class="colx">
           <div class="blk">${sec(2, "내일 일정", fd(tom))}${evTable(ctx, eventsOn(ctx.s, tom), { act: false })}</div>

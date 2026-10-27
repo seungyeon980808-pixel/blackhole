@@ -5,16 +5,16 @@
  */
 import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type BoardOptions, type ClaudeStatus, type DeskStatus, type GoogleCalendars, type InboxStatus, type MessengerStatus, type PutItem } from "./adapter";
 import { answer as answerQuestion, AskIndex, classify, docsOf, type AskSources } from "./ask";
-import { addDays, fromStamp, hm, mins, parseDay, stamp, ymd } from "./dates";
+import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
-import { clockText, isSimpleCertain, memoDraft, parseDraft } from "./rules";
+import { clockText, isSimpleCertain, memoDraft, parseDraft, singleTime, timeRange, timeWords } from "./rules";
 import { seedState } from "./samples";
 import {
   applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
 } from "./store";
-import { checksBar, ICON, memoList, memoRows, resultCard, type Ctx, type ThemeView, type ViewName } from "./views/common";
+import { checksBar, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
 import { doc, printSheet } from "./views/doc";
 import { glass } from "./views/glass";
 
@@ -228,6 +228,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <div class="alarm" id="bhAlarm" aria-live="assertive"></div>
       <div class="toast" id="bhToast" role="status" aria-live="polite" hidden></div>
       <div class="pop" id="bhPop" role="dialog" aria-label="항목" hidden></div>
+      <div class="tip" id="bhTip" role="tooltip" hidden></div>
       <input type="file" id="bhFile" hidden accept="image/*,.pdf,.hwp,.hwpx,.docx,.xlsx,.txt,.wav">`;
     if (sideCapable) {
       // 「대화」 in the header: shows the folded panel again (the panel has 「접기」 itself).
@@ -411,7 +412,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         host = main.querySelector<HTMLElement>(".fchost")!;
       }
       host.classList.toggle("g", s.settings.theme === "glass");
-      fcHost.show(host, c, s.settings.theme, t, { openDay }, root.clientWidth > 0 && root.clientWidth < COMPACT);
+      fcHost.show(host, c, s.settings.theme, t, { openDay, onMove: fcMoved }, root.clientWidth > 0 && root.clientWidth < COMPACT);
     } else {
       fcHost.destroy();
       const scroll = main.querySelector<HTMLElement>(".ttwrap, .colx")?.scrollTop;
@@ -480,6 +481,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   function scrollToNow(el: HTMLElement, nowM: number): void {
     const row = el.querySelectorAll<HTMLElement>(".tt .h")[Math.max(0, Math.floor(nowM / 60) - 8)];
     if (row && el.scrollHeight > el.clientHeight) el.scrollTop = row.offsetTop - 4;
+  }
+
+  /** Week/month drag: a new day and time (or all day) for an appointment or a deadline. */
+  function fcMoved(id: string, start: Date, end: Date | null, allDay: boolean): void {
+    const x = findEntry(s, id);
+    if (!x || (x.kind !== "event" && x.kind !== "task")) return;
+    const t = allDay ? false : { start: nowHM(start), end: x.kind === "event" && end ? nowHM(end) : undefined };
+    retime(id, ymd(start), t);
   }
 
   function openDay(k: string): void {
@@ -793,11 +802,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         skip.push(d.jobId);
         log(s, { label: line.label, msg: line.msg, src, ref: x.id }, now);
         s.inbox.push({ at: stamp(now), title: d.text.slice(0, 40), src, state: "완료", out: "1건" });
-        card(memo ? "휴대폰에서 받아 기억으로 저장했어요 · 달력에는 넣지 않았어요" : "휴대폰에서 받아 바로 넣었어요(간단한 문장이라 AI 생략).", [x.id]);
+        card("", [x.id]);
         if (memo) void adapter.writeMemo?.(d.text, src).catch(() => undefined);
       } else {
         log(s, { label: "초안", msg: line.msg, src, ref: x.id }, now);
-        card("휴대폰에서 받아 초안으로 넣었어요 · AI가 다듬는 중", [x.id]);
+        card("다듬는 중…", [x.id]);
       }
       n++;
     }
@@ -810,6 +819,25 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
 
   /* ---------- input ---------- */
+
+  /**
+   * B-6: a result identical to an entry already there (same kind, title, day, time) is not put in
+   * twice — the new copy is marked gone and the existing one is shown. Returns the dropped ids.
+   */
+  function dropDuplicates(refs: string[]): { gone: string[]; kept: string[] } {
+    const mine = new Set(refs);
+    const gone: string[] = [];
+    const kept: string[] = [];
+    for (const d of duplicates(s)) {
+      if (mine.has(d.x.id) && !mine.has(d.of.id)) {
+        d.x.gone = true;
+        gone.push(d.x.id);
+        kept.push(d.of.id);
+      }
+    }
+    return { gone, kept };
+  }
+
 
   /**
    * The chat card for these entries: the draft's card is updated in place when the AI result (or
@@ -834,9 +862,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (r?.suggested.length && !n) return "손댄 항목이라 그대로 두고 AI 제안만 붙였어요.";
     if (!n && reasons.length) return `넣은 것이 없어요. ※ ${reasons.join(" · ")}`;
     if (!n) return "찾은 것이 없어요. 언제인지 같이 보내 주세요.";
-    const fresh = n - (r?.updated.length ?? 0);
-    const head = r?.updated.length ? `초안 ${r.updated.length}건을 AI가 다듬었어요.${fresh > 0 ? ` ${fresh}건 더 넣었어요.` : ""}` : `${n}건 넣었어요.`;
-    return `${head}${miss ? ` ${miss}건은 날짜를 못 찾아 기억으로 두었어요.` : ""}`;
+    // Results speak as cards; words only for what the cards cannot say.
+    return miss ? `${miss}건은 날짜를 못 찾아 기억으로 두었어요.` : "";
   }
 
   function afterApplied(refs: string[], missing: string[], src: string, now: Date, updated: string[] = [], suggested: string[] = []): void {
@@ -862,10 +889,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const key = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const drafted = input.text !== undefined && !opts.noDraft;
     let draftMsg: ChatMessage | null = null;
+    let draftWas = "";
+    let draftId = "";
     if (drafted) {
       const x = draftFromText(s, input.text!, src, now, key);
       log(s, { label: "초안", msg: describe(s, x.id, theme().fd).msg, src, ref: x.id }, now);
-      draftMsg = card("초안으로 넣었어요 · AI가 다듬는 중", [x.id]);
+      draftMsg = card("다듬는 중…", [x.id]);
+      draftWas = JSON.stringify([x.kind, x.title, (x as { date?: string }).date, (x as { start?: string }).start, (x as { end?: string }).end, (x as { due?: string }).due, (x as { dueTime?: string }).dueTime]);
+      draftId = x.id;
     }
     busy++;
     renderComposer();
@@ -881,9 +912,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const applied = refineDrafts(s, key, proposal, src, at);
       afterApplied(applied.refs, applied.missing, src, at, applied.updated, applied.suggested);
       if (me.kind === "voice" && proposal.sourceText) s.chat[s.chat.length - 1].text = proposal.sourceText;
-      const shown = applied.refs.length ? applied.refs : applied.suggested;
-      const text = aiText(applied.refs.length, applied.missing.length, proposal.reviewReasons, applied);
-      if (draftMsg) Object.assign(draftMsg, { text, refs: [...new Set([...(draftMsg.refs ?? []), ...shown])] });
+      const dup = dropDuplicates(applied.refs);
+      const shown = [...(applied.refs.length ? applied.refs : applied.suggested).filter((r) => !dup.gone.includes(r)), ...dup.kept];
+      let text = dup.gone.length ? "이미 있어서 다시 넣지 않았어요" : aiText(applied.refs.length, applied.missing.length, proposal.reviewReasons, applied);
+      // A small note only when the AI changed what the draft said.
+      const y = draftId ? findEntry(s, draftId) : undefined;
+      if (!text && y && draftWas !== JSON.stringify([y.kind, y.title, (y as { date?: string }).date, (y as { start?: string }).start, (y as { end?: string }).end, (y as { due?: string }).due, (y as { dueTime?: string }).dueTime])) text = "AI가 고침";
+      if (draftMsg) Object.assign(draftMsg, { text, refs: [...new Set([...(draftMsg.refs ?? []).filter((r) => !dup.gone.includes(r)), ...shown])] });
       else card(text, shown);
       s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: proposal.needsReview ? "검토 필요" : "완료", out: `${applied.refs.length}건` });
     } catch (e) {
@@ -937,7 +972,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   /** 「간단한 문장은 AI 생략」: only where the AI costs money (the Mac), and only when it is on. */
   function skipsAi(text: string, at: Date): boolean {
-    return !!adapter.aiSkipped && claude?.skipSimple !== false && claude?.analyzer !== "local" && isSimpleCertain(text, parseDraft(text, at));
+    return !!adapter.aiSkipped && claude?.skipSimple !== false && claude?.analyzer !== "local" && isSimpleCertain(timeWords(text, s.settings), parseDraft(text, at, s.settings));
   }
 
   async function submitText(text: string, src = adapter.origin, checked = false, mode?: "put"): Promise<void> {
@@ -966,7 +1001,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
     }
     // Nothing about a day or time (or 「메모 …」): a 기억 at once, no AI, never on the calendar.
-    if (memoDraft(v, clock())?.final) return saveMemoText(v, src);
+    if (memoDraft(v, clock(), s.settings)?.final) return saveMemoText(v, src);
     if (skipsAi(v, clock())) {
       const now = clock();
       s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: v, kind: "text", src });
@@ -974,7 +1009,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       x.draft = false;
       const line = describe(s, x.id, theme().fd);
       log(s, { label: line.label, msg: line.msg, src, ref: x.id }, now);
-      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: "바로 넣었어요(간단한 문장이라 AI 생략).", refs: [x.id] });
+      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: "", refs: [x.id] });
       s.inbox.push({ at: stamp(now), title: v.slice(0, 40), src, state: "완료", out: "1건" });
       adapter.aiSkipped?.("rule");
       toast(`${line.label} · ${line.msg}`, x.id);
@@ -985,7 +1020,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return;
     }
     // The AI gets said ranges as clock times (it misread 「1620~2120」 as a whole day).
-    await analyze({ text: clockText(v), now: clock() }, { text: v, kind: "text" }, src, "문장");
+    await analyze({ text: clockText(v, s.settings), now: clock() }, { text: v, kind: "text" }, src, "문장");
   }
 
   /** The local index over the records (+ secret names and notes from the Mac), rebuilt when stale. */
@@ -1039,39 +1074,70 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const el = [...root.querySelectorAll<HTMLElement>("[data-editing]")].find((e) => e.dataset.editing === key);
     if (!x || !el) return;
     const val = (sel: string) => el.querySelector<HTMLInputElement>(sel)?.value.trim() ?? "";
+    const t = timeField(val(".ed-h"));
+    if (t === undefined) return toast("시각을 알아보지 못했어요 · 예: 1620, 16:20~17:30");
+    editing = null;
+    retime(x.id, val(".ed-d") || null, t, val(".ed-t"), "수정");
+  }
+
+  /**
+   * The time box in a card: 「1620」 「16:20」 「16:20~17:30」 「1620-1730」 「오후 3시」 → start/end
+   * (24-hour). Empty → no time (all day / no deadline time). Not a time → undefined.
+   */
+  function timeField(v: string): { start: string; end?: string } | null | undefined {
+    if (!v) return null;
+    const w = timeWords(v, s.settings);
+    const r = timeRange(w);
+    if (r) return { start: r.start, end: r.end };
+    const one = singleTime(w);
+    if (one) return { start: one.time };
+    const m = /^(\d{1,2})(?::?(\d{2}))?$/.exec(w.trim());
+    if (m && +m[1] < 24 && +(m[2] ?? 0) < 60) return { start: `${pad(+m[1])}:${m[2] ?? "00"}` };
+    const p = parseDraft(`오늘 ${w}`, clock(), s.settings);
+    return p.hasTime && p.time ? { start: p.time, end: p.end } : undefined;
+  }
+
+  /**
+   * One way to change when something is (card edit, a dragged bar, ↑↓): day and/or time, the
+   * reminders follow by the same shift, the entry is 「touched」 (the AI never overwrites it).
+   * Saved at once, one ⌘Z / 되돌리기 puts it back.
+   */
+  function retime(id: string, day: string | null, t: { start: string; end?: string } | null | false, title = "", label = "옮김"): void {
+    const x = findEntry(s, id);
+    if (!x) return;
     const before = structuredClone(x);
-    const title = val(".ed-t");
-    const d = val(".ed-d");
-    const h = val(".ed-h");
     if (title) x.title = title.slice(0, 80);
     const shift = (from: string, to: string) => {
       const delta = fromStamp(to).getTime() - fromStamp(from).getTime();
       return (r: string) => stamp(new Date(fromStamp(r).getTime() + delta));
     };
-    if (x.kind === "event" && d) {
-      const dur = x.start && x.end ? mins(x.end) - mins(x.start) : 60;
+    if (x.kind === "event") {
+      const d = day ?? x.date;
       const old = `${x.date}T${x.start ?? "09:00"}`;
+      const dur = x.start && x.end ? mins(x.end) - mins(x.start) : s.settings.eventMinutes || 60;
       x.date = d;
-      x.start = h || null;
-      x.end = h ? hm(Math.min(mins(h) + Math.max(dur, 10), 23 * 60 + 59)) : null;
-      x.reminders = h ? x.reminders.map(shift(old, `${d}T${h}`)) : [];
-    } else if (x.kind === "task" && d) {
+      if (t !== false) {
+        x.start = t ? t.start : null;
+        x.end = t ? t.end ?? hm(Math.min(mins(t.start) + Math.max(dur, 10), 23 * 60 + 59)) : null;
+      }
+      x.reminders = x.start ? x.reminders.map(shift(old, `${d}T${x.start}`)) : [];
+    } else if (x.kind === "task") {
+      const d = day ?? x.due;
       const old = `${x.due}T${x.dueTime ?? "09:00"}`;
       x.due = d;
-      x.dueTime = h || null;
+      if (t !== false) x.dueTime = t ? t.start : null;
       x.noDue = false;
-      x.reminders = x.reminders.map(shift(old, `${d}T${h || "09:00"}`));
-    } else if (x.kind === "period" && d) {
+      x.reminders = x.reminders.map(shift(old, `${d}T${x.dueTime ?? "09:00"}`));
+    } else if (x.kind === "period" && day) {
       const len = Math.round((parseDay(x.to).getTime() - parseDay(x.from).getTime()) / 864e5);
-      x.from = d;
-      x.to = ymd(addDays(parseDay(d), len));
+      x.from = day;
+      x.to = ymd(addDays(parseDay(day), len));
     }
     x.touched = true;
     x.draft = false;
     x.review = undefined;
-    editing = null;
-    log(s, { label: "수정", msg: x.title, src: adapter.origin, ref: x.id }, clock());
-    undoStack.push({ label: `「${before.title}」 수정`, run: () => {
+    log(s, { label, msg: x.title, src: adapter.origin, ref: x.id }, clock());
+    undoStack.push({ label: `「${before.title}」 ${label}`, run: () => {
       const y = findEntry(s, id);
       if (y) {
         for (const k of Object.keys(y)) delete (y as unknown as Record<string, unknown>)[k];
@@ -1079,7 +1145,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
       void act(() => undefined);
     } });
-    toast(`고쳤어요: 「${x.title}」`, undefined, true);
+    const w = x.kind === "event" ? `${theme().fd(x.date)} ${x.start ? `${x.start}${x.end ? "–" + x.end : ""}` : "종일"}` : x.kind === "task" ? `${theme().fd(x.due)}${x.dueTime ? " " + x.dueTime : ""}까지` : "";
+    toast(`${label === "수정" ? "고쳤어요" : "옮겼어요"}: 「${x.title}」 ${w}`, undefined, true);
     void act(() => undefined);
   }
 
@@ -1089,7 +1156,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: v, kind: "text", src });
     const x = draftFromText(s, v, src, now, `local-${Date.now().toString(36)}`);
     log(s, { label: "기억", msg: x.title, src, ref: x.id }, now);
-    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: "기억으로 저장했어요 · 달력에는 넣지 않았어요", refs: [x.id] });
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: "", refs: [x.id] });
     adapter.aiSkipped?.("rule");
     void adapter.writeMemo?.(v.replace(/^\s*(메모|기억|노트)\s*[:：,]?\s+/, ""), src).catch(() => undefined);
     toast(`기억 · ${x.title}`, x.id);
@@ -1106,7 +1173,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (!x || x.kind !== "note") return;
     const now = clock();
     const text = `${x.title}${x.details ? ` ${x.details}` : ""}`;
-    const r = parseDraft(text, now);
+    const r = parseDraft(text, now, s.settings);
     const day = r.date ?? ymd(now);
     const common = { title: r.title && r.title !== "음성 메모" ? r.title : x.title, details: x.details, area: x.area, source: x.source, createdAt: stamp(now), touched: true };
     const made: Entry = to === "event"
@@ -1135,7 +1202,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     s.notes.push(memo);
     log(s, { label: "기억", msg: memo.title, src: via, ref: memo.id }, now);
     s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: text.trim(), kind: "text", src: via });
-    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: "기억으로 저장했어요(AI 없이 그대로).", refs: [memo.id] });
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: "", refs: [memo.id] });
     toast(`기억으로 저장: ${memo.title}`, memo.id);
     await save();
     render();
@@ -1414,6 +1481,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       else openFolds.add(key);
       return render();
     }
+    if (barJustDragged) {
+      // The click that ends a drag does not also open the card.
+      barJustDragged = false;
+      return;
+    }
     if (view === "day" && q(".strip [data-ev], .dstrip [data-ev]")) {
       const t = q<HTMLElement>(".strip [data-ev], .dstrip [data-ev]")!;
       const r = t.getBoundingClientRect();
@@ -1435,6 +1507,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       render();
       if (key.startsWith("subs:")) root.querySelector<HTMLInputElement>(`[data-subadd="${key.slice(5)}"]`)?.focus();
       return;
+    }
+    if (q("[data-merge]")) {
+      // 합치기: the later copy is marked gone (⌘Z brings it back); nothing is erased.
+      return userAction({ type: "cancel", ref: q("[data-merge]")!.dataset.merge! });
     }
     if (q("[data-accept]")) {
       // 「맞아요」: a provisional event is confirmed; a review note is cleared.
@@ -1566,6 +1642,17 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       e.preventDefault();
       e.stopPropagation();
       return setPanelW(panelW + (e.key === "ArrowLeft" ? 20 : -20), true);
+    }
+    if (el.matches(".ed-h") && (e.key === "ArrowUp" || e.key === "ArrowDown") && !e.isComposing) {
+      e.preventDefault();
+      e.stopPropagation();
+      const t = timeField((el as HTMLInputElement).value);
+      if (t) {
+        const step = e.key === "ArrowUp" ? 10 : -10;
+        const mv = (h: string) => hm(Math.max(0, Math.min(23 * 60 + 50, Math.round((mins(h) + step) / 10) * 10)));
+        (el as HTMLInputElement).value = t.end ? `${mv(t.start)}~${mv(t.end)}` : mv(t.start);
+      }
+      return;
     }
     const ed = el.closest?.<HTMLElement>("[data-editing]");
     if (ed && !e.isComposing && (e.key === "Enter" || e.key === "Escape")) {
@@ -1734,7 +1821,23 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
     }
   };
+  /** Day band: drag a bar to move it, its edges to change start/end (10-minute steps). */
+  let barDrag: { id: string; mode: "move" | "l" | "r"; x0: number; el: HTMLElement; left: number; width: number; px: number; a: number; b: number; moved: boolean } | null = null;
+  let barJustDragged = false;
   const onDown = (e: PointerEvent) => {
+    const bar = (e.target as HTMLElement).closest<HTMLElement>(".strip .sb");
+    if (bar && e.button === 0) {
+      const lane = bar.parentElement!;
+      const x = findEntry(s, bar.dataset.ev!);
+      if (x?.kind === "event" && x.start) {
+        const span = (Number(lane.dataset.h1) - Number(lane.dataset.h0)) * 60;
+        const a = mins(x.start);
+        const b = x.end ? mins(x.end) : a + (s.settings.eventMinutes || 60);
+        const edge = (e.target as HTMLElement).closest(".rs");
+        barDrag = { id: x.id, mode: edge?.classList.contains("l") ? "l" : edge ? "r" : "move", x0: e.clientX, el: bar, left: bar.offsetLeft, width: bar.offsetWidth, px: lane.clientWidth / span, a, b, moved: false };
+        return;
+      }
+    }
     if (side && (e.target as HTMLElement).closest("[data-resize]")) {
       resizing = { x: e.clientX, w: panelW };
       e.preventDefault();
@@ -1745,7 +1848,25 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     drag = { y: e.clientY, open: g.dataset.drag === "close" };
     e.preventDefault();
   };
+  const barDelta = (d: { x0: number; px: number }, clientX: number) => Math.round((clientX - d.x0) / d.px / 10) * 10;
   const onMove = (e: PointerEvent) => {
+    if (barDrag) {
+      const dx = e.clientX - barDrag.x0;
+      if (!barDrag.moved && Math.abs(dx) < 4) return;
+      barDrag.moved = true;
+      const dm = barDelta(barDrag, e.clientX) * barDrag.px;
+      const st = barDrag.el.style;
+      if (barDrag.mode === "move") st.left = `${barDrag.left + dm}px`;
+      else if (barDrag.mode === "l") {
+        st.left = `${barDrag.left + dm}px`;
+        st.width = `${Math.max(12, barDrag.width - dm)}px`;
+      } else st.width = `${Math.max(12, barDrag.width + dm)}px`;
+      const d = barDelta(barDrag, e.clientX);
+      const a = barDrag.mode === "r" ? barDrag.a : barDrag.a + d;
+      const b = barDrag.mode === "l" ? barDrag.b : barDrag.b + d;
+      barDrag.el.querySelector(".st")!.textContent = `${hm(Math.max(0, a))}–${hm(Math.min(24 * 60 - 1, b))}`;
+      return;
+    }
     if (resizing) return setPanelW(resizing.w + resizing.x - e.clientX, false);
     if (!drag) return;
     const dy = e.clientY - drag.y;
@@ -1755,6 +1876,20 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     else if (drag.open && dy > 0) el.style.transform = `translateY(${dy}px)`;
   };
   const onUp = (e: PointerEvent) => {
+    if (barDrag) {
+      const d = barDrag;
+      barDrag = null;
+      if (!d.moved) return;
+      barJustDragged = true;
+      const dm = barDelta(d, e.clientX);
+      let a = d.mode === "r" ? d.a : d.a + dm;
+      let b = d.mode === "l" ? d.b : d.b + dm;
+      a = Math.max(0, Math.min(a, 24 * 60 - 10));
+      b = Math.max(a + 10, Math.min(b, 24 * 60 - 1));
+      if (dm) retime(d.id, null, { start: hm(a), end: hm(b) });
+      else render();
+      return;
+    }
     if (resizing) {
       setPanelW(panelW, true);
       resizing = null;
@@ -1803,6 +1938,42 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     else openFolds.delete(key);
     render();
   }, true);
+  // Hover card (A-4): shows within 150 ms, stays inside the window, never in the way of a drag.
+  let tipTimer: number | undefined;
+  let tipFor = "";
+  const hideTip = () => {
+    window.clearTimeout(tipTimer);
+    tipFor = "";
+    const t = root.querySelector<HTMLElement>("#bhTip");
+    if (t) t.hidden = true;
+  };
+  root.addEventListener("mouseover", (e) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>("[data-ev]");
+    if (!el || barDrag || el.closest("#bhPop, .rc")) return el ? undefined : hideTip();
+    const id = el.dataset.ev!;
+    if (id === tipFor) return;
+    hideTip();
+    tipFor = id;
+    const mx = (e as MouseEvent).clientX;
+    const my = (e as MouseEvent).clientY;
+    tipTimer = window.setTimeout(() => {
+      const tip = root.querySelector<HTMLElement>("#bhTip");
+      const html = tipHTML(ctx(), id, theme().fd);
+      if (!tip || !html || tipFor !== id) return;
+      tip.innerHTML = html;
+      tip.hidden = false;
+      const base = root.getBoundingClientRect();
+      const w = tip.offsetWidth;
+      const h = tip.offsetHeight;
+      tip.style.left = `${Math.max(6, Math.min(mx - base.left + 12, base.width - w - 6))}px`;
+      tip.style.top = `${my - base.top + 16 + h > base.height ? Math.max(6, my - base.top - h - 10) : my - base.top + 16}px`;
+    }, 150);
+  });
+  root.addEventListener("mouseout", (e) => {
+    const to = (e as MouseEvent).relatedTarget as HTMLElement | null;
+    if (!to?.closest?.(`[data-ev="${tipFor}"]`)) hideTip();
+  });
+  root.addEventListener("pointerdown", hideTip);
   root.addEventListener("focusin", (e) => {
     const el = e.target as HTMLInputElement;
     if (el.matches?.("[data-desk-sc]")) {

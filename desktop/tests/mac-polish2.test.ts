@@ -121,14 +121,14 @@ describe("empty states and the input", () => {
     const root = await mount({ ...mac(), load: async () => st });
     app!.setView("day", "2026-10-27");
     const fold = root.querySelector(".box.grow details.fold")!;
-    expect(fold.querySelector("summary")!.textContent).toMatch(/나중 22/);
+    expect(fold.querySelector("summary")!.textContent).toMatch(/나중 22/); // this week is shown open (B-11)
     // An opened fold stays open after a re-render (a check, the minute tick).
     expect(fold.querySelectorAll(".trow").length).toBe(0); // rows drawn only when opened
     (fold as HTMLDetailsElement).open = true;
     fold.dispatchEvent(new Event("toggle"));
     const again = root.querySelector(".box.grow details.fold")!;
     expect(again.hasAttribute("open")).toBe(true);
-    expect(again.querySelectorAll(".trow").length).toBe(25); // 3 this week + 22 later
+    expect(again.querySelectorAll(".trow").length).toBe(22);
     app!.render();
     expect(root.querySelector(".box.grow details.fold")!.hasAttribute("open")).toBe(true);
   });

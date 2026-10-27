@@ -91,6 +91,7 @@ export const ICON = {
   print: svg('<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v6H7z"/>'),
   gear: svg('<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3"/>'),
   chat: svg('<path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-8l-4 3v-3H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>'),
+  merge: svg('<path d="M7 4v5a5 5 0 0 0 5 5h5M17 4v5"/><path d="M14 17l3-3-3-3"/>'),
   find: svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'),
   today: svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/>'),
   fold: svg('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M14.5 4.5v15M9 10l2 2-2 2"/>'),
@@ -205,9 +206,9 @@ export function resultCard(ctx: Ctx, id: string, fd: (k: string) => string, answ
   const key = `${where}|${x.id}`;
   if (ctx.editing === key && ctx.canEdit) {
     const day = x.kind === "event" ? x.date : x.kind === "task" ? x.due : x.kind === "period" ? x.from : "";
-    const time = x.kind === "event" ? x.start ?? "" : x.kind === "task" ? x.dueTime ?? "" : "";
+    const time = x.kind === "event" ? (x.start ? `${x.start}${x.end ? "~" + x.end : ""}` : "") : x.kind === "task" ? x.dueTime ?? "" : "";
     return `<div class="rc edit" data-editing="${esc(key)}"><input class="ed-t" value="${esc(x.title)}" aria-label="제목">
-      ${day ? `<div class="ed-row"><input type="date" class="ed-d" value="${day}" aria-label="날짜">${x.kind === "event" || x.kind === "task" ? `<input type="time" class="ed-h" value="${time}" aria-label="시각(비우면 ${x.kind === "event" ? "종일" : "시각 없음"})">` : ""}</div>` : ""}
+      ${day ? `<div class="ed-row"><input type="date" class="ed-d" value="${day}" aria-label="날짜">${x.kind === "event" || x.kind === "task" ? `<input class="ed-h" value="${time}" placeholder="${x.kind === "event" ? "16:20~17:30 · 비우면 종일" : "17:00 · 비우면 시각 없음"}" title="1620, 16:20~17:30처럼 · ↑↓ 10분" aria-label="시각(24시간, ↑↓ 10분, 비우면 ${x.kind === "event" ? "종일" : "시각 없음"})" autocomplete="off" spellcheck="false">` : ""}</div>` : ""}
       <div class="ra on"><button class="ib" data-editsave="${esc(key)}" title="저장 (Enter)" aria-label="저장">${ICON.ok}</button><button class="ib" data-editcancel title="그만 (Esc)" aria-label="그만">${ICON.x}</button></div></div>`;
   }
   // Icon buttons (their name on hover / for screen readers); the card itself opens its day.
@@ -286,6 +287,7 @@ export function checksOf(ctx: Ctx): { x: Entry; why: string }[] {
   for (const x of needsReview(ctx)) if (x.review!.some((r) => TIME_UNSURE.test(r))) add(x, "시각을 정해 주세요");
   const live = ctx.s.events.filter((e) => !e.gone && !e.sample);
   for (const e of live) if (e.provisional && e.date < ctx.today) add(e, "날짜가 지난 가승인");
+  for (const d of duplicates(ctx.s)) add(d.x, `같은 ${KIND_WORD[d.x.kind]}이 두 번 · 합치면 하나만 남김`);
   const timed = live.filter((e) => e.start && e.end && e.date >= ctx.today);
   for (const a of timed) {
     for (const b of timed) {
@@ -304,6 +306,35 @@ export function checksBar(ctx: Ctx, fd: (k: string) => string): string {
     resultCard(ctx, x.id, fd, false, "chk")
       .replace(/<button class="ib" data-(?:ok|tdone)="[^"]*"[^>]*>.*?<\/button>/, "")
       .replace(/<div class="rm2 warn">[\s\S]*?<\/div>/, "")
-      .replace('<div class="ra">', `<div class="rm2 warn">${esc(why)}</div><div class="ra"><button class="ib" data-accept="${x.id}" title="맞아요" aria-label="맞아요">${ICON.ok}</button>`);
+      .replace('<div class="ra">', `<div class="rm2 warn">${esc(why)}</div><div class="ra">${why.startsWith("같은") ? `<button class="ib" data-merge="${x.id}" title="합치기(이것을 지우고 하나만 남김)" aria-label="합치기">${ICON.merge}</button>` : `<button class="ib" data-accept="${x.id}" title="맞아요" aria-label="맞아요">${ICON.ok}</button>`}`);
   return `<div class="checks"><button class="chkbar" data-checks aria-expanded="${open}"><span class="cdot"></span><span>확인할 것 ${list.length}</span><span class="chev">${open ? "▴" : "▾"}</span></button>${open ? list.map(card).join("") : ""}</div>`;
+}
+
+/** Same thing twice (same kind, title, day and time): the later one, to offer 「합치기」. */
+export function duplicates(s: CalendarState): { x: Entry; of: Entry }[] {
+  const seen = new Map<string, Entry>();
+  const out: { x: Entry; of: Entry }[] = [];
+  const keyOf = (x: Entry) =>
+    x.kind === "event" ? `e|${x.title.trim()}|${x.date}|${x.start ?? ""}` : x.kind === "task" ? `t|${x.title.trim()}|${x.due}|${x.dueTime ?? ""}|${x.noDue ? 1 : 0}` : "";
+  const live = [...s.events, ...s.tasks].filter((x) => !x.gone && !x.sample).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  for (const x of live) {
+    const k = keyOf(x);
+    const first = seen.get(k);
+    if (first) out.push({ x, of: first });
+    else seen.set(k, x);
+  }
+  return out;
+}
+
+/** The hover card: everything about one entry, read-only (a click is for editing). */
+export function tipHTML(ctx: Ctx, id: string, fd: (k: string) => string): string {
+  const x = findEntry(ctx.s, id);
+  if (!x) return "";
+  const lines: string[] = [];
+  if (x.kind === "event") lines.push(`${fd(x.date)} ${x.start ? `${x.start}${x.end ? "–" + x.end : " · 끝 미정"}` : "종일"}${x.provisional ? " · 가승인" : ""}`);
+  if (x.kind === "task") lines.push(x.noDue ? "마감 없음" : `${fd(x.due)}${x.dueTime ? " " + x.dueTime : ""}까지${x.done ? " · 끝냄" : ""}`);
+  if (x.kind === "period") lines.push(`${fd(x.from)} ~ ${fd(x.to)}`);
+  const rem = "reminders" in x && x.reminders.length ? `알림 ${x.reminders.map((r) => (r.slice(0, 10) === ctx.today ? r.slice(11) : `${fd(r.slice(0, 10))} ${r.slice(11)}`)).join(", ")}` : "";
+  const subs = x.kind === "task" && x.subs.length ? `<div class="tsub">${x.subs.map((t) => `<div>${t.done ? "☑" : "☐"} ${esc(t.title)}</div>`).join("")}</div>` : "";
+  return `<b>${esc(x.title)}</b><div>${esc([KIND_WORD[x.kind], ...lines].join(" · "))}</div>${rem ? `<div>${esc(rem)}</div>` : ""}${subs}${x.details ? `<div class="tdet">${esc(x.details)}</div>` : ""}${x.review?.length ? `<div class="warn">※ ${esc(x.review.join(" · "))}</div>` : ""}<div class="tsrc">${esc(x.source)} · ${esc(x.createdAt.slice(5, 10).replace("-", "/"))} ${esc(x.createdAt.slice(11, 16))}</div>`;
 }

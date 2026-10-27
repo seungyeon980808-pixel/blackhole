@@ -137,6 +137,14 @@ export interface Settings {
   glassBlur: number;
   /** Glass theme: background and card brightness, -50 … 50 (0 = the approved look). */
   glassBright: number;
+  /** 「퇴근 전」: when the work day ends (HH:MM). */
+  offWork: string;
+  /** 「점심 전/때」: lunch (HH:MM-HH:MM). */
+  lunch: string;
+  /** 「n교시 전/후/에」: the school periods, in order (HH:MM-HH:MM each). */
+  periods: string[];
+  /** An appointment without an end is drawn this many minutes long (marked 「끝 미정」). */
+  eventMinutes: number;
 }
 
 export interface CalendarState {
@@ -169,7 +177,11 @@ export const DEFAULT_SETTINGS: Settings = {
   sharePhone: false,
   messengerEnabled: false,
   glassBlur: 26,
-  glassBright: 0
+  glassBright: 0,
+  offWork: "16:40",
+  lunch: "12:10-13:00",
+  periods: ["09:00-09:40", "09:50-10:30", "10:40-11:20", "11:30-12:10", "13:00-13:40", "13:50-14:30", "14:40-15:20"],
+  eventMinutes: 60
 };
 
 export function emptyState(): CalendarState {
