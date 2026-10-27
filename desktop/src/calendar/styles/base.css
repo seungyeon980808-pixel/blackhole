@@ -493,3 +493,42 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 .bh .tdv .dtg .nowl { left: 0; }
 .bh .tdv .dtg .nowl::before { display: none; }
 .bh .tdv .dtg .nowl span { left: -54px; right: auto; width: 46px; text-align: center; top: -10px; font-size: 11px; padding: 1px 0; border-radius: 5px; font-variant-numeric: tabular-nums; }
+
+/* ── 휴대폰 (시안 가): 머리줄 한 줄(‹날짜› · 찾기 · 달력 · 설정), 「오늘」은 카드 넷을 위아래로 ── */
+.phone-only { display: none !important; }
+html.phone .phone-only { display: inline-grid !important; }
+html.phone .barin { display: flex; flex-wrap: nowrap; gap: 6px; }
+html.phone .barin .cell.l { flex: 1 1 auto; flex-wrap: wrap; }
+html.phone .barin .cell.r { flex: none; grid-column: auto; }
+html.phone .barin .seg, html.phone .barin [data-print], html.phone .barin .nowline, html.phone .barin .conn, html.phone .barin .today[data-nav] { display: none !important; }
+html.phone .barin .find { display: none; }
+html.phone .bh.findon .barin { flex-wrap: wrap; }
+html.phone .bh.findon .barin .find { display: inline-flex; order: 9; flex: 1 1 100%; }
+html.phone .bh.findon .barin .cell.l { flex: 1 1 100%; }
+html.phone .bh .content { overflow-y: auto; }
+.bh .phv { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; }
+.bh .phv .pcard { border-radius: 16px; background: var(--x-chip, rgba(255,255,255,.08)); border: 1px solid var(--x-hair, rgba(255,255,255,.14)); padding: 12px 13px; }
+.bh.glass .phv .pcard { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.16); }
+.bh .phv .pch { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.bh .phv .pch i { font-style: normal; width: 22px; height: 22px; border-radius: 7px; background: var(--x-sel, rgba(255,255,255,.16)); display: grid; place-items: center; font-size: 12px; }
+.bh .phv .pch .c { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--ink2); background: var(--x-chip, rgba(255,255,255,.1)); border-radius: 999px; padding: 1px 8px; }
+.bh .phv .pnx { display: flex; align-items: baseline; gap: 8px; }
+.bh .phv .clk { font-size: 34px; font-weight: 300; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
+.bh .phv .pnx .l { color: var(--ink2); font-size: 12.5px; }
+.bh .phv .pnt { margin-top: 6px; font-size: 15px; } .bh .phv .pnt b { font-variant-numeric: tabular-nums; }
+.bh .phv .prow { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--x-hair, rgba(255,255,255,.1)); font-size: 15px; }
+.bh .phv .pch + .prow, .bh .phv .pch + .none { border-top: 0; }
+.bh .phv .prow.past { opacity: .45; }
+.bh .phv .prow .tm { color: var(--ink2); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; } .bh .phv .prow .tm.b { color: var(--ink); font-weight: 700; }
+.bh .phv .prow .tn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.bh .phv .prow .x { font-style: normal; font-size: 12px; color: var(--ink3); white-space: nowrap; } .bh .phv .prow .x.b { color: var(--ink); font-weight: 700; }
+.bh .phv .ck { width: 18px; height: 18px; border: 1.7px solid var(--ink2); border-radius: 5px; display: inline-block; vertical-align: -4px; margin-right: 8px; }
+.bh .phv .no { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; border-radius: 5px; font-size: 11px; font-weight: 600; color: var(--ink2); background: var(--x-chip, rgba(255,255,255,.1)); margin-right: 6px; vertical-align: 1px; }
+.bh .phv .star { font-size: 14px; } .bh .phv .star.s1 { color: #ffd84a; } .bh .phv .star.s2 { color: #ff5a5f; }
+.bh .phv .rtb { border: 0; background: none; color: inherit; font: inherit; padding: 0; cursor: pointer; }
+.bh .phv .dd { font-weight: 700; color: var(--ink2); font-size: 13px; } .bh .phv .dd.soon { color: var(--ink); }
+.bh .phv .pmore { display: block; width: 100%; margin-top: 4px; padding: 6px 0 0; border: 0; background: none; color: var(--ink2); font: inherit; font-size: 12.5px; text-align: center; cursor: pointer; }
+.bh .phv .plater { opacity: .75; }
+.bh .phv .phtable .dt { height: 520px; }
+.bh .phv .ga { margin-left: 4px; font-size: 10px; border: 1px solid var(--x-line, rgba(255,255,255,.4)); border-radius: 3px; padding: 0 3px; }
+.bh .phv .tdv.phtable { height: auto; }

@@ -14,7 +14,7 @@ import { seedState } from "./samples";
 import {
   applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
 } from "./store";
-import { priorityView, todayView, type TodayOpts } from "./views/today";
+import { phoneToday, priorityView, todayView, type TodayOpts } from "./views/today";
 import { checksBar, dictationFixes, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
 import { doc, printSheet } from "./views/doc";
 import { glass } from "./views/glass";
@@ -473,7 +473,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     });
     const main = root.querySelector<HTMLElement>("#bhMain")!;
     // The day is the 「오늘」 layout (user-approved plan) in both themes; the phone stacks it.
-    const custom = view === "day" ? todayView(c, today, t.fd, side ? "" : checksBar(c, t.fd)) : view === "pri" ? priorityView(c, t.fd) : view === "week" ? t.week(c) : view === "memo" ? memoList(c, t.fd, memoQuery) : null;
+    // The phone: 시안 가 — one scrolling 「오늘」 (now·next → to-dos → today's list → upcoming; the table on request).
+    const phone = document.documentElement.classList.contains("phone");
+    const custom = view === "day" && phone ? checksBar(c, t.fd) + phoneToday(c, today, t.fd) : view === "day" ? todayView(c, today, t.fd, side ? "" : checksBar(c, t.fd)) : view === "pri" ? priorityView(c, t.fd) : view === "week" ? t.week(c) : view === "memo" ? memoList(c, t.fd, memoQuery) : null;
     if (custom === null) {
       let host = main.querySelector<HTMLElement>(":scope > .fchost");
       if (!host) {
@@ -614,6 +616,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       ${adapter.setLockTasks ? `<label class="set-row"><input type="checkbox" data-board="lockTasks" ${board.lockTasks !== false ? "checked" : ""}> 잠금화면 알림에 오늘 할 일·마감(「완료」 체크)</label>
       <label class="set-row"><input type="checkbox" data-board="lockHideTitles" ${board.lockHideTitles ? "checked" : ""}> 잠금화면 알림에서 할 일 제목 가리기</label>` : ""}
       ${adapter.pinWidget ? '<div class="set-row"><button class="mini" data-pinwidget>홈 화면에 블랙홀 위젯 추가</button></div>' : ""}
+      ${adapter.openRecording ? '<div class="set-g">휴대폰에서 넣기</div><div class="set-row">녹음 대기 · 녹음 기록 · Google 연결 <button class="mini" data-openrec>열기</button></div><div class="set-note">음량 단추·잠금 화면에서 바로 녹음하는 설정입니다(예전 첫 화면).</div>' : ""}
       <div class="set-note">잠금화면 배경은 켜면 지금 배경을 바꿉니다. 잠금 상태에서는 「완료」 체크와 「적기」까지만 됩니다.</div>${board.status ? `<div class="set-note"><span class="warn">${escapeHtml(board.status)}</span></div>` : ""}` : ""}`;
     const strip = (h: string) => h.replace(/<div class="set-sep"><\/div>/g, "").replace(/<div class="set-g">[^<]*<\/div>/g, "");
     const desk2 = adapter.desk ? strip(deskBlock()) : "";
@@ -2026,6 +2029,21 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (q("[data-note]")) return void adapter.openNote?.(q("[data-note]")!.dataset.note!).catch((e: unknown) => toast(friendlyError(e)));
     if (q("[data-ok]")) return userAction({ type: "confirm", ref: q("[data-ok]")!.dataset.ok! });
     if (q("[data-no]")) return userAction({ type: "cancel", ref: q("[data-no]")!.dataset.no! });
+    if (q("[data-openrec]")) return void adapter.openRecording?.();
+    if (q("button[data-fold]")) {
+      const key = q("button[data-fold]")!.dataset.fold!;
+      if (openFolds.has(key)) openFolds.delete(key);
+      else openFolds.add(key);
+      return render();
+    }
+    if (q("[data-phmonth]")) {
+      view = view === "month" ? "day" : "month";
+      return render();
+    }
+    if (q("[data-phfind]")) {
+      root.classList.toggle("findon");
+      return void root.querySelector<HTMLInputElement>("#bhFind")?.focus();
+    }
     if (q("[data-fixall]")) {
       const fixes = dictationFixes(s, fixSkip);
       const was = fixes.map((f) => [f.x, f.x.title] as const);

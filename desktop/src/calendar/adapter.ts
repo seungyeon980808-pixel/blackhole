@@ -154,6 +154,8 @@ export interface BlackholeAdapter {
   setLockTasks?(show: boolean, hideTitles: boolean): Promise<void>;
   /** Phone: ask the launcher to add the 블랙홀 widget to the home screen. */
   pinWidget?(): Promise<boolean>;
+  /** Phone: opens the native 녹음 대기 screen (it was the first screen until 2026-10-27). */
+  openRecording?(): Promise<void>;
   /** Phone (stage 4): calendars to mirror into, and the current choice. */
   googleCalendars?(): Promise<GoogleCalendars>;
   setGoogleCalendars?(enabled: boolean, provisional: string, main: string): Promise<void>;

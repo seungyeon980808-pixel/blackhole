@@ -178,6 +178,7 @@ export const glass: ThemeView = {
       <div class="cell r" data-tauri-drag-region><span class="nowline" id="bhNowLine" aria-live="off"></span>
         <span class="conn" title="${esc(ctx.connection.detail)}" data-testid="connection">${esc(ctx.connection.label)}</span>
         <div class="seg" role="group" aria-label="보기"><button data-v="month">월</button><button data-v="week">주</button><button data-v="day">일</button><button data-v="pri">우선순위</button><button data-v="memo">기억</button></div>
+        <button class="nb ibn phone-only" data-phfind title="찾기" aria-label="찾기">${ICON.find}</button><button class="nb ibn phone-only" data-phmonth title="달력 · 오늘" aria-label="달력">${ICON.cal}</button>
         <button class="nb ibn" data-print title="출력 (⌘P)" aria-label="출력">${ICON.print}</button><button class="nb ibn" data-settings aria-haspopup="dialog" title="설정 (⌘,)" aria-label="설정">${ICON.gear}</button>
       </div>
     </div></header>

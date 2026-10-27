@@ -11,8 +11,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { addDays, DOW, fdShort, mins, nowHM, parseDay, ymd } from "../calendar/dates";
 import { normalizeState, type CalendarState, type Task } from "../calendar/model";
-import { dueOn, eventsOn, liveEvents, liveTasks, taskGroups } from "../calendar/store";
-import { dueText, isUrgent, orderedTasks, upcoming } from "../calendar/views/today";
+import { dueOn, eventsOn, taskGroups } from "../calendar/store";
+import { dueText, isUrgent, nextUp, orderedTasks, untilText as until, upcoming } from "../calendar/views/today";
 
 const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const range = (a: string | null, b: string | null) => (a ? `${a}${b ? "–" + b : ""}` : "종일");
@@ -57,24 +57,6 @@ const fdW = (k: string) => {
   const d = parseDay(k);
   return `${d.getMonth() + 1}/${d.getDate()}(${DOW[d.getDay()]})`;
 };
-
-/** 「12시간 뒤」 「40분 뒤」 */
-function until(now: Date, at: Date): string {
-  const m = Math.round((at.getTime() - now.getTime()) / 60000);
-  return m >= 60 * 24 ? `${Math.floor(m / 1440)}일 뒤` : m >= 60 ? `${Math.floor(m / 60)}시간 뒤` : `${Math.max(1, m)}분 뒤`;
-}
-
-/** The next appointment or deadline from now (a week ahead at most). */
-function nextUp(s: CalendarState, now: Date): { at: Date; label: string; title: string } | null {
-  const list: { at: Date; title: string }[] = [];
-  for (const e of liveEvents(s)) if (e.start && !e.workFor) list.push({ at: new Date(`${e.date}T${e.start}`), title: e.title });
-  for (const x of liveTasks(s)) if (!x.done && !x.noDue && x.dueTime) list.push({ at: new Date(`${x.due}T${x.dueTime}`), title: x.title });
-  const n = list.filter((x) => x.at > now && x.at.getTime() - now.getTime() < 7 * 864e5).sort((a, b) => a.at.getTime() - b.at.getTime())[0];
-  if (!n) return null;
-  const k = ymd(n.at);
-  const hm = `${p2(n.at.getHours())}:${p2(n.at.getMinutes())}`;
-  return { at: n.at, label: k === ymd(now) ? hm : k === ymd(addDays(now, 1)) ? `내일 ${hm}` : `${fdShort(k)} ${hm}`, title: n.title };
-}
 
 function largeHTML(s: CalendarState, now: Date, head: string, input: string): string {
   const k = ymd(now);

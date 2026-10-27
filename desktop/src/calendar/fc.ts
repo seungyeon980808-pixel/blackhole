@@ -79,7 +79,7 @@ export class FcHost {
       plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
       initialView: fcView,
       initialDate: at,
-      views: { rolling: { type: "dayGrid", duration: { days: 42 }, dateAlignment: "week" } },
+      views: { rolling: { type: "dayGrid", duration: { weeks: 6 }, dateAlignment: "week" } },
       now: ctx.now,
       headerToolbar: false,
       height: "100%",

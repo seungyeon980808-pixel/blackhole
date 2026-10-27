@@ -24,6 +24,7 @@ export interface AndroidBridge {
   setBoardLook?(bright: number, opacity: number): void;
   setLockTasks?(show: boolean, hideTitles: boolean): void;
   pinWidget?(): boolean;
+  openRecording?(): void;
   setGoogleCalendars?(enabled: boolean, provisional: string, main: string): void;
   /** Drafts made on the phone (this page or the native send screens), JSON list of entries. */
   localDrafts?(): string;
@@ -96,6 +97,7 @@ export function androidAdapter(bridge: AndroidBridge): BlackholeAdapter {
     setBoardLook: bridge.setBoardLook ? async (bright, opacity) => bridge.setBoardLook!(bright, opacity) : undefined,
     setLockTasks: bridge.setLockTasks ? async (show, hideTitles) => bridge.setLockTasks!(show, hideTitles) : undefined,
     pinWidget: bridge.pinWidget ? async () => bridge.pinWidget!() : undefined,
+    openRecording: bridge.openRecording ? async () => bridge.openRecording!() : undefined,
     googleCalendars: bridge.googleCalendars
       ? async () => parse<GoogleCalendars>(bridge.googleCalendars!(), { permission: false, enabled: false, provisional: "", main: "", status: "", calendars: [] })
       : undefined,

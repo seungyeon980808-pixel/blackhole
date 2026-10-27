@@ -27,9 +27,9 @@ final class CalendarBoardRenderer {
             this.ink = ink; this.ink2 = ink2; this.ink3 = ink3; this.hot = hot; this.panel = panel; this.edge = edge;
         }
         static final Palette DARK = new Palette(Color.argb(245, 244, 245, 251), Color.argb(180, 244, 245, 251),
-                Color.argb(120, 244, 245, 251), Color.rgb(255, 107, 138), Color.rgb(13, 15, 32), Color.argb(70, 255, 255, 255));
+                Color.argb(120, 244, 245, 251), Color.argb(245, 244, 245, 251), Color.rgb(13, 15, 32), Color.argb(70, 255, 255, 255));
         static final Palette LIGHT = new Palette(Color.argb(240, 18, 20, 38), Color.argb(175, 18, 20, 38),
-                Color.argb(115, 18, 20, 38), Color.rgb(200, 30, 72), Color.rgb(246, 246, 251), Color.argb(40, 0, 0, 0));
+                Color.argb(115, 18, 20, 38), Color.argb(240, 18, 20, 38), Color.rgb(246, 246, 251), Color.argb(40, 0, 0, 0));
     }
 
     /** 위젯에서 누를 자리 하나: 그림 안의 위·아래(픽셀)와 열 날짜. */
@@ -99,7 +99,10 @@ final class CalendarBoardRenderer {
         List<Hit> hits = new ArrayList<>();
         pal = p;
         try {
-            content(canvas, board, 12 * density, 10 * density, width - 24 * density, height - 30 * density, density, Math.max(1f, Math.min(1.3f, textScale)), hits);
+            // 2026-10-27 시안: 위는 지금·다음, 4×4 이상은 오늘 일정 | 할 일 두 칸, 작으면 급한 것 세 줄.
+            float s = Math.max(1f, Math.min(1.3f, textScale));
+            boolean big = height / density >= 200 && width / density >= 250;
+            widgetContent(canvas, board, 12 * density, 10 * density, width - 24 * density, height - 34 * density, density, s, hits, big, java.time.LocalTime.now());
         } finally {
             pal = Palette.DARK;
         }
@@ -190,6 +193,138 @@ final class CalendarBoardRenderer {
             canvas.drawText(ellipsize(e.text + (e.provisional ? "  [가]" : ""), dim, w - (tx - x)), tx, cy, dim);
             hit(hits, cy, line * 0.9f, e.day);
             cy += line * 0.9f;
+        }
+    }
+
+    /** 「HH:MM」 → 분(아니면 -1). */
+    private static int minutes(String hm) {
+        if (hm == null || !hm.matches("\\d{2}:\\d{2}.*")) return -1;
+        return Integer.parseInt(hm.substring(0, 2)) * 60 + Integer.parseInt(hm.substring(3, 5));
+    }
+
+    /** 급함: 지난 것, 오늘 마감 시각이 6시간 안. 색 대신 굵은 글씨로 보인다(별 노랑·빨강만 색). */
+    private static boolean urgent(BlackholeBoard.Line t, int nowM) {
+        if (t.past || t.badge.isEmpty()) return false;
+        if (t.badge.endsWith("지남")) return true;
+        if (t.badge.startsWith("오늘 ")) {
+            int m = minutes(t.badge.substring(3));
+            return m >= 0 && m - nowM <= 360;
+        }
+        return false;
+    }
+
+    /** 할 일 줄의 왼쪽 칸: 오늘 마감 시각 · 「오늘」 · 「지남」 · 「D-2」. */
+    private static String taskLeft(BlackholeBoard.Line t) {
+        if (t.badge.startsWith("오늘 ")) return t.badge.substring(3);
+        if (t.badge.endsWith("지남")) return "지남";
+        return t.badge.isEmpty() ? "—" : t.badge;
+    }
+
+    private static void widgetContent(Canvas canvas, BlackholeBoard.Board board, float x, float y, float w, float h, float density, float scale,
+                                      List<Hit> hits, boolean big, java.time.LocalTime now) {
+        int nowM = now.getHour() * 60 + now.getMinute();
+        TextPaint clock = text(pal.ink, 30 * density * scale, false);
+        clock.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
+        TextPaint head = text(pal.ink, 13 * density * scale, true);
+        TextPaint body = text(pal.ink, 13.5f * density * scale, false);
+        TextPaint bold = text(pal.ink, 13.5f * density * scale, true);
+        TextPaint dim = text(pal.ink2, 12 * density * scale, false);
+        TextPaint faint = text(pal.ink3, 13.5f * density * scale, false);
+        TextPaint label = text(pal.ink2, 11.5f * density * scale, true);
+        float line = 20 * density * scale;
+        float bottom = y + h;
+        String hm = String.format(java.util.Locale.ROOT, "%02d:%02d", now.getHour(), now.getMinute());
+        // 지금 · 다음: 오늘 아직 시작하지 않은 첫 일정.
+        BlackholeBoard.Line next = null;
+        for (BlackholeBoard.Line e : board.events) {
+            int m = minutes(e.time);
+            if (m > nowM) { next = e; break; }
+        }
+        float cy = y + clock.getTextSize() * 0.95f;
+        canvas.drawText(hm, x, cy, clock);
+        float dx = x + clock.measureText(hm) + 8 * density;
+        String date = board.date.replaceAll("^(\\d+)월 (\\d+)일 (.)요일$", "$1/$2($3)");
+        canvas.drawText(date, dx, cy, head);
+        if (next != null) {
+            int left = minutes(next.time) - nowM;
+            String in = "다음 " + (left >= 60 ? (left / 60) + "시간 뒤" : left + "분 뒤");
+            canvas.drawText(in, x + w - dim.measureText(in), cy, dim);
+        }
+        cy += line * 1.05f;
+        if (next != null) {
+            canvas.drawText(next.time, x, cy, bold);
+            canvas.drawText(ellipsize(next.text, body, w - bold.measureText(next.time) - 8 * density), x + bold.measureText(next.time) + 8 * density, cy, body);
+            hit(hits, cy, line, next.day);
+            cy += line * 1.25f;
+        } else {
+            cy += line * 0.25f;
+        }
+        if (board.noCopy && board.empty()) {
+            canvas.drawText(ellipsize("Mac 달력을 아직 받지 못했습니다", dim, w), x, cy, dim);
+            return;
+        }
+        float col = 44 * density * scale;
+        if (!big) {
+            // 4×2: 급한 할 일 먼저, 남는 줄은 오늘 남은 일정 — 세 줄까지.
+            int drawn = 0;
+            for (BlackholeBoard.Line t : board.tasks) {
+                if (drawn >= 3 || cy > bottom) break;
+                if (t.past || !urgent(t, nowM)) continue;
+                canvas.drawText(taskLeft(t), x, cy, bold);
+                canvas.drawText(ellipsize(t.text, body, w - col), x + col, cy, body);
+                hit(hits, cy, line, t.day);
+                cy += line;
+                drawn++;
+            }
+            for (BlackholeBoard.Line e : board.events) {
+                if (drawn >= 3 || cy > bottom) break;
+                if (e.past || e == next || minutes(e.time) >= 0 && minutes(e.time) <= nowM) continue;
+                canvas.drawText(e.time, x, cy, dim);
+                canvas.drawText(ellipsize(e.text, body, w - col), x + col, cy, body);
+                hit(hits, cy, line, e.day);
+                cy += line;
+                drawn++;
+            }
+            if (drawn == 0) canvas.drawText(ellipsize(board.empty() ? "오늘 일정과 할 일이 없습니다" : "급한 것 없음", dim, w), x, cy, dim);
+            return;
+        }
+        // 4×4: 왼쪽 오늘 일정 | 오른쪽 할 일.
+        float gap = 12 * density;
+        float cw = (w - gap) / 2;
+        float top = cy;
+        canvas.drawText("▦ 오늘 일정", x, top, label);
+        int open = 0;
+        for (BlackholeBoard.Line t : board.tasks) if (!t.past) open++;
+        canvas.drawText("☑ 할 일 " + open, x + cw + gap, top, label);
+        float ly = top + line * 1.1f;
+        for (BlackholeBoard.Line e : board.events) {
+            if (ly > bottom) break;
+            canvas.drawText(e.time, x, ly, dim);
+            canvas.drawText(ellipsize(e.text + (e.provisional ? " [가]" : ""), e.past ? faint : body, cw - col), x + col, ly, e.past ? faint : body);
+            ly += line;
+        }
+        if (board.events.isEmpty()) canvas.drawText("없음", x, ly, dim);
+        for (String period : board.periods) {
+            if (ly > bottom) break;
+            canvas.drawText(ellipsize(period, dim, cw), x, ly, dim);
+            ly += line;
+        }
+        float ry = top + line * 1.1f;
+        for (BlackholeBoard.Line t : board.tasks) {
+            if (ry > bottom) break;
+            if (t.past) continue;
+            boolean u = urgent(t, nowM);
+            canvas.drawText(taskLeft(t), x + cw + gap, ry, u ? bold : dim);
+            canvas.drawText(ellipsize(t.text, body, cw - col), x + cw + gap + col, ry, body);
+            ry += line;
+        }
+        if (open == 0) canvas.drawText("없음", x + cw + gap, ry, dim);
+        // 줄 누름: 왼쪽 일정 줄마다 그 날짜(오늘)로.
+        float hy = top + line * 1.1f;
+        for (BlackholeBoard.Line e : board.events) {
+            if (hy > bottom) break;
+            hit(hits, hy, line, e.day);
+            hy += line;
         }
     }
 

@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>블랙홀 휴대폰 시안</title>
+<style>
+:root { --ink:#f4f6fb; --ink2:rgba(244,246,251,.74); --ink3:rgba(244,246,251,.46); --line:rgba(255,255,255,.22); --hair:rgba(255,255,255,.1); --glass:rgba(255,255,255,.1); }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; min-height: 100%; }
+body { font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; color: var(--ink); font-size: 14px;
+  background: radial-gradient(500px 400px at 10% 0%, #1763b8, transparent 60%), radial-gradient(500px 500px at 80% 100%, #2e8796, transparent 60%), #0b3a8c; background-attachment: fixed; }
+.pick { position: sticky; top: 0; z-index: 20; display: flex; gap: 4px; overflow-x: auto; padding: 6px 8px; background: #0f1114; scrollbar-width: none; }
+.pick button { flex: none; background: #22252b; color: #dde; border: 1px solid #333842; border-radius: 7px; padding: 4px 9px; font: inherit; font-size: 12px; }
+.pick button.on { background: #e8ebf2; color: #111; font-weight: 700; }
+.scr { padding: 10px 12px 96px; display: flex; flex-direction: column; gap: 10px; }
+.hidden { display: none !important; }
+.top { display: flex; align-items: center; gap: 6px; }
+.dctl { display: inline-flex; align-items: center; height: 34px; border: 1px solid var(--line); border-radius: 10px; background: var(--glass); }
+.dctl span { padding: 0 8px; color: var(--ink2); } .dctl b { font-size: 16px; padding: 0 2px; }
+.ib { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 10px; background: var(--glass); display: grid; place-items: center; color: var(--ink2); font-size: 15px; flex: none; }
+.sp { flex: 1; }
+.card { border-radius: 16px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); padding: 12px 13px; }
+.ch { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+.ch i { font-style: normal; width: 22px; height: 22px; border-radius: 7px; background: rgba(255,255,255,.16); display: grid; place-items: center; font-size: 12px; }
+.ch .c { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--ink2); background: rgba(255,255,255,.1); border-radius: 999px; padding: 1px 8px; }
+.nx { display: flex; align-items: baseline; gap: 8px; } .nx .l { color: var(--ink2); font-size: 12px; } .nx b { font-variant-numeric: tabular-nums; }
+.clk { font-size: 34px; font-weight: 300; letter-spacing: -1px; font-variant-numeric: tabular-nums; line-height: 1; }
+.row { display: grid; grid-template-columns: 44px minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid var(--hair); font-size: 15px; }
+.row:first-of-type { border-top: 0; }
+.row .tm { color: var(--ink2); font-size: 13px; font-variant-numeric: tabular-nums; } .row .tm.b { color: #fff; font-weight: 700; }
+.row .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .row.past { opacity: .45; } .row .x { font-size: 12px; color: var(--ink3); white-space: nowrap; } .row .x.b { color: #fff; font-weight: 700; }
+.ck { width: 18px; height: 18px; border: 1.7px solid var(--ink2); border-radius: 5px; display: inline-block; vertical-align: -4px; margin-right: 8px; }
+.no { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; border-radius: 5px; font-size: 11px; font-weight: 600; color: var(--ink2); background: rgba(255,255,255,.1); margin-right: 6px; vertical-align: 1px; }
+.s1 { color: #ffd84a; } .s2 { color: #ff5a5f; }
+.dd { font-weight: 700; color: var(--ink2); font-size: 13px; } .dd.soon { color: #fff; }
+.more { text-align: center; color: var(--ink2); font-size: 12.5px; padding: 6px 0 0; }
+.comp { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(8,30,80,.9) 30%); }
+.inp { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.12); padding: 6px 6px 6px 12px; color: var(--ink3); font-size: 14px; }
+.inp .sp { flex: 1; } .inp .go { width: 32px; height: 32px; border-radius: 10px; background: #fff; color: #0b2a5a; display: grid; place-items: center; font-weight: 800; } .inp .mic { width: 32px; height: 32px; display: grid; place-items: center; color: var(--ink2); }
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4,1fr); background: rgba(8,30,80,.94); border-top: 1px solid var(--line); padding: 6px 0 calc(8px + env(safe-area-inset-bottom)); }
+.tabs div { text-align: center; font-size: 11px; color: var(--ink3); } .tabs div b { display: block; font-size: 18px; font-weight: 400; } .tabs .on { color: #fff; font-weight: 700; }
+.mini { display: grid; grid-template-columns: 34px 1fr; gap: 0; position: relative; }
+.mini .h { font-size: 11px; color: var(--ink2); height: 30px; border-top: 1px solid var(--hair); padding-top: 2px; }
+.mini .lane { border-top: 1px solid var(--hair); height: 30px; }
+.evb { position: absolute; left: 40px; right: 4px; background: rgba(255,255,255,.18); border-left: 3px solid #fff; border-radius: 6px; padding: 1px 7px; font-size: 12.5px; font-weight: 700; overflow: hidden; }
+.evb small { font-weight: 400; color: var(--ink2); margin-left: 6px; }
+.set h3 { font-size: 13px; color: var(--ink2); margin: 6px 4px 4px; font-weight: 700; }
+.sr { display: flex; align-items: center; justify-content: space-between; padding: 12px 2px; border-top: 1px solid var(--hair); font-size: 15px; } .sr:first-child { border-top: 0; }
+.sr small { display: block; color: var(--ink3); font-size: 12px; margin-top: 2px; }
+.tg { width: 44px; height: 26px; border-radius: 13px; background: rgba(255,255,255,.2); position: relative; flex: none; } .tg::after { content: ""; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; } .tg.on { background: rgba(255,255,255,.75); } .tg.on::after { left: 21px; background: #0b3a8c; }
+.chev { color: var(--ink3); }
+/* home screen */
+.home { padding: 16px 14px; display: flex; flex-direction: column; gap: 14px; min-height: 100vh;
+  background: linear-gradient(180deg, #8fb7d8, #5a8fb8 40%, #3b6f8f 70%, #2d5b6f); }
+.wg { border-radius: 22px; background: rgba(20,50,110,.55); border: 1px solid rgba(255,255,255,.25); padding: 12px 13px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+.wl { font-size: 11.5px; color: rgba(255,255,255,.85); text-align: center; margin-top: -8px; }
+.icons { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; padding: 4px 6px; } .icons div { aspect-ratio: 1; border-radius: 16px; background: rgba(255,255,255,.35); }
+.wrow { display: grid; grid-template-columns: 40px minmax(0,1fr) auto; gap: 6px; align-items: center; font-size: 13px; padding: 3px 0; }
+.wrow .tm { color: var(--ink2); font-size: 12px; font-variant-numeric: tabular-nums; } .wrow .tm.b { color: #fff; font-weight: 700; } .wrow .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note { font-size: 12px; color: var(--ink2); line-height: 1.5; padding: 0 4px; }
+/* phone frame: on a wide window the screen is shown at phone width (390) in the middle */
+@media (min-width: 600px) {
+  body { background: #15171c; }
+  body > div:not(.pick) { width: 390px; margin: 16px auto; border-radius: 34px; overflow: hidden; position: relative; min-height: 844px; transform: translateZ(0);
+    background: radial-gradient(500px 400px at 10% 0%, #1763b8, transparent 60%), radial-gradient(500px 500px at 80% 100%, #2e8796, transparent 60%), #0b3a8c; box-shadow: 0 0 0 10px #222, 0 20px 60px rgba(0,0,0,.5); }
+  body > div.hidden { display: none; }
+  .pick { justify-content: center; }
+  .home { min-height: 844px; }
+}
+</style></head>
+<body>
+<div class="pick"><button data-v="a" class="on">가 오늘 한 화면</button><button data-v="b">나 아래 탭</button><button data-v="c">다 하루표 줄임</button><button data-v="s">설정(녹음 옮김)</button><button data-v="w">홈 화면 위젯</button></div>
+
+<!-- 가: one scrolling 오늘 screen -->
+<div id="va">
+  <div class="scr">
+    <div class="top"><span class="dctl"><span>‹</span><b>10월 27일 (화)</b><span>›</span></span><span class="sp"></span><span class="ib">⌕</span><span class="ib">▦</span><span class="ib">⚙</span></div>
+    <div class="card"><div class="nx"><span class="clk">10:40</span><span class="l">다음 · 20분 뒤</span></div><div style="margin-top:6px;font-size:15px"><b>11:00</b> 학년 협의회</div></div>
+    <div class="card"><div class="ch"><i>☑</i>할 일<span class="c">4 남음</span></div>
+      <div class="row"><span class="tm b">15:00</span><span class="t"><span class="ck"></span><span class="no">1</span><span class="s2">★</span> 중간고사 출제 원안 제출</span><span class="x b">4시간</span></div>
+      <div class="row"><span class="tm b">10:30</span><span class="t"><span class="ck"></span><span class="no">2</span>출석부 정리</span><span class="x b">10분 지남</span></div>
+      <div class="row"><span class="tm">오늘</span><span class="t"><span class="ck"></span><span class="no">3</span>학습지 30부 인쇄</span><span></span></div>
+      <div class="row"><span class="tm">18:00</span><span class="t"><span class="ck"></span><span class="no">4</span><span class="s1">★</span> 가정통신문 기안</span><span class="x">7시간</span></div>
+      <div class="more">나중 2 · 완료 1 ▾</div></div>
+    <div class="card"><div class="ch"><i>▦</i>오늘 일정<span class="c">4</span></div>
+      <div class="row past"><span class="tm">09:00</span><span class="t">2학년 3반 수업</span><span class="x">~09:45</span></div>
+      <div class="row"><span class="tm">11:00</span><span class="t">학년 협의회</span><span class="x">~12:00</span></div>
+      <div class="row"><span class="tm">13:40</span><span class="t">대의원회</span><span class="x">~14:30</span></div>
+      <div class="row"><span class="tm">15:10</span><span class="t">학부모 상담</span><span class="x">~15:50</span></div>
+      <div class="more">하루표로 보기 ▾</div></div>
+    <div class="card"><div class="ch"><i>★</i>다가오는 주요 일정</div>
+      <div class="row"><span class="tm">10/29</span><span class="t"><span class="s2">★</span> 공개수업</span><span class="dd soon">D-2</span></div>
+      <div class="row"><span class="tm">11/5</span><span class="t"><span class="s1">★</span> 교육청 연수</span><span class="dd">D-9</span></div></div>
+    <div class="note">앱을 열면 바로 이 화면 · 녹음 대기 설정은 ⚙ 설정 안으로 · 루틴은 일정 사이에 시각과 함께</div>
+  </div>
+  <div class="comp"><div class="inp"><span class="sp">넣기·묻기 — 「내일 3시 치과」</span><span class="mic">🎙</span><span class="go">↑</span></div></div>
+</div>
+
+<!-- 나: bottom tabs -->
+<div id="vb" class="hidden">
+  <div class="scr" style="padding-bottom:150px">
+    <div class="top"><span class="dctl"><span>‹</span><b>10월 27일 (화)</b><span>›</span></span><span class="sp"></span><span class="ib">⌕</span><span class="ib">⚙</span></div>
+    <div class="card"><div class="nx"><span class="clk">10:40</span><span class="l">다음 · 20분 뒤</span></div><div style="margin-top:6px;font-size:15px"><b>11:00</b> 학년 협의회</div></div>
+    <div class="card"><div class="ch"><i>▦</i>오늘<span class="c">일정 4 · 할 일 4</span></div>
+      <div class="row past"><span class="tm">09:00</span><span class="t">2학년 3반 수업</span><span></span></div>
+      <div class="row"><span class="tm b">10:30</span><span class="t"><span class="ck"></span>출석부 정리</span><span class="x b">지남</span></div>
+      <div class="row"><span class="tm">11:00</span><span class="t">학년 협의회</span><span></span></div>
+      <div class="row"><span class="tm">13:40</span><span class="t">대의원회</span><span></span></div>
+      <div class="row"><span class="tm b">15:00</span><span class="t"><span class="ck"></span><span class="s2">★</span> 출제 원안 제출</span><span class="x b">4시간</span></div>
+      <div class="row"><span class="tm">15:10</span><span class="t">학부모 상담</span><span></span></div>
+      <div class="row"><span class="tm">18:00</span><span class="t"><span class="ck"></span><span class="s1">★</span> 가정통신문 기안</span><span></span></div></div>
+    <div class="note">일정과 마감이 시각 순으로 한 목록 · 아래 탭으로 달력·할 일·기억</div>
+  </div>
+  <div class="comp" style="bottom:58px;background:none"><div class="inp"><span class="sp">넣기·묻기</span><span class="mic">🎙</span><span class="go">↑</span></div></div>
+  <div class="tabs"><div class="on"><b>◷</b>오늘</div><div><b>▦</b>달력</div><div><b>☑</b>할 일</div><div><b>✎</b>기억</div></div>
+</div>
+
+<!-- 다: keep the day table, shortened -->
+<div id="vc" class="hidden">
+  <div class="scr">
+    <div class="top"><span class="dctl"><span>‹</span><b>10월 27일 (화)</b><span>›</span></span><span class="sp"></span><span class="ib">⌕</span><span class="ib">▦</span><span class="ib">⚙</span></div>
+    <div class="card" style="padding:10px 10px 8px"><div class="ch"><i>▦</i>오늘 하루<span class="c">09–16시만</span></div>
+      <div class="mini" id="mini"></div></div>
+    <div class="card"><div class="ch"><i>☑</i>할 일<span class="c">4 남음</span></div>
+      <div class="row"><span class="tm b">15:00</span><span class="t"><span class="ck"></span><span class="no">1</span><span class="s2">★</span> 중간고사 출제 원안 제출</span><span class="x b">4시간</span></div>
+      <div class="row"><span class="tm b">10:30</span><span class="t"><span class="ck"></span><span class="no">2</span>출석부 정리</span><span class="x b">지남</span></div>
+      <div class="row"><span class="tm">오늘</span><span class="t"><span class="ck"></span><span class="no">3</span>학습지 30부 인쇄</span><span></span></div></div>
+    <div class="note">데스크톱과 가장 비슷 · 일정 있는 시간대만 하루표로</div>
+  </div>
+  <div class="comp"><div class="inp"><span class="sp">넣기·묻기</span><span class="mic">🎙</span><span class="go">↑</span></div></div>
+</div>
+
+<!-- 설정 -->
+<div id="vs" class="hidden">
+  <div class="scr set">
+    <div class="top"><span class="ib">‹</span><b style="font-size:17px;margin-left:4px">설정</b></div>
+    <h3>휴대폰에서 넣기</h3>
+    <div class="card" style="padding:2px 12px">
+      <div class="sr"><div>녹음 대기<small>음량 단추·잠금 화면에서 바로 녹음</small></div><span class="tg"></span></div>
+      <div class="sr"><div>녹음 기록 관리<small>최근 녹음 재생 · 진단 복사</small></div><span class="chev">›</span></div>
+      <div class="sr"><div>공유로 넣기<small>다른 앱에서 「공유 → 블랙홀」</small></div><span class="tg on"></span></div></div>
+    <h3>홈 화면 위젯</h3>
+    <div class="card" style="padding:2px 12px">
+      <div class="sr"><div>위젯 추가<small>홈 화면에 블랙홀 위젯 놓기</small></div><span class="chev">›</span></div>
+      <div class="sr"><div>학교 일정 숨기기</div><span class="tg"></span></div></div>
+    <h3>연결</h3>
+    <div class="card" style="padding:2px 12px">
+      <div class="sr"><div>Mac과 주고받기<small>마지막 받음 · 2분 전</small></div><span class="chev">›</span></div>
+      <div class="sr"><div>구글 캘린더 비추기</div><span class="chev">›</span></div></div>
+    <div class="note">지금 앱을 열면 먼저 나오던 녹음 대기 화면은 여기 「녹음 대기」·「녹음 기록 관리」로 들어갑니다.</div>
+  </div>
+</div>
+
+<!-- 홈 화면 위젯 -->
+<div id="vw" class="hidden">
+  <div class="home">
+    <div class="wg"><div style="display:flex;align-items:baseline;gap:8px"><span class="clk" style="font-size:30px">10:40</span><span style="font-size:13px;font-weight:700">10/27(화)</span><span style="margin-left:auto;font-size:12px;color:var(--ink2)">다음 20분 뒤</span></div>
+      <div style="margin:6px 0 8px;font-size:14px"><b>11:00</b> 학년 협의회</div>
+      <div class="wrow"><span class="tm b">15:00</span><span class="t"><span class="s2">★</span> 출제 원안 제출</span><span style="font-size:12px;font-weight:700">4시간</span></div>
+      <div class="wrow"><span class="tm b">10:30</span><span class="t">출석부 정리</span><span style="font-size:12px;font-weight:700">지남</span></div>
+      <div class="wrow"><span class="tm">13:40</span><span class="t">대의원회</span><span></span></div></div>
+    <div class="wl">4×2 위젯 — 지금·다음 + 급한 것 세 줄</div>
+    <div class="icons"><div></div><div></div><div></div><div></div></div>
+    <div class="wg" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><div style="font-size:12px;color:var(--ink2);font-weight:700;margin-bottom:4px">▦ 오늘 일정</div>
+        <div class="wrow" style="opacity:.5"><span class="tm">09:00</span><span class="t">2학년 3반</span><span></span></div>
+        <div class="wrow"><span class="tm">11:00</span><span class="t">학년 협의회</span><span></span></div>
+        <div class="wrow"><span class="tm">13:40</span><span class="t">대의원회</span><span></span></div>
+        <div class="wrow"><span class="tm">15:10</span><span class="t">학부모 상담</span><span></span></div></div>
+      <div><div style="font-size:12px;color:var(--ink2);font-weight:700;margin-bottom:4px">☑ 할 일 4</div>
+        <div class="wrow"><span class="tm b">15:00</span><span class="t">출제 원안</span><span></span></div>
+        <div class="wrow"><span class="tm b">10:30</span><span class="t">출석부</span><span></span></div>
+        <div class="wrow"><span class="tm">오늘</span><span class="t">학습지 인쇄</span><span></span></div>
+        <div class="wrow"><span class="tm">18:00</span><span class="t">통신문 기안</span><span></span></div></div>
+      <div style="grid-column:1/-1;display:flex;gap:8px"><div style="flex:1;border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:7px 10px;font-size:13px;color:var(--ink3)">넣기</div><div style="width:34px;height:34px;border-radius:11px;background:rgba(255,255,255,.2);display:grid;place-items:center">🎙</div></div></div>
+    <div class="wl">4×4 위젯 — 오늘 일정 | 할 일 두 칸 + 넣기·녹음 단추 (줄을 누르면 그 날 화면)</div>
+  </div>
+</div>
+
+<script>
+const mini = document.getElementById("mini");
+mini.innerHTML = [9, 10, 11, 12, 13, 14, 15, 16].map((h) => `<div class="h">${h}</div><div class="lane"></div>`).join("") +
+  [[9, 0, 45, "2학년 3반 수업", "09:00–09:45", .45], [11, 0, 60, "학년 협의회", "11:00–12:00", 1], [13, 40, 50, "대의원회", "13:40–14:30", 1], [15, 10, 40, "학부모 상담", "15:10–15:50", 1]]
+    .map(([h, m, len, t, r, o]) => `<div class="evb" style="top:${((h - 9) * 60 + m) / 2}px;height:${Math.max(18, len / 2)}px;opacity:${o}">${t}<small>${r}</small></div>`).join("");
+document.querySelectorAll(".pick button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".pick button").forEach((x) => x.classList.toggle("on", x === b));
+  for (const v of ["a", "b", "c", "s", "w"]) document.getElementById("v" + v).classList.toggle("hidden", v !== b.dataset.v);
+  scrollTo(0, 0);
+}));
+</script>
+</body></html>

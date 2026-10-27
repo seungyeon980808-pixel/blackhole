@@ -192,6 +192,8 @@ describe("month: this week always the second row", () => {
     expect(days()).toHaveLength(42);
     expect(days()[0]).toBe("2026-10-18"); // the week before
     expect(days()[7]).toBe("2026-10-25"); // this week = second row
+    // Six week rows (a days-long duration drew all 42 days on one line).
+    expect(root.querySelectorAll(".fc-rolling-view .fc-daygrid-body tr[role=row]")).toHaveLength(6);
     // No school-period bands on the week grid any more.
     app!.setView("week", "2026-10-27");
     expect(root.querySelector(".fc .bh-pd")).toBeNull();

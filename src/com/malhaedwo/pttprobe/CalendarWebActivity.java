@@ -95,6 +95,13 @@ public final class CalendarWebActivity extends Activity {
         String day = day(getIntent());
         web.loadUrl(day.isEmpty() ? START_URL : START_URL + "#day=" + day);
         CalendarRefreshJob.schedule(this);
+        // 앱을 열면 바로 달력: 예전 첫 화면(녹음 대기)이 하던 준비를 여기서 한다.
+        if (state == null) BlackholeStartup.onLaunch(this);
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        BlackholeStartup.onResume(this);
     }
 
     /** 이미 열려 있을 때 위젯 줄을 누르면 그 날짜로 옮긴다. 날짜 없이 열면 그대로 둔다. */
@@ -303,6 +310,11 @@ public final class CalendarWebActivity extends Activity {
             prefs().edit().putBoolean(BlackholeBoard.PREF_LOCK, lock).putBoolean(BlackholeBoard.PREF_HIDE_SCHOOL, hideSchool).apply();
             CalendarRefreshJob.forgetLock(CalendarWebActivity.this);
             io.execute(() -> CalendarRefreshJob.publish(CalendarWebActivity.this));
+        }
+
+        /** 설정 → 녹음 대기: 예전 첫 화면(녹음 대기 켜기·끄기, 녹음 기록, Google 연결)을 연다. */
+        @JavascriptInterface public void openRecording() {
+            runOnUiThread(() -> startActivity(new Intent(CalendarWebActivity.this, MainActivity.class)));
         }
 
         /** 홈 화면에 블랙홀 위젯 추가(시스템이 확인 창을 띄운다). 안 되면 false. */

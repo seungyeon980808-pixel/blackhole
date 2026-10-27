@@ -43,7 +43,12 @@ public final class BlackholeWiringTest {
 
         String calendar = component(manifest, "activity", ".CalendarWebActivity");
         check(calendar.contains("android:exported=\"false\"") && !calendar.contains("showWhenLocked"), "달력 화면(지난 일정)은 비공개, 잠금을 풀어야 열림");
+        check(manifest.contains("android:targetActivity=\".CalendarWebActivity\"") && component(manifest, "activity-alias", ".BlackholeHome").contains("android.intent.category.LAUNCHER")
+                && !component(manifest, "activity", ".MainActivity").contains("android.intent.category.LAUNCHER"), "앱 아이콘을 누르면 바로 달력(녹음 대기는 설정 안으로)");
         String web = src("CalendarWebActivity");
+        check(web.contains("BlackholeStartup.onLaunch(this)") && web.contains("BlackholeStartup.onResume(this)") && web.contains("openRecording")
+                && src("BlackholeStartup").contains("BlackholeAlarmSetupActivity.shouldWelcome(activity)") && src("BlackholeStartup").contains("SyncScheduler.ensurePeriodic(activity)"),
+                "첫 화면(달력)이 예전 녹음 대기 화면의 준비(첫 안내·권한·동기화 예약)를 하고, 설정에서 녹음 대기를 연다");
         check(web.contains("setAllowFileAccess(false)") && web.contains("setAllowContentAccess(false)"), "달력 WebView는 파일·제공자 접근 끔");
         check(web.contains("ORIGIN_HOST.equals(url.getHost())") && web.contains("path.startsWith(\"/calendar/\")") && web.contains("403"),
                 "달력 WebView는 이 앱의 assets/calendar만 내보내고 나머지 주소는 막음");
