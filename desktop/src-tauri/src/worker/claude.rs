@@ -162,6 +162,8 @@ pub fn status_error(code: u16, body: &str) -> WorkerError {
         429 => WorkerError::new(ErrorCode::RunnerUnavailable, "Claude API 사용 한도에 걸렸습니다. 잠시 뒤 다시 합니다."),
         500..=599 => WorkerError::new(ErrorCode::RunnerUnavailable, format!("Claude API가 잠시 응답하지 않습니다(HTTP {code}). 잠시 뒤 다시 합니다.")),
         _ if body.contains("credit balance") => WorkerError::new(ErrorCode::ApiBilling, "Claude API 잔액이 부족합니다. 콘솔에서 충전해 주세요."),
+        413 => WorkerError::new(ErrorCode::UnsupportedInput, "파일이 너무 커서 AI가 읽지 못했어요 · 나눠서 넣거나 사진으로 찍어 넣어 주세요"),
+        400 if kind == "invalid_request_error" => WorkerError::new(ErrorCode::UnsupportedInput, "AI가 이 파일을 읽지 못했어요(깨졌거나 형식이 맞지 않음) · 다시 저장하거나 사진으로 찍어 넣어 주세요"),
         _ => WorkerError::new(ErrorCode::RunnerFailed, format!("Claude API 요청 실패 HTTP {code} ({kind})")),
     }
 }

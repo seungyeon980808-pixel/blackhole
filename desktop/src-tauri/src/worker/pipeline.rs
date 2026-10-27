@@ -13,6 +13,9 @@ use std::{path::Path, time::Instant};
 
 /// Document chunks sent to the LLM per call.
 const CHUNK_CHARS: usize = 2_400;
+/// A very long text (a pasted book, a log) is read only up to here: at most ~10 model calls.
+pub const MAX_TEXT_CHARS: usize = 24_000;
+pub const TOO_LONG_REASON: &str = "글이 아주 길어 앞부분(약 2만 4천 자)만 읽었어요 · 필요한 부분만 나눠 넣어 주세요";
 /// Recordings shorter than this, or quieter than WEAK_RMS, make no items (only a review
 /// note): whisper turns near-silence into the hint words (2026-10-25, real 0.6 s memo).
 pub const MIN_SPEECH_MS: u64 = 1_000;
@@ -180,12 +183,33 @@ pub fn analyze(input: &Input, engine: EngineId, reference: DateTime<FixedOffset>
     analyze_with(input, engine, reference, engines, &AnalyzeOptions::default())
 }
 
+/// The first bytes say what a file really is: a broken or renamed file is caught here, in Korean,
+/// before it costs a model call (it used to come back as 「HTTP 400 (invalid_request_error)」).
+pub fn check_file_bytes(ext: &str, bytes: &[u8]) -> Result<(), WorkerError> {
+    let ok = match ext {
+        "pdf" => bytes.starts_with(b"%PDF"),
+        "png" => bytes.starts_with(b"\x89PNG"),
+        "jpg" | "jpeg" => bytes.starts_with(&[0xFF, 0xD8, 0xFF]) && bytes.len() >= 100 && bytes[bytes.len().saturating_sub(4096)..].windows(2).any(|w| w == [0xFF, 0xD9]),
+        "webp" => bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP",
+        "docx" | "xlsx" | "hwpx" => bytes.starts_with(b"PK"),
+        "hwp" | "xls" => bytes.starts_with(&[0xD0, 0xCF, 0x11, 0xE0]),
+        _ => true,
+    };
+    if ok {
+        Ok(())
+    } else {
+        Err(WorkerError::new(ErrorCode::UnsupportedInput, format!("파일이 깨져서 읽을 수 없어요(.{ext}) · 다시 저장하거나 사진으로 찍어 넣어 주세요")))
+    }
+}
+
 pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOffset>, engines: &Engines, options: &AnalyzeOptions) -> Result<Proposal, WorkerError> {
     let started = Instant::now();
     let (source_type, format, bytes) = match input {
         Input::File(path) => {
             let (kind, ext) = source_type_for(path)?;
-            (kind, ext, read_original(path)?)
+            let bytes = read_original(path)?;
+            check_file_bytes(&ext, &bytes)?;
+            (kind, ext, bytes)
         }
         Input::Text(text) => (SourceType::Text, "txt".to_string(), text.as_bytes().to_vec()),
     };
@@ -268,11 +292,16 @@ pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOf
     }
 
     let llm_started = Instant::now();
+    let mut cut = false;
     let (source_text, summary, items, llm_model) = match source_text {
         Some(text) => {
             let mut summaries = Vec::new();
             let mut items = Vec::new();
-            for chunk in chunk_text(&text, CHUNK_CHARS) {
+            let read: String = text.chars().take(MAX_TEXT_CHARS).collect();
+            if read.len() < text.len() {
+                cut = true;
+            }
+            for chunk in chunk_text(&read, CHUNK_CHARS) {
                 let messages = text_messages_with(&chunk, &options.extract);
                 let extraction = extract_once(engines.text_model, messages, false, Some(&chunk), reference, options)?;
                 if !extraction.summary.is_empty() {
@@ -311,9 +340,15 @@ pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOf
     timings.llm_ms = llm_started.elapsed().as_millis() as u64;
     timings.total_ms = started.elapsed().as_millis() as u64;
 
+    // The same thing found twice (in two chunks, or a pasted text repeated): once.
+    let mut seen = std::collections::HashSet::new();
+    let items: Vec<_> = items.into_iter().filter(|i| seen.insert((i.kind.clone(), i.title.trim().to_string(), i.start_at.clone(), i.end_at.clone()))).collect();
     let mut review_reasons = Vec::new();
     if items.is_empty() {
         review_reasons.push("정리할 일정·할 일·기억할 내용을 찾지 못함".to_string());
+    }
+    if cut {
+        review_reasons.push(TOO_LONG_REASON.to_string());
     }
     let needs_review = !review_reasons.is_empty() || items.iter().any(|item| item.needs_review);
     Ok(Proposal {
@@ -546,6 +581,35 @@ mod tests {
     }
 
     #[test]
+    fn broken_or_renamed_files_are_caught_before_the_model() {
+        for (ext, bytes) in [("pdf", &b"garbage"[..]), ("png", &b"GIF89a"[..]), ("jpg", &[0xFF, 0xD8, 0xFF, 0xE0, 0, 0][..]), ("docx", &b"%PDF"[..]), ("hwp", &b"PK.."[..])] {
+            let e = check_file_bytes(ext, bytes).unwrap_err();
+            assert_eq!(e.code, ErrorCode::UnsupportedInput, "{ext}");
+            assert!(e.message.contains("깨져서"), "{ext}");
+        }
+        let mut jpg = vec![0xFF, 0xD8, 0xFF, 0xE0];
+        jpg.extend(vec![1u8; 200]);
+        jpg.extend([0xFF, 0xD9]);
+        for (ext, bytes) in [("pdf", &b"%PDF-1.7"[..]), ("png", &b"\x89PNG\r\n"[..]), ("jpg", &jpg[..]), ("docx", &b"PK\x03\x04"[..]), ("txt", &b"x"[..])] {
+            assert!(check_file_bytes(ext, bytes).is_ok(), "{ext}");
+        }
+    }
+
+    #[test]
+    fn a_very_long_text_is_read_only_in_front_and_repeats_count_once() {
+        // 2026-10-27 밤 안정화: a 3 MB pasted text made ~690 model calls and 693 identical items.
+        let long = "내일 오후 3시에 학부모 상담\n".repeat(MAX_TEXT_CHARS / 8);
+        let read: String = long.chars().take(MAX_TEXT_CHARS).collect();
+        let chunks = chunk_text(&read, CHUNK_CHARS).len();
+        let chat = FakeChat::new(vec![Ok(answer()); chunks]);
+        let engines = Engines { transcriber: &FakeStt(Ok(String::new())), reader: &FakeReader(Ok(String::new())), text_model: &chat, direct_model: &chat };
+        let p = analyze(&Input::Text(&long), EngineId::TextFirst, reference(), &engines).unwrap();
+        assert!(*chat.calls.borrow() <= MAX_TEXT_CHARS / CHUNK_CHARS + 1);
+        assert_eq!(p.items.len(), 1);
+        assert!(p.review_reasons.contains(&TOO_LONG_REASON.to_string()));
+    }
+
+    #[test]
     fn documents_are_read_then_chunked() {
         let dir = tempfile::tempdir().unwrap();
         let pdf = dir.path().join("notice.pdf");
@@ -569,7 +633,7 @@ mod tests {
     fn empty_document_and_unknown_format_fail() {
         let dir = tempfile::tempdir().unwrap();
         let hwp = dir.path().join("blank.hwp");
-        std::fs::write(&hwp, b"x").unwrap();
+        std::fs::write(&hwp, [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]).unwrap();
         let chat = FakeChat::new(vec![]);
         let engines = Engines { transcriber: &FakeStt(Ok(String::new())), reader: &FakeReader(Ok("  ".into())), text_model: &chat, direct_model: &chat };
         assert_eq!(analyze(&Input::File(&hwp), EngineId::TextFirst, reference(), &engines).unwrap_err().code, ErrorCode::EmptyDocument);
@@ -637,7 +701,7 @@ mod tests {
     fn image_hint_reads_ocr_but_survives_its_failure() {
         let dir = tempfile::tempdir().unwrap();
         let png = dir.path().join("notice.png");
-        std::fs::write(&png, b"fake png").unwrap();
+        std::fs::write(&png, b"\x89PNG fake png").unwrap();
         let mut b = serde_json::from_str::<serde_json::Value>(&answer()).unwrap();
         b["transcript"] = json!("내일 오후 3시에 학부모 상담");
         let opts = AnalyzeOptions { image_ocr_hint: true, ..Default::default() };

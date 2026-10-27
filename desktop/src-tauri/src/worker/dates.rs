@@ -88,6 +88,18 @@ fn dotted_date() -> &'static Regex {
 }
 
 /// 24-hour clock "15:00", "9:30".
+/// 「2026-11-02」 (a spreadsheet cell, a file name).
+fn iso_date() -> &'static Regex {
+    static R: OnceLock<Regex> = OnceLock::new();
+    re(&R, r"(\d{4})-(\d{1,2})-(\d{1,2})")
+}
+
+/// 「11. 3.」 「11. 3.(화)」 (공문 style, no year).
+fn spaced_dot_date() -> &'static Regex {
+    static R: OnceLock<Regex> = OnceLock::new();
+    re(&R, r"(?:^|[^\d.])(\d{1,2})\.\s+(\d{1,2})\.")
+}
+
 fn colon_time() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
     re(&R, r"(\d{1,2}):(\d{2})")
@@ -188,6 +200,21 @@ fn parse_date(text: &str, today: NaiveDate) -> DateOutcome {
             _ => DateOutcome::Invalid,
         };
     }
+    if let Some(caps) = iso_date().captures(text) {
+        let parsed = (caps[1].parse::<i32>(), caps[2].parse::<u32>(), caps[3].parse::<u32>());
+        return match parsed {
+            (Ok(y), Ok(m), Ok(d)) => NaiveDate::from_ymd_opt(y, m, d).map_or(DateOutcome::Invalid, DateOutcome::Valid),
+            _ => DateOutcome::Invalid,
+        };
+    }
+    if let Some(caps) = spaced_dot_date().captures(text) {
+        let (month, day) = (caps[1].parse::<u32>().unwrap_or(0), caps[2].parse::<u32>().unwrap_or(0));
+        return match NaiveDate::from_ymd_opt(today.year(), month, day) {
+            Some(date) if date < today => NaiveDate::from_ymd_opt(today.year() + 1, month, day).map_or(DateOutcome::Invalid, DateOutcome::Valid),
+            Some(date) => DateOutcome::Valid(date),
+            None => DateOutcome::Invalid,
+        };
+    }
     if let Some((month, day)) = find_slash_date(text) {
         return match NaiveDate::from_ymd_opt(today.year(), month, day) {
             Some(date) if date < today => NaiveDate::from_ymd_opt(today.year() + 1, month, day)
@@ -237,6 +264,8 @@ struct TimeMatch {
     minute: u32,
     period: Option<String>,
     rolls: bool,
+    /// 「3시」 (spoken), not 「03:00」.
+    spoken: bool,
 }
 
 fn time_matches(text: &str) -> Vec<TimeMatch> {
@@ -251,7 +280,7 @@ fn time_matches(text: &str) -> Vec<TimeMatch> {
                 _ => 0,
             };
             let rolls = hour == 24 && !text[..caps.get(2)?.start()].ends_with(|c: char| c.is_ascii_digit());
-            Some(TimeMatch { start: whole.start(), end: whole.end(), hour, minute, period: caps.get(1).map(|p| p.as_str().to_string()), rolls })
+            Some(TimeMatch { start: whole.start(), end: whole.end(), hour, minute, period: caps.get(1).map(|p| p.as_str().to_string()), rolls, spoken: true })
         })
         .collect();
     for caps in colon_time().captures_iter(text) {
@@ -262,7 +291,7 @@ fn time_matches(text: &str) -> Vec<TimeMatch> {
             continue;
         }
         if let (Ok(hour), Ok(minute)) = (caps[1].parse(), caps[2].parse()) {
-            found.push(TimeMatch { start: whole.start(), end: whole.end(), hour, minute, period: None, rolls: hour == 24 });
+            found.push(TimeMatch { start: whole.start(), end: whole.end(), hour, minute, period: None, rolls: hour == 24, spoken: false });
         }
     }
     found.sort_by_key(|m| m.start);
@@ -274,6 +303,8 @@ fn to_time(m: &TimeMatch) -> Option<NaiveTime> {
     match m.period.as_deref() {
         Some("오후" | "낮" | "저녁" | "밤") if hour < 12 => hour += 12,
         Some("오전" | "아침" | "새벽") if hour == 12 => hour = 0,
+        // A bare 「1시」~「6시」 is the afternoon (nobody puts a meeting at 3 a.m.; the screen's rule too).
+        None if m.spoken && (1..=6).contains(&hour) => hour += 12,
         _ => {}
     }
     if hour == 24 {
@@ -628,7 +659,7 @@ mod tests {
         let end = |time: &str| resolve("내일", time, "SCHEDULE", reference()).end_at.unwrap().to_rfc3339();
         assert_eq!(end("오후 3시 ~ 5시"), "2026-10-22T17:00:00+09:00");
         assert_eq!(end("오전 11시부터 오후 1시까지"), "2026-10-22T13:00:00+09:00");
-        assert_eq!(end("2시부터 4시 30분까지"), "2026-10-22T04:30:00+09:00");
+        assert_eq!(end("2시부터 4시 30분까지"), "2026-10-22T16:30:00+09:00"); // bare 1–6시 = afternoon
         // An end before the start is ignored, keeping the one-hour default.
         assert_eq!(end("오후 5시 ~ 오후 3시"), "2026-10-22T18:00:00+09:00");
     }
@@ -650,6 +681,16 @@ mod tests {
         assert_eq!(r.end_at.unwrap().to_rfc3339(), "2026-11-12T17:00:00+09:00");
         assert_eq!(start("11/27(금)", "16:00", "SCHEDULE"), "2026-11-27T16:00:00+09:00");
         assert_eq!(start("", "9:30", "SCHEDULE"), "2026-10-21T09:30:00+09:00");
+        // Spreadsheet and 공문 dates (2026-10-27 밤 안정화: an xlsx schedule came in with no days).
+        assert_eq!(start("2026-11-02", "08:30", "SCHEDULE"), "2026-11-02T08:30:00+09:00");
+        assert_eq!(start("11. 3.(화)", "", "TODO"), "2026-11-03T09:00:00+09:00");
+        assert_eq!(start("2026. 11. 4.(수)", "15:10", "SCHEDULE"), "2026-11-04T15:10:00+09:00");
+        // A bare 1–6시 is the afternoon; 「새벽 3시」 and 「03:00」 stay early (2026-10-27 밤 안정화).
+        assert_eq!(start("내일", "3시", "SCHEDULE"), "2026-10-22T15:00:00+09:00");
+        assert_eq!(start("내일", "6시 반", "SCHEDULE"), "2026-10-22T18:30:00+09:00");
+        assert_eq!(start("내일", "새벽 3시", "SCHEDULE"), "2026-10-22T03:00:00+09:00");
+        assert_eq!(start("내일", "03:00", "SCHEDULE"), "2026-10-22T03:00:00+09:00");
+        assert_eq!(start("내일", "7시", "SCHEDULE"), "2026-10-22T07:00:00+09:00");
         assert!(resolve("2026. 2. 30.", "", "SCHEDULE", reference()).start_at.is_none());
         // Money and scores are not times.
         assert!(!mentions_time("320,000원 3.5점"));

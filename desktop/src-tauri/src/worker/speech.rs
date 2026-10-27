@@ -73,6 +73,13 @@ impl MacSpeech {
             return Ok(String::from_utf8_lossy(&out.stdout).trim().to_string());
         }
         let message = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        // Killed by macOS (no speech permission for whoever started it) or crashed: nothing on stderr.
+        if message.is_empty() {
+            return Err(WorkerError::new(
+                ErrorCode::SttUnavailable,
+                "macOS 음성 인식이 멈췄어요(권한 없음) · 시스템 설정 → 개인정보 보호 및 보안 → 음성 인식에서 블랙홀을 허용해 주세요",
+            ));
+        }
         let code = if message.starts_with("NOT_AUTHORIZED") || message.starts_with("UNAVAILABLE") || message.starts_with("TIMEOUT") {
             ErrorCode::SttUnavailable
         } else {
