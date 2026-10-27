@@ -137,20 +137,25 @@ describe("native alarms (Mac alarm window)", () => {
   });
 });
 
-describe("inbox results on the day view", () => {
-  it("nothing in → no box; results are titles, technical lines folded; 검토 필요 stands out", async () => {
+describe("확인할 것 on the day view (안 2)", () => {
+  it("nothing to check → no bar; a review note → one folded bar; ✓ clears it", async () => {
     const root = await mount(mac());
-    expect(root.querySelector(".box.inbox")).toBeNull();
+    expect(root.querySelector(".checks")).toBeNull();
     await app!.submitText("글피 오후 1시에 미용실 예약");
     app!.render();
-    const box = root.querySelector(".box.inbox")!;
-    expect(box.querySelector("details.fold > summary")!.textContent).toBe("오늘 정리한 것 1");
-    expect(box.querySelector("details.fold")!.hasAttribute("open")).toBe(false);
-    expect(box.querySelector("details.tech")).not.toBeNull();
-    expect(box.querySelector("h4.warn")).toBeNull();
-    app!.state.events[0].review = ["시각을 추정함"];
+    // A provisional event waits for 확정 there; a review note on it does not make a second item.
+    const ev = app!.state.events[0];
+    expect(root.querySelector(".chkbar")!.textContent).toContain("확인할 것 1");
+    ev.review = ["시각을 추정함"];
     app!.render();
-    expect(root.querySelector(".box.inbox h4.warn")!.textContent).toBe("검토 필요 1");
+    expect(root.querySelector(".chkbar")!.textContent).toContain("확인할 것 1");
+    expect(root.querySelector(".checks .rc")).toBeNull(); // folded
+    root.querySelector<HTMLButtonElement>("[data-checks]")!.click();
+    root.querySelector<HTMLButtonElement>(`[data-accept="${ev.id}"]`)!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(ev.review).toBeUndefined();
+    expect(ev.provisional).toBe(false);
+    expect(root.querySelector(".checks")).toBeNull();
   });
 });
 

@@ -306,3 +306,23 @@ html.native-glass .bh .bar .title { padding-left: 0; }
    「urgent」 (red text on blue/teal glass was hard to read). */
 .bh.glass .dd.hot, .bh.glass .c.due.hot, .bh.glass .inbox h4.warn { color: var(--ink); }
 .bh.glass .dd.hot::before, .bh.glass .inbox h4.warn::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ff4d5e; margin-right: 5px; vertical-align: 1px; }
+/* 안 2 paint */
+.bh.glass .ib { color: var(--ink2); }
+.bh.glass .ib:hover { background: var(--glass2); color: var(--ink); }
+.bh.glass .rc .ra { background: color-mix(in srgb, var(--page) 55%, transparent); }
+.bh.glass .chkbar { background: rgba(255, 201, 77, .14); border: 1px solid rgba(255, 201, 77, .4); color: var(--ink); }
+.bh.glass .strip .sh { color: var(--ink3); }
+.bh.glass .strip .sb { background: color-mix(in srgb, var(--school) 55%, transparent); color: var(--ink); }
+.bh.glass .strip .sb.personal { background: color-mix(in srgb, var(--personal) 50%, transparent); }
+.bh.glass .strip .sb.prov, .bh.glass .strip .sall .prov { outline: 1px dashed var(--ink2); outline-offset: -1px; }
+.bh.glass .strip .sall span { background: var(--glass2); }
+.bh.glass .strip .sd { border-color: var(--todo); }
+.bh.glass .strip .sd.hot { border-color: #ff4d5e; }
+.bh.glass .strip .sd.done { opacity: .35; }
+.bh.glass .trow { font-size: 13.5px; font-weight: 600; }
+.bh.glass .trow.done .t { text-decoration: line-through; color: var(--ink3); }
+.bh.glass .trow.done .bx { background: var(--note); border-color: var(--note); color: var(--page); }
+.bh.glass .trow .subn { color: var(--ink3); }
+.bh.glass .trow .subn:hover { background: var(--glass2); color: var(--ink); }
+.bh.glass .srow .tm { color: var(--ink3); }
+.bh.glass .day2 details.fold > summary { margin-top: 6px; }

@@ -14,7 +14,7 @@ import { seedState } from "./samples";
 import {
   applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
 } from "./store";
-import { memoList, type Ctx, type ThemeView, type ViewName } from "./views/common";
+import { checksBar, ICON, memoList, type Ctx, type ThemeView, type ViewName } from "./views/common";
 import { doc, printSheet } from "./views/doc";
 import { glass } from "./views/glass";
 
@@ -201,6 +201,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       open: openFolds,
       editing,
       canEdit: !adapter.recordAction,
+      side,
       hint: adapter.origin === "휴대폰" ? "쓰고 보내기 — 「내일 3시 치과」" : adapter.onPut ? (side ? "넣기·묻기 · Enter" : "넣기·묻기 — 「내일 3시 치과」, 「치과 언제야?」 · 파일은 끌어 놓기, 사진은 ⌘V") : "넣기·묻기 — 「내일 3시 치과」, 「치과 언제야?」"
     };
   }
@@ -215,7 +216,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     applyLook();
     void adapter.setLook?.(s.settings.theme, s.settings.mode).catch(() => undefined);
     root.innerHTML = `${theme().shell(c)}
-      <section class="chatsheet" id="bhChat" aria-label="대화 기록"><div class="resizer" data-resize role="separator" aria-orientation="vertical" aria-label="대화 패널 폭" tabindex="0"></div><div class="grab" data-drag="close" role="button" tabindex="0" aria-label="대화 기록 닫기"><i></i></div><div class="sheethead">대화 기록</div><div class="panelbar"><b>대화</b><span class="sp"></span><button class="mini" data-panel="close" title="대화 접기 (⌘L)" aria-label="대화 패널 접기">접기</button></div><div class="thread" id="bhThread" aria-live="polite"></div><div class="sheetcomp" id="bhChatComp"></div></section>
+      <section class="chatsheet" id="bhChat" aria-label="대화 기록"><div class="resizer" data-resize role="separator" aria-orientation="vertical" aria-label="대화 패널 폭" tabindex="0"></div><div class="grab" data-drag="close" role="button" tabindex="0" aria-label="대화 기록 닫기"><i></i></div><div class="sheethead">대화 기록</div><div class="panelbar"><b>대화</b><span class="sp"></span><button class="ib" data-panel="close" title="대화 접기 (⌘L)" aria-label="대화 패널 접기">${ICON.fold}</button></div><div id="bhChecks"></div><div class="thread" id="bhThread" aria-live="polite"></div><div class="sheetcomp" id="bhChatComp"></div></section>
       <div class="settings" id="bhSettings" role="dialog" aria-label="설정" hidden></div>
       <div class="settings guide" id="bhGuide" role="dialog" aria-label="처음 쓰기" hidden></div>
       <div class="alarm" id="bhAlarm" aria-live="assertive"></div>
@@ -224,7 +225,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (sideCapable) {
       // 「대화」 in the header: shows the folded panel again (the panel has 「접기」 itself).
       const set = root.querySelector<HTMLElement>("[data-settings]");
-      set?.insertAdjacentHTML("beforebegin", `<button class="${set.className}" data-panel="open" title="대화 펴기 (⌘L)">대화</button>`);
+      set?.insertAdjacentHTML("beforebegin", `<button class="${set.className}" data-panel="open" title="대화 펴기 (⌘L)" aria-label="대화 펴기">${set.classList.contains("ibn") ? ICON.chat : "대화"}</button>`);
     }
     side = sideOn();
     renderComposer();
@@ -439,6 +440,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
     renderLast();
     if (chatOpen || side) renderChat();
+    const checks = root.querySelector<HTMLElement>("#bhChecks");
+    if (checks) checks.innerHTML = side ? checksBar(c, t.fd) : "";
     if (settingsOpen) renderSettings();
   }
 
@@ -1350,7 +1353,23 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return render();
     }
     if (q("[data-restore]")) return userAction({ type: "restore", ref: q("[data-restore]")!.dataset.restore! });
-    if (q("[data-open]")) {
+    if (q("[data-checks]") || q("[data-subs]")) {
+      const key = q("[data-checks]") ? "checks" : `subs:${q("[data-subs]")!.dataset.subs}`;
+      if (openFolds.has(key)) openFolds.delete(key);
+      else openFolds.add(key);
+      render();
+      if (key.startsWith("subs:")) root.querySelector<HTMLInputElement>(`[data-subadd="${key.slice(5)}"]`)?.focus();
+      return;
+    }
+    if (q("[data-accept]")) {
+      // 「맞아요」: a provisional event is confirmed; a review note is cleared.
+      const x = findEntry(s, q("[data-accept]")!.dataset.accept!);
+      if (!x) return;
+      if (x.kind === "event" && x.provisional) userAction({ type: "confirm", ref: x.id }, false);
+      x.review = undefined;
+      return void act(() => undefined);
+    }
+    if (q("[data-open]") && !q("button, input")) {
       const x = findEntry(s, q("[data-open]")!.dataset.open!);
       if (x?.kind === "event") openDay(x.date);
       else if (x?.kind === "task") openDay(x.due);

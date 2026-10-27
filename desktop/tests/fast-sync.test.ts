@@ -79,6 +79,7 @@ describe("draft first, AI later (Mac input)", () => {
     expect(kept.start).toBe("15:00"); // the user's (rule) version stays (「3시」 alone = afternoon)
     expect(kept.provisional).toBe(false);
     expect(kept.suggest?.length).toBe(3);
+    root.querySelector<HTMLButtonElement>("[data-checks]")?.click();
     expect(app!.state.events.filter((e) => !e.gone)).toHaveLength(1);
     app!.render();
     expect(root.textContent).toContain("AI 제안 있음");
@@ -231,12 +232,12 @@ describe("deadlines on the calendar (month · week · day, both themes)", () => 
     expect(week.querySelector(".fc-timegrid-event.bh-due")).not.toBeNull();
 
     app!.setView("day", timed.due);
-    const mark = root.querySelector<HTMLElement>(`.tt .du[data-ev="${timed.id}"]`)!;
-    expect(mark.textContent).toBe("마감 연수 보고서 제출");
+    // 안 2: a timed deadline is a thin mark on the day band (its name on hover).
+    const mark = root.querySelector<HTMLElement>(`.strip .sd[data-ev="${timed.id}"]`)!;
+    expect(mark.title).toBe(`마감 ${timed.dueTime} 연수 보고서 제출`);
     app!.setView("day", "2026-10-21");
-    expect(root.querySelector(".tt .dueday")?.textContent).toContain("출석부 마감");
-    expect(root.querySelector(".tt .dueday .hot")?.textContent).toBe("출석부 마감");
-    expect(root.querySelector(".tt .dueday")?.textContent).not.toContain("언젠가 할 일");
+    expect(root.querySelector(".cols2")!.textContent).toContain("출석부 마감");
+    expect(root.querySelector(".cols2 .dd.hot")).not.toBeNull();
   });
 
   it("공문서: month chips, week table with time and urgency, day timetable", async () => {

@@ -218,3 +218,8 @@
 .bh.doc.side .panelbar { font-family: var(--sans); border-bottom: 1.5px solid var(--rule); margin: 0 12px; padding: 12px 0 5px; }
 .bh.doc .rc.edit input { border: 1px solid #777; background: #fff; }
 .bh.doc .rc .ra .mini { margin-left: 0; }
+/* icon buttons and checks bar (both themes share the chat cards) */
+.bh.doc .ib { color: var(--ink); border-radius: 2px; }
+.bh.doc .ib:hover { background: var(--shade); }
+.bh.doc .rc .ra { background: #fff; border: 1px solid var(--hair); }
+.bh.doc .chkbar { background: #fff8e0; border: 1px solid #c9a227; font-family: var(--sans); }

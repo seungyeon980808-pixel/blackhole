@@ -77,16 +77,18 @@ describe("「3시」 said alone is the afternoon", () => {
 });
 
 describe("no repeated information", () => {
-  it("확정 대기 does not list today's or tomorrow's provisional events (already under 일정 with 확정/취소)", async () => {
+  it("provisional events wait once, in 「확인할 것」 (no second list)", async () => {
     const a = mac();
     localStorage.clear();
     const st = seedState(NOW);
+    for (const e of st.events) e.sample = false;
     await a.save(st);
     const root = await mount({ ...a, load: async () => st });
     app!.setView("day", "2026-10-27");
-    const pend = root.querySelector(".inbox")?.textContent ?? "";
-    expect(pend).toContain("학년 협의회"); // day after tomorrow
-    expect(pend).not.toContain("안과 진료"); // today, shown under 일정
+    root.querySelector<HTMLButtonElement>("[data-checks]")!.click();
+    const checks = root.querySelector(".checks")!.textContent!;
+    expect(checks).toContain("학년 협의회");
+    expect(checks.split("학년 협의회").length).toBe(2); // once
   });
 
   it("the line above the input says a new entry once (no toast copy)", async () => {
@@ -107,20 +109,20 @@ describe("empty states and the input", () => {
     expect(root.querySelector<HTMLInputElement>("#bhIn")!.placeholder).toContain("내일 3시 치과");
   });
 
-  it("a long 나중 list shows 8 and folds the rest", async () => {
+  it("today's to-dos in full; 「이번 주 · 나중」 one folded line, drawn when opened", async () => {
     const st = seedState(NOW);
     for (let i = 0; i < 20; i++) st.tasks.push({ id: `x${i}`, kind: "task", title: `먼 일 ${i}`, area: "personal", source: "t", createdAt: "2026-10-01T00:00", due: "2026-12-20", dueTime: null, done: false, reminders: [], subs: [] });
     const root = await mount({ ...mac(), load: async () => st });
     app!.setView("day", "2026-10-27");
     const fold = root.querySelector(".box.grow details.fold")!;
-    expect(fold.querySelector("summary")!.textContent).toMatch(/\d+개 더/);
+    expect(fold.querySelector("summary")!.textContent).toMatch(/나중 22/);
     // An opened fold stays open after a re-render (a check, the minute tick).
-    expect(fold.querySelectorAll(".task").length).toBe(0); // rows drawn only when opened
+    expect(fold.querySelectorAll(".trow").length).toBe(0); // rows drawn only when opened
     (fold as HTMLDetailsElement).open = true;
     fold.dispatchEvent(new Event("toggle"));
     const again = root.querySelector(".box.grow details.fold")!;
     expect(again.hasAttribute("open")).toBe(true);
-    expect(again.querySelectorAll(".task").length).toBe(14); // 20 + the 2 seed ones, minus the 8 shown
+    expect(again.querySelectorAll(".trow").length).toBe(25); // 3 this week + 22 later
     app!.render();
     expect(root.querySelector(".box.grow details.fold")!.hasAttribute("open")).toBe(true);
   });

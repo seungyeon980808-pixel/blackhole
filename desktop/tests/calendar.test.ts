@@ -109,8 +109,9 @@ describe("calendar app", () => {
   it("shows the local, unconnected state and the day view of the prototype", async () => {
     const root = await mount(fakeAdapter(proposal));
     expect(root.querySelector('[data-testid="connection"]')?.textContent).toBe("로컬·미연결");
-    expect(root.querySelector(".tt")).not.toBeNull();
-    expect(root.querySelectorAll(".tt .h")).toHaveLength(17);
+    // 안 2: the day as one band on top, to-dos and tomorrow below.
+    expect(root.querySelector(".strip")).not.toBeNull();
+    expect(root.querySelector(".cols2")).not.toBeNull();
     expect(root.textContent).toContain("할 일");
     // No 「확인 대기 0 / 없음 / 오늘 들어온 것」 lines: fake data only, nothing came in today.
     expect(root.textContent).not.toContain("확인 대기");
@@ -130,7 +131,9 @@ describe("calendar app", () => {
     expect(chat[1].text).toBe("초안 1건을 AI가 다듬었어요. 2건 더 넣었어요.");
     expect(app!.state.events.filter((e) => !e.sample && !e.gone)).toHaveLength(1);
     app!.setView("day", ev.date);
-    root.querySelector<HTMLButtonElement>(`[data-ok="${ev.id}"]`)!.click();
+    // Provisional events wait in 「확인할 것」 (folded): open it, ✓ confirms.
+    root.querySelector<HTMLButtonElement>("[data-checks]")!.click();
+    root.querySelector<HTMLButtonElement>(`[data-accept="${ev.id}"]`)!.click();
     await Promise.resolve();
     expect(app!.state.events.find((e) => e.id === ev.id)!.provisional).toBe(false);
   });

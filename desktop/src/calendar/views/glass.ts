@@ -3,7 +3,7 @@ import { holiday } from "../holidays";
 import { addDays, DOW, fdShort, mins, parseDay, ymd, diffDays } from "../dates";
 import type { CalEvent, ChatMessage, Period, Task } from "../model";
 import { alarmsOn, dueOn, eventsOn, findEntry, pending, periodsOn, taskGroups, type Alarm } from "../store";
-import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, chatCards, inputHint, lazyFold, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
+import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, chatCards, checksBar, inputHint, lazyFold, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
 
 const fd = fdShort;
 const none = '<div class="none">없음</div>';
@@ -98,6 +98,48 @@ function inboxBox(ctx: Ctx, pend: CalEvent[]): string {
   </div>`;
 }
 
+/**
+ * The day as one horizontal band (안 2): hours across, appointments as bars in as few lanes as
+ * needed, all-day ones as chips in front, timed deadlines as thin marks, the now line.
+ */
+export function dayStrip(ctx: Ctx, k: string): string {
+  const evs = eventsOn(ctx.s, k);
+  const timed = evs.filter((e) => e.start);
+  const allDay = evs.filter((e) => !e.start);
+  const dues = dueOn(ctx.s, k).filter((t) => t.dueTime);
+  const H0 = Math.min(7, ...timed.map((e) => Math.floor(mins(e.start!) / 60)));
+  const H1 = Math.max(23, ...timed.map((e) => Math.ceil(mins(e.end ?? e.start!) / 60)));
+  const span = (H1 - H0) * 60;
+  const x = (m: number) => `${(((m - H0 * 60) / span) * 100).toFixed(2)}%`;
+  const lanes: number[] = [];
+  // A bar is at least as wide as its words (about 1 minute ≈ 1px on a wide window), so short
+  // appointments still read; lanes are given by that width so words never overlap.
+  const bars = timed.map((e) => {
+    const a = mins(e.start!);
+    const b = Math.max(a + 20, mins(e.end ?? e.start!));
+    const words = Math.round(((e.title.length * 12 + 44) * span) / 1000);
+    const vis = Math.min(H1 * 60, Math.max(b, a + words));
+    let lane = lanes.findIndex((end) => end <= a);
+    if (lane < 0) lane = lanes.push(0) - 1;
+    lanes[lane] = vis;
+    return `<div class="sb ${e.area} ${e.provisional ? "prov" : ""}" data-ev="${e.id}" style="left:${x(a)};width:calc(${x(vis)} - ${x(a)});top:${lane * 19}px" title="${esc(`${e.start}${e.end ? "–" + e.end : ""} ${e.title}`)}">${e.start} ${esc(e.title)}${draftTag(e)}</div>`;
+  }).join("");
+  const ticks = Array.from({ length: Math.floor((H1 - H0) / 2) + 1 }, (_, i) => H0 + i * 2).map((h) => `<span style="left:${x(h * 60)}">${h}</span>`).join("");
+  const marks = dues.map((t) => `<div class="sd ${dueBadge(ctx.today, t)?.hot && !t.done ? "hot" : ""} ${t.done ? "done" : ""}" data-ev="${t.id}" style="left:${x(mins(t.dueTime!))}" title="${esc(`마감 ${t.dueTime} ${t.title}`)}"></div>`).join("");
+  const now = k === ctx.today && ctx.nowM >= H0 * 60 && ctx.nowM <= H1 * 60 ? `<div class="snow" style="left:${x(ctx.nowM)}"></div>` : "";
+  const h = Math.max(1, lanes.length) * 19;
+  return `<div class="strip g">${allDay.length ? `<div class="sall">${allDay.map((e) => `<span class="${e.provisional ? "prov" : ""}" title="종일 ${esc(e.title)}">종일 ${esc(e.title)}</span>`).join("")}</div>` : ""}
+    <div class="sh">${ticks}</div><div class="sl" style="height:${h}px">${bars || (allDay.length ? "" : '<div class="none">일정 없음</div>')}${marks}${now}</div></div>`;
+}
+
+/** One line per to-do: box, title, sub count (opens the list), when. */
+function taskRow(ctx: Ctx, t: Task): string {
+  const sd = t.subs.filter((x) => x.done).length;
+  const open = !!ctx.open?.has(`subs:${t.id}`);
+  const subs = open ? `<div class="subs">${t.subs.map((x, i) => `<div class="sub ${x.done ? "done" : ""}" data-sub="${t.id}:${i}" role="checkbox" aria-checked="${x.done}" tabindex="0"><span class="bx">${x.done ? "✓" : ""}</span><span>${esc(x.title)}</span></div>`).join("")}<input class="subadd on" data-subadd="${t.id}" placeholder="+ 하위 할 일" aria-label="${esc(t.title)} 하위 할 일 추가"></div>` : "";
+  return `<div class="trow ${t.done ? "done" : ""}"><span class="bx" data-tdone="${t.id}" role="checkbox" aria-checked="${t.done}" tabindex="0" aria-label="${esc(t.title)} 완료">${t.done ? "✓" : ""}</span><span class="t" title="${esc(t.title)}">${esc(t.title)}${draftTag(t)}</span>${t.subs.length ? `<button class="subn" data-subs="${t.id}" aria-expanded="${open}" title="하위 할 일 ${open ? "접기" : "펼치기"}">${sd}/${t.subs.length}</button>` : `<button class="subn add" data-subs="${t.id}" title="하위 할 일 추가" aria-label="하위 할 일 추가">+</button>`}<span class="ml">${t.noDue ? "" : t.dueTime && t.due === ctx.today && !t.done ? `<span class="dd ${dueBadge(ctx.today, t)?.hot ? "hot" : ""}">${t.dueTime}</span>` : dday(ctx.today, t)}</span></div>${subs}`;
+}
+
 export const glass: ThemeView = {
   fd,
   shell: (ctx) => `
@@ -107,7 +149,7 @@ export const glass: ThemeView = {
       <span class="sp"></span>
       <span class="conn" title="${esc(ctx.connection.detail)}" data-testid="connection">${esc(ctx.connection.label)}</span>
       <div class="seg" role="group" aria-label="보기"><button data-v="month">월</button><button data-v="week">주</button><button data-v="day">일</button><button data-v="memo">기억</button></div>
-      <button class="nb" data-print>출력</button><button class="nb" data-settings aria-haspopup="dialog">설정</button>
+      <button class="nb ibn" data-print title="출력 (⌘P)" aria-label="출력">${ICON.print}</button><button class="nb ibn" data-settings aria-haspopup="dialog" title="설정 (⌘,)" aria-label="설정">${ICON.gear}</button>
     </header>
     <main class="content" id="bhMain"></main>
     <footer class="composer" id="bhComp"></footer>`,
@@ -127,22 +169,21 @@ export const glass: ThemeView = {
     const G = taskGroups(ctx.s, k);
     const ps = periodsOn(ctx.s, k);
     const tom = ymd(addDays(ctx.cur, 1));
-    // Today's and tomorrow's provisional events are listed under 일정 with 확정/취소 already.
-    const pend = pending(ctx.s).filter((e) => e.date !== k && e.date !== tom);
-    return `<div class="day">
-      <div class="ttwrap">${timetable(ctx, k)}</div>
-      <div class="col2"><div class="box g grow">
-        <h4>할 일</h4>
-        ${G.today.length + G.week.length + G.later.length === 0 ? `<div class="none">없음 · 「금요일까지 보고서」처럼 쓰면 들어갑니다</div>` : `
-        <div class="grp">오늘까지 ${G.today.length}</div>${todayTasks(ctx, G.today, k) || none}
-        ${G.week.length ? `<div class="grp">7일 안 마감 ${G.week.length}</div>${G.week.map((t) => taskHTML(ctx, t)).join("")}` : ""}
-        ${G.later.length ? `<div class="grp">나중 ${G.later.length}</div>${G.later.slice(0, LATER_SHOWN).map((t) => taskHTML(ctx, t, false)).join("")}${G.later.length > LATER_SHOWN ? lazyFold(ctx, "later", `${G.later.length - LATER_SHOWN}개 더`, () => G.later.slice(LATER_SHOWN).map((t) => taskHTML(ctx, t, false)).join("")) : ""}` : ""}`}
-      </div></div>
-      <div class="col2">
-        ${ps.length ? `<div class="box g"><h4>기간</h4>${ps.map((p) => perRow(p, k)).join("")}</div>` : ""}
-        <div class="box g"><h4>일정</h4>${eventsOn(ctx.s, k).map(evRow).join("") || none}
-          <h4 class="mt">내일 · ${fd(tom)}</h4>${eventsOn(ctx.s, tom).map(evRow).join("") || none}</div>
-        ${inboxBox(ctx, pend)}
+    const rest = G.week.length + G.later.length;
+    const tomEv = eventsOn(ctx.s, tom);
+    const tomDue = dueOn(ctx.s, tom).filter((t) => !t.done);
+    return `<div class="day2">
+      ${ctx.side ? "" : checksBar(ctx, fd)}
+      ${dayStrip(ctx, k)}
+      <div class="cols2">
+        <div class="box g grow"><h4>할 일 <small>${k === ctx.today ? "오늘" : fd(k)} ${G.today.filter((t) => !t.done).length}</small></h4>
+          ${G.today.length + rest === 0 ? '<div class="none">없음 · 「금요일까지 보고서」처럼 쓰면 들어갑니다</div>' : G.today.map((t) => taskRow(ctx, t)).join("") || none}
+          ${rest ? lazyFold(ctx, "rest", [G.week.length ? `이번 주 ${G.week.length}` : "", G.later.length ? `나중 ${G.later.length}` : ""].filter(Boolean).join(" · "), () => `${G.week.map((t) => taskRow(ctx, t)).join("")}${G.later.length ? `<div class="grp">나중</div>${G.later.map((t) => taskRow(ctx, t)).join("")}` : ""}`) : ""}
+        </div>
+        <div class="box g side2"><h4>내일 <small>${fd(tom)}</small></h4>
+          ${tomEv.map((e) => `<div class="srow" data-ev="${e.id}"><span class="tm">${e.start ?? "종일"}</span><span class="t">${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</span></div>`).join("")}${tomDue.map((t) => `<div class="srow"><span class="tm">마감</span><span class="t">${esc(t.title)}</span></div>`).join("")}${tomEv.length + tomDue.length ? "" : none}
+          ${ps.length ? `<h4 class="mt">기간</h4>${ps.map((p) => `<div class="srow"><span class="t">${esc(p.title)}</span><span class="tm">${diffDays(p.from, k) + 1}/${diffDays(p.from, p.to) + 1}일</span></div>`).join("")}` : ""}
+        </div>
       </div></div>`;
   },
   week: () => null,

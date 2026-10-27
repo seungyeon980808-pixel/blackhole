@@ -25,6 +25,8 @@ export interface Ctx {
   editing?: string | null;
   /** Cards may offer 수정 (not on the phone: its changes travel as actions only). */
   canEdit?: boolean;
+  /** The chat panel is on the right (확인할 것 lives there; otherwise on top of the day). */
+  side?: boolean;
 }
 
 /** A fold whose rows are drawn only while open (data-fold: the app re-renders on toggle). */
@@ -67,12 +69,29 @@ export const KIND_WORD: Record<Entry["kind"], string> = { event: "일정", task:
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 export const esc = (v: unknown): string => String(v ?? "").replace(/[&<>"']/g, (c) => ESC[c]);
 
+/** A small line icon (functional only: each one is a button's whole label). */
+function svg(paths: string): string {
+  return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+}
+
 export const ICON = {
   cam: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></svg>',
   mic: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>',
   send: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>',
   snooze: '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 4 2.5 6.5M19 4l2.5 2.5"/></svg>',
   check: '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 10 17.5 19 7"/></svg>',
+  ok: svg('<path d="M5 12.5 10 17.5 19 7"/>'),
+  x: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
+  edit: svg('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'),
+  copy: svg('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>'),
+  undo: svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>'),
+  cal: svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>'),
+  todo: svg('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12l2.5 2.5L15.5 9"/>'),
+  open: svg('<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>'),
+  print: svg('<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v6H7z"/>'),
+  gear: svg('<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3"/>'),
+  chat: svg('<path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-8l-4 3v-3H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>'),
+  fold: svg('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M14.5 4.5v15M9 10l2 2-2 2"/>'),
   logo: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="24" fill="#0a0a0d"/><circle cx="50" cy="53" r="29" fill="#fff" opacity=".35"/><circle cx="50" cy="53" r="27" fill="#fff"/><circle cx="50" cy="49" r="25" fill="#0a0a0d"/></svg>'
 };
 
@@ -187,29 +206,31 @@ export function resultCard(ctx: Ctx, id: string, fd: (k: string) => string, answ
     const time = x.kind === "event" ? x.start ?? "" : x.kind === "task" ? x.dueTime ?? "" : "";
     return `<div class="rc edit" data-editing="${esc(key)}"><input class="ed-t" value="${esc(x.title)}" aria-label="제목">
       ${day ? `<div class="ed-row"><input type="date" class="ed-d" value="${day}" aria-label="날짜">${x.kind === "event" || x.kind === "task" ? `<input type="time" class="ed-h" value="${time}" aria-label="시각(비우면 ${x.kind === "event" ? "종일" : "시각 없음"})">` : ""}</div>` : ""}
-      <div class="ra"><button class="mini" data-editsave="${esc(key)}">저장</button><button class="mini" data-editcancel>그만</button></div></div>`;
+      <div class="ra on"><button class="ib" data-editsave="${esc(key)}" title="저장 (Enter)" aria-label="저장">${ICON.ok}</button><button class="ib" data-editcancel title="그만 (Esc)" aria-label="그만">${ICON.x}</button></div></div>`;
   }
-  const b = (attr: string, label: string) => `<button class="mini" ${attr}>${label}</button>`;
+  // Icon buttons (their name on hover / for screen readers); the card itself opens its day.
+  const b = (attr: string, label: string, icon: string) => `<button class="ib" ${attr} title="${label}" aria-label="${label}">${icon}</button>`;
   const acts: string[] = [];
-  if (x.gone) acts.push(b(`data-restore="${x.id}"`, "되살리기"));
+  if (x.gone) acts.push(b(`data-restore="${x.id}"`, "되살리기", ICON.undo));
   else {
-    if (x.kind === "event" && x.provisional) acts.push(b(`data-ok="${x.id}"`, "확정"), b(`data-no="${x.id}"`, "취소"));
-    if (x.kind === "task") acts.push(b(`data-tdone="${x.id}"`, x.done ? "완료 취소" : "완료"));
-    // A 기억 is never forced onto the calendar; one click makes it an appointment or a to-do.
-    if (x.kind === "note" && ctx.canEdit) acts.push(b(`data-convert="event|${esc(key)}"`, "일정으로"), b(`data-convert="task|${esc(key)}"`, "할 일로"));
-    if (ctx.canEdit) acts.push(b(`data-edit="${esc(key)}"`, "수정"));
-    if (x.kind !== "note") acts.push(b(`data-open="${x.id}"`, "열기"));
-    if (answer) acts.push(b(`data-copy="${x.id}"`, "복사"));
-    else if (!(x.kind === "event" && x.provisional)) acts.push(b(`data-no="${x.id}"`, "되돌리기"));
+    if (x.kind === "event" && x.provisional) acts.push(b(`data-ok="${x.id}"`, "확정", ICON.ok));
+    if (x.kind === "task") acts.push(b(`data-tdone="${x.id}"`, x.done ? "완료 취소" : "완료", x.done ? ICON.undo : ICON.ok));
+    if (x.kind === "note" && ctx.canEdit) acts.push(b(`data-convert="event|${esc(key)}"`, "일정으로", ICON.cal), b(`data-convert="task|${esc(key)}"`, "할 일로", ICON.todo));
+    if (ctx.canEdit) acts.push(b(`data-edit="${esc(key)}"`, "수정", ICON.edit));
+    if (answer) acts.push(b(`data-copy="${x.id}"`, "복사", ICON.copy));
+    if (x.kind === "event" && x.provisional) acts.push(b(`data-no="${x.id}"`, "취소", ICON.x));
+    else if (!answer) acts.push(b(`data-no="${x.id}"`, "되돌리기(지우기)", ICON.x));
   }
-  return `<div class="rc ${x.gone ? "gone" : ""} ${compact ? "sm" : ""}"><b>${esc(x.title)}</b>${draftTag(x)}<div class="rm2">${esc(x.gone ? `${kind} · 지움` : meta)}</div>${review}<div class="ra">${acts.join("")}</div></div>`;
+  const opens = !x.gone && x.kind !== "note" ? ` data-open="${x.id}" title="눌러서 그날 보기"` : "";
+  const offer = x.suggest?.length ? `<div class="rm2">${aiOffer(x, fd)}</div>` : "";
+  return `<div class="rc ${x.gone ? "gone" : ""} ${compact ? "sm" : ""}"${opens}><b>${esc(x.title)}</b>${draftTag(x)}<div class="rm2">${esc(x.gone ? `${kind} · 지움` : meta)}</div>${review}${offer}<div class="ra">${acts.join("")}</div></div>`;
 }
 
 /** A found record that is not a calendar entry: a secret name, an Obsidian note, an inbox line. */
 export function hitCard(h: AskHit): string {
   const act =
-    h.kind === "secret" ? `<button class="mini" data-secretcopy="${esc(h.id.slice(7))}">복사(Touch ID)</button>` :
-    h.kind === "obsidian" ? `<button class="mini" data-note="${esc(h.id.slice(9))}">열기</button><button class="mini" data-copytext="${esc(h.title)}">복사</button>` : "";
+    h.kind === "secret" ? `<button class="ib" data-secretcopy="${esc(h.id.slice(7))}" title="복사(Touch ID)" aria-label="복사(Touch ID)">${ICON.copy}</button>` :
+    h.kind === "obsidian" ? `<button class="ib" data-note="${esc(h.id.slice(9))}" title="노트 열기" aria-label="노트 열기">${ICON.open}</button><button class="ib" data-copytext="${esc(h.title)}" title="복사" aria-label="복사">${ICON.copy}</button>` : "";
   return `<div class="rc"><b>${esc(h.title)}</b><div class="rm2">${KIND_LABEL[h.kind]} · ${esc(h.kind === "secret" ? "값은 이 Mac 키체인에만" : `${h.when} · ${h.where}`)}</div>${act ? `<div class="ra">${act}</div>` : ""}</div>`;
 }
 
@@ -241,4 +262,27 @@ export function memoList(ctx: Ctx, fd: (k: string) => string): string {
     h += resultCard(ctx, n.id, fd, false, "memo");
   }
   return `<div class="memov">${h}</div>`;
+}
+
+/**
+ * 확인할 것: entries with a review note and provisional events waiting for 확정 — one quiet bar
+ * (folded); open, each is a card with ✓ (맞아요 / 확정) · 수정 · ✕.
+ */
+export function checksOf(ctx: Ctx): Entry[] {
+  const seen = new Set<string>();
+  const out: Entry[] = [];
+  const all: Entry[] = [...ctx.s.events, ...ctx.s.tasks, ...ctx.s.periods, ...ctx.s.notes];
+  for (const x of [...needsReview(ctx), ...all.filter((e) => e.suggest?.length && !e.gone), ...ctx.s.events.filter((e) => e.provisional && !e.gone && !e.sample && e.date >= ctx.today)]) {
+    if (seen.has(x.id)) continue;
+    seen.add(x.id);
+    out.push(x);
+  }
+  return out;
+}
+
+export function checksBar(ctx: Ctx, fd: (k: string) => string): string {
+  const list = checksOf(ctx);
+  if (!list.length) return "";
+  const open = !!ctx.open?.has("checks");
+  return `<div class="checks"><button class="chkbar" data-checks aria-expanded="${open}"><span class="cdot"></span><span>확인할 것 ${list.length}</span><span class="chev">${open ? "▴" : "▾"}</span></button>${open ? list.map((x) => resultCard(ctx, x.id, fd, false, "chk").replace(/<button class="ib" data-(?:ok|tdone)="[^"]*"[^>]*>.*?<\/button>/, "").replace('<div class="ra">', `<div class="ra"><button class="ib" data-accept="${x.id}" title="맞아요" aria-label="맞아요">${ICON.ok}</button>`)).join("") : ""}</div>`;
 }
