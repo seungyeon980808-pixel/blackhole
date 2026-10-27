@@ -301,16 +301,3 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .rc.edit input:focus { border-color: #6f8dff; }
 .bh.glass .rc .mini { margin: 0; }
 .bh.glass .rc .ra .mini + .mini { margin-left: 0; }
-
-/* Red that reads on any glass tint: urgent marks are solid red tags with white text (not red
-   text on blue/teal), reasons to review are plain text. */
-.bh.glass { --hot-bg: #d92d3f; }
-.bh.glass .dd.hot, .bh.glass .c.due .dd.hot { color: #fff; background: var(--hot-bg); border-radius: 4px; padding: 0 5px; line-height: 16px; display: inline-block; }
-.bh.glass .c.due.hot { color: var(--ink); font-weight: 700; }
-.bh.glass .tt .dueday span.hot { color: #fff; background: var(--hot-bg); border-radius: 4px; padding: 0 5px; }
-.bh.glass .tt .du.hot span { color: #fff; background: var(--hot-bg); }
-.bh.glass .fc .wbt.due.hot { color: var(--ink); }
-.bh.glass .inbox h4.warn { color: #fff; background: var(--hot-bg); border-radius: 5px; padding: 1px 7px; display: inline-block; }
-.bh.glass .inb.rv .s { color: var(--ink2); }
-.bh.glass[data-mode="dark"] .fc .hol { color: #fff; background: var(--hot-bg); border-radius: 4px; padding: 0 4px; }
-.bh.glass .conn.warn { color: #fff; background: var(--hot-bg); border-radius: 5px; padding: 1px 6px; }
