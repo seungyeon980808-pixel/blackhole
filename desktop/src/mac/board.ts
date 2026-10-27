@@ -46,7 +46,8 @@ export function mountBoard(root: HTMLElement): void {
     document.documentElement.dataset.theme = s.settings.theme === "doc" ? "doc" : s.settings.mode;
     root.innerHTML = boardHTML(s, new Date());
     // The window takes the height of what it shows (no empty half board).
-    requestAnimationFrame(() => void invoke("board_fit", { height: Math.ceil(document.documentElement.scrollHeight) }).catch(() => undefined));
+    // (a timer, not requestAnimationFrame: a covered desktop window gets no frames)
+    window.setTimeout(() => void invoke("board_fit", { height: Math.ceil(document.querySelector(".bh-board")!.getBoundingClientRect().height + 12) }).catch(() => undefined), 50);
   };
   const load = async () => {
     s = normalizeState(await invoke("load_calendar_state").catch(() => null)) ?? s;
