@@ -7,9 +7,9 @@ import { Calendar, type EventInput } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { addDays, DOW, fromStamp, parseDay, ymd } from "./dates";
+import { addDays, DOW, parseDay, ymd } from "./dates";
 import type { CalendarState, Task, ThemeName } from "./model";
-import { allAlarms, liveEvents, livePeriods, liveTasks } from "./store";
+import { liveEvents, livePeriods, liveTasks } from "./store";
 import { dueBadge, type Ctx, type ThemeView } from "./views/common";
 
 export function fcEvents(s: CalendarState, withBells: boolean): EventInput[] {
@@ -27,17 +27,13 @@ export function fcEvents(s: CalendarState, withBells: boolean): EventInput[] {
     if (t.noDue) continue;
     if (withBells && t.dueTime) {
       const at = new Date(`${t.due}T${t.dueTime}`);
-      out.push({ id: t.id, title: t.title, start: at, end: new Date(at.getTime() + 20 * 60e3), allDay: false, classNames: ["bh-due", t.done ? "done" : ""], extendedProps: { kind: "task", order: 2 } });
+      // 40 minutes: a deadline next to an appointment sits beside it instead of under its words.
+      out.push({ id: t.id, title: t.title, start: at, end: new Date(at.getTime() + 40 * 60e3), allDay: false, classNames: ["bh-due", t.done ? "done" : ""], extendedProps: { kind: "task", order: 2 } });
       continue;
     }
     out.push({ id: t.id, title: t.title, start: t.due, allDay: true, classNames: ["bh-task", t.done ? "done" : ""], extendedProps: { kind: "task", order: 2 } });
   }
-  if (withBells) {
-    for (const a of allAlarms(s)) {
-      const at = fromStamp(a.at);
-      out.push({ id: `bell-${a.key}`, title: `알림 ${a.at.slice(11)}`, start: at, end: new Date(at.getTime() + 60e3), display: "background", classNames: ["bh-bell"], extendedProps: { kind: "bell", order: 3 } });
-    }
-  }
+  // No reminder lines with 「알림 HH:MM」 in the week (정리안): the event's card shows its reminders.
   return out;
 }
 
@@ -101,6 +97,8 @@ export class FcHost {
       },
       moreLinkContent: (arg) => view.more(arg.num),
       eventOrder: "order,start,title",
+      // Things at the same time sit side by side, never on top of each other's words.
+      slotEventOverlap: false,
       eventContent: (arg) => {
         const kind = arg.event.extendedProps.kind as string;
         if (kind === "bell") return { html: `<span>${arg.event.title}</span>` };

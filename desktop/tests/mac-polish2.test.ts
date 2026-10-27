@@ -142,7 +142,8 @@ describe("settings", () => {
     const panel = root.querySelector("#bhSettings")!;
     expect(panel.textContent).toContain("Claude Haiku 5.5");
     expect(panel.textContent).not.toContain("Ctrl+Alt");
-    const field = panel.querySelector<HTMLInputElement>('[data-desk-sc="capture"]')!;
+    root.querySelector<HTMLButtonElement>('[data-setg="mac"]')!.click();
+    const field = root.querySelector<HTMLInputElement>('#bhSettings [data-desk-sc="capture"]')!;
     expect(field.value).toBe("끔");
     field.focus();
     expect(field.value).toBe("키를 누르세요");

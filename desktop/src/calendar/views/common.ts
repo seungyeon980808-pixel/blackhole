@@ -91,6 +91,8 @@ export const ICON = {
   print: svg('<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v6H7z"/>'),
   gear: svg('<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3"/>'),
   chat: svg('<path d="M5 5h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-8l-4 3v-3H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>'),
+  find: svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'),
+  today: svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/>'),
   fold: svg('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M14.5 4.5v15M9 10l2 2-2 2"/>'),
   logo: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="24" fill="#0a0a0d"/><circle cx="50" cy="53" r="29" fill="#fff" opacity=".35"/><circle cx="50" cy="53" r="27" fill="#fff"/><circle cx="50" cy="49" r="25" fill="#0a0a0d"/></svg>'
 };
@@ -244,24 +246,26 @@ export function chatCards(ctx: Ctx, m: ChatMessage, fd: (k: string) => string): 
 }
 
 /**
- * 「기억」: every note, newest first, as cards (수정 · 일정으로 · 할 일로 · 되돌리기). Notes are kept
- * forever and found by asking; there is no filing.
+ * 「기억」 (정리안): a find box and one line per note — title · start of the text · day, newest
+ * first, the whole width. A click opens that line into its card (수정 · 일정으로 · 할 일로 · ✕).
  */
-export function memoList(ctx: Ctx, fd: (k: string) => string): string {
-  // Newest first; the same minute keeps the order they came in (latest on top).
-  const notes = ctx.s.notes.filter((n) => !n.gone && (ctx.s.settings.showSamples || !n.sample)).reverse().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  if (!notes.length) return `<div class="memov"><div class="none">아직 기억이 없어요 · 날짜·시간 없이 쓰거나 「메모 …」로 시작하면 여기에 모입니다.</div></div>`;
-  let day = "";
-  let h = "";
-  for (const n of notes) {
+export function memoList(ctx: Ctx, fd: (k: string) => string, query = ""): string {
+  return `<div class="memov"><label class="msearch">${ICON.find}<input data-memoq value="${esc(query)}" placeholder="기억에서 찾기" aria-label="기억에서 찾기" autocomplete="off" spellcheck="false"></label><div class="memol">${memoRows(ctx, fd, query)}</div></div>`;
+}
+
+export function memoRows(ctx: Ctx, fd: (k: string) => string, query = ""): string {
+  const q = query.trim().toLowerCase();
+  const notes = ctx.s.notes
+    .filter((n) => !n.gone && (ctx.s.settings.showSamples || !n.sample))
+    .filter((n) => !q || `${n.title} ${n.details ?? ""}`.toLowerCase().includes(q))
+    .reverse()
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  if (!notes.length) return `<div class="none">${q ? `「${esc(query.trim())}」 기억 없음` : "아직 기억이 없어요 · 날짜·시간 없이 쓰거나 「메모 …」로 시작하면 여기에 모입니다."}</div>`;
+  return notes.map((n) => {
+    if (ctx.open?.has(`memo:${n.id}`)) return `<div class="mopen">${resultCard(ctx, n.id, fd, false, "memo")}<button class="ib mclose" data-mopen="${n.id}" title="접기" aria-label="접기">${ICON.x}</button></div>`;
     const d = n.createdAt.slice(0, 10);
-    if (d !== day) {
-      day = d;
-      h += `<div class="memod">${d === ctx.today ? "오늘" : fd(d)}</div>`;
-    }
-    h += resultCard(ctx, n.id, fd, false, "memo");
-  }
-  return `<div class="memov">${h}</div>`;
+    return `<div class="mrow" data-mopen="${n.id}" role="button" tabindex="0"><b class="t">${esc(n.title)}</b>${n.details ? `<span class="d">${esc(n.details.replace(/\s+/g, " "))}</span>` : ""}<span class="dt">${d === ctx.today ? "오늘" : fd(d)}</span></div>`;
+  }).join("");
 }
 
 /**

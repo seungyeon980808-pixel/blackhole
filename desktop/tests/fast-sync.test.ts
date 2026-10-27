@@ -332,6 +332,7 @@ describe("glass look sliders (설정)", () => {
     expect(app!.state.settings.glassBright).toBe(0);
     expect(root.style.getPropertyValue("--bh-blur")).toBe("26px");
     root.querySelector<HTMLButtonElement>("[data-settings]")!.click();
+    root.querySelector<HTMLButtonElement>('[data-setg="look"]')!.click(); // groups open one at a time
     const blur = root.querySelector<HTMLInputElement>('[data-set="glassBlur"]')!;
     blur.value = "10";
     blur.dispatchEvent(new Event("input", { bubbles: true }));
@@ -363,6 +364,7 @@ describe("glass look sliders (설정)", () => {
     app = await mountBlackhole(document.querySelector<HTMLElement>("#app")!, androidAdapter(b), { now: () => new Date(NOW), seed: false });
     document.querySelector<HTMLButtonElement>("[data-settings]")!.click();
     await new Promise((r) => setTimeout(r, 0));
+    document.querySelector<HTMLButtonElement>('[data-setg="inbox"]')!.click();
     const op = document.querySelector<HTMLInputElement>('[data-board="opacity"]')!;
     op.value = "60";
     op.dispatchEvent(new Event("change", { bubbles: true }));
@@ -403,6 +405,7 @@ describe("Claude API analyzer in 설정 and without a key", () => {
     expect(app!.state.events.filter((e) => !e.gone)).toHaveLength(1);
     root.querySelector<HTMLButtonElement>("[data-settings]")!.click();
     await new Promise((r) => setTimeout(r, 0));
+    root.querySelector<HTMLButtonElement>('[data-setg="ai"]')!.click();
     const input = root.querySelector<HTMLInputElement>("[data-claude-key]")!;
     expect(input.type).toBe("password");
     input.value = "sk-ant-api03-test";

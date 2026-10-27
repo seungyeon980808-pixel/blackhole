@@ -144,8 +144,8 @@ export const glass: ThemeView = {
   fd,
   shell: (ctx) => `
     <header class="bar" data-tauri-drag-region>
-      <div class="title" id="bhTitle"></div>
-      <button class="nb" data-nav="-1" aria-label="이전">‹</button><button class="nb" data-nav="1" aria-label="다음">›</button><button class="nb" data-nav="0">오늘</button>
+      <div class="title" id="bhTitle" data-nav="0" title="눌러서 오늘로 (T)"></div>
+      <button class="nb" data-nav="-1" aria-label="이전" title="이전 (←)">‹</button><button class="nb" data-nav="1" aria-label="다음" title="다음 (→)">›</button><button class="nb ibn today" data-nav="0" aria-label="오늘로" title="오늘로 (T)">${ICON.today}</button>
       <span class="sp"></span>
       <span class="conn" title="${esc(ctx.connection.detail)}" data-testid="connection">${esc(ctx.connection.label)}</span>
       <div class="seg" role="group" aria-label="보기"><button data-v="month">월</button><button data-v="week">주</button><button data-v="day">일</button><button data-v="memo">기억</button></div>

@@ -326,3 +326,13 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .trow .subn:hover { background: var(--glass2); color: var(--ink); }
 .bh.glass .srow .tm { color: var(--ink3); }
 .bh.glass .day2 details.fold > summary { margin-top: 6px; }
+/* header: 「로컬·미연결」 as a quiet dot (its words on hover / for screen readers) */
+.bh.glass .conn { font-size: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--ink3); margin: 0 4px; padding: 0; flex: none; }
+.bh.glass .conn.warn { background: #ffc94d; }
+.bh.glass .msearch { background: var(--glass); border: 1px solid var(--line); color: var(--ink2); }
+.bh.glass .msearch input { color: var(--ink); }
+.bh.glass .msearch input::placeholder { color: var(--ink3); }
+.bh.glass .memol { background: var(--glass); border: 1px solid var(--line); }
+.bh.glass .mrow + .mrow, .bh.glass .mopen + .mrow, .bh.glass .mrow + .mopen { border-top: 1px solid var(--hair); }
+.bh.glass .mrow:hover { background: var(--glass2); }
+.bh.glass .mrow .d, .bh.glass .mrow .dt { color: var(--ink3); }

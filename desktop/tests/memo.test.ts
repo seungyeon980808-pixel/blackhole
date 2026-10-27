@@ -102,7 +102,14 @@ describe("memo or calendar", () => {
     await app!.submitText("메모 둘째");
     app!.setView("memo");
     expect(root.querySelector("#bhTitle")!.textContent).toBe("기억 2개");
-    expect([...root.querySelectorAll(".memov .rc b")].map((b) => b.textContent)).toEqual(["둘째", "첫째"]);
+    // One line each, newest first; the find box filters as you type; a click opens the card.
+    expect([...root.querySelectorAll(".mrow .t")].map((b) => b.textContent)).toEqual(["둘째", "첫째"]);
+    const box = root.querySelector<HTMLInputElement>("[data-memoq]")!;
+    box.value = "첫";
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    expect([...root.querySelectorAll(".mrow .t")].map((b) => b.textContent)).toEqual(["첫째"]);
+    root.querySelector<HTMLElement>(".mrow")!.click();
+    expect(root.querySelector(".mopen [data-convert]")).not.toBeNull();
   });
 });
 

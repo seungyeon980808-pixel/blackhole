@@ -142,6 +142,7 @@ describe("stage 4 on the phone", () => {
     const fake = await mountPhone(macCopy().json);
     document.querySelector<HTMLButtonElement>("[data-settings]")!.click();
     await new Promise((r) => setTimeout(r, 0));
+    document.querySelector<HTMLButtonElement>('[data-setg="inbox"]')!.click();
     const set = (name: string, value: string | boolean) => {
       const el = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-gcal="${name}"]`)!;
       if (typeof value === "boolean") (el as HTMLInputElement).checked = value;

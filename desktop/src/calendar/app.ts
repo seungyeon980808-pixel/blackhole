@@ -14,7 +14,7 @@ import { seedState } from "./samples";
 import {
   applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
 } from "./store";
-import { checksBar, ICON, memoList, type Ctx, type ThemeView, type ViewName } from "./views/common";
+import { checksBar, ICON, memoList, memoRows, type Ctx, type ThemeView, type ViewName } from "./views/common";
 import { doc, printSheet } from "./views/doc";
 import { glass } from "./views/glass";
 
@@ -141,6 +141,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let desk: DeskStatus | null = null;
   let deskLine = "";
   let guideOpen = false;
+  /** The open group in 설정 (only one at a time). */
+  let setGroup: string | null = null;
+  /** The 「기억」 find box. */
+  let memoQuery = "";
   let guideLines: Record<string, string> = {};
   let toastTimer: number | undefined;
   /** ⌘Z: the last hand-made changes, newest last (check · uncheck · cancel · a new entry). */
@@ -394,7 +398,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       b.setAttribute("aria-pressed", String(b.dataset.v === view));
     });
     const main = root.querySelector<HTMLElement>("#bhMain")!;
-    const custom = view === "day" ? t.day(c) : view === "week" ? t.week(c) : view === "memo" ? memoList(c, t.fd) : null;
+    const custom = view === "day" ? t.day(c) : view === "week" ? t.week(c) : view === "memo" ? memoList(c, t.fd, memoQuery) : null;
     if (custom === null) {
       let host = main.querySelector<HTMLElement>(":scope > .fchost");
       if (!host) {
@@ -423,6 +427,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
     }
     root.classList.toggle("side", side);
+    root.dataset.view = view;
+    // 「오늘로」 shows only when today is not on screen.
+    const showsToday = view === "memo" || (view === "day" ? ymd(cur) === c.today : view === "week" ? Math.abs(addDays(cur, -cur.getDay()).getTime() - addDays(parseDay(c.today), -parseDay(c.today).getDay()).getTime()) < 864e5 / 2 : cur.getMonth() === c.now.getMonth() && cur.getFullYear() === c.now.getFullYear());
+    root.querySelectorAll<HTMLElement>(".today[data-nav]").forEach((b) => (b.hidden = showsToday));
     root.classList.toggle("panel-closed", sideCapable && !sidePref && root.clientWidth >= SIDE_MIN);
     root.style.setProperty("--panel-w", `${panelW}px`);
     root.classList.toggle("chat-open", chatOpen && !side);
@@ -458,41 +466,64 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   /* ---------- settings ---------- */
 
+  /**
+   * 설정 (정리안, 사용자 선택): group names with a one-line summary; only the clicked group opens.
+   * Explanations sit behind ⓘ (hover); warnings stay visible in the open group.
+   */
   function renderSettings(): void {
     const el = root.querySelector<HTMLElement>("#bhSettings")!;
     const st = s.settings;
-    el.innerHTML = `<div class="set-h">설정 <button class="mini" data-settings aria-label="설정 닫기">닫기</button></div>
-      <div class="set-g">화면</div>
-      <label class="set-row">테마 <select data-set="theme"><option value="glass" ${st.theme === "glass" ? "selected" : ""}>유리</option><option value="doc" ${st.theme === "doc" ? "selected" : ""}>공문서</option></select></label>
+    const look = `<label class="set-row">테마 <select data-set="theme"><option value="glass" ${st.theme === "glass" ? "selected" : ""}>유리</option><option value="doc" ${st.theme === "doc" ? "selected" : ""}>공문서</option></select></label>
       ${st.theme === "glass" ? `<label class="set-row">밝기 <select data-set="mode"><option value="dark" ${st.mode === "dark" ? "selected" : ""}>어둡게</option><option value="light" ${st.mode === "light" ? "selected" : ""}>밝게</option></select></label>
       <label class="set-row">흐림 <input type="range" min="0" max="40" step="1" value="${st.glassBlur}" data-set="glassBlur" aria-label="유리 흐림 정도"><span class="set-v">${st.glassBlur}</span></label>
       <label class="set-row">배경 밝기 <input type="range" min="-50" max="50" step="5" value="${st.glassBright}" data-set="glassBright" aria-label="배경·카드 밝기"><span class="set-v">${st.glassBright > 0 ? "+" : ""}${st.glassBright}</span></label>
       ${st.glassBlur !== 26 || st.glassBright !== 0 ? '<div class="set-row"><button class="mini" data-lookreset>처음 모습으로</button></div>' : ""}` : ""}
-      ${adapter.recordAction ? "" : `<label class="set-row"><input type="checkbox" data-set="samples" ${st.showSamples ? "checked" : ""}> 가짜 자료 보이기</label>`}
-      ${adapter.claude ? claudeBlock() : ""}
-      <div class="set-sep"></div>${inbox.available || adapter.publishShared ? '<div class="set-g">인박스 · 휴대폰</div>' : ""}
-      ${inbox.available ? `<label class="set-row"><input type="checkbox" data-set="inbox" ${inbox.enabled ? "checked" : ""}> 인박스 처리(휴대폰·드라이브에서 온 것 정리)</label>` : ""}
+      ${adapter.recordAction ? "" : `<label class="set-row"><input type="checkbox" data-set="samples" ${st.showSamples ? "checked" : ""}> 가짜 자료 보이기</label>`}`;
+    const inboxPart = `${inbox.available ? `<label class="set-row"><input type="checkbox" data-set="inbox" ${inbox.enabled ? "checked" : ""}> 인박스 처리(휴대폰·드라이브에서 온 것 정리)</label>` : ""}
       ${inbox.available ? `<label class="set-row">폴더 <select data-set="inboxRoot"><option value="" ${st.inboxRoot ? "" : "selected"}>시험 폴더</option>${inbox.driveRoot ? `<option value="drive" ${st.inboxRoot ? "selected" : ""}>드라이브 「블랙홀」</option>` : ""}</select></label>` : ""}
-      <div class="set-note" ${inbox.available ? "" : "hidden"}>${inbox.available ? `<span title="${escapeHtml(inbox.root)}">${st.inboxRoot ? "드라이브 「블랙홀」 폴더 · 넣은 원본은 지우지 않음" : "시험 폴더(이 Mac 안)"}</span> · ${inbox.running ? "정리하는 중" : inbox.lastScanAt ? `마지막 확인 ${escapeHtml(inbox.lastScanAt.slice(11, 16))}` : "아직 확인 안 함"}${inbox.lastError ? `<br><span class="warn">${escapeHtml(inbox.lastError)}</span>` : ""}` : "이 화면에서는 인박스 처리를 쓸 수 없습니다."}</div>
+      ${inbox.available ? `<div class="set-note">${st.inboxRoot ? "드라이브 「블랙홀」 폴더 · 넣은 원본은 지우지 않음" : "시험 폴더(이 Mac 안)"} · ${escapeHtml(inbox.root)}</div>${inbox.lastError ? `<div class="set-note"><span class="warn">${escapeHtml(inbox.lastError)}</span></div>` : ""}` : ""}
       ${adapter.publishShared ? `<label class="set-row"><input type="checkbox" data-set="sharePhone" ${st.sharePhone ? "checked" : ""} ${inbox.driveRoot ? "" : "disabled"}> 휴대폰과 달력 공유</label>
-      <div class="set-note">${inbox.driveRoot ? `드라이브 「블랙홀/달력.json」에 일정 사본을 쓰고, 휴대폰에서 바꾼 것을 받아 반영합니다.${shareLine ? `<br>${escapeHtml(shareLine)}` : ""}` : "드라이브 「블랙홀」 폴더가 없어 쓸 수 없습니다."}</div>` : ""}
-      ${adapter.messenger && messenger?.configured ? `<div class="set-sep"></div>
-      <label class="set-row"><input type="checkbox" data-set="messenger" ${st.messengerEnabled ? "checked" : ""} ${messenger.configured ? "" : "disabled"}> 디스코드·슬랙 입력</label>
-      <div class="set-note">${messenger.configured ? `지정한 채널의 내 메시지를 30초마다 인박스로 가져옵니다(인박스 처리가 켜져 있어야 분석). 지금까지 ${messenger.written}개${messenger.lastPollAt ? ` · 마지막 ${escapeHtml(messenger.lastPollAt.slice(11, 16))}` : ""}` : `설정 파일을 만들면 켤 수 있습니다: <code>${escapeHtml(messenger.configPath)}</code>`}${messenger.lastError ? `<br><span class="warn">${escapeHtml(messenger.lastError)}</span>` : ""}</div>` : ""}
+      <div class="set-note">${inbox.driveRoot ? `드라이브 「블랙홀/달력.json」에 일정 사본을 쓰고, 휴대폰에서 바꾼 것을 받아 반영합니다.${shareLine ? ` ${escapeHtml(shareLine)}` : ""}` : "드라이브 「블랙홀」 폴더가 없어 쓸 수 없습니다."}</div>` : ""}
+      ${adapter.messenger && messenger?.configured ? `<label class="set-row"><input type="checkbox" data-set="messenger" ${st.messengerEnabled ? "checked" : ""}> 디스코드·슬랙 입력</label>
+      <div class="set-note">지정한 채널의 내 메시지를 30초마다 인박스로 가져옵니다. 지금까지 ${messenger.written}개${messenger.lastError ? `</div><div class="set-note"><span class="warn">${escapeHtml(messenger.lastError)}</span>` : ""}</div>` : ""}
       ${adapter.googleCalendars ? gcalBlock() : ""}
-      ${adapter.board && board ? `<div class="set-sep"></div>
-      <label class="set-row"><input type="checkbox" data-board="lock" ${board.lock ? "checked" : ""}> 잠금화면 배경을 블랙홀 달력으로</label>
+      ${adapter.board && board ? `<label class="set-row"><input type="checkbox" data-board="lock" ${board.lock ? "checked" : ""}> 잠금화면 배경을 블랙홀 달력으로</label>
       <label class="set-row"><input type="checkbox" data-board="hideSchool" ${board.hideSchool ? "checked" : ""}> 위젯·잠금화면에서 학교 일정 제목 가리기</label>
       ${adapter.setBoardLook ? `<label class="set-row">위젯·잠금화면 밝기 <input type="range" min="-50" max="50" step="5" value="${board.bright ?? 0}" data-board="bright" aria-label="위젯·잠금화면 밝기"><span class="set-v">${board.bright ?? 0}</span></label>
       <label class="set-row">판 불투명도 <input type="range" min="0" max="150" step="10" value="${board.opacity ?? 100}" data-board="opacity" aria-label="위젯·잠금화면 판 불투명도"><span class="set-v">${board.opacity ?? 100}%</span></label>` : ""}
       ${adapter.setLockTasks ? `<label class="set-row"><input type="checkbox" data-board="lockTasks" ${board.lockTasks !== false ? "checked" : ""}> 잠금화면 알림에 오늘 할 일·마감(「완료」 체크)</label>
       <label class="set-row"><input type="checkbox" data-board="lockHideTitles" ${board.lockHideTitles ? "checked" : ""}> 잠금화면 알림에서 할 일 제목 가리기</label>` : ""}
       ${adapter.pinWidget ? '<div class="set-row"><button class="mini" data-pinwidget>홈 화면에 블랙홀 위젯 추가</button></div>' : ""}
-      <div class="set-note">잠금화면 배경은 켜면 지금 배경을 바꿉니다(되돌리려면 휴대폰 배경 설정에서 다시 고름). 잠금 상태에서는 「완료」 체크와 「적기」(메모 추가)까지만 됩니다.${board.status ? `<br>${escapeHtml(board.status)}` : ""}</div>` : ""}
-      ${adapter.desk ? deskBlock() : ""}
-      <div class="set-sep"></div>
-      <div class="set-row"><button class="mini" data-testalarm>알람 시험 (1분 뒤)</button>${adapter.desk ? '<button class="mini" data-guide>처음 쓰기 안내</button>' : ""}</div>
-      <div class="set-note">${escapeHtml(adapter.connection.detail)}</div>`;
+      <div class="set-note">잠금화면 배경은 켜면 지금 배경을 바꿉니다. 잠금 상태에서는 「완료」 체크와 「적기」까지만 됩니다.</div>${board.status ? `<div class="set-note"><span class="warn">${escapeHtml(board.status)}</span></div>` : ""}` : ""}`;
+    const strip = (h: string) => h.replace(/<div class="set-sep"><\/div>/g, "").replace(/<div class="set-g">[^<]*<\/div>/g, "");
+    const desk2 = adapter.desk ? strip(deskBlock()) : "";
+    // The alarm sound row moves to 「알람」.
+    const soundRow = /<label class="set-row">알람 소리[\s\S]*?<\/label>/.exec(desk2)?.[0] ?? "";
+    const groups = [
+      { id: "look", name: "화면", sum: st.theme === "glass" ? `유리 · ${st.mode === "dark" ? "어둡게" : "밝게"}` : "공문서", body: look },
+      ...(adapter.claude ? [{ id: "ai", name: "AI", sum: claude ? (claude.analyzer === "local" ? "로컬 모델" : `${modelName(claude.model)} · ${claude.hasKey ? `이번 달 ${Math.round(claude.monthUsd * 1400).toLocaleString("ko-KR")}원` : "키 없음"}`) : "", body: strip(claudeBlock()) }] : []),
+      ...(inbox.available || adapter.publishShared || adapter.board || adapter.googleCalendars ? [{ id: "inbox", name: adapter.board ? "휴대폰" : "인박스 · 휴대폰", sum: inbox.available ? `${inbox.enabled ? "켜짐" : "꺼짐"}${inbox.lastScanAt ? ` · ${inbox.lastScanAt.slice(11, 16)} 확인` : ""}${st.sharePhone ? " · 공유" : ""}` : "", body: inboxPart }] : []),
+      ...(adapter.desk ? [{ id: "mac", name: "단축키 · 시작", sum: desk ? (desk.settings.shortcuts.quick ? desk.pretty.quick : "단축키 끔") : "", body: desk2.replace(soundRow, "") }] : []),
+      { id: "alarm", name: "알람", sum: desk?.settings.alarmSound ?? "", body: `${soundRow}<div class="set-row"><button class="mini" data-testalarm>알람 시험 (1분 뒤)</button>${adapter.desk ? '<button class="mini" data-guide>처음 쓰기 안내</button>' : ""}</div>` }
+    ];
+    const info = (body: string) => {
+      // Plain explanations go behind ⓘ; warnings stay in the body.
+      const notes: string[] = [];
+      const rest = body.replace(/<div class="set-note"[^>]*>([\s\S]*?)<\/div>/g, (m, inner: string) => {
+        // Warnings and live numbers (이번 달 사용량, 연결 확인 결과) stay in sight.
+        if (inner.includes('class="warn"') || /이번 달|확인 중|연결됨|저장했습니다|지웠습니다/.test(inner)) return m;
+        const text = inner.replace(/<br>/g, " ").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+        if (text) notes.push(text.replace(/&quot;/g, '"').replace(/&amp;/g, "&"));
+        return "";
+      });
+      return { rest, notes };
+    };
+    el.innerHTML = `<div class="set-h">설정 <span class="set-i" title="${escapeHtml(adapter.connection.detail)}" aria-label="${escapeHtml(adapter.connection.detail)}">ⓘ</span><span class="sp"></span><button class="ib" data-settings title="닫기 (Esc)" aria-label="설정 닫기">${ICON.x}</button></div>
+      ${groups.map((g) => {
+        const open = setGroup === g.id;
+        const { rest, notes } = info(g.body);
+        return `<div class="set-gr ${open ? "open" : ""}"><button class="set-gh" data-setg="${g.id}" aria-expanded="${open}"><span>${g.name}</span><span class="set-sum">${escapeHtml(g.sum)}</span><span class="chev">${open ? "▾" : "▸"}</span></button>${open ? `<div class="set-gb">${notes.length ? `<div class="set-row"><span class="set-i" title="${escapeHtml(notes.join("\n"))}" aria-label="${escapeHtml(notes.join(" "))}">ⓘ 설명</span></div>` : ""}${rest}</div>` : ""}</div>`;
+      }).join("")}`;
     el.hidden = false;
   }
 
@@ -1353,6 +1384,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return render();
     }
     if (q("[data-restore]")) return userAction({ type: "restore", ref: q("[data-restore]")!.dataset.restore! });
+    if (q("[data-mopen]") && !q("[data-editing]") && (!q("button") || q("button.mclose"))) {
+      const key = `memo:${q("[data-mopen]")!.dataset.mopen}`;
+      if (openFolds.has(key)) openFolds.delete(key);
+      else openFolds.add(key);
+      return render();
+    }
     if (q("[data-checks]") || q("[data-subs]")) {
       const key = q("[data-checks]") ? "checks" : `subs:${q("[data-subs]")!.dataset.subs}`;
       if (openFolds.has(key)) openFolds.delete(key);
@@ -1414,6 +1451,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (settingsOpen) renderSettings();
       else root.querySelector<HTMLElement>("#bhSettings")!.hidden = true;
       return;
+    }
+    if (q("[data-setg]")) {
+      const g = q("[data-setg]")!.dataset.setg!;
+      setGroup = setGroup === g ? null : g;
+      return renderSettings();
     }
     if (q("[data-claude]")) return void claudeAction(q("[data-claude]")!.dataset.claude!);
     if (q("[data-pinwidget]")) {
@@ -1517,7 +1559,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
       return;
     }
-    if (el.matches("[data-tdone],[data-sub],[data-ok],[data-no],[data-undo]") && !(el instanceof HTMLButtonElement)) {
+    if (el.matches("[data-tdone],[data-sub],[data-ok],[data-no],[data-undo],[data-mopen]") && !(el instanceof HTMLButtonElement)) {
       el.click();
       return;
     }
@@ -1694,6 +1736,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   // Sliders: show the look while dragging; it is saved on 「change」.
   root.addEventListener("input", (e) => {
     const el = e.target as HTMLInputElement;
+    if (el.matches("[data-memoq]")) {
+      // Only the list is drawn again (the find box keeps the cursor and the 한글 being typed).
+      memoQuery = el.value;
+      const list = root.querySelector<HTMLElement>(".memol");
+      if (list) list.innerHTML = memoRows(ctx(), theme().fd, memoQuery);
+      return;
+    }
     const key = el.dataset.set;
     if (el.type !== "range") return;
     const v = el.nextElementSibling;

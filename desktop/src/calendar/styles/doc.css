@@ -223,3 +223,8 @@
 .bh.doc .ib:hover { background: var(--shade); }
 .bh.doc .rc .ra { background: #fff; border: 1px solid var(--hair); }
 .bh.doc .chkbar { background: #fff8e0; border: 1px solid #c9a227; font-family: var(--sans); }
+.bh.doc .msearch { border: 1px solid var(--rule); background: #fff; border-radius: 2px; }
+.bh.doc .memol { border: 1px solid var(--rule); border-radius: 0; }
+.bh.doc .mrow + .mrow { border-top: 1px solid var(--hair); }
+.bh.doc .mrow:hover { background: var(--shade); }
+.bh.doc .mrow .d, .bh.doc .mrow .dt { color: var(--ink3); }
