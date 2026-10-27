@@ -202,3 +202,49 @@ describe("said time ranges (「오늘 1620~2120 초과근무 일정」 went in a
     expect([ev.start, ev.end]).toEqual(["16:20", "21:20"]);
   });
 });
+
+describe("times written the way people type them", () => {
+  it.each([
+    ["오늘 16202120 초과근무", "16:20", "21:20"],
+    ["오늘 1620 2120 초과근무", "16:20", "21:20"],
+    ["오늘 16시 20부터 21시 20까지 초과근무", "16:20", "21:20"],
+    ["오늘 16시20분~21시20분 초과근무", "16:20", "21:20"],
+    ["오늘 16:20부터 21:20까지 초과근무", "16:20", "21:20"],
+    ["오늘 1620-2120 초과근무", "16:20", "21:20"],
+    ["내일 오후 4시 반부터 6시까지 상담", "16:30", "18:00"]
+  ])("%s → %s~%s", async (text, a, b) => {
+    const { parseDraft } = await import("../src/calendar/rules");
+    const r = parseDraft(text, NOW);
+    expect([r.kind, r.time, r.end, r.title]).toEqual(["SCHEDULE", a, b, r.title]);
+    expect(r.title).not.toMatch(/\d/);
+  });
+
+  it.each([
+    ["오늘 16:20 회의", "2026-10-27", "16:20"],
+    ["내일 16시 20 치과", "2026-10-28", "16:20"],
+    ["3시 20에 치과", "2026-10-27", "15:20"],
+    ["오늘 1620 회의", "2026-10-27", "16:20"]
+  ])("%s → %s %s", async (text, day, time) => {
+    const { parseDraft } = await import("../src/calendar/rules");
+    const r = parseDraft(text, NOW);
+    expect([r.date, r.time, r.hasTime]).toEqual([day, time, true]);
+  });
+
+  it("numbers that are not times stay numbers", async () => {
+    const { timeRange, singleTime } = await import("../src/calendar/rules");
+    expect(timeRange("20261027 회의록")).toBeNull();
+    expect(singleTime("택배 1620개")).toBeNull();
+    expect(singleTime("차 번호 1620")).toBeNull(); // no day word
+    expect(singleTime("오늘 택배 1620원")).toBeNull();
+    expect(timeRange("010 1234 5678")).toBeNull();
+  });
+
+  it("「오늘 16202120 초과근무」 goes in as 16:20–21:20 at once", async () => {
+    const a = mac();
+    await mount(a);
+    await app!.submitText("오늘 16202120 초과근무");
+    const ev = app!.state.events.find((e) => e.title === "초과근무")!;
+    expect([ev.date, ev.start, ev.end]).toEqual(["2026-10-27", "16:20", "21:20"]);
+    expect(a.calls).toEqual(["skip:rule"]);
+  });
+});

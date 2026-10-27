@@ -203,41 +203,78 @@ function bareHour(raw: string): number | null {
  * one human guess on top — 「3시 치과」 means 15:00, not 03:00. Hours 1–6 said alone are taken as
  * afternoon (nobody books a dentist at 3 a.m.); 7–12 stay as said. The AI still refines it.
  */
-const CLOCK_RANGE = /(?<!\d)([01]?\d|2[0-3]):?([0-5]\d)\s*(?:~|-|–|부터)\s*([01]?\d|2[0-3]):?([0-5]\d)(?!\d)(?:\s*까지)?/;
-const HOUR_RANGE = /(?:(오전|오후|아침|낮|저녁|밤|새벽)\s*)?(\d{1,2})시(?:\s*(\d{1,2})분|\s*(반))?\s*(?:~|-|–|부터)\s*(?:(오전|오후|아침|낮|저녁|밤|새벽)\s*)?(\d{1,2})시(?:\s*(\d{1,2})분|\s*(반))?(?:\s*까지)?/;
+/** 「16202120」: two clock times written together (HHMMHHMM). */
+const PACKED_RANGE = /(?<![\d./:-])([01]\d|2[0-3])([0-5]\d)([01]\d|2[0-3])([0-5]\d)(?![\d./-])/;
+/** 「1620~2120」 「16:20-21:20」 「1620 2120」 「16:20부터 21:20까지」. */
+const CLOCK_RANGE = /(?<![\d./])([01]?\d|2[0-3]):?([0-5]\d)(\s*(?:~|-|–|부터|에서)\s*|\s+)([01]?\d|2[0-3]):?([0-5]\d)(?![\d./])(?:\s*까지)?/;
+/** 「4시~6시」 「16시 20부터 21시 20까지」 (분 may be left out) 「오전 10시부터 12시 반까지」. */
+const HOUR_RANGE = /(?:(오전|오후|아침|낮|저녁|밤|새벽)\s*)?(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?|\s*(반))?\s*(?:~|-|–|부터|에서)\s*(?:(오전|오후|아침|낮|저녁|밤|새벽)\s*)?(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?|\s*(반))?(?:\s*까지)?/;
+/** 「16:20」 */
+const CLOCK_ONE = /(?<![\d./])([01]?\d|2[0-3]):([0-5]\d)(?![\d./])/;
+/** 「16시 20」 「3시 20에」 (분 left out; 「16시 20분」 is parseRule's own). */
+const HOUR_MIN = /(?:(오전|오후|아침|낮|저녁|밤|새벽)\s*)?(\d{1,2})\s*시\s*(\d{1,2})(?!\d)(?!\s*(?:분|시|일|월|명|개|번|층|호|원|년|살|%|주|달))/;
+/** 「오늘 1620 회의」: four digits alone count as a time only next to a day word. */
+const PACKED_ONE = /(?<![\d./:-])([01]\d|2[0-3])([0-5]\d)(?![\d./:-])(?!\s*(?:원|명|개|번|호|층|년|건|초|살|km|m|%|kg|g|동|번지|대|권|장|쪽|p))/;
+const DAY_WORD = /오늘|내일|모레|글피|요일|\d{1,2}\s*월\s*\d{1,2}\s*일|(?<!\d)\d{1,2}[./]\d{1,2}(?![\d])/;
 const PM = /오후|낮|저녁|밤/;
 const AM = /오전|아침|새벽/;
+const MARKED = /오전|오후|아침|점심|낮|저녁|밤|새벽/;
 
-/** The sentence with a said range written as clock times, for the AI (「1620~2120」 → 「16:20~21:20」). */
+/** The hour as meant: 오후 3 → 15, 오전 12 → 0, a bare 1–6 → afternoon. */
+const meantHour = (p: string | undefined, v: number, bare: boolean) => (p && PM.test(p) && v < 12 ? v + 12 : p && AM.test(p) && v === 12 ? 0 : !p && bare && v >= 1 && v <= 6 ? v + 12 : v);
+
+/** The sentence with the said time written as clock times, for the AI (「16202120」 → 「16:20~21:20」). */
 export function clockText(raw: string): string {
   const t = timeRange(raw);
-  return t ? `${t.rest.replace(/\s+/g, " ").trim()} ${t.start}~${t.end}` : raw;
+  if (t) return `${t.rest.replace(/\s+/g, " ").trim()} ${t.start}~${t.end}`;
+  const one = singleTime(raw);
+  return one ? `${one.rest.replace(/\s+/g, " ").trim()} ${one.time}` : raw;
 }
 
 /**
- * A time range said in a sentence → [start, end, the sentence without it]. 「1620~2120」 and
- * 「16:20~21:20」 are clock times as written; 「4시~6시」 follows the afternoon guess (1–6시 alone =
- * afternoon) and an end earlier than the start moves to the afternoon too.
+ * A time range said in a sentence → start, end and the sentence without it. Clock forms are taken
+ * as written; 「4시~6시」 follows the afternoon guess, and an end earlier than the start moves to
+ * the afternoon too. The end must come after the start (so 「20261027」 is not a range).
  */
 export function timeRange(raw: string): { start: string; end: string; rest: string } | null {
+  const ok = (h1: number, m1: number, h2: number, m2: number, text: string) =>
+    h1 <= 23 && h2 <= 23 && h2 * 60 + m2 > h1 * 60 + m1 ? { start: `${pad(h1)}:${pad(m1)}`, end: `${pad(h2)}:${pad(m2)}`, rest: raw.replace(text, " ") } : null;
+  const p = PACKED_RANGE.exec(raw);
+  if (p) {
+    const r = ok(+p[1], +p[2], +p[3], +p[4], p[0]);
+    if (r) return r;
+  }
   const c = CLOCK_RANGE.exec(raw);
-  // 4 digits without a colon only count as a time inside a range (「1620~2120」), never alone.
-  if (c && (c[0].includes(":") || (c[1].length === 2 && c[3].length === 2) || /시|~/.test(c[0]))) {
-    const a = `${pad(Number(c[1]))}:${c[2]}`;
-    const b = `${pad(Number(c[3]))}:${c[4]}`;
-    if (b > a) return { start: a, end: b, rest: raw.replace(c[0], " ") };
+  // Plain digits count only as two full HHMM, or with a colon, or joined by ~ / 부터.
+  const four = (h: string, x: string) => h.length === 2 && x.length === 2;
+  if (c && (c[0].includes(":") || (four(c[1], c[2]) && four(c[4], c[5])) || (c[3].trim() !== "" && four(c[1], c[2])))) {
+    const r = ok(+c[1], +c[2], +c[4], +c[5], c[0]);
+    if (r) return r;
   }
   const h = HOUR_RANGE.exec(raw);
   if (!h) return null;
-  const hour = (p: string | undefined, v: number, bareGuess: boolean) => (p && PM.test(p) && v < 12 ? v + 12 : p && AM.test(p) && v === 12 ? 0 : !p && bareGuess && v >= 1 && v <= 6 ? v + 12 : v);
-  const bare = !/오전|오후|아침|점심|낮|저녁|밤|새벽/.test(raw);
-  let h1 = hour(h[1], Number(h[2]), bare);
-  let h2 = hour(h[5] ?? h[1], Number(h[6]), bare);
-  const m1 = h[3] ? Number(h[3]) : h[4] ? 30 : 0;
-  const m2 = h[7] ? Number(h[7]) : h[8] ? 30 : 0;
+  const bare = !MARKED.test(raw);
+  const h1 = meantHour(h[1], +h[2], bare);
+  let h2 = meantHour(h[5] ?? h[1], +h[6], bare);
+  const m1 = h[3] ? +h[3] : h[4] ? 30 : 0;
+  const m2 = h[7] ? +h[7] : h[8] ? 30 : 0;
   if (h2 * 60 + m2 <= h1 * 60 + m1 && h2 < 12) h2 += 12;
-  if (h1 > 23 || h2 > 23 || h2 * 60 + m2 <= h1 * 60 + m1) return null;
-  return { start: `${pad(h1)}:${pad(m1)}`, end: `${pad(h2)}:${pad(m2)}`, rest: raw.replace(h[0], " ") };
+  if (m1 > 59 || m2 > 59) return null;
+  return ok(h1, m1, h2, m2, h[0]);
+}
+
+/** One clock time parseRule cannot read: 「16:20」, 「16시 20」, 「오늘 1620」. */
+export function singleTime(raw: string): { time: string; rest: string } | null {
+  const c = CLOCK_ONE.exec(raw);
+  if (c) return { time: `${pad(+c[1])}:${c[2]}`, rest: raw.replace(c[0], " ") };
+  const h = HOUR_MIN.exec(raw);
+  if (h && +h[3] <= 59) {
+    const hh = meantHour(h[1], +h[2], !MARKED.test(raw));
+    if (hh <= 23) return { time: `${pad(hh)}:${pad(+h[3])}`, rest: raw.replace(h[0], " ") };
+  }
+  const p = PACKED_ONE.exec(raw);
+  if (p && DAY_WORD.test(raw.replace(p[0], " "))) return { time: `${p[1]}:${p[2]}`, rest: raw.replace(p[0], " ") };
+  return null;
 }
 
 /** 「메모 …」 「기억: …」 at the start: always a 기억, whatever else is in it. */
@@ -255,7 +292,7 @@ export function memoDraft(raw: string, now: Date): { title: string; details?: st
   const [first, ...rest] = body.trim().split("\n");
   const memo = (final: boolean) => ({ title: first.trim().slice(0, 80), details: rest.join("\n").trim() || undefined, final });
   if (head) return body.trim() ? memo(true) : null;
-  if (timeRange(raw)) return null;
+  if (timeRange(raw) || singleTime(raw)) return null;
   const r = parseRule(raw, now);
   if (!r.date && !r.hasTime) return memo(true);
   // Hearsay (「…보내준대」, 「…온다고」) is something to remember, even with a to-do word in it.
@@ -273,6 +310,16 @@ export function parseDraft(raw: string, now: Date): RuleResult {
     const date = r.date ?? ymd(today);
     const taskOnly = r.kind === "TODO" && !/일정|약속|근무|회의|수업|모임|출장|진료|상담/.test(raw);
     return { ...r, kind: taskOnly ? "TODO" : "SCHEDULE", date, time: range.start, end: range.end, hasTime: true, needsReview: false, explanation: "날짜와 시간을 찾음" };
+  }
+  const one = singleTime(raw);
+  if (one) {
+    const r = parseRule(one.rest, now);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const [hh, mm] = one.time.split(":").map(Number);
+    // No day said: today if that time is still ahead, else tomorrow (like parseRule).
+    const date = r.date ?? ymd(new Date(today.getFullYear(), today.getMonth(), today.getDate(), hh, mm) > now ? today : addDays(today, 1));
+    const taskOnly = r.kind === "TODO" && !/일정|약속|근무|회의|수업|모임|출장|진료|상담/.test(raw);
+    return { ...r, kind: taskOnly ? "TODO" : "SCHEDULE", date, time: one.time, hasTime: true, needsReview: false, explanation: r.date ? "날짜와 시간을 찾음" : "시간을 찾고 다음 시점으로 날짜를 추정함" };
   }
   const r = parseRule(raw, now);
   const h = bareHour(raw);
@@ -303,7 +350,7 @@ const TITLE_TAIL = /(?:있어|있음|있다|있고|해|해야|해줘|해 줘|줘
  */
 export function isSimpleCertain(raw: string, r: RuleResult): boolean {
   // A said range (「1620~2120」) is as clear as a single time: judge the rest of the sentence.
-  const text = normalize(r.end ? timeRange(raw)?.rest ?? raw : raw).trim();
+  const text = normalize(r.end ? timeRange(raw)?.rest ?? raw : singleTime(raw)?.rest ?? raw).trim();
   if (r.kind !== "SCHEDULE" || !r.hasTime || r.needsReview || r.explanation !== "날짜와 시간을 찾음") return false;
   if (text.length > 30 || NOT_SIMPLE.test(text)) return false;
   if (/(아침|저녁|밤|새벽|낮)(?!\s*\d)/.test(text)) return false;
