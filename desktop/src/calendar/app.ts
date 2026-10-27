@@ -305,6 +305,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     root.style.setProperty("--bh-veil", b >= 0 ? `rgba(255,255,255,${((b / 50) * 0.35).toFixed(3)})` : `rgba(0,0,0,${((-b / 50) * 0.55).toFixed(3)})`);
   }
 
+  /** The input box grows with what is typed: 1–6 lines, then it scrolls. */
+  function growBox(el: HTMLElement): void {
+    if (!(el instanceof HTMLTextAreaElement)) return;
+    el.style.height = "auto";
+    const line = parseFloat(getComputedStyle(el).lineHeight) || 20;
+    el.style.height = `${Math.min(el.scrollHeight || line, line * 6 + 10)}px`;
+  }
+
   function renderComposer(): void {
     const c = ctx();
     const comp = root.querySelector<HTMLElement>("#bhComp");
@@ -324,6 +332,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const i2 = root.querySelector<HTMLInputElement>("#bhChatIn");
     if (i1) i1.value = v1;
     if (i2) i2.value = v2;
+    if (i1) growBox(i1);
+    if (i2) growBox(i2);
     renderLast();
   }
 
@@ -404,16 +414,20 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const c = ctx();
     let day = "";
     let h = "";
-    for (const raw of s.chat.slice(-CHAT_SHOWN)) {
-      const m = shownMsg(raw);
-      if (!m) continue;
+    const shown = s.chat.slice(-CHAT_SHOWN).map(shownMsg).filter((m): m is ChatMessage => !!m);
+    // Same speaker in the same minute: one group (tighter, the time and source once under the last).
+    const same = (a?: ChatMessage, b?: ChatMessage) => !!a && !!b && a.who === b.who && a.at.slice(0, 16) === b.at.slice(0, 16);
+    shown.forEach((m, i) => {
       const d = m.at.slice(0, 10);
       if (d !== day) {
         day = d;
         h += `<div class="daysep">${d === c.today ? "오늘" : theme().fd(d)}</div>`;
       }
-      h += theme().bubble(c, m);
-    }
+      let b = theme().bubble(c, m);
+      if (same(shown[i - 1], m) && shown[i - 1].at.slice(0, 10) === d) b = b.replace('class="bub ', 'class="bub cont ');
+      if (same(m, shown[i + 1])) b = b.replace(/<div class="bsrc[^"]*">[^<]*<\/div>$/, "");
+      h += b;
+    });
     // Nothing yet (안 A): three grey lines of what one can type.
     if (!s.chat.length) h = `<div class="chat-empty"><div>「내일 3시 치과」 → 일정</div><div>「치과 언제야?」 → 답</div><div>「메모 차 번호 …」 → 기억</div></div>`;
     // A draft card already says 「다듬는 중」; the typing line is only for what has no card yet.
@@ -426,6 +440,16 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     chatDrawn = s.chat.length;
   }
 
+  /** 「지금 14:27 · 다음 15:00 시행 기안」: the next appointment or deadline today. */
+  function nowLine(c: Ctx): string {
+    const now = `${pad(c.now.getHours())}:${pad(c.now.getMinutes())}`;
+    const next = [
+      ...s.events.filter((e) => !e.gone && !e.workFor && e.date === c.today && e.start && e.start > now).map((e) => ({ at: e.start!, title: e.title })),
+      ...s.tasks.filter((x) => !x.gone && !x.done && x.due === c.today && x.dueTime && x.dueTime > now).map((x) => ({ at: x.dueTime!, title: x.title }))
+    ].sort((a, b) => a.at.localeCompare(b.at))[0];
+    return next ? `지금 ${now} · 다음 ${next.at} ${next.title}` : `지금 ${now}`;
+  }
+
   function render(): void {
     const c = ctx();
     const t = theme();
@@ -433,6 +457,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const head = view === "pri" ? { title: "우선순위", summary: "★ 중요도 × 마감까지 6시간(자동) · 끌어서 칸을 옮기면 ★·마감이 바뀜" } : view === "memo" ? { title: `기억 ${nNotes}개`, summary: "날짜·시간 없이 넣은 것과 「메모 …」 · 지우지 않고 계속 보관 · 대화창에 물으면 찾아 줌" } : t.head(c);
     const title = root.querySelector<HTMLElement>("#bhTitle");
     if (title) title.textContent = head.title;
+    const nowEl = root.querySelector<HTMLElement>("#bhNowLine");
+    if (nowEl) nowEl.textContent = nowLine(c);
     const sum = root.querySelector<HTMLElement>("#bhSum");
     if (sum) sum.textContent = head.summary ?? "";
     root.querySelectorAll<HTMLButtonElement>("[data-v]").forEach((b) => {
@@ -2210,9 +2236,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       void act(() => undefined).then(() => root.querySelector<HTMLInputElement>(`[data-subadd="${id}"]`)?.focus());
       return;
     }
-    if (el instanceof HTMLInputElement && (el.id === "bhIn" || el.id === "bhChatIn")) {
+    if ((el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) && (el.id === "bhIn" || el.id === "bhChatIn")) {
+      // Enter puts it in; ⇧Enter is a new line in the box.
+      if (e.shiftKey) return;
+      e.preventDefault();
       const v = el.value;
       el.value = "";
+      growBox(el);
       void submitText(v);
     }
   };
@@ -2463,6 +2493,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   // Sliders: show the look while dragging; it is saved on 「change」.
   root.addEventListener("input", (e) => {
     const el = e.target as HTMLInputElement;
+    if (el instanceof HTMLTextAreaElement && (el.id === "bhIn" || el.id === "bhChatIn")) return growBox(el);
     if (el.id === "bhFind") {
       findQ = el.value;
       findSel = 0;

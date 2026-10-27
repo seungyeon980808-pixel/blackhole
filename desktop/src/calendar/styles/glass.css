@@ -248,8 +248,8 @@
 /* macOS window glass (Tauri, transparent window + vibrancy): the desktop shows through, blurred.
    The painted wallpaper becomes a light tint so the real background stays visible. */
 html.native-glass, html.native-glass body { background: transparent; }
-html.native-glass .bh.glass { background: linear-gradient(160deg, rgba(75,55,196,.22), rgba(13,15,32,.18) 45%, rgba(15,134,166,.20)); background-color: transparent; }
-html.native-glass .bh.glass[data-mode="light"] { background: linear-gradient(160deg, rgba(212,202,255,.30), rgba(255,255,255,.12) 50%, rgba(191,238,247,.28)); }
+html.native-glass .bh.glass { background: linear-gradient(160deg, rgba(23,99,184,.26), rgba(11,42,90,.2) 45%, rgba(46,135,150,.2)); background-color: transparent; }
+html.native-glass .bh.glass[data-mode="light"] { background: linear-gradient(160deg, rgba(223,231,243,.32), rgba(255,255,255,.14) 50%, rgba(230,238,240,.28)); }
 html.native-glass .bh.glass .g { background: rgba(255,255,255,.08); box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 6px 24px rgba(0,0,0,.12); }
 html.native-glass .bh.glass[data-mode="light"] .g { background: rgba(255,255,255,.42); }
 html.native-glass .bh.glass .fc-timeGridWeek-view .fc-col-header-cell { background: rgba(10,12,28,.55); }
@@ -389,3 +389,30 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .bar .seg button { height: 100%; padding: 0 12px; display: inline-grid; place-items: center; }
 .bh.glass .bar .find { background: var(--glass); }
 .bh.glass .bar .conn { margin: 0 2px; }
+
+/* 내 말 ↔ 블랙홀 말: 색 대신 명암·모양 (내 말 = 거의 흰 말풍선 + 남색 글자, 오른쪽 · 블랙홀 = 바탕 없음, 왼쪽) */
+.bh.glass .bub.me { background: rgba(255,255,255,.94); color: #0b2a5a; border: 0; border-radius: 16px 16px 5px 16px; }
+.bh.glass[data-mode="light"] .bub.me { background: #16172a; color: #fff; }
+.bh.glass .bub.ai { background: none; border: 0; padding: 2px 2px; max-width: 100%; color: var(--ink); }
+.bh.glass .bub.ai .rc { background: none; border: 1px solid var(--line); box-shadow: none; }
+.bh.glass .bub.cont { margin-top: -4px; }
+.bh.glass .bub.me.cont { border-top-right-radius: 6px; }
+/* 머리줄 한 줄: 가운데는 넓은 찾기 칸 + 「지금 · 다음」 */
+.bh.glass .bar { padding: 6px 12px 4px; flex-wrap: nowrap; }
+.bh.glass .bar .sp { display: none; }
+.bh.glass .bar .title { min-width: 0; white-space: nowrap; }
+.bh.glass .bar .find { flex: 1 1 220px; width: auto; max-width: 560px; margin: 0 6px 0 auto; }
+.bh .nowline { font-size: 12px; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; margin-right: auto; font-variant-numeric: tabular-nums; }
+@media (max-width: 1360px) { .bh .nowline { display: none; } .bh.glass .bar .find { margin-right: 0; } }
+html.native-glass .bh .bar { padding: 3px 12px 4px 84px; }
+@media (max-width: 760px) { .bh.glass .bar { flex-wrap: wrap; } html.native-glass .bh .bar { padding-left: 12px; padding-top: 30px; } }
+/* 대화 입력: 패널 폭 전체의 여러 줄 칸(1–6줄), 사진·마이크는 아래 줄에 작게, 보내기는 작은 단추 */
+.bh.glass .inp.tall { flex-direction: column; align-items: stretch; gap: 2px; padding: 8px 8px 5px 12px; }
+.bh .inp.tall textarea, .bh .form.tall textarea { display: block; width: 100%; box-sizing: border-box; resize: none; background: none; border: 0; outline: 0; color: var(--ink); font: inherit; font-size: 14px; line-height: 20px; padding: 2px 0; min-height: 24px; max-height: 130px; overflow-y: auto; }
+.bh .inp.tall textarea::placeholder, .bh .form.tall textarea::placeholder { color: var(--ink3); }
+.bh .inbar { display: flex; align-items: center; gap: 4px; }
+.bh .inbar .ihint { flex: 1; font-size: 10.5px; color: var(--ink3); text-align: right; padding-right: 4px; white-space: nowrap; overflow: hidden; }
+.bh.glass .inbar .ic.sm { width: 28px; height: 28px; border-radius: 8px; background: none; color: var(--ink2); }
+.bh.glass .inbar .ic.sm:hover { background: var(--x-chip); color: var(--ink); }
+.bh.glass .inbar .ic.sm svg { width: 16px; height: 16px; }
+.bh.glass .inbar .ic.go.sm { background: var(--ink); color: var(--page); }

@@ -240,14 +240,14 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 .bh .strip .spl span { position: absolute; transform: translateX(-50%); }
 
 /* ── 오늘(일) 화면: [하루표 1.35fr][할 일 1fr][주요 일정·루틴 290px] — layout only; colors per theme (--x-*) ── */
-.bh .tdv { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }
+.bh .tdv { display: flex; flex-direction: column; gap: 6px; height: 100%; min-height: 0; }
 .bh .tgrid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(230px, 290px); gap: 10px; flex: 1; min-height: 0; }
 .bh .tdv .ph { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .bh .tdv .ph b { font-size: 13.5px; } .bh .tdv .ph span { color: var(--ink3); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bh .tdv .none { color: var(--ink3); font-size: 12px; padding: 6px 0; }
 /* week strip (drop target) */
 .bh .wkd { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-.bh .wkd .wd { border: 1px solid var(--x-hair); background: none; color: var(--ink2); border-radius: 8px; padding: 3px 0; font-size: 12px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.bh .wkd .wd { border: 1px solid var(--x-hair); background: none; color: var(--ink2); border-radius: 8px; padding: 2px 0; font-size: 12px; font-variant-numeric: tabular-nums; cursor: pointer; }
 .bh .wkd .wd small { margin-left: 4px; color: var(--ink3); font-size: 10.5px; }
 .bh .wkd .wd.td { color: var(--ink); font-weight: 700; }
 .bh .wkd .wd.on { background: var(--x-sel); color: var(--ink); font-weight: 700; border-color: var(--x-line); }

@@ -261,3 +261,20 @@
 .bh.doc .tool .seg { margin: 0 2px; }
 .bh.doc .tool .find { border-color: #777; background: #fff; font-family: var(--sans); }
 .bh.doc .findres { border-radius: 0; border: 1.5px solid var(--rule); font-family: var(--sans); }
+
+/* 내 말 ↔ 블랙홀 말 (공문서): 내 말 = 검은 바탕 흰 글자, 블랙홀 = 바탕 없음 */
+.bh.doc .bub.me { background: #111; color: #fff; border-color: #111; }
+.bh.doc .bub.ai { background: none; border: 0; padding-left: 0; padding-right: 0; max-width: 100%; }
+.bh.doc .bub.cont { margin-top: -4px; }
+/* 머리줄 한 줄 */
+.bh.doc .tool { flex-wrap: nowrap; padding-top: 8px; }
+.bh.doc .tool .sp { display: none; }
+.bh.doc .tool .find { flex: 1 1 220px; width: auto; max-width: 560px; margin: 0 6px 0 auto; }
+html.native-glass .bh .tool { padding: 3px 22px 0 84px; }
+@media (max-width: 760px) { .bh.doc .tool { flex-wrap: wrap; } html.native-glass .bh .tool { padding: 30px 10px 0; } }
+/* 대화 입력: 여러 줄 칸 + 아래 줄 작은 단추 */
+.bh.doc .form.tall { flex-direction: column; align-items: stretch; padding: 6px 8px 4px 10px; }
+.bh.doc .form.tall textarea { font-family: var(--serif); }
+.bh.doc .form.tall .inbar button { border: 0; width: 28px; height: 26px; padding: 0; }
+.bh.doc .form.tall .inbar button svg { width: 16px; height: 16px; }
+.bh.doc .form.tall .inbar button.go { background: var(--ink); color: #fff; }

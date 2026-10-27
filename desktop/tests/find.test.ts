@@ -128,3 +128,18 @@ describe("dictation fix on old records", () => {
     expect(app!.state.notes[1].title).toBe("5반도 진도 종료");
   });
 });
+
+describe("the chat input", () => {
+  it("a multi-line box: ⇧Enter is a new line, Enter puts it in; my words keep time·source once per minute", async () => {
+    const { root } = await mount(base());
+    const box = root.querySelector<HTMLTextAreaElement>("#bhIn")!;
+    expect(box.tagName).toBe("TEXTAREA");
+    box.value = "메모 첫 줄";
+    box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", shiftKey: true, bubbles: true }));
+    expect(box.value).toBe("메모 첫 줄");
+    box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(box.value).toBe("");
+    await tick();
+    expect(app!.state.chat.some((m) => m.who === "me" && m.text === "메모 첫 줄")).toBe(true);
+  });
+});

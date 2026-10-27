@@ -174,7 +174,7 @@ export const glass: ThemeView = {
       <div class="title" id="bhTitle" data-nav="0" title="눌러서 오늘로 (T)"></div>
       <button class="nb" data-nav="-1" aria-label="이전" title="이전 (←)">‹</button><button class="nb" data-nav="1" aria-label="다음" title="다음 (→)">›</button><button class="nb ibn today" data-nav="0" aria-label="오늘로" title="오늘로 (T)">${ICON.today}</button>
       <span class="sp"></span>
-      <label class="find" title="찾기 (⌘F) · 내 기록에서만, 0원">${ICON.find}<input id="bhFind" type="search" placeholder="찾기" autocomplete="off" spellcheck="false" aria-label="찾기" aria-controls="bhFindRes"><kbd>⌘F</kbd></label>
+      <label class="find" title="찾기 (⌘F) · 내 기록에서만, 0원">${ICON.find}<input id="bhFind" type="search" placeholder="찾기 · 기억·할 일·일정" autocomplete="off" spellcheck="false" aria-label="찾기" aria-controls="bhFindRes"><kbd>⌘F</kbd></label><span class="nowline" id="bhNowLine" aria-live="off"></span>
       <span class="conn" title="${esc(ctx.connection.detail)}" data-testid="connection">${esc(ctx.connection.label)}</span>
       <div class="seg" role="group" aria-label="보기"><button data-v="month">월</button><button data-v="week">주</button><button data-v="day">일</button><button data-v="pri">우선순위</button><button data-v="memo">기억</button></div>
       <button class="nb ibn" data-print title="출력 (⌘P)" aria-label="출력">${ICON.print}</button><button class="nb ibn" data-settings aria-haspopup="dialog" title="설정 (⌘,)" aria-label="설정">${ICON.gear}</button>
@@ -224,7 +224,7 @@ export const glass: ThemeView = {
       </div></div>`;
   },
   week: () => null,
-  composer: (ctx, id, inSheet) => `${inSheet ? "" : `<div class="grab" data-drag="open" title="끌어 올리면 대화 기록" role="button" tabindex="0" aria-label="대화 기록 열기"><i></i></div><div class="last" id="bhLast"></div>`}<div class="inp g"><input id="${id}" autocomplete="off" aria-label="입력" placeholder="${esc(inputHint(ctx, id !== "bhIn"))}"><button class="ic" data-photo title="사진·파일" aria-label="사진·파일">${ICON.cam}</button><button class="ic ${ctx.recording ? "rec" : ""}" data-voice title="${ctx.recording ? "말하기 끝" : "말하기"}" aria-label="${ctx.recording ? "말하기 끝" : "말하기"}" aria-pressed="${ctx.recording}">${ICON.mic}</button><button class="ic go" data-go="${id}" title="넣기" aria-label="넣기">${ICON.send}</button></div>`,
+  composer: (ctx, id, inSheet) => `${inSheet ? "" : `<div class="grab" data-drag="open" title="끌어 올리면 대화 기록" role="button" tabindex="0" aria-label="대화 기록 열기"><i></i></div><div class="last" id="bhLast"></div>`}<div class="inp g tall"><textarea id="${id}" rows="1" autocomplete="off" spellcheck="false" aria-label="입력" placeholder="${esc(inputHint(ctx, id !== "bhIn"))}"></textarea><div class="inbar"><button class="ic sm" data-photo title="사진·파일" aria-label="사진·파일">${ICON.cam}</button><button class="ic sm ${ctx.recording ? "rec" : ""}" data-voice title="${ctx.recording ? "말하기 끝" : "말하기"}" aria-label="${ctx.recording ? "말하기 끝" : "말하기"}" aria-pressed="${ctx.recording}">${ICON.mic}</button><span class="ihint">Enter 넣기 · ⇧Enter 줄바꿈</span><button class="ic go sm" data-go="${id}" title="넣기 (Enter)" aria-label="넣기">${ICON.send}</button></div></div>`,
   bubble: (ctx, m: ChatMessage) => {
     if (m.who === "me") {
       const body = m.kind === "photo" || m.kind === "file" ? `<div class="photo">${esc(m.fileName ?? "파일")}</div>${m.text ? `<div>${esc(m.text)}</div>` : ""}` : m.kind === "voice" ? `<div class="voice">▶ 음성 메모</div>${m.text ? `<div>${esc(m.text)}</div>` : ""}` : esc(m.text);
