@@ -141,5 +141,8 @@ describe("the chat input", () => {
     expect(box.value).toBe("");
     await tick();
     expect(app!.state.chat.some((m) => m.who === "me" && m.text === "메모 첫 줄")).toBe(true);
+    // My words sit in their own row class (not the 기억 list's 「.mrow」, whose no-wrap rule broke long lines).
+    expect(root.querySelector("#bhThread .brow .bub.me")).not.toBeNull();
+    expect(root.querySelector("#bhThread .mrow")).toBeNull();
   });
 });
