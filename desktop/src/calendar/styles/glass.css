@@ -420,13 +420,11 @@ html.native-glass .bh .bar { padding: 3px 12px 4px 84px; }
 .bh .fc-rolling-view .fc-daygrid-body tbody tr:nth-child(2) td { background: rgba(255,255,255,.05); }
 .bh .fc-rolling-view .fc-day-past .fc-daygrid-day-number { opacity: .5; }
 
-/* 확정안: 머리줄 · 바탕(비침 없는 단색 파랑) · 대화 A(옅은 말풍선, 시각은 왼쪽) */
+/* 확정안: 머리줄 · 대화 A(옅은 말풍선, 시각은 왼쪽). 바탕은 사용자 요청으로 원래의 비치는 유리(창 뒤가 흐리게 보임) 그대로 */
 .bh.glass .bar { display: block; padding: 6px 12px 4px; }
 html.native-glass .bh .bar { padding: 3px 12px 4px; }
 html.native-glass .bh .tlsp { display: block; width: 70px; height: 30px; }
 .bh.glass .barin .nb, .bh.glass .barin .seg, .bh.glass .barin .find { height: 30px; border-radius: 9px; }
-html.native-glass .bh.glass { background: radial-gradient(1100px 700px at 15% 0%, #1763b8, transparent 60%), radial-gradient(900px 800px at 60% 100%, #2e8796, transparent 60%), #0b3a8c; }
-html.native-glass .bh.glass[data-mode="light"] { background: radial-gradient(1100px 700px at 15% 0%, #dfe7f3, transparent 60%), radial-gradient(900px 800px at 60% 100%, #e6eef0, transparent 60%), #eef1f6; }
 .bh .brow { align-self: flex-end; display: flex; align-items: flex-end; gap: 6px; max-width: 92%; min-width: 0; }
 .bh .brow .bub.me { max-width: none; min-width: 0; }
 .bh .btime { font-size: 10.5px; color: var(--ink3); white-space: nowrap; flex: none; padding-bottom: 2px; font-variant-numeric: tabular-nums; }
