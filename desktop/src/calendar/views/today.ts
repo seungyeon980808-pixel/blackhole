@@ -5,7 +5,7 @@
  * Times are 24-hour. Shared by both themes (they paint the classes) and the phone (stacked).
  */
 import { addDays, DOW, mins, parseDay, ymd } from "../dates";
-import type { CalendarState, Entry, Routine, Task } from "../model";
+import type { CalEvent, CalendarState, Entry, Routine, Task } from "../model";
 import { dueOn, eventsOn, liveEvents, livePeriods, liveTasks } from "../store";
 import { duplicates, esc, type Ctx } from "./common";
 
@@ -335,10 +335,19 @@ export function phoneToday(ctx: Ctx, o: TodayOpts, fd: (k: string) => string): s
   };
   // Today's appointments and 루틴 in time order (routines tap to check).
   const hm = `${p2(ctx.now.getHours())}:${p2(ctx.now.getMinutes())}`;
-  const evs = eventsOn(ctx.s, k).filter((e) => !e.workFor).sort((a, b) => (a.start ?? "").localeCompare(b.start ?? ""));
+  // The same title at the same time twice (a duplicate) shows once with ×2.
+  const seen = new Map<string, { e: CalEvent; n: number }>();
+  for (const e of eventsOn(ctx.s, k).filter((x) => !x.workFor).sort((a, b) => (a.start ?? "").localeCompare(b.start ?? ""))) {
+    const key = `${e.title}|${e.start ?? ""}|${e.end ?? ""}`;
+    const v = seen.get(key);
+    if (v) v.n++;
+    else seen.set(key, { e, n: 1 });
+  }
+  const evs = [...seen.values()].map((x) => x.e);
+  const times = (e: CalEvent) => seen.get(`${e.title}|${e.start ?? ""}|${e.end ?? ""}`)!.n;
   const rts = ctx.s.routines.filter((r) => routineOn(r, k));
   const items = [
-    ...evs.map((e) => ({ at: e.start ?? "", html: `<div class="prow ${isToday && (e.end ? e.end <= hm : !!e.start && e.start < hm) ? "past" : ""}" data-ev="${e.id}"><span class="tm">${e.start ?? "종일"}</span><span class="tn">${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</span><span class="x">${e.end && e.start ? `~${e.end}` : ""}</span></div>` })),
+    ...evs.map((e) => ({ at: e.start ?? "", html: `<div class="prow ${isToday && (e.end ? e.end <= hm : !!e.start && e.start < hm) ? "past" : ""}" data-ev="${e.id}"><span class="tm">${e.start ?? "종일"}</span><span class="tn">${esc(e.title)}${times(e) > 1 ? ` <i class="x">×${times(e)}</i>` : ""}${e.provisional ? '<span class="ga">가</span>' : ""}</span><span class="x">${e.end && e.start ? `~${e.end}` : ""}</span></div>` })),
     ...rts.map((r) => ({ at: r.at, html: `<div class="prow rt ${r.done.includes(k) ? "past" : ""}"><span class="tm">${r.at}</span><span class="tn"><button class="rtb" data-rt="${r.id}" role="checkbox" aria-checked="${r.done.includes(k)}">${esc(r.title)}${r.done.includes(k) ? " ✓" : ""}</button></span><span class="x">루틴</span></div>` }))
   ].sort((a, b) => a.at.localeCompare(b.at));
   const ups = upcoming(ctx.s, k, fd).slice(0, 4);
