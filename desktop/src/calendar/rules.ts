@@ -21,6 +21,8 @@ export interface RuleResult {
   explanation: string;
   /** End time when a range was said (「16:20~21:20」, 「1620~2120」, 「4시~6시」). Mac drafts only. */
   end?: string;
+  /** Last day when a span of days was said (「11월 2일부터 6일까지」, 「내일부터 사흘간」): a 기간. Mac drafts only. */
+  until?: string;
 }
 
 const TITLE_POSTPOSITION = "(?:은|는|이|가|을|를|에|에서|까지|부터)?";
@@ -250,6 +252,27 @@ export function dateWords(raw: string, now: Date): string {
     return x.getMonth() === ((m % 12) + 12) % 12 ? x : null;
   };
   let v = raw;
+  // Spoken short forms: 낼 · 담주 · 수욜.
+  v = v.replace(/(^|\s)낼(?=\s|$|부터|까지)/g, "$1내일").replace(/담주/g, "다음 주").replace(/([월화수목금토일])욜/g, "$1요일");
+  // Numbers said in words before 월/일: 「삼월 이일」 「십일월 오일」 「이십일」 (a lone one-syllable 「오일」 stays: oil).
+  const SINO: Record<string, number> = { 일: 1, 이: 2, 삼: 3, 사: 4, 오: 5, 육: 6, 칠: 7, 팔: 8, 구: 9 };
+  const sino = (w: string) => {
+    let n = 0;
+    let cur = 0;
+    for (const c of w) {
+      if (c === "십") { n += (cur || 1) * 10; cur = 0; } else cur = SINO[c] ?? NaN;
+    }
+    return n + cur;
+  };
+  v = v.replace(/(?<![가-힣])([일이삼사오육칠팔구십]{1,3})월\s*([일이삼사오육칠팔구십]{1,3})일/g, (m, a: string, b: string) => {
+    const x = sino(a);
+    const y = sino(b);
+    return x >= 1 && x <= 12 && y >= 1 && y <= 31 ? `${x}월 ${y}일` : m;
+  });
+  v = v.replace(/(?<![가-힣\d])((?:[이삼]?십)[일이삼사오육칠팔구]?)일(?=\s|$|까지|에|부터)/g, (m, a: string) => {
+    const x = sino(a);
+    return x >= 10 && x <= 31 ? `${x}일` : m;
+  });
   // 「한 시간 뒤」 「두 시간 후」 「반 시간 뒤」 (before the hour words turn 「한 시」 into 「1시」).
   v = v.replace(/(한|두|세|네)\s*시간/g, (_m, n: string) => `${"한두세네".indexOf(n) + 1}시간`).replace(/반\s*시간/g, "30분");
   v = v.replace(/(\d{1,3})\s*분\s*(?:뒤|후)(?:에)?/g, (_m, n: string) => at(new Date(now.getTime() + Number(n) * 60_000)));
@@ -422,7 +445,7 @@ export function memoDraft(raw0: string, now: Date, day: DayClock = {}): { title:
   const [first, ...rest] = body.trim().split("\n");
   const memo = (final: boolean) => ({ title: first.trim().slice(0, 80), details: rest.join("\n").trim() || undefined, final });
   if (head) return body.trim() ? memo(true) : null;
-  if (timeRange(raw) || singleTime(raw)) return null;
+  if (timeRange(raw) || singleTime(raw) || daySpan(raw, now)) return null;
   const r = parseRule(raw, now);
   // Something about a day the rules could not read: not a sure 기억 — let the AI decide.
   const dayHint = /(?<![\d-])\d{1,2}\s*일(?!\s*(?:동안|간|째))|주말|월말|말일|(?:뒤|후)(?:에)?(?:\s|$)|안에|중에|내로|자정|정오|연휴|다음\s*달|이번\s*달|오전|오후|저녁|아침|새벽|방과\s*후/.test(raw);
@@ -444,15 +467,54 @@ function tidyDraft(r: RuleResult): RuleResult {
     .replace(/(?<!\d)\d{4}-\d{1,2}-\d{1,2}(?!\d)/g, " ")
     .replace(/(?<!\d)\d{4}-(?=\s|$)/g, " ")
     .replace(/(?:^|\s)(?:내년|올해|금년)(?=\s|$)/g, " ")
-    .replace(/^(?:\s*(?:부터|까지|에서|에|~|-|,|매주|매일|평일|이따|이따가))+\s*/g, "")
+    .replace(/(?<!\d)\d{4}\.(?=\s|$)/g, " ")
+    .replace(/\(\s*\)/g, " ")
+    .replace(/(?:^|\s)(?:오전|오후)\s*(?:중|늦게|일찍)(?=\s|$)/g, " ")
+    .replace(/(?:^|\s)(?:해\s*)?줘$/g, " ")
+    .replace(/^(?:\s*(?:부터|까지|에서|에|~|-|,|매주|매일|매달|매월|격주|평일|주말|마다|이따|이따가|이후|이전|중으로|중에|안에|내로|낼|담주))+\s*/g, "")
     .replace(/(?:^|\s)(?:오전|오후)에(?=\s)/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return title && title !== r.title ? { ...r, title } : r;
+  // 「내일 3시에 알려줘」: nothing left but the asking → 「알림」.
+  if (!title) return { ...r, title: /알려|알림/.test(r.title) || r.title === "줘" ? "알림" : r.title };
+  return title !== r.title ? { ...r, title } : r;
+}
+
+const DAY_TOKEN = "(\\d{4}년\\s*\\d{1,2}월\\s*\\d{1,2}일|\\d{1,2}월\\s*\\d{1,2}일|\\d{1,2}[./]\\d{1,2}|(?:다음\\s*주\\s*|이번\\s*주\\s*)?[월화수목금토일]요일|오늘|내일|모레|글피)";
+const DAY_SPAN = new RegExp(`${DAY_TOKEN}\\s*(?:부터|~|-|–|에서)\\s*${DAY_TOKEN}\\s*(?:까지)?`);
+const DAY_COUNT = new RegExp(`${DAY_TOKEN}\\s*부터\\s*(\\d{1,2}일|이틀|사흘|나흘|닷새|엿새|일주일)\\s*(?:간|동안)`);
+const COUNT_WORD: Record<string, number> = { 이틀: 2, 사흘: 3, 나흘: 4, 닷새: 5, 엿새: 6, 일주일: 7 };
+
+/** 「11월 2일부터 6일까지 체험학습」 「10/28~10/30 출장」 「다음 주 월요일부터 금요일까지」 「내일부터 사흘간 연수」 → a 기간. */
+function daySpan(raw: string, now: Date): RuleResult | null {
+  const dayOf = (tok: string) => parseRule(`${tok} 일정`, now).date;
+  let from: string | null = null;
+  let to: string | null = null;
+  let rest = raw;
+  const span = DAY_SPAN.exec(raw);
+  if (span) {
+    from = dayOf(span[1]);
+    // 「다음 주 월요일부터 금요일까지」: the second weekday is in the same week as the first.
+    const week = /다음\s*주|이번\s*주/.exec(span[1])?.[0];
+    to = dayOf(week && /^[월화수목금토일]요일$/.test(span[2].trim()) ? `${week} ${span[2]}` : span[2]);
+    rest = raw.replace(span[0], " ");
+  } else {
+    const count = DAY_COUNT.exec(raw);
+    if (!count) return null;
+    from = dayOf(count[1]);
+    const n = COUNT_WORD[count[2]] ?? Number(count[2].replace("일", ""));
+    to = from ? ymd(addDays(new Date(`${from}T00:00`), n - 1)) : null;
+    rest = raw.replace(count[0], " ");
+  }
+  if (!from || !to || to <= from || /\d{1,2}\s*시|\d{1,2}:\d{2}/.test(raw)) return null;
+  const r = parseRule(rest.trim() || "기간", now);
+  return { ...r, kind: "SCHEDULE", date: from, until: to, time: null, hasTime: false, needsReview: false, explanation: "기간을 찾음" };
 }
 
 function parseDraftRaw(raw0: string, now: Date, day: DayClock = {}): RuleResult {
   const raw = timeWords(raw0, day, now);
+  const days = daySpan(raw, now);
+  if (days) return days;
   const range = timeRange(raw);
   if (range) {
     // The day and the title from the rest of the sentence; the range is the time.

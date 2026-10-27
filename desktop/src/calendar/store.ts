@@ -167,6 +167,12 @@ export function draftFromText(s: CalendarState, text: string, source: string, no
   }
   const r = parseDraft(text, now, s.settings);
   const base = { title: r.title, area: "personal" as Area, source, createdAt: stamp(now), draft: true, srcKey, review: r.needsReview ? [r.explanation] : undefined };
+  // 「11월 2일부터 6일까지 체험학습」: a span of days is a 기간.
+  if (r.until && r.date) {
+    const period: Period = { ...base, id: draftId("p"), kind: "period", from: r.date, to: r.until };
+    s.periods.push(period);
+    return period;
+  }
   if (r.kind === "SCHEDULE" && r.date && r.time) {
     const endM = r.end ? mins(r.end) : Math.min(mins(r.time) + 60, 23 * 60 + 59);
     const ev: CalEvent = {

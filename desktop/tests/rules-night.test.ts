@@ -70,3 +70,48 @@ describe("기억 or not", () => {
     expect(memoDraft("1530 회의", NOW, DEFAULT_SETTINGS)).toBeNull();
   });
 });
+
+describe("spoken short forms, numbers in words, spans of days", () => {
+  it("낼 · 담주 · 수욜 · 삼월 이일 · 십일월 오일 · 이십일", () => {
+    expect(row("낼 3시 치과")).toEqual(["SCHEDULE", "2026-10-28", "15:00", null, "치과"]);
+    expect(d("담주 화요일 회의").date).toBe("2026-11-03");
+    expect(d("다음주 수욜 회의").date).toBe("2026-11-04");
+    expect(d("목욜까지 제출").date).toBe("2026-10-29");
+    expect(d("삼월 이일 개학").date).toBe("2027-03-02");
+    expect(d("십일월 오일 연수").date).toBe("2026-11-05");
+    expect(d("이십일 회식").date).toBe("2026-11-20");
+    expect(d("엔진오일 교체").date).toBeNull(); // 「오일」 inside a word is oil
+  });
+
+  it("a span of days is a 기간 (until), never a 기억", () => {
+    const span = (v: string) => { const r = d(v); return [r.date, r.until, r.title]; };
+    expect(span("11월 2일부터 6일까지 체험학습")).toEqual(["2026-11-02", "2026-11-06", "체험학습"]);
+    expect(span("10/28~10/30 출장")).toEqual(["2026-10-28", "2026-10-30", "출장"]);
+    expect(span("다음 주 월요일부터 금요일까지 수행평가 기간")).toEqual(["2026-11-02", "2026-11-06", "수행평가 기간"]);
+    expect(span("내일부터 사흘간 연수")).toEqual(["2026-10-28", "2026-10-30", "연수"]);
+    expect(memoDraft("내일부터 사흘간 연수", NOW, DEFAULT_SETTINGS)).toBeNull();
+    // A clock range on one day is not a span of days.
+    expect(d("10/30 15:00~16:00 학부모 상담").until).toBeUndefined();
+  });
+
+  it("titles lose the asking and the leftovers", () => {
+    expect(d("내일 3시에 알려줘").title).toBe("알림");
+    expect(d("공문 회신(오늘 4시까지)").title).toBe("공문 회신");
+    expect(d("2026.10.30 15시 상담").title).toBe("상담");
+    expect(d("오늘 중으로 회신").title).toBe("회신");
+    expect(d("내일 오전 중 제출").title).toBe("제출");
+    expect(d("매달 1일 급식비 확인").title).toBe("급식비 확인");
+    expect(d("평일마다 8시 교문지도 루틴").title).toBe("교문지도 루틴");
+  });
+});
+
+describe("a span of days becomes a 기간 on the calendar", async () => {
+  const { emptyState } = await import("../src/calendar/model");
+  const { draftFromText } = await import("../src/calendar/store");
+  it("draftFromText makes a period", () => {
+    const s = emptyState();
+    const x = draftFromText(s, "11월 2일부터 6일까지 체험학습", "데스크톱", NOW, "k1");
+    expect(x.kind).toBe("period");
+    expect(s.periods[0]).toMatchObject({ from: "2026-11-02", to: "2026-11-06", title: "체험학습", draft: true });
+  });
+});
