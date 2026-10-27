@@ -106,6 +106,8 @@ export class FcHost {
         return h ? { html: `<span class="hol">${n} ${h}</span>` } : n;
       },
       moreLinkContent: (arg) => view.more(arg.num),
+      // The 「+N」 list's title in Korean (it said 「October 28, 2026」).
+      dayPopoverFormat: (arg) => `${arg.date.month + 1}월 ${arg.date.day}일 ${DOW[arg.date.marker.getUTCDay()]}요일`,
       eventOrder: "order,start,title",
       // Things at the same time sit side by side, never on top of each other's words.
       slotEventOverlap: false,

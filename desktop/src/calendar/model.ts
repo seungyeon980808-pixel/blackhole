@@ -243,6 +243,56 @@ export function emptyState(): CalendarState {
   };
 }
 
+/**
+ * Records as they are read back (stored state, the Mac's 달력.json on the phone): one broken record
+ * (no reminders list, no date) used to stop the whole app at start. Fill what can be filled, drop the rest.
+ */
+const isDay = (x: unknown): x is string => typeof x === "string" && /^\d{4}-\d\d-\d\d$/.test(x);
+/** The same list when nothing was dropped (callers may keep pushing to the list they passed). */
+const kept = <T>(x: unknown, out: T[]): T[] => (Array.isArray(x) && x.length === out.length ? (x as T[]) : out);
+const strs = (x: unknown): string[] => (Array.isArray(x) ? x.filter((y): y is string => typeof y === "string") : []);
+function base<T extends Base>(x: unknown, kind: T["kind" & keyof T]): T | null {
+  const v = x as Record<string, unknown> | null;
+  if (!v || typeof v !== "object" || typeof v.id !== "string" || !v.id) return null;
+  // Filled in place (the loaded objects stay the ones the caller holds).
+  return Object.assign(v, {
+    kind,
+    title: typeof v.title === "string" ? v.title : String(v.title ?? ""),
+    area: v.area === "personal" ? "personal" : "school",
+    source: typeof v.source === "string" ? v.source : "",
+    createdAt: typeof v.createdAt === "string" ? v.createdAt : "",
+    ...(v.review === undefined ? {} : { review: strs(v.review) })
+  }) as unknown as T;
+}
+export function cleanEvents(x: unknown): CalEvent[] {
+  return kept(x, (Array.isArray(x) ? x : []).flatMap((r) => {
+    const e = base<CalEvent>(r, "event");
+    if (!e || !isDay(e.date)) return [];
+    const hm = (t: unknown) => (typeof t === "string" && /^\d\d:\d\d$/.test(t) ? t : null);
+    return [Object.assign(e, { start: hm(e.start), end: hm(e.end), provisional: e.provisional === true, reminders: strs(e.reminders) })];
+  }));
+}
+export function cleanTasks(x: unknown): Task[] {
+  return kept(x, (Array.isArray(x) ? x : []).flatMap((r) => {
+    const t = base<Task>(r, "task");
+    if (!t || !isDay(t.due)) return [];
+    const subs = (Array.isArray(t.subs) ? t.subs : []).filter((y) => y && typeof y === "object").map((y) => Object.assign(y, { title: String(y.title ?? ""), done: y.done === true }));
+    return [Object.assign(t, { dueTime: typeof t.dueTime === "string" && /^\d\d:\d\d$/.test(t.dueTime) ? t.dueTime : null, done: t.done === true, reminders: strs(t.reminders), subs })];
+  }));
+}
+export function cleanPeriods(x: unknown): Period[] {
+  return kept(x, (Array.isArray(x) ? x : []).flatMap((r) => {
+    const p = base<Period>(r, "period");
+    return p && isDay(p.from) && isDay(p.to) ? [p.to < p.from ? Object.assign(p, { from: p.to, to: p.from }) : p] : [];
+  }));
+}
+export function cleanNotes(x: unknown): Memo[] {
+  return kept(x, (Array.isArray(x) ? x : []).flatMap((r) => {
+    const m = base<Memo>(r, "note");
+    return m ? [m] : [];
+  }));
+}
+
 /** Accept a stored state, filling fields added later. Rejects anything else. */
 export function normalizeState(value: unknown): CalendarState | null {
   const v = value as Partial<CalendarState> | null;
@@ -251,11 +301,11 @@ export function normalizeState(value: unknown): CalendarState | null {
   const list = <T>(x: unknown): T[] => (Array.isArray(x) ? (x as T[]) : []);
   return {
     ...base,
-    events: list<CalEvent>(v.events),
+    events: cleanEvents(v.events),
     // Tasks stored before `noDue` existed: the worker's 「오늘로 둠」 note marks a missing deadline.
-    tasks: list<Task>(v.tasks).map((t) => (t.noDue === undefined && t.review?.includes(NO_DUE_NOTE) ? { ...t, noDue: true } : t)),
-    periods: list<Period>(v.periods),
-    notes: list<Memo>(v.notes),
+    tasks: cleanTasks(v.tasks).map((t) => (t.noDue === undefined && t.review?.includes(NO_DUE_NOTE) ? { ...t, noDue: true } : t)),
+    periods: cleanPeriods(v.periods),
+    notes: cleanNotes(v.notes),
     chat: list<ChatMessage>(v.chat),
     log: list<LogEntry>(v.log),
     inbox: list<InboxEntry>(v.inbox),

@@ -4,7 +4,7 @@
  * Mac's shared copy 「블랙홀/달력.json」, with the phone's own changes sent back as action files.
  */
 import { AnalyzeError, type BlackholeAdapter, type GoogleCalendars, type InboxStatus } from "../calendar/adapter";
-import { isShared, type CalendarState, type Entry, type SharedCalendar, type UserAction } from "../calendar/model";
+import { cleanEvents, cleanNotes, cleanPeriods, cleanTasks, isShared, type CalendarState, type Entry, type SharedCalendar, type UserAction } from "../calendar/model";
 
 /** Methods the Android app adds with addJavascriptInterface (all synchronous strings). */
 export interface AndroidBridge {
@@ -114,7 +114,7 @@ export function androidAdapter(bridge: AndroidBridge): BlackholeAdapter {
         if (!isShared(shared)) {
           if (!force) return;
         }
-        const copy = isShared(shared) ? shared : empty;
+        const copy = isShared(shared) ? { ...shared, events: cleanEvents(shared.events), tasks: cleanTasks(shared.tasks), periods: cleanPeriods(shared.periods), notes: cleanNotes(shared.notes), appliedActions: shared.appliedActions ?? [] } : empty;
         lastShared = text;
         const applied = new Set(copy.appliedActions);
         handler(copy, parse<UserAction[]>(bridge.pendingActions(), []).filter((a) => !applied.has(a.id)));

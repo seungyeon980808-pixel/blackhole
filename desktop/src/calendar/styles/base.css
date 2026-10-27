@@ -532,3 +532,7 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .phv .phtable .dt { height: 520px; }
 .bh .phv .ga { margin-left: 4px; font-size: 10px; border: 1px solid var(--x-line, rgba(255,255,255,.4)); border-radius: 3px; padding: 0 3px; }
 .bh .phv .tdv.phtable { height: auto; }
+
+/* The 「+N」 list's close button: FullCalendar draws it with a data: icon font the app's CSP blocks (font-src 'self'). */
+.bh .fc .fc-popover-close.fc-icon { font-family: inherit !important; font-size: 16px; line-height: 1; }
+.bh .fc .fc-popover-close.fc-icon-x::before { content: "×"; }
