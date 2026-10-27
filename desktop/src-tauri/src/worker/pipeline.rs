@@ -164,7 +164,7 @@ pub fn rule_only_proposal(input: &Input, reference: DateTime<FixedOffset>) -> Re
         }
         Input::Text(text) => (SourceType::Text, "txt".to_string(), text.as_bytes().to_vec()),
     };
-    let source_text = if source_type == SourceType::Text { String::from_utf8_lossy(&bytes).into_owned() } else { String::new() };
+    let source_text = if source_type == SourceType::Text { decode_text(&bytes)? } else { String::new() };
     Ok(Proposal {
         schema_version: PROPOSAL_SCHEMA_VERSION,
         source: ProposalSource { source_type, format, sha256: sha256_hex(&bytes), bytes: bytes.len() as u64 },
@@ -204,6 +204,47 @@ pub fn before_the_event(mut items: Vec<ProposalItem>) -> Vec<ProposalItem> {
 
 /// The first bytes say what a file really is: a broken or renamed file is caught here, in Korean,
 /// before it costs a model call (it used to come back as 「HTTP 400 (invalid_request_error)」).
+pub const UNREADABLE_TEXT: &str = "글자가 깨진 텍스트 파일이에요(UTF-8·EUC-KR·UTF-16이 아님) · 메모장에서 「UTF-8」로 다시 저장해 넣어 주세요";
+
+/// A .txt/.md as text: UTF-8 (with or without BOM), UTF-16 with BOM (Windows 메모장 「유니코드」), or
+/// EUC-KR/CP949 (old 메모장 「ANSI」 on a Korean PC). Read before as UTF-8 only: the AI got 「11�� 5��」 and made
+/// up 「상담회」 (2026-10-28 밤샘). Anything else is refused rather than sent garbled.
+pub fn decode_text(bytes: &[u8]) -> Result<String, WorkerError> {
+    let utf16 = |be: bool| {
+        let units: Vec<u16> = bytes[2..].chunks_exact(2).map(|c| if be { u16::from_be_bytes([c[0], c[1]]) } else { u16::from_le_bytes([c[0], c[1]]) }).collect();
+        String::from_utf16(&units).ok()
+    };
+    let text = if let Some(rest) = bytes.strip_prefix(b"\xEF\xBB\xBF") {
+        std::str::from_utf8(rest).ok().map(str::to_string)
+    } else if bytes.starts_with(&[0xFF, 0xFE]) {
+        utf16(false)
+    } else if bytes.starts_with(&[0xFE, 0xFF]) {
+        utf16(true)
+    } else if let Ok(t) = std::str::from_utf8(bytes) {
+        Some(t.to_string())
+    } else {
+        cp949(bytes)
+    };
+    text.ok_or_else(|| WorkerError::new(ErrorCode::UnsupportedInput, UNREADABLE_TEXT))
+}
+
+/// EUC-KR/CP949 through the system iconv (macOS has it; no extra crate). None when it is not that either.
+fn cp949(bytes: &[u8]) -> Option<String> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let mut child = Command::new("iconv").args(["-f", "CP949", "-t", "UTF-8"]).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
+    let mut stdin = child.stdin.take()?;
+    let data = bytes.to_vec();
+    // Written from another thread: a large file would otherwise fill the pipe both ways.
+    let writer = std::thread::spawn(move || stdin.write_all(&data));
+    let out = child.wait_with_output().ok()?;
+    let _ = writer.join();
+    if !out.status.success() {
+        return None;
+    }
+    String::from_utf8(out.stdout).ok()
+}
+
 pub fn check_file_bytes(ext: &str, bytes: &[u8]) -> Result<(), WorkerError> {
     let ok = match ext {
         "pdf" => bytes.starts_with(b"%PDF"),
@@ -273,7 +314,7 @@ pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOf
             (Some(text), engines.transcriber.model_name())
         }
         (_, SourceType::Document | SourceType::Image, Input::File(path)) => (Some(engines.reader.read(path)?), engines.reader.reader_name()),
-        (_, _, _) => (Some(String::from_utf8_lossy(&bytes).into_owned()), String::new()),
+        (_, _, _) => (Some(decode_text(&bytes)?), String::new()),
     };
     timings.read_ms = read_started.elapsed().as_millis() as u64;
 
@@ -616,6 +657,27 @@ mod tests {
         assert_eq!(out[1].start_at, "2026-10-28T16:00:00+09:00");
         assert!(out[1].review_reasons[0].contains("학부모 상담"));
         assert_eq!(out[2].start_at, "");
+    }
+
+    #[test]
+    fn text_files_in_old_korean_and_windows_encodings_are_read() {
+        let t = "11월 5일 3시 학년 협의회";
+        let mut le = vec![0xFF, 0xFE];
+        le.extend(t.encode_utf16().flat_map(u16::to_le_bytes));
+        let mut be = vec![0xFE, 0xFF];
+        be.extend(t.encode_utf16().flat_map(u16::to_be_bytes));
+        let mut bom = b"\xEF\xBB\xBF".to_vec();
+        bom.extend(t.as_bytes());
+        // 「11월 5일」 in CP949.
+        let euc: &[u8] = &[0x31, 0x31, 0xBF, 0xF9, 0x20, 0x35, 0xC0, 0xCF];
+        assert_eq!(decode_text(&le).unwrap(), t);
+        assert_eq!(decode_text(&be).unwrap(), t);
+        assert_eq!(decode_text(&bom).unwrap(), t);
+        assert_eq!(decode_text(t.as_bytes()).unwrap(), t);
+        if cfg!(target_os = "macos") {
+            assert_eq!(decode_text(euc).unwrap(), "11월 5일");
+            assert_eq!(decode_text(&[0xFF, 0xFF, 0x80, 0xFF]).unwrap_err().message, UNREADABLE_TEXT);
+        }
     }
 
     #[test]

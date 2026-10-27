@@ -574,7 +574,8 @@ pub fn withheld_secret(input: &crate::worker::pipeline::Input, now: chrono::Date
             if ext != "txt" || std::fs::metadata(path).map(|m| m.len() > 2_000).unwrap_or(true) {
                 return None;
             }
-            std::fs::read_to_string(path).ok()?
+            // Any encoding the worker reads (an EUC-KR note used to skip this check and go to the AI).
+            crate::worker::pipeline::decode_text(&std::fs::read(path).ok()?).ok()?
         }
     };
     if matches!(crate::secret::guess(&text), crate::secret::Guess::None) {
@@ -605,6 +606,11 @@ mod tests {
         std::fs::write(&f, "내일 3시 치과").unwrap();
         assert!(super::withheld_secret(&Input::File(&f), now).is_none());
         assert!(super::withheld_secret(&Input::Text("카드번호 1234-5678-9012-3456"), now).is_some());
+        // Saved by Windows 메모장 as 「유니코드」(UTF-16): still caught.
+        let mut le = vec![0xFF, 0xFE];
+        le.extend("현관 비밀번호 4821".encode_utf16().flat_map(u16::to_le_bytes));
+        std::fs::write(&f, le).unwrap();
+        assert!(super::withheld_secret(&Input::File(&f), now).is_some());
     }
 
     #[test]
