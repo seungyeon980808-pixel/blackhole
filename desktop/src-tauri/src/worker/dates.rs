@@ -264,6 +264,14 @@ fn more_days(text: &str, today: NaiveDate) -> Option<NaiveDate> {
     if ["다음 주 안", "다음주 안", "다음 주 중", "다음주 중", "다음 주 내", "다음주 내"].iter().any(|w| t.contains(w)) {
         return Some(next_monday + Duration::days(4));
     }
+    // Lunar holidays (the screen's table, src/calendar/holidays.ts): the next one from today.
+    for (name, days) in [("부처님오신날", ["2026-05-24", "2027-05-13"]), ("추석", ["2026-09-25", "2027-09-15"]), ("설날", ["2026-02-17", "2027-02-07"]), ("설 연휴", ["2026-02-17", "2027-02-07"])] {
+        if t.contains(name) {
+            // 「연휴」: the holiday's first day (the day before).
+            let back = if t.contains("연휴") { 1 } else { 0 };
+            return days.iter().filter_map(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok()).map(|d| d - Duration::days(back)).find(|d| *d >= today);
+        }
+    }
     for (name, m, d) in NAMED_DAYS {
         if t.contains(name) {
             let this = ymd(today.year(), m, d)?;
@@ -365,7 +373,7 @@ fn month_week_day(text: &str, today: NaiveDate) -> Option<NaiveDate> {
         };
         return roll(y, m, named, &pick);
     }
-    if let Some(c) = re(&LAST_DAY, r"(?:(\d{1,2})\s*월|(다음|이번)\s*달)\s*(?:마지막\s*날|말일)").captures(text) {
+    if let Some(c) = re(&LAST_DAY, r"(?:(\d{1,2})\s*월|(다음|이번)\s*달)\s*(?:마지막\s*날|말일|말(?:\s|$|까지|에|경))").captures(text) {
         let (y, m, named) = month_of(c.get(1), c.get(2))?;
         return roll(y, m, named, &last_of);
     }
@@ -395,15 +403,26 @@ pub fn period_days(text: &str) -> Option<i64> {
 
 /// 「다음 주 내내」 「이번 주 동안」 as a period: that week's weekdays (this week from today).
 pub fn week_span(text: &str, today: NaiveDate) -> Option<(NaiveDate, NaiveDate)> {
-    let t = text.replace(' ', "");
+    let t: String = text.chars().filter(|c| !c.is_whitespace() && !"·,~-".contains(*c)).collect();
     let monday = today - Duration::days(today.weekday().num_days_from_monday() as i64);
-    let monday = if t.starts_with("다음주") && !t.contains("요일") {
-        monday + Duration::days(7)
-    } else if (t.starts_with("이번주") || t.starts_with("금주")) && !t.contains("요일") {
-        monday
+    let (monday, rest) = if let Some(r) = t.strip_prefix("다음주") {
+        (monday + Duration::days(7), r)
+    } else if let Some(r) = t.strip_prefix("이번주").or_else(|| t.strip_prefix("금주")) {
+        (monday, r)
     } else {
         return None;
     };
+    // 「다음 주 토일」: from the first weekday to the second (2026-10-28: it came out 월~금).
+    let wd = |c: char| "월화수목금토일".chars().position(|x| x == c).map(|i| i as i64);
+    let chars: Vec<char> = rest.chars().collect();
+    if let [a, b] = chars[..] {
+        let (a, b) = (wd(a)?, wd(b)?);
+        return (b > a).then(|| (monday + Duration::days(a), monday + Duration::days(b)));
+    }
+    // Only the week itself (「다음 주」 「다음 주 내내」), not 「다음 주 화요일」.
+    if !["", "내내", "동안", "중", "중에", "주간", "간"].contains(&rest) {
+        return None;
+    }
     Some((monday.max(today), monday + Duration::days(4)))
 }
 
@@ -538,7 +557,10 @@ fn time_matches(text: &str) -> Vec<TimeMatch> {
             continue;
         }
         if let (Ok(hour), Ok(minute)) = (caps[1].parse(), caps[2].parse()) {
-            found.push(TimeMatch { start: whole.start(), end: whole.end(), hour, minute, period: None, rolls: hour == 24, spoken: false });
+            // 「오후 2:40」 「저녁 7:30」: the part of the day said just before (it came out 02:40; 2026-10-28 밤샘).
+            let before = text[..whole.start()].trim_end();
+            let period = ["오전", "오후", "아침", "낮", "저녁", "밤", "새벽"].into_iter().find(|w| before.ends_with(w)).map(str::to_string);
+            found.push(TimeMatch { start: whole.start(), end: whole.end(), hour, minute, period, rolls: hour == 24, spoken: false });
         }
     }
     found.sort_by_key(|m| m.start);
@@ -825,6 +847,8 @@ mod tests {
         assert_eq!(week_span("다음 주", wed), Some((d(10, 26), d(10, 30))));
         assert_eq!(week_span("이번 주", wed), Some((d(10, 21), d(10, 23))));
         assert_eq!(week_span("다음 주 화요일", wed), None);
+        assert_eq!(week_span("다음 주 토일", wed), Some((d(10, 31), d(11, 1))));
+        assert_eq!(week_span("다음 주 월수금", wed), None);
     }
 
     fn start(date: &str, time: &str, kind: &str) -> String {
@@ -904,6 +928,12 @@ mod tests {
         assert_eq!(start("10월 마지막 날", "", "SCHEDULE"), "2026-10-31T09:00:00+09:00");
         assert_eq!(start("다음 달 마지막 날", "", "TODO"), "2026-11-30T09:00:00+09:00");
         assert_eq!(start("화", "점심시간", "SCHEDULE"), "2026-10-27T12:00:00+09:00");
+        assert_eq!(start("11/12", "오후 2:40", "SCHEDULE"), "2026-11-12T14:40:00+09:00");
+        assert_eq!(start("오늘", "저녁 7:30", "SCHEDULE"), "2026-10-21T19:30:00+09:00");
+        assert_eq!(start("오늘", "오전 12:10", "SCHEDULE"), "2026-10-21T00:10:00+09:00");
+        assert_eq!(start("11월 말", "", "TODO"), "2026-11-30T09:00:00+09:00");
+        assert_eq!(start("설날 연휴", "", "TODO"), "2027-02-06T09:00:00+09:00");
+        assert_eq!(start("추석", "", "TODO"), "2027-09-15T09:00:00+09:00");
         assert_eq!(start("내일 아침", "7시", "SCHEDULE"), "2026-10-22T07:00:00+09:00");
         assert_eq!(start("내일 저녁", "15:00", "SCHEDULE"), "2026-10-22T15:00:00+09:00");
         // An hour still wins over the default.

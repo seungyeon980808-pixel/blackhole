@@ -286,6 +286,11 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         reasons.push(format!("원문에 없는 시간 표현을 버림: 「{time_text}」"));
         String::new()
     };
+    // 「금요일 퇴근하고 7시 영화」: a bare morning hour after 퇴근 is the evening (it came out 07:00).
+    let bare_hour = time_text.trim_end_matches(['에', ' ']).strip_suffix('시').and_then(|h| h.trim().parse::<u32>().ok());
+    if bare_hour.is_some_and(|h| (5..12).contains(&h)) && ["퇴근하고", "퇴근 후", "퇴근후", "퇴근해서", "퇴근하면"].iter().any(|w| sentence.contains(w) || (single_item && source_text.contains(w))) {
+        time_text = format!("저녁 {time_text}");
+    }
     // An end phrase not in the source loses to a length said in the sentence (it wrote 「일주일 뒤」 for
     // 「일주일 동안」 and the period got 8 days); it still counts otherwise (「6일까지」 written as 「11월 6일」).
     let end_said = quoted_in(source_text, &end_date_text);

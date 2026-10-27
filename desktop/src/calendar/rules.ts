@@ -316,6 +316,19 @@ export function dateWords(raw: string, now: Date): string {
     const y = num && new Date(today.getFullYear(), mon + 1, 0) < today ? today.getFullYear() + 1 : today.getFullYear();
     return md(new Date(y, mon + 1, 0));
   });
+  // 「11월 말까지」 「12월 말」: that month's last day.
+  v = v.replace(/(\d{1,2})\s*월\s*(?:말일|말)(?=\s|까지|에|$|경)/g, (m, num: string) => {
+    const mon = Number(num) - 1;
+    if (mon < 0 || mon > 11) return m;
+    const y = new Date(today.getFullYear(), mon + 1, 0) < today ? today.getFullYear() + 1 : today.getFullYear();
+    return md(new Date(y, mon + 1, 0));
+  });
+  // 「다음 주 토일 여행」 「이번 주 토·일」: from the first weekday to the second of that week.
+  v = v.replace(/(다음|이번)\s*주\s*([월화수목금토일])\s*[·,~-]?\s*([월화수목금토일])(?![가-힣])/g, (m, w: string, a: string, b: string) => {
+    const mon = w === "다음" ? nextMonday() : addDays(today, -((today.getDay() + 6) % 7));
+    const at = (c: string) => addDays(mon, (dow(c) + 6) % 7);
+    return at(b) > at(a) ? `${md(at(a))}부터 ${md(at(b))}까지` : m;
+  });
   // 「다음 주 내내」 「이번 주 동안」: that week's weekdays (before 「다음 주 내」 below reads 「내내」 as 「내」).
   v = v.replace(/(다음|이번)\s*주\s*(?:내내|동안|하루\s*종일)/g, (_m, w: string) => {
     const mon = w === "다음" ? nextMonday() : addDays(today, -((today.getDay() + 6) % 7));
@@ -359,6 +372,14 @@ export function timeWords(raw: string, day: DayClock = {}, now?: Date): string {
   const per = day.periods ?? [];
   let v = fixNumbers(raw);
   if (now) v = dateWords(v, now);
+  // 「오후 2:40」 「저녁 7:30」: a clock time after a part of the day (it came out 02:40 / 07:30).
+  v = v.replace(/(오후|저녁|밤|낮)\s*(\d{1,2}):([0-5]\d)/g, (m, w: string, h: string, mm: string) => {
+    const n = Number(h);
+    return n < 12 && !(w === "낮" && n >= 11) ? `${pad(n + 12)}:${mm}` : n <= 23 ? `${pad(n)}:${mm}` : m;
+  });
+  v = v.replace(/(오전|아침|새벽)\s*(\d{1,2}):([0-5]\d)/g, (m, _w: string, h: string, mm: string) => (Number(h) === 12 ? `00:${mm}` : Number(h) < 12 ? `${pad(Number(h))}:${mm}` : m));
+  // 「퇴근하고 7시 영화」: the said hour, in the evening (not the 퇴근 time itself).
+  v = v.replace(/퇴근\s*(?:하고|후에|후|해서|하면)\s*(\d{1,2})\s*시/g, (_m, h: string) => `${Number(h) < 12 ? "저녁 " : ""}${h}시`);
   // 「3교시~5교시」 「1~2교시」 「4,5,6교시」: from the first period's start to the last one's end.
   v = v.replace(/(\d{1,2})\s*(?:교시)?\s*(?:~|-|–|부터)\s*(\d{1,2})\s*교시(?:\s*까지)?/g, (m, a: string, b: string) => {
     const x = per[Number(a) - 1];

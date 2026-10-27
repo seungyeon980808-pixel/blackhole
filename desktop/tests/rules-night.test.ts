@@ -134,3 +134,21 @@ describe("periods said by length or by week (2026-10-28)", () => {
     expect([r.date, r.until, r.title]).toEqual([from, to, title]);
   });
 });
+
+describe("everyday sentences (2026-10-28)", () => {
+  it.each([
+    ["병원 예약 11/12 오후 2:40 내과", "2026-11-12", "14:40"], // was 02:40
+    ["저녁 7:30 동창회", "2026-10-27", "19:30"], // was 07:30
+    ["금요일 퇴근하고 7시 영화", "2026-10-30", "19:00"], // was the 퇴근 time 16:20
+    ["자동차 보험 갱신 11월 말까지", "2026-11-30", null],
+    ["모레 오전 12:30 서버 점검", "2026-10-29", "00:30"]
+  ])("「%s」 → %s %s", (v, date, time) => {
+    const r = d(v);
+    expect(r.date).toBe(date);
+    if (time) expect(r.time).toBe(time);
+  });
+  it("「다음 주 토일 부산 여행」 is Saturday to Sunday", () => {
+    const r = d("다음 주 토일 부산 여행");
+    expect([r.date, r.until, r.title]).toEqual(["2026-11-07", "2026-11-08", "부산 여행"]);
+  });
+});
