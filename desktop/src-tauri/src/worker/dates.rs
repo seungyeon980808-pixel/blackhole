@@ -471,7 +471,10 @@ pub fn resolve(date_text: &str, time_text: &str, kind: &str, reference: DateTime
                 (t, false)
             })
         });
-        if parsed.is_none() {
+        // 「3교시」 「점심시간」 「퇴근 전」: this school's own times, filled in by the app from its
+        // settings — keep the day (it used to drop the whole date and become a 기억).
+        let school = ["교시", "점심", "출근", "퇴근", "조회", "종례", "방과후"].iter().any(|w| time_text.contains(w));
+        if parsed.is_none() && !school {
             reasons.push(format!("시간 표현을 해석하지 못함: 「{time_text}」"));
         }
         parsed
@@ -683,6 +686,9 @@ mod tests {
         assert_eq!(start("", "9:30", "SCHEDULE"), "2026-10-21T09:30:00+09:00");
         // Spreadsheet and 공문 dates (2026-10-27 밤 안정화: an xlsx schedule came in with no days).
         assert_eq!(start("2026-11-02", "08:30", "SCHEDULE"), "2026-11-02T08:30:00+09:00");
+        // A school time word keeps the day (the app sets the period's time).
+        assert_eq!(start("11월 11일", "3교시", "SCHEDULE"), "2026-11-11T09:00:00+09:00");
+        assert!(resolve("11월 11일", "모르는 때", "SCHEDULE", reference()).start_at.is_none());
         assert_eq!(start("11. 3.(화)", "", "TODO"), "2026-11-03T09:00:00+09:00");
         assert_eq!(start("2026. 11. 4.(수)", "15:10", "SCHEDULE"), "2026-11-04T15:10:00+09:00");
         // A bare 1–6시 is the afternoon; 「새벽 3시」 and 「03:00」 stay early (2026-10-27 밤 안정화).

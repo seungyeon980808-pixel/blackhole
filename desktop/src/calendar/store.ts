@@ -80,6 +80,19 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
   const out: Applied = { refs: [], missing: [] };
   const createdAt = stamp(now);
   for (let item of p.items) {
+    // 「3교시」 「점심시간」 「퇴근 전」: school words the worker does not know — this school's own times.
+    const school = item.startAt && /교시|점심|출근|퇴근/.test(item.evidence.timeText) ? timeWords(item.evidence.timeText, s.settings) : "";
+    const span = school ? timeRange(school) : null;
+    const one = school && !span ? singleTime(school) : null;
+    const at = (hm: string) => {
+      const d = new Date(item.startAt);
+      d.setHours(Number(hm.slice(0, 2)), Number(hm.slice(3, 5)), 0, 0);
+      return d;
+    };
+    if (span || one) {
+      const reviewReasons = item.reviewReasons.filter((r) => !r.includes("오전 9시로 임시"));
+      item = { ...item, startAt: at(span?.start ?? one!.time).toISOString(), endAt: span ? at(span.end).toISOString() : "", reviewReasons, needsReview: reviewReasons.length > 0 };
+    }
     const common = { title: item.title, area: areaOf(item.area), source, createdAt, details: item.details || undefined, review: itemReview(item), ...(srcKey ? { srcKey } : {}) };
     const reminders = item.reminders.map(isoToStamp);
     if (item.kind === "NOTE" || (item.kind !== "TODO" && !item.startAt)) {
@@ -102,18 +115,6 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       continue;
     }
     const timed = item.evidence.timeText.trim() !== "";
-    // 「3교시」 「점심시간」 「퇴근 전」: school words the worker does not know — this school's own times.
-    const school = item.startAt && /교시|점심|출근|퇴근/.test(item.evidence.timeText) ? timeWords(item.evidence.timeText, s.settings) : "";
-    const span = school ? timeRange(school) : null;
-    const one = school && !span ? singleTime(school) : null;
-    const at = (hm: string) => {
-      const d = new Date(item.startAt);
-      d.setHours(Number(hm.slice(0, 2)), Number(hm.slice(3, 5)), 0, 0);
-      return d;
-    };
-    if (span || one) {
-      item = { ...item, startAt: at(span?.start ?? one!.time).toISOString(), endAt: span ? at(span.end).toISOString() : "" };
-    }
     if (item.kind === "TODO") {
       const start = item.startAt ? new Date(item.startAt) : now;
       const task: Task = {

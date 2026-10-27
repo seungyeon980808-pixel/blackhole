@@ -25,4 +25,12 @@ it("periods, lunch and 퇴근 from a document get this school's times", () => {
   expect(s.tasks[0].dueTime).toBe("14:15");
   expect([ev("수행평가").start, ev("수행평가").end]).toEqual(["10:40", "14:05"]);
   expect(ev("학부모 상담").start).toBe("15:00"); // a clock time is left as it is
+  expect(ev("공개수업").review).toBeUndefined();
+});
+
+it("the worker's 「9시로 임시」 note goes when the period's time is set", () => {
+  const s = emptyState();
+  const it0 = { ...item("SCHEDULE", "공개수업", "2026-11-11T09:00:00+09:00", "3교시"), needsReview: true, reviewReasons: ["날짜만 있어 오전 9시로 임시 지정"] } as ProposalItem;
+  applyProposal(s, { items: [it0] } as unknown as Proposal, "인박스", new Date(2026, 9, 27, 10, 40));
+  expect([s.events[0].start, s.events[0].review]).toEqual(["10:40", undefined]);
 });
