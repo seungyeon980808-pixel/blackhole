@@ -14,7 +14,7 @@ import { seedState } from "./samples";
 import {
   applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
 } from "./store";
-import { checksBar, ICON, memoList, memoRows, type Ctx, type ThemeView, type ViewName } from "./views/common";
+import { checksBar, ICON, memoList, memoRows, resultCard, type Ctx, type ThemeView, type ViewName } from "./views/common";
 import { doc, printSheet } from "./views/doc";
 import { glass } from "./views/glass";
 
@@ -143,6 +143,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let guideOpen = false;
   /** The open group in 설정 (only one at a time). */
   let setGroup: string | null = null;
+  /** The card shown over the day band. */
+  let popId: { id: string; x: number; y: number } | null = null;
   /** The 「기억」 find box. */
   let memoQuery = "";
   let guideLines: Record<string, string> = {};
@@ -225,6 +227,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <div class="settings guide" id="bhGuide" role="dialog" aria-label="처음 쓰기" hidden></div>
       <div class="alarm" id="bhAlarm" aria-live="assertive"></div>
       <div class="toast" id="bhToast" role="status" aria-live="polite" hidden></div>
+      <div class="pop" id="bhPop" role="dialog" aria-label="항목" hidden></div>
       <input type="file" id="bhFile" hidden accept="image/*,.pdf,.hwp,.hwpx,.docx,.xlsx,.txt,.wav">`;
     if (sideCapable) {
       // 「대화」 in the header: shows the folded panel again (the panel has 「접기」 itself).
@@ -374,6 +377,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
       h += theme().bubble(c, m);
     }
+    // Nothing yet (안 A): three grey lines of what one can type.
+    if (!s.chat.length) h = `<div class="chat-empty"><div>「내일 3시 치과」 → 일정</div><div>「치과 언제야?」 → 답</div><div>「메모 차 번호 …」 → 기억</div></div>`;
     // A draft card already says 「다듬는 중」; the typing line is only for what has no card yet.
     if (busy && s.chat[s.chat.length - 1]?.who !== "ai") h += '<div class="bub ai typing">찾는 중…</div>';
     // Keep the reader's place unless they were at the bottom or something new arrived.
@@ -448,9 +453,28 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
     renderLast();
     if (chatOpen || side) renderChat();
+    renderPop();
     const checks = root.querySelector<HTMLElement>("#bhChecks");
     if (checks) checks.innerHTML = side ? checksBar(c, t.fd) : "";
     if (settingsOpen) renderSettings();
+  }
+
+  const resultCardFor = (id: string) => resultCard(ctx(), id, theme().fd, false, "pop").replace('<div class="ra">', '<div class="ra on">');
+
+  /** A bar on the day band (or a row in the 공문서 table) was clicked: its card, with all its buttons. */
+  function renderPop(): void {
+    const el = root.querySelector<HTMLElement>("#bhPop");
+    if (!el) return;
+    const x = popId ? findEntry(s, popId.id) : undefined;
+    if (!x || x.gone) {
+      popId = null;
+      el.hidden = true;
+      return;
+    }
+    el.innerHTML = resultCardFor(x.id);
+    el.style.left = `${Math.max(8, Math.min(popId!.x, root.clientWidth - 300))}px`;
+    el.style.top = `${popId!.y}px`;
+    el.hidden = false;
   }
 
   function scrollToNow(el: HTMLElement, nowM: number): void {
@@ -1390,6 +1414,20 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       else openFolds.add(key);
       return render();
     }
+    if (view === "day" && q(".strip [data-ev], .dstrip [data-ev]")) {
+      const t = q<HTMLElement>(".strip [data-ev], .dstrip [data-ev]")!;
+      const r = t.getBoundingClientRect();
+      const base = root.getBoundingClientRect();
+      // Next to where it was clicked (a long 공문서 row would put it over the rows below).
+      const x = t.tagName === "TR" ? ev.clientX - base.left + 12 : r.left - base.left;
+      const y = t.tagName === "TR" ? r.top - base.top : r.bottom - base.top + 4;
+      popId = popId?.id === t.dataset.ev ? null : { id: t.dataset.ev!, x, y };
+      return renderPop();
+    }
+    if (popId && !q("#bhPop")) {
+      popId = null;
+      renderPop();
+    }
     if (q("[data-checks]") || q("[data-subs]")) {
       const key = q("[data-checks]") ? "checks" : `subs:${q("[data-subs]")!.dataset.subs}`;
       if (openFolds.has(key)) openFolds.delete(key);
@@ -1539,6 +1577,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return root.querySelector<HTMLInputElement>("#bhIn")?.focus();
     }
     if (e.key === "Escape") {
+      if (popId) {
+        popId = null;
+        return renderPop();
+      }
       if (!printRoot.hidden) printRoot.hidden = true;
       else if (guideOpen) {
         guideOpen = false;

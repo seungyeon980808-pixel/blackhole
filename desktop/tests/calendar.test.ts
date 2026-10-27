@@ -131,9 +131,9 @@ describe("calendar app", () => {
     expect(chat[1].text).toBe("초안 1건을 AI가 다듬었어요. 2건 더 넣었어요.");
     expect(app!.state.events.filter((e) => !e.sample && !e.gone)).toHaveLength(1);
     app!.setView("day", ev.date);
-    // Provisional events wait in 「확인할 것」 (folded): open it, ✓ confirms.
-    root.querySelector<HTMLButtonElement>("[data-checks]")!.click();
-    root.querySelector<HTMLButtonElement>(`[data-accept="${ev.id}"]`)!.click();
+    // A click on its bar on the day band shows its card; ✓ confirms.
+    root.querySelector<HTMLElement>(`.strip [data-ev="${ev.id}"]`)!.click();
+    root.querySelector<HTMLButtonElement>(`#bhPop [data-ok="${ev.id}"]`)!.click();
     await Promise.resolve();
     expect(app!.state.events.find((e) => e.id === ev.id)!.provisional).toBe(false);
   });

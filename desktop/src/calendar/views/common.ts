@@ -269,17 +269,29 @@ export function memoRows(ctx: Ctx, fd: (k: string) => string, query = ""): strin
 }
 
 /**
- * 확인할 것: entries with a review note and provisional events waiting for 확정 — one quiet bar
- * (folded); open, each is a card with ✓ (맞아요 / 확정) · 수정 · ✕.
+ * 확인할 것 (안 A, user's choice): only what really needs the user — a time the words did not
+ * settle, appointments that overlap (one of them provisional or a draft), provisional ones whose day
+ * has passed. The AI's small notes stay inside the cards.
  */
-export function checksOf(ctx: Ctx): Entry[] {
+const TIME_UNSURE = /날짜만|시각|시간|임시|정해/;
+export function checksOf(ctx: Ctx): { x: Entry; why: string }[] {
+  const out: { x: Entry; why: string }[] = [];
   const seen = new Set<string>();
-  const out: Entry[] = [];
-  const all: Entry[] = [...ctx.s.events, ...ctx.s.tasks, ...ctx.s.periods, ...ctx.s.notes];
-  for (const x of [...needsReview(ctx), ...all.filter((e) => e.suggest?.length && !e.gone), ...ctx.s.events.filter((e) => e.provisional && !e.gone && !e.sample && e.date >= ctx.today)]) {
-    if (seen.has(x.id)) continue;
-    seen.add(x.id);
-    out.push(x);
+  const add = (x: Entry, why: string) => {
+    if (!seen.has(x.id)) {
+      seen.add(x.id);
+      out.push({ x, why });
+    }
+  };
+  for (const x of needsReview(ctx)) if (x.review!.some((r) => TIME_UNSURE.test(r))) add(x, "시각을 정해 주세요");
+  const live = ctx.s.events.filter((e) => !e.gone && !e.sample);
+  for (const e of live) if (e.provisional && e.date < ctx.today) add(e, "날짜가 지난 가승인");
+  const timed = live.filter((e) => e.start && e.end && e.date >= ctx.today);
+  for (const a of timed) {
+    for (const b of timed) {
+      if (a === b || a.date !== b.date || !(a.provisional || a.draft || b.provisional || b.draft)) continue;
+      if (a.start! < b.end! && b.start! < a.end!) add(a, `「${b.title}」와 시간이 겹침`);
+    }
   }
   return out;
 }
@@ -288,5 +300,10 @@ export function checksBar(ctx: Ctx, fd: (k: string) => string): string {
   const list = checksOf(ctx);
   if (!list.length) return "";
   const open = !!ctx.open?.has("checks");
-  return `<div class="checks"><button class="chkbar" data-checks aria-expanded="${open}"><span class="cdot"></span><span>확인할 것 ${list.length}</span><span class="chev">${open ? "▴" : "▾"}</span></button>${open ? list.map((x) => resultCard(ctx, x.id, fd, false, "chk").replace(/<button class="ib" data-(?:ok|tdone)="[^"]*"[^>]*>.*?<\/button>/, "").replace('<div class="ra">', `<div class="ra"><button class="ib" data-accept="${x.id}" title="맞아요" aria-label="맞아요">${ICON.ok}</button>`)).join("") : ""}</div>`;
+  const card = ({ x, why }: { x: Entry; why: string }) =>
+    resultCard(ctx, x.id, fd, false, "chk")
+      .replace(/<button class="ib" data-(?:ok|tdone)="[^"]*"[^>]*>.*?<\/button>/, "")
+      .replace(/<div class="rm2 warn">[\s\S]*?<\/div>/, "")
+      .replace('<div class="ra">', `<div class="rm2 warn">${esc(why)}</div><div class="ra"><button class="ib" data-accept="${x.id}" title="맞아요" aria-label="맞아요">${ICON.ok}</button>`);
+  return `<div class="checks"><button class="chkbar" data-checks aria-expanded="${open}"><span class="cdot"></span><span>확인할 것 ${list.length}</span><span class="chev">${open ? "▴" : "▾"}</span></button>${open ? list.map(card).join("") : ""}</div>`;
 }

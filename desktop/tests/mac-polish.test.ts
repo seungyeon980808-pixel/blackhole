@@ -143,9 +143,9 @@ describe("확인할 것 on the day view (안 2)", () => {
     expect(root.querySelector(".checks")).toBeNull();
     await app!.submitText("글피 오후 1시에 미용실 예약");
     app!.render();
-    // A provisional event waits for 확정 there; a review note on it does not make a second item.
+    // 안 A: a provisional event alone is not 「확인할 것」; a time the words did not settle is.
     const ev = app!.state.events[0];
-    expect(root.querySelector(".chkbar")!.textContent).toContain("확인할 것 1");
+    expect(root.querySelector(".checks")).toBeNull();
     ev.review = ["시각을 추정함"];
     app!.render();
     expect(root.querySelector(".chkbar")!.textContent).toContain("확인할 것 1");

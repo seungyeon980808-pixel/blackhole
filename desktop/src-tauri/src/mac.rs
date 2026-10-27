@@ -529,7 +529,7 @@ pub fn show_board(app: &AppHandle, on: bool) {
     let built = WebviewWindowBuilder::new(app, BOARD, WebviewUrl::App("index.html".into()))
         .initialization_script("window.__BH_WINDOW = 'board';")
         .title("블랙홀 오늘")
-        .inner_size(320.0, 420.0)
+        .inner_size(260.0, 300.0)
         .min_inner_size(240.0, 160.0)
         .resizable(true)
         .decorations(false)

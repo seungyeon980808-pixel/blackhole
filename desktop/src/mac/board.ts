@@ -5,36 +5,33 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { addDays, DOW, fdShort, nowHM, parseDay, ymd } from "../calendar/dates";
+import { DOW, nowHM, parseDay, ymd } from "../calendar/dates";
 import { normalizeState, type CalendarState } from "../calendar/model";
 import { eventsOn, taskGroups } from "../calendar/store";
 
 const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
+/**
+ * 안 A (user's choice): today only, small and light — appointments, then what is late or due today
+ * (not done). The next days are not shown.
+ */
 export function boardHTML(s: CalendarState, now: Date): string {
   const k = ymd(now);
   const t = parseDay(k);
   const hm = nowHM(now);
-  const evs = eventsOn(s, k);
   const g = taskGroups(s, k);
-  const late = g.today.filter((x) => x.due < k && !x.done);
-  const due = g.today.filter((x) => x.due === k);
-  const ev = evs.map((e) => {
+  const todo = g.today.filter((x) => !x.done);
+  const ev = eventsOn(s, k).map((e) => {
     const past = e.end ? e.end <= hm : !!e.start && e.start < hm;
-    return `<div class="br ${past ? "past" : ""}" data-open="${e.id}"><span class="bt">${e.start ?? "종일"}</span><span class="bn">${esc(e.title)}${e.provisional ? '<i class="ga">가</i>' : ""}</span></div>`;
+    return `<div class="br ${past ? "past" : ""}" data-open="${e.id}" title="${esc(`${e.start ?? "종일"}${e.end ? "–" + e.end : ""} ${e.title}`)}"><span class="bt">${e.start ?? "종일"}</span><span class="bn">${esc(e.title)}${e.provisional ? '<i class="ga">가</i>' : ""}</span></div>`;
   }).join("");
-  const task = (x: (typeof due)[number], hot: boolean) =>
-    `<div class="br ${x.done ? "done" : ""}"><button class="bx" data-toggle="${x.id}" role="checkbox" aria-checked="${x.done}" aria-label="${esc(x.title)} 완료">${x.done ? "✓" : ""}</button><span class="bn" data-open="${x.id}">${esc(x.title)}</span><span class="bd ${hot && !x.done ? "hot" : ""}">${x.due < k ? `${Math.round((t.getTime() - parseDay(x.due).getTime()) / 864e5)}일 지남` : x.dueTime ?? ""}</span></div>`;
-  const next = [1, 2, 3].map((n) => {
-    const d = ymd(addDays(t, n));
-    const items = [...eventsOn(s, d).map((e) => `${e.start ?? ""} ${e.title}`.trim()), ...taskGroups(s, d).today.filter((x) => x.due === d && !x.done).map((x) => `마감 ${x.title}`)];
-    return items.length ? `<div class="bnx"><b>${fdShort(d)}</b> ${esc(items.slice(0, 3).join(" · "))}${items.length > 3 ? ` 외 ${items.length - 3}` : ""}</div>` : "";
+  const task = todo.map((x) => {
+    const late = x.due < k;
+    return `<div class="br"><button class="bx" data-toggle="${x.id}" role="checkbox" aria-checked="false" aria-label="${esc(x.title)} 완료"></button><span class="bn" data-open="${x.id}" title="${esc(x.title)}">${esc(x.title)}</span><span class="bd ${late || x.dueTime ? "hot" : ""}">${late ? `${Math.round((t.getTime() - parseDay(x.due).getTime()) / 864e5)}일 지남` : x.dueTime ?? ""}</span></div>`;
   }).join("");
   return `<div class="bh-board">
-    <div class="bhd" data-tauri-drag-region><span data-tauri-drag-region>${t.getMonth() + 1}/${t.getDate()}(${DOW[t.getDay()]})</span><button class="bo" data-open="" title="블랙홀 열기">열기</button></div>
-    <div class="bs"><div class="bl">일정</div>${ev || '<div class="bz">없음</div>'}</div>
-    <div class="bs"><div class="bl">할 일</div>${late.map((x) => task(x, true)).join("")}${due.map((x) => task(x, true)).join("")}${late.length + due.length ? "" : '<div class="bz">없음</div>'}</div>
-    ${next ? `<div class="bs"><div class="bl">다가오는</div>${next}</div>` : ""}
+    <div class="bhd" data-tauri-drag-region><span data-tauri-drag-region>${t.getMonth() + 1}/${t.getDate()}(${DOW[t.getDay()]})</span><button class="bo" data-open="" title="블랙홀 열기" aria-label="블랙홀 열기">↗</button></div>
+    ${ev}${task ? `<div class="bsep"></div>${task}` : ""}${ev || task ? "" : '<div class="bz">오늘 일정·할 일 없음</div>'}
   </div>`;
 }
 

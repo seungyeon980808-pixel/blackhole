@@ -336,3 +336,12 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .mrow + .mrow, .bh.glass .mopen + .mrow, .bh.glass .mrow + .mopen { border-top: 1px solid var(--hair); }
 .bh.glass .mrow:hover { background: var(--glass2); }
 .bh.glass .mrow .d, .bh.glass .mrow .dt { color: var(--ink3); }
+.bh.glass .pop .rc { background: color-mix(in srgb, var(--page) 88%, transparent); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+.bh.glass .strip .sb { cursor: pointer; }
+/* month 안 A: holidays in plain ink with a red dot; deadlines as a dot + title */
+.bh.glass .fc .hol, .bh.glass[data-mode="dark"] .fc .hol { color: var(--ink); background: none; padding: 0; }
+.bh.glass .fc .hol::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ff4d5e; margin-right: 4px; vertical-align: 1px; }
+.bh.glass .fc .c.mdot { color: var(--ink); font-weight: 500; }
+.bh.glass .fc .c.mdot::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--todo); margin-right: 4px; vertical-align: 1px; }
+.bh.glass .fc .c.mdot.hot::before { background: #ff4d5e; }
+.bh.glass .fc .c.mdot.done { opacity: .45; text-decoration: line-through; }

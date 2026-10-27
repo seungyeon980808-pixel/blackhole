@@ -77,7 +77,7 @@ describe("「3시」 said alone is the afternoon", () => {
 });
 
 describe("no repeated information", () => {
-  it("provisional events wait once, in 「확인할 것」 (no second list)", async () => {
+  it("확인할 것 shows only what needs the user; a provisional event is confirmed from its bar", async () => {
     const a = mac();
     localStorage.clear();
     const st = seedState(NOW);
@@ -85,10 +85,16 @@ describe("no repeated information", () => {
     await a.save(st);
     const root = await mount({ ...a, load: async () => st });
     app!.setView("day", "2026-10-27");
-    root.querySelector<HTMLButtonElement>("[data-checks]")!.click();
-    const checks = root.querySelector(".checks")!.textContent!;
-    expect(checks).toContain("학년 협의회");
-    expect(checks.split("학년 협의회").length).toBe(2); // once
+    expect(root.querySelector(".checks")).toBeNull(); // nothing unsettled, nothing overlapping
+    const eye = st.events.find((e) => e.title === "안과 진료")!;
+    root.querySelector<HTMLElement>(`.strip [data-ev="${eye.id}"]`)!.click();
+    root.querySelector<HTMLButtonElement>(`#bhPop [data-ok="${eye.id}"]`)!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(eye.provisional).toBe(false);
+    // Two appointments at the same time, one provisional → 「확인할 것」.
+    st.events.push({ ...eye, id: "dup", title: "학부모 전화", provisional: true });
+    app!.render();
+    expect(root.querySelector(".chkbar")!.textContent).toContain("확인할 것");
   });
 
   it("the line above the input says a new entry once (no toast copy)", async () => {

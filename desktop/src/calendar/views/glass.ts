@@ -200,12 +200,14 @@ export const glass: ThemeView = {
   monthChip: (ctx, kind, x) => {
     if (kind === "event") {
       const e = x as unknown as CalEvent;
-      return `<span class="c ${e.area} ${e.provisional ? "prov" : ""} ${e.draft ? "draft" : ""}">${e.start ? `<span class="ct">${e.start.replace(/^0/, "")} </span>` : ""}${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</span>`;
+      // 안 A: the title only; the time on hover.
+      return `<span class="c ${e.area} ${e.provisional ? "prov" : ""} ${e.draft ? "draft" : ""}" title="${esc(`${e.start ? `${e.start}${e.end ? "–" + e.end : ""} ` : "종일 "}${e.title}${e.provisional ? " (가승인)" : ""}`)}">${esc(e.title)}</span>`;
     }
     if (kind === "task") {
       const t = x as unknown as Task;
       const b = dueBadge(ctx.today, t);
-      return `<span class="c task due ${b?.hot ? "hot" : ""} ${t.done ? "done" : ""} ${t.draft ? "draft" : ""}">마감 ${t.dueTime ? `<span class="ct">${t.dueTime} </span>` : ""}${esc(t.title)}${b ? ` <b class="dd ${b.hot ? "hot" : "soon"}">${b.text}</b>` : ""}</span>`;
+      // 안 A: a dot says 「deadline」 (red when today or late), the title, details on hover.
+      return `<span class="c task due mdot ${b?.hot ? "hot" : ""} ${t.done ? "done" : ""} ${t.draft ? "draft" : ""}" title="${esc(`마감 ${t.dueTime ? t.dueTime + " " : ""}${t.title}${b ? ` · ${b.text}` : ""}`)}">${esc(t.title)}</span>`;
     }
     const p = x as unknown as Period;
     return `<span class="pb ${p.area}" title="${esc(`${p.title} ${fd(p.from)}–${fd(p.to)}`)}">${esc(p.title)}</span>`;

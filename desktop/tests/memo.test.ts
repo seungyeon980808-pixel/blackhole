@@ -132,7 +132,8 @@ describe("desktop board", () => {
     expect(document.querySelector('[data-open="e2"]')!.classList.contains("past")).toBe(true);
     expect(document.querySelector('[data-toggle="t1"]')!.closest(".br")!.textContent).toContain("2일 지남");
     expect(document.querySelector('[data-toggle="t2"]')).not.toBeNull();
-    expect(document.querySelector(".bnx")!.textContent).toContain("15:00 치과");
+    // 안 A: today only (no next days), no notes.
+    expect(html).not.toContain("치과");
     expect(html).not.toContain("차 번호");
   });
 

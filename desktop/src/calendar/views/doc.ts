@@ -3,7 +3,7 @@ import { holiday } from "../holidays";
 import { addDays, diffDays, fdDoc, fdDocLong, mins, parseDay, weekDays, ymd } from "../dates";
 import type { CalEvent, ChatMessage, Period, Task } from "../model";
 import { alarmsOn, dueOn, eventsOn, findEntry, liveEvents, livePeriods, liveTasks, pending, periodsOn, taskGroups, type Alarm } from "../store";
-import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, chatCards, inputHint, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
+import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, chatCards, checksBar, inputHint, lazyFold, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
 
 const fd = fdDoc;
 const ROMAN = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"];
@@ -99,10 +99,10 @@ function docInbox(ctx: Ctx, k: string, n: number): string {
 export const doc: ThemeView = {
   fd,
   shell: (ctx) => `
-    <div class="tool" data-tauri-drag-region><button class="btn" data-nav="-1">‹ 이전</button><button class="btn" data-nav="1">다음 ›</button><button class="btn" data-nav="0">오늘</button><span class="sp"></span>
+    <div class="tool" data-tauri-drag-region><button class="btn ibn" data-nav="-1" aria-label="이전" title="이전 (←)">‹</button><button class="btn ibn" data-nav="1" aria-label="다음" title="다음 (→)">›</button><button class="btn ibn today" data-nav="0" aria-label="오늘로" title="오늘로 (T)">${ICON.today}</button><span class="sp"></span>
       <span class="conn" title="${esc(ctx.connection.detail)}" data-testid="connection">${esc(ctx.connection.label)}</span>
-      <span class="seg" role="group" aria-label="보기"><button class="btn" data-v="month">월</button><button class="btn" data-v="week">주</button><button class="btn" data-v="day">일</button><button class="btn" data-v="memo">기억</button></span><button class="btn" data-print>출력</button><button class="btn" data-settings aria-haspopup="dialog">설정</button></div>
-    <div class="head"><div class="dtitle" id="bhTitle"></div><div class="summary" id="bhSum"></div></div>
+      <span class="seg" role="group" aria-label="보기"><button class="btn" data-v="month">월</button><button class="btn" data-v="week">주</button><button class="btn" data-v="day">일</button><button class="btn" data-v="memo">기억</button></span><button class="btn ibn" data-print title="출력 (⌘P)" aria-label="출력">${ICON.print}</button><button class="btn ibn" data-settings aria-haspopup="dialog" title="설정 (⌘,)" aria-label="설정">${ICON.gear}</button></div>
+    <div class="head"><div class="dtitle" id="bhTitle" data-nav="0" title="눌러서 오늘로 (T)"></div><div class="summary" id="bhSum"></div></div>
     <main class="content" id="bhMain"></main>
     <footer class="composer" id="bhComp"></footer>`,
   head: (ctx) => {
@@ -126,22 +126,25 @@ export const doc: ThemeView = {
     return { title: `${fdDocLong(k)}${holiday(k) ? `(${holiday(k)})` : ""} 일일 현황`, summary: docSummary(ctx, k) };
   },
   day: (ctx) => {
+    // 안 A for 공문서 (recommended): today's appointments as one full-width table on top (time,
+    // what, note — nothing cut, rows wrap), below 할 일 | 내일·기간. Rows open their card.
     const k = ymd(ctx.cur);
     const G = taskGroups(ctx.s, k);
     const ps = periodsOn(ctx.s, k);
     const tom = ymd(addDays(ctx.cur, 1));
     const none = '<div class="li l3">- 없음</div>';
-    return `<div class="day">
-      <div class="colx">${sec(0, "시간표", "10분 단위")}${docTimetable(ctx, k)}</div>
-      <div class="colx">${sec(1, "할 일", `${[...G.today, ...G.week].filter((t) => t.done).length}/${G.today.length + G.week.length} 완료`)}
-        <div class="grp">가. 오늘까지</div>${G.today.map((t) => taskHTML(ctx, t)).join("") || none}
-        <div class="grp">나. 7일 안 마감</div>${G.week.map((t) => taskHTML(ctx, t)).join("") || none}
-        <div class="grp">다. 이후</div>${G.later.map((t) => taskHTML(ctx, t, false)).join("") || none}</div>
-      <div class="colx">
-        <div class="blk">${sec(2, "일정")}${evTable(ctx, eventsOn(ctx.s, k))}</div>
-        <div class="blk">${sec(3, "내일 일정", fd(tom))}${evTable(ctx, eventsOn(ctx.s, tom), { act: false })}</div>
-        ${ps.length ? `<div class="blk">${sec(4, "진행 중 기간")}${perTable(ps, k)}</div>` : ""}
-        ${docInbox(ctx, k, ps.length ? 5 : 4)}
+    const rest = G.week.length + G.later.length;
+    return `<div class="dday2">
+      ${ctx.side ? "" : checksBar(ctx, fd)}
+      <div class="blk dstrip">${sec(0, k === ctx.today ? "오늘 일정" : "일정", fd(k))}${evTable(ctx, eventsOn(ctx.s, k), { act: false })}</div>
+      <div class="dcols">
+        <div class="colx">${sec(1, "할 일", `${G.today.filter((t) => t.done).length}/${G.today.length} 완료`)}
+          <div class="grp">가. 오늘까지</div>${G.today.map((t) => taskHTML(ctx, t)).join("") || none}
+          ${rest ? lazyFold(ctx, "rest", [G.week.length ? `나. 7일 안 마감 ${G.week.length}` : "", G.later.length ? `다. 이후 ${G.later.length}` : ""].filter(Boolean).join(" · "), () => `${G.week.length ? `<div class="grp">나. 7일 안 마감</div>${G.week.map((t) => taskHTML(ctx, t)).join("")}` : ""}${G.later.length ? `<div class="grp">다. 이후</div>${G.later.map((t) => taskHTML(ctx, t, false)).join("")}` : ""}`) : ""}</div>
+        <div class="colx">
+          <div class="blk">${sec(2, "내일 일정", fd(tom))}${evTable(ctx, eventsOn(ctx.s, tom), { act: false })}</div>
+          ${ps.length ? `<div class="blk">${sec(3, "진행 중 기간")}${perTable(ps, k)}</div>` : ""}
+        </div>
       </div></div>`;
   },
   week: (ctx) => `<div class="colx full">${weekTable(ctx, weekDays(ctx.cur))}</div>`,
