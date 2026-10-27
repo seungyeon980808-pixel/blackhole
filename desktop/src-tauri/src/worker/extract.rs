@@ -1,7 +1,7 @@
 //! Prompt, output schema and strict validation of Gemma extraction results.
 
 use super::{
-    dates::{find_date_phrase, find_time_phrase, mentions_date, mentions_time, quoted_in, resolve, resolve_period_end},
+    dates::{find_date_phrase, find_time_phrase, mentions_date, mentions_time, period_days, quoted_in, resolve, resolve_period_end, week_span},
     error::{ErrorCode, WorkerError},
     proposal::{Evidence, ProposalItem},
 };
@@ -286,6 +286,9 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         reasons.push(format!("원문에 없는 시간 표현을 버림: 「{time_text}」"));
         String::new()
     };
+    // An end phrase not in the source loses to a length said in the sentence (it wrote 「일주일 뒤」 for
+    // 「일주일 동안」 and the period got 8 days); it still counts otherwise (「6일까지」 written as 「11월 6일」).
+    let end_said = quoted_in(source_text, &end_date_text);
     if !quoted_in(source_text, &sentence) {
         reasons.push("근거 문장이 원문과 달라 버림".to_string());
         sentence.clear();
@@ -340,12 +343,19 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
     let (start, end, mut reminders) = if kind == "PERIOD" {
         // Whole days: first day 00:00 until the day after the last. The end is resolved
         // against the start ("3일부터 6일까지"); without one the period is a single day.
-        let first = resolve(&date_text, "", "TODO", reference);
+        let midnight = |day: chrono::NaiveDate| reference.offset().from_local_datetime(&day.and_time(NaiveTime::MIN)).single();
+        // 「다음 주 내내」: that week's weekdays.
+        let week = if end_date_text.is_empty() { week_span(&date_text, reference.date_naive()) } else { None };
+        let first = if week.is_some() { super::dates::ResolvedSchedule::default() } else { resolve(&date_text, "", "TODO", reference) };
         reasons.extend(first.review_reasons);
-        match first.start_at {
-            Some(first_at) => {
+        // 「3일간」 「사흘 동안」 「일주일 동안」 (in the end phrase or the sentence): start + length − 1.
+        let length = period_days(&end_date_text).or_else(|| period_days(&sentence)).or_else(|| period_days(&title));
+        match (week, first.start_at) {
+            (Some((a, b)), _) => (midnight(a), midnight(b + Duration::days(1)), Vec::new()),
+            (None, Some(first_at)) => {
                 let start_day = first_at.date_naive();
-                let end_day = match resolve_period_end(&end_date_text, start_day) {
+                let by_length = length.map(|n| start_day + Duration::days(n - 1));
+                let end_day = match by_length.filter(|_| end_date_text.is_empty() || !end_said || period_days(&end_date_text).is_some()).or_else(|| resolve_period_end(&end_date_text, start_day)).or(by_length) {
                     Some(day) => day,
                     None => {
                         reasons.push(if end_date_text.is_empty() {
@@ -356,10 +366,9 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
                         start_day
                     }
                 };
-                let midnight = |day: chrono::NaiveDate| reference.offset().from_local_datetime(&day.and_time(NaiveTime::MIN)).single();
                 (midnight(start_day), midnight(end_day + Duration::days(1)), Vec::new())
             }
-            None => (None, None, Vec::new()),
+            (None, None) => (None, None, Vec::new()),
         }
     } else {
         let resolved = resolve(&date_text, &time_text, kind, reference);
@@ -482,6 +491,23 @@ mod tests {
         assert_eq!(first.end_at, "2026-10-22T16:00:00+09:00");
         assert!(!first.needs_review);
         assert_eq!(first.confidence, 0.9);
+    }
+
+    #[test]
+    fn period_lengths_weeks_and_a_made_up_end() {
+        // reference(): Wednesday 2026-10-21.
+        let one = |text: &str, date: &str, end: &str| {
+            let v = json!({"kind":"PERIOD","area":"SCHOOL","title":"기간","details":"","dateText":date,"timeText":"","endDateText":end,"subtasks":[],"reminderText":"","evidence":text,"confidence":0.8});
+            let e = validate(&answer(vec![v]).to_string(), Some(text), reference()).unwrap();
+            (e.items[0].start_at[..10].to_string(), e.items[0].end_at[..10].to_string())
+        };
+        let s = |a: &str, b: &str| (a.to_string(), b.to_string());
+        // 「일주일 뒤」 is not in the text: the said length wins (7 days, not 8).
+        assert_eq!(one("오늘부터 일주일 동안 독서 주간", "오늘", "일주일 뒤"), s("2026-10-21", "2026-10-28"));
+        assert_eq!(one("3일간 연수 11월 4일부터", "11월 4일", ""), s("2026-11-04", "2026-11-07"));
+        assert_eq!(one("다음 주 내내 공개수업 주간", "다음 주", ""), s("2026-10-26", "2026-10-31"));
+        // The model's 「11월 6일」 for 「6일까지」 still ends it.
+        assert_eq!(one("11월 3일부터 6일까지 상담 주간", "11월 3일", "11월 6일"), s("2026-11-03", "2026-11-07"));
     }
 
     #[test]

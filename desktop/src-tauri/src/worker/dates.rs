@@ -54,7 +54,7 @@ fn approx_reason(word: &str, time: NaiveTime) -> String {
     format!("대략 시각: 「{word}」을 {}로 둠", time.format("%H:%M"))
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ResolvedSchedule {
     pub start_at: Option<DateTime<FixedOffset>>,
     pub end_at: Option<DateTime<FixedOffset>>,
@@ -323,9 +323,101 @@ fn next_or_same(today: NaiveDate, weekday: Weekday) -> NaiveDate {
     today + Duration::days(ahead as i64)
 }
 
+/// 「12월 첫째 주 금요일」 「11월 셋째 주 수요일」 「다음 달 첫 월요일」 「이번 달 마지막 금요일」: the Nth such
+/// weekday of that month. 「10월 마지막 날」 「다음 달 마지막 날」: the month's last day. (2026-10-28 밤샘: the first
+/// two came out as this Friday and 11월 4일.) A named month already past is next year's.
+fn month_week_day(text: &str, today: NaiveDate) -> Option<NaiveDate> {
+    static NTH: OnceLock<Regex> = OnceLock::new();
+    static LAST_DAY: OnceLock<Regex> = OnceLock::new();
+    let month_of = |num: Option<regex::Match>, rel: Option<regex::Match>| -> Option<(i32, u32, bool)> {
+        match (num, rel.map(|r| r.as_str())) {
+            (Some(m), _) => Some((today.year(), m.as_str().parse().ok().filter(|m| (1..=12).contains(m))?, true)),
+            (None, Some("다음")) => Some(if today.month() == 12 { (today.year() + 1, 1, false) } else { (today.year(), today.month() + 1, false) }),
+            (None, Some(_)) => Some((today.year(), today.month(), false)),
+            _ => None,
+        }
+    };
+    let last_of = |y: i32, m: u32| {
+        let (ny, nm) = if m == 12 { (y + 1, 1) } else { (y, m + 1) };
+        NaiveDate::from_ymd_opt(ny, nm, 1).map(|d| d - Duration::days(1))
+    };
+    // A named month before this one: next year's (「1월 첫째 주」 said in October).
+    let roll = |y: i32, m: u32, named: bool, f: &dyn Fn(i32, u32) -> Option<NaiveDate>| {
+        let d = f(y, m)?;
+        if named && last_of(y, m)? < today { f(y + 1, m) } else { Some(d) }
+    };
+    if let Some(c) = re(&NTH, r"(?:(\d{1,2})\s*월|(다음|이번)\s*달)\s*(첫째|첫|둘째|셋째|넷째|다섯째|마지막)\s*(?:주\s*)?([월화수목금토일])요일").captures(text) {
+        let (y, m, named) = month_of(c.get(1), c.get(2))?;
+        let w = "월화수목금토일".chars().position(|x| c[4].starts_with(x))? as u32;
+        let nth = ["첫", "둘째", "셋째", "넷째", "다섯째"].iter().position(|n| c[3].starts_with(n)).map(|i| i as i64);
+        let pick = move |y: i32, m: u32| -> Option<NaiveDate> {
+            match nth {
+                Some(n) => {
+                    let first = NaiveDate::from_ymd_opt(y, m, 1)?;
+                    let d = first + Duration::days(((w + 7 - first.weekday().num_days_from_monday()) % 7) as i64 + 7 * n);
+                    (d.month() == m).then_some(d)
+                }
+                None => {
+                    let last = last_of(y, m)?;
+                    Some(last - Duration::days(((last.weekday().num_days_from_monday() + 7 - w) % 7) as i64))
+                }
+            }
+        };
+        return roll(y, m, named, &pick);
+    }
+    if let Some(c) = re(&LAST_DAY, r"(?:(\d{1,2})\s*월|(다음|이번)\s*달)\s*(?:마지막\s*날|말일)").captures(text) {
+        let (y, m, named) = month_of(c.get(1), c.get(2))?;
+        return roll(y, m, named, &last_of);
+    }
+    None
+}
+
+/// 「3일간」 「사흘 동안」 「일주일 동안」 「2주간」: how many days a period lasts (None when not said).
+pub fn period_days(text: &str) -> Option<i64> {
+    static DAYS: OnceLock<Regex> = OnceLock::new();
+    static WEEKS: OnceLock<Regex> = OnceLock::new();
+    if let Some(c) = re(&DAYS, r"(\d{1,2})\s*일\s*(?:간|동안)").captures(text) {
+        return c[1].parse().ok().filter(|n| (1..=60).contains(n));
+    }
+    if let Some(c) = re(&WEEKS, r"(\d)\s*주\s*(?:간|동안)").captures(text) {
+        return c[1].parse::<i64>().ok().map(|n| n * 7);
+    }
+    for (word, n) in [("이틀", 2), ("사흘", 3), ("나흘", 4), ("닷새", 5), ("엿새", 6), ("이레", 7), ("일주일", 7), ("한 주", 7), ("1주일", 7)] {
+        let Some(at) = text.find(word) else { continue };
+        let after = text[at + word.len()..].trim_start();
+        // 「이틀 출장」 is a length by itself; 「일주일」 only with 간·동안·내내 (「일주일 뒤」 is a day).
+        if after.is_empty() || after.starts_with('간') || after.starts_with("동안") || after.starts_with("내내") || (n <= 6 && !after.starts_with('뒤') && !after.starts_with('후')) {
+            return Some(n);
+        }
+    }
+    None
+}
+
+/// 「다음 주 내내」 「이번 주 동안」 as a period: that week's weekdays (this week from today).
+pub fn week_span(text: &str, today: NaiveDate) -> Option<(NaiveDate, NaiveDate)> {
+    let t = text.replace(' ', "");
+    let monday = today - Duration::days(today.weekday().num_days_from_monday() as i64);
+    let monday = if t.starts_with("다음주") && !t.contains("요일") {
+        monday + Duration::days(7)
+    } else if (t.starts_with("이번주") || t.starts_with("금주")) && !t.contains("요일") {
+        monday
+    } else {
+        return None;
+    };
+    Some((monday.max(today), monday + Duration::days(4)))
+}
+
 fn parse_date(text: &str, today: NaiveDate) -> DateOutcome {
     if text.trim().is_empty() {
         return DateOutcome::Absent;
+    }
+    if let Some(date) = month_week_day(text, today) {
+        return DateOutcome::Valid(date);
+    }
+    // A lone weekday quoted from a list (「1반 화 2반 수」): that weekday.
+    let lone = text.trim();
+    if lone.chars().count() == 1 && "월화수목금토".contains(lone) {
+        return parse_date(&format!("{lone}요일"), today);
     }
     if let Some(caps) = absolute_date().captures(text) {
         let explicit_year = caps.get(1).and_then(|y| y.as_str().parse::<i32>().ok());
@@ -718,6 +810,23 @@ mod tests {
         DateTime::parse_from_rfc3339("2026-10-21T09:00:00+09:00").unwrap()
     }
 
+    #[test]
+    fn period_lengths_and_week_spans() {
+        assert_eq!(period_days("3일간 연수 11월 4일부터"), Some(3));
+        assert_eq!(period_days("사흘 동안"), Some(3));
+        assert_eq!(period_days("17일 18일 이틀 출장"), Some(2));
+        assert_eq!(period_days("오늘부터 일주일 동안 독서 주간"), Some(7));
+        assert_eq!(period_days("일주일"), Some(7));
+        assert_eq!(period_days("2주간 방과후"), Some(14));
+        assert_eq!(period_days("일주일 뒤 상담"), None);
+        assert_eq!(period_days("수학여행"), None);
+        let wed = NaiveDate::from_ymd_opt(2026, 10, 21).unwrap();
+        let d = |m, day| NaiveDate::from_ymd_opt(2026, m, day).unwrap();
+        assert_eq!(week_span("다음 주", wed), Some((d(10, 26), d(10, 30))));
+        assert_eq!(week_span("이번 주", wed), Some((d(10, 21), d(10, 23))));
+        assert_eq!(week_span("다음 주 화요일", wed), None);
+    }
+
     fn start(date: &str, time: &str, kind: &str) -> String {
         resolve(date, time, kind, reference())
             .start_at
@@ -786,6 +895,15 @@ mod tests {
         // The date phrase's part of day applies to a bare hour ("오늘 밤" + "10시" → 22:00).
         assert_eq!(start("오늘 밤", "10시", "TODO"), "2026-10-21T22:00:00+09:00");
         assert_eq!(start("오늘", "밤 12시", "TODO"), "2026-10-21T23:59:00+09:00");
+        // 2026-10-28 밤샘: Nth weekday of a month, a month's last day, a weekday quoted alone.
+        assert_eq!(start("12월 첫째 주 금요일", "", "SCHEDULE"), "2026-12-04T09:00:00+09:00");
+        assert_eq!(start("11월 셋째 주 수요일", "", "SCHEDULE"), "2026-11-18T09:00:00+09:00");
+        assert_eq!(start("다음 달 첫 월요일", "", "SCHEDULE"), "2026-11-02T09:00:00+09:00");
+        assert_eq!(start("이번 달 마지막 금요일", "", "SCHEDULE"), "2026-10-30T09:00:00+09:00");
+        assert_eq!(start("1월 둘째 주 화요일", "", "SCHEDULE"), "2027-01-12T09:00:00+09:00");
+        assert_eq!(start("10월 마지막 날", "", "SCHEDULE"), "2026-10-31T09:00:00+09:00");
+        assert_eq!(start("다음 달 마지막 날", "", "TODO"), "2026-11-30T09:00:00+09:00");
+        assert_eq!(start("화", "점심시간", "SCHEDULE"), "2026-10-27T12:00:00+09:00");
         assert_eq!(start("내일 아침", "7시", "SCHEDULE"), "2026-10-22T07:00:00+09:00");
         assert_eq!(start("내일 저녁", "15:00", "SCHEDULE"), "2026-10-22T15:00:00+09:00");
         // An hour still wins over the default.

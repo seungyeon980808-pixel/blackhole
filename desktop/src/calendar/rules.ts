@@ -292,6 +292,36 @@ export function dateWords(raw: string, now: Date): string {
   v = v.replace(/다음\s*달\s*(?:말|말일)/g, () => md(new Date(today.getFullYear(), today.getMonth() + 2, 0)));
   v = v.replace(/이번\s*달\s*(?:안에|안으로|중에|중|내로|내)/g, () => `${md(new Date(today.getFullYear(), today.getMonth() + 1, 0))}까지`);
   v = v.replace(/(?:이번\s*달\s*)?(?:월말|말일)/g, () => md(new Date(today.getFullYear(), today.getMonth() + 1, 0)));
+  // 「12월 첫째 주 금요일」 「11월 셋째 주 수요일」 「다음 달 첫 월요일」 「이번 달 마지막 금요일」: the Nth such weekday
+  // of that month (they came out as this Friday / 11월 4일). 「10월 마지막 날」: the month's last day.
+  const monthOf = (num?: string, rel?: string) => (num ? Number(num) - 1 : today.getMonth() + (rel === "다음" ? 1 : 0));
+  v = v.replace(/(?:(\d{1,2})\s*월|(다음|이번)\s*달)\s*(첫째|첫|둘째|셋째|넷째|다섯째|마지막)\s*(?:주\s*)?([월화수목금토일])요일/g, (m, num?: string, rel?: string, nth?: string, c?: string) => {
+    const mon = monthOf(num, rel);
+    const y = num && new Date(today.getFullYear(), mon + 1, 0) < today ? today.getFullYear() + 1 : today.getFullYear();
+    const w = dow(c!);
+    const n = ["첫", "둘째", "셋째", "넷째", "다섯째"].findIndex((x) => nth!.startsWith(x));
+    let d: Date;
+    if (n >= 0) {
+      const first = new Date(y, mon, 1);
+      d = addDays(first, ((w - first.getDay() + 7) % 7) + 7 * n);
+      if (d.getMonth() !== ((mon % 12) + 12) % 12) return m;
+    } else {
+      const last = new Date(y, mon + 1, 0);
+      d = addDays(last, -((last.getDay() - w + 7) % 7));
+    }
+    return d < today ? past(d) : md(d);
+  });
+  v = v.replace(/(?:(\d{1,2})\s*월|(다음|이번)\s*달)\s*마지막\s*날/g, (_m, num?: string, rel?: string) => {
+    const mon = monthOf(num, rel);
+    const y = num && new Date(today.getFullYear(), mon + 1, 0) < today ? today.getFullYear() + 1 : today.getFullYear();
+    return md(new Date(y, mon + 1, 0));
+  });
+  // 「다음 주 내내」 「이번 주 동안」: that week's weekdays (before 「다음 주 내」 below reads 「내내」 as 「내」).
+  v = v.replace(/(다음|이번)\s*주\s*(?:내내|동안|하루\s*종일)/g, (_m, w: string) => {
+    const mon = w === "다음" ? nextMonday() : addDays(today, -((today.getDay() + 6) % 7));
+    const from = mon < today ? today : mon;
+    return `${md(from)}부터 ${md(addDays(mon, 4))}까지`;
+  });
   // 이번 주 안에 → 이번 주 금요일까지 · 다음 주 중에 → 다음 주 금요일까지
   v = v.replace(/(?:이번\s*주|금주)\s*(?:안에|안으로|중에|중|내로|내)/g, () => `${md(addDays(today, ((5 - today.getDay() + 7) % 7)))}까지`);
   v = v.replace(/다음\s*주\s*(?:안에|안으로|중에|중|내로|내)/g, () => `${md(addDays(nextMonday(), 4))}까지`);
@@ -487,6 +517,9 @@ const DAY_TOKEN = "(\\d{4}년\\s*\\d{1,2}월\\s*\\d{1,2}일|\\d{1,2}월\\s*\\d{1
 const DAY_SPAN = new RegExp(`${DAY_TOKEN}\\s*(?:부터|~|-|–|에서)\\s*${DAY_TOKEN}\\s*(?:까지)?`);
 const DAY_COUNT = new RegExp(`${DAY_TOKEN}\\s*부터\\s*(\\d{1,2}일|이틀|사흘|나흘|닷새|엿새|일주일)\\s*(?:간|동안)`);
 const COUNT_WORD: Record<string, number> = { 이틀: 2, 사흘: 3, 나흘: 4, 닷새: 5, 엿새: 6, 일주일: 7 };
+const COUNT_ANY = /(\d{1,2}일|이틀|사흘|나흘|닷새|엿새|일주일)\s*(?:간|동안)|(이틀|사흘|나흘|닷새)(?=\s)/;
+const DAY_FROM = new RegExp(`${DAY_TOKEN}\\s*부터`);
+const DAY_PAIR = new RegExp(`${DAY_TOKEN}\\s*(?:,|과|와|및)?\\s*${DAY_TOKEN}\\s*(?=이틀|양일)`);
 
 /** 「11월 2일부터 6일까지 체험학습」 「10/28~10/30 출장」 「다음 주 월요일부터 금요일까지」 「내일부터 사흘간 연수」 → a 기간. */
 function daySpan(raw: string, now: Date): RuleResult | null {
@@ -501,13 +534,22 @@ function daySpan(raw: string, now: Date): RuleResult | null {
     const week = /다음\s*주|이번\s*주/.exec(span[1])?.[0];
     to = dayOf(week && /^[월화수목금토일]요일$/.test(span[2].trim()) ? `${week} ${span[2]}` : span[2]);
     rest = raw.replace(span[0], " ");
-  } else {
-    const count = DAY_COUNT.exec(raw);
-    if (!count) return null;
+  } else if (DAY_COUNT.test(raw)) {
+    const count = DAY_COUNT.exec(raw)!;
     from = dayOf(count[1]);
     const n = COUNT_WORD[count[2]] ?? Number(count[2].replace("일", ""));
     to = from ? ymd(addDays(new Date(`${from}T00:00`), n - 1)) : null;
     rest = raw.replace(count[0], " ");
+  } else {
+    // 「3일간 연수 11월 4일부터」 (the length first) · 「17일 18일 이틀 출장」 (both days, then the length).
+    const len = COUNT_ANY.exec(raw);
+    const start = DAY_FROM.exec(raw) ?? DAY_PAIR.exec(raw);
+    if (!len || !start) return null;
+    from = dayOf(start[1]);
+    const word = len[1] ?? len[2];
+    const n = COUNT_WORD[word] ?? Number(word.replace("일", ""));
+    to = from ? ymd(addDays(new Date(`${from}T00:00`), n - 1)) : null;
+    rest = raw.replace(start[0], " ").replace(len[0], " ");
   }
   if (!from || !to || to <= from || /\d{1,2}\s*시|\d{1,2}:\d{2}/.test(raw)) return null;
   const r = parseRule(rest.trim() || "기간", now);
