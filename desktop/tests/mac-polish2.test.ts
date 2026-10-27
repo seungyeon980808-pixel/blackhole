@@ -157,3 +157,48 @@ describe("settings", () => {
     expect(modelName("claude-haiku-5-5")).toBe("Claude Haiku 5.5");
   });
 });
+
+describe("said time ranges (「오늘 1620~2120 초과근무 일정」 went in as all-day)", () => {
+  it("reads 1620~2120, 16:20~21:20 and 4시~6시 as start and end", async () => {
+    const { parseDraft, timeRange, clockText } = await import("../src/calendar/rules");
+    const r = parseDraft("오늘 1620~2120 초과근무 일정", NOW);
+    expect([r.kind, r.date, r.time, r.end, r.title]).toEqual(["SCHEDULE", "2026-10-27", "16:20", "21:20", "초과근무"]);
+    expect(timeRange("내일 16:20~21:20 당직")).toMatchObject({ start: "16:20", end: "21:20" });
+    expect(timeRange("모레 4시~6시 상담")).toMatchObject({ start: "16:00", end: "18:00" });
+    expect(timeRange("오전 10시부터 12시까지 연수")).toMatchObject({ start: "10:00", end: "12:00" });
+    expect(timeRange("택배 1620개")).toBeNull();
+    expect(clockText("오늘 1620~2120 초과근무 일정")).toBe("오늘 초과근무 일정 16:20~21:20");
+  });
+
+  it("goes in at once as 16:20–21:20 (no AI needed), alarm 30 min before", async () => {
+    const a = mac();
+    await mount(a);
+    await app!.submitText("오늘 1620~2120 초과근무 일정");
+    const ev = app!.state.events.find((e) => e.title === "초과근무")!;
+    expect([ev.date, ev.start, ev.end, ev.draft]).toEqual(["2026-10-27", "16:20", "21:20", false]);
+    expect(ev.reminders).toEqual(["2026-10-27T15:50"]);
+    expect(a.calls).toEqual(["skip:rule"]);
+  });
+
+  it("a complaint is not put in as a new entry", async () => {
+    const a = mac();
+    await mount(a);
+    await app!.submitText("초과근무 오늘 일정 추가하라고 했는데 왜 이상하게 들어가냐");
+    expect(app!.state.events.filter((e) => !e.sample)).toHaveLength(0);
+    expect(a.calls).toEqual([]);
+  });
+
+  it("when the AI loses a said time (all-day), the said time stays", async () => {
+    const { emptyState } = await import("../src/calendar/model");
+    const { draftFromText, refineDrafts } = await import("../src/calendar/store");
+    const s = emptyState();
+    const d = draftFromText(s, "오늘 1620~2120 초과근무 회의", "데스크톱", NOW, "k1");
+    const p = structuredClone(proposal);
+    p.items = [{ ...p.items.find((i) => i.kind === "SCHEDULE")!, title: "초과근무 회의", startAt: "2026-10-27T00:00:00+09:00", endAt: "", reminders: [], reminderAt: "" }];
+    // What happened: the AI found no time words in 「1620~2120」 (timeText empty) → all-day.
+    p.items[0].evidence = { ...p.items[0].evidence, timeText: "" };
+    refineDrafts(s, "k1", p, "데스크톱", NOW);
+    const ev = s.events.find((e) => e.id === d.id)!;
+    expect([ev.start, ev.end]).toEqual(["16:20", "21:20"]);
+  });
+});

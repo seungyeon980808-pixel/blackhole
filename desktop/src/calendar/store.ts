@@ -161,7 +161,7 @@ export function draftFromText(s: CalendarState, text: string, source: string, no
   const r = parseDraft(text, now);
   const base = { title: r.title, area: "personal" as Area, source, createdAt: stamp(now), draft: true, srcKey, review: r.needsReview ? [r.explanation] : undefined };
   if (r.kind === "SCHEDULE" && r.date && r.time) {
-    const endM = Math.min(mins(r.time) + 60, 23 * 60 + 59);
+    const endM = r.end ? mins(r.end) : Math.min(mins(r.time) + 60, 23 * 60 + 59);
     const ev: CalEvent = {
       ...base, id: draftId("e"), kind: "event", date: r.date, start: r.time,
       end: `${String(Math.floor(endM / 60)).padStart(2, "0")}:${String(endM % 60).padStart(2, "0")}`,
@@ -261,6 +261,12 @@ export function refineDrafts(s: CalendarState, key: string, p: Proposal, source:
     }
     const d = left.splice(i, 1)[0];
     removeEntry(s, n);
+    // The words said a clock time and the AI answer lost it (all-day): keep the said time.
+    if (d.kind === "event" && n.kind === "event" && d.start && !n.start && d.date === n.date) {
+      n.start = d.start;
+      n.end = d.end;
+      if (!n.reminders.length) n.reminders = d.reminders;
+    }
     const keep = { id: d.id, createdAt: d.createdAt };
     for (const k of Object.keys(d)) delete (d as unknown as Record<string, unknown>)[k];
     Object.assign(d, n, keep);

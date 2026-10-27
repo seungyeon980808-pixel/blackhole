@@ -9,7 +9,7 @@ import { addDays, fromStamp, hm, mins, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, type CalendarState, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
-import { isSimpleCertain, parseDraft } from "./rules";
+import { clockText, isSimpleCertain, parseDraft } from "./rules";
 import { seedState } from "./samples";
 import {
   applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
@@ -917,7 +917,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       render();
       return;
     }
-    await analyze({ text: v, now: clock() }, { text: v, kind: "text" }, src, "문장");
+    // The AI gets said ranges as clock times (it misread 「1620~2120」 as a whole day).
+    await analyze({ text: clockText(v), now: clock() }, { text: v, kind: "text" }, src, "문장");
   }
 
   /** The local index over the records (+ secret names and notes from the Mac), rebuilt when stale. */

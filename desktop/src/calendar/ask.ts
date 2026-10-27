@@ -59,7 +59,7 @@ export const KIND_LABEL: Record<DocKind, string> = { event: "일정", task: "할
 
 /* ---------- question or put-in ---------- */
 
-const ASK_WORDS = /뭐였지|뭐였더라|뭐더라|뭐지|언제|어디|몇 ?시|몇 ?개|있나|알려 ?줘|뭐야|뭐 ?있|무슨|누구|얼마|찾아 ?줘|기억나|했지|였지|였더라|했더라|이었나|인가요?$|있어요?\?|맞지|어때|정리해 ?줘|요약/;
+const ASK_WORDS = /왜|냐\s*$|니\s*$|잖아|이상하게|안\s?(돼|되|들어가)|틀렸|뭐였지|뭐였더라|뭐더라|뭐지|언제|어디|몇 ?시|몇 ?개|있나|알려 ?줘|뭐야|뭐 ?있|무슨|누구|얼마|찾아 ?줘|기억나|했지|였지|였더라|했더라|이었나|인가요?$|있어요?\?|맞지|어때|정리해 ?줘|요약/;
 
 /**
  * "ask" a question, "put" something to put in, "both" can't tell (a clock time and a question

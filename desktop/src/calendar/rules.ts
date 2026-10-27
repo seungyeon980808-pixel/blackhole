@@ -17,6 +17,8 @@ export interface RuleResult {
   hasTime: boolean;
   needsReview: boolean;
   explanation: string;
+  /** End time when a range was said (「16:20~21:20」, 「1620~2120」, 「4시~6시」). Mac drafts only. */
+  end?: string;
 }
 
 const TITLE_POSTPOSITION = "(?:은|는|이|가|을|를|에|에서|까지|부터)?";
@@ -200,7 +202,53 @@ function bareHour(raw: string): number | null {
  * one human guess on top — 「3시 치과」 means 15:00, not 03:00. Hours 1–6 said alone are taken as
  * afternoon (nobody books a dentist at 3 a.m.); 7–12 stay as said. The AI still refines it.
  */
+const CLOCK_RANGE = /(?<!\d)([01]?\d|2[0-3]):?([0-5]\d)\s*(?:~|-|–|부터)\s*([01]?\d|2[0-3]):?([0-5]\d)(?!\d)(?:\s*까지)?/;
+const HOUR_RANGE = /(?:(오전|오후|아침|낮|저녁|밤|새벽)\s*)?(\d{1,2})시(?:\s*(\d{1,2})분|\s*(반))?\s*(?:~|-|–|부터)\s*(?:(오전|오후|아침|낮|저녁|밤|새벽)\s*)?(\d{1,2})시(?:\s*(\d{1,2})분|\s*(반))?(?:\s*까지)?/;
+const PM = /오후|낮|저녁|밤/;
+const AM = /오전|아침|새벽/;
+
+/** The sentence with a said range written as clock times, for the AI (「1620~2120」 → 「16:20~21:20」). */
+export function clockText(raw: string): string {
+  const t = timeRange(raw);
+  return t ? `${t.rest.replace(/\s+/g, " ").trim()} ${t.start}~${t.end}` : raw;
+}
+
+/**
+ * A time range said in a sentence → [start, end, the sentence without it]. 「1620~2120」 and
+ * 「16:20~21:20」 are clock times as written; 「4시~6시」 follows the afternoon guess (1–6시 alone =
+ * afternoon) and an end earlier than the start moves to the afternoon too.
+ */
+export function timeRange(raw: string): { start: string; end: string; rest: string } | null {
+  const c = CLOCK_RANGE.exec(raw);
+  // 4 digits without a colon only count as a time inside a range (「1620~2120」), never alone.
+  if (c && (c[0].includes(":") || (c[1].length === 2 && c[3].length === 2) || /시|~/.test(c[0]))) {
+    const a = `${pad(Number(c[1]))}:${c[2]}`;
+    const b = `${pad(Number(c[3]))}:${c[4]}`;
+    if (b > a) return { start: a, end: b, rest: raw.replace(c[0], " ") };
+  }
+  const h = HOUR_RANGE.exec(raw);
+  if (!h) return null;
+  const hour = (p: string | undefined, v: number, bareGuess: boolean) => (p && PM.test(p) && v < 12 ? v + 12 : p && AM.test(p) && v === 12 ? 0 : !p && bareGuess && v >= 1 && v <= 6 ? v + 12 : v);
+  const bare = !/오전|오후|아침|점심|낮|저녁|밤|새벽/.test(raw);
+  let h1 = hour(h[1], Number(h[2]), bare);
+  let h2 = hour(h[5] ?? h[1], Number(h[6]), bare);
+  const m1 = h[3] ? Number(h[3]) : h[4] ? 30 : 0;
+  const m2 = h[7] ? Number(h[7]) : h[8] ? 30 : 0;
+  if (h2 * 60 + m2 <= h1 * 60 + m1 && h2 < 12) h2 += 12;
+  if (h1 > 23 || h2 > 23 || h2 * 60 + m2 <= h1 * 60 + m1) return null;
+  return { start: `${pad(h1)}:${pad(m1)}`, end: `${pad(h2)}:${pad(m2)}`, rest: raw.replace(h[0], " ") };
+}
+
 export function parseDraft(raw: string, now: Date): RuleResult {
+  const range = timeRange(raw);
+  if (range) {
+    // The day and the title from the rest of the sentence; the range is the time.
+    const r = parseRule(range.rest, now);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const date = r.date ?? ymd(today);
+    const taskOnly = r.kind === "TODO" && !/일정|약속|근무|회의|수업|모임|출장|진료|상담/.test(raw);
+    return { ...r, kind: taskOnly ? "TODO" : "SCHEDULE", date, time: range.start, end: range.end, hasTime: true, needsReview: false, explanation: "날짜와 시간을 찾음" };
+  }
   const r = parseRule(raw, now);
   const h = bareHour(raw);
   if (!r.hasTime || !r.time || !r.date || h === null || h < 1 || h > 6) return r;
@@ -229,12 +277,13 @@ const TITLE_TAIL = /(?:있어|있음|있다|있고|해|해야|해줘|해 줘|줘
  * photos always go to the AI.
  */
 export function isSimpleCertain(raw: string, r: RuleResult): boolean {
-  const text = normalize(raw).trim();
+  // A said range (「1620~2120」) is as clear as a single time: judge the rest of the sentence.
+  const text = normalize(r.end ? timeRange(raw)?.rest ?? raw : raw).trim();
   if (r.kind !== "SCHEDULE" || !r.hasTime || r.needsReview || r.explanation !== "날짜와 시간을 찾음") return false;
   if (text.length > 30 || NOT_SIMPLE.test(text)) return false;
   if (/(아침|저녁|밤|새벽|낮)(?!\s*\d)/.test(text)) return false;
   // 「6시」 alone may be morning or evening: let the AI decide.
-  if (bareHour(raw) === 6) return false;
+  if (!r.end && bareHour(raw) === 6) return false;
   const title = r.title.trim();
   return title !== "음성 메모" && title.length >= 2 && title.length <= 15 && !TITLE_TAIL.test(title) && /^[가-힣A-Za-z0-9 ]+$/.test(title);
 }
