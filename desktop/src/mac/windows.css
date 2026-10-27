@@ -53,8 +53,8 @@ html.bhw-board[data-theme="doc"] .bh-board { color: #111; background: #fff; bord
 .bh-board .bt { flex: none; width: 38px; font-variant-numeric: tabular-nums; opacity: .75; }
 .bh-board .bn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bh-board .bd { flex: none; font-size: 11px; opacity: .7; }
-.bh-board .bd.hot { color: #ff6b6b; opacity: 1; font-weight: 700; }
-html.bhw-board[data-theme="doc"] .bh-board .bd.hot, html.bhw-board[data-theme="light"] .bh-board .bd.hot { color: #d12b2b; }
+.bh-board .bd.hot { color: inherit; opacity: 1; font-weight: 700; }
+.bh-board .bd.hot::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ff4d5e; margin-right: 5px; vertical-align: 1px; }
 .bh-board .bx { flex: none; width: 15px; height: 15px; border-radius: 4px; border: 1.4px solid currentColor; background: none; color: inherit; font-size: 10px; line-height: 12px; padding: 0; cursor: pointer; opacity: .8; }
 .bh-board .ga { font-style: normal; font-size: 9px; font-weight: 800; padding: 0 3px; border-radius: 3px; background: currentColor; margin-left: 4px; }
 .bh-board .ga { color: inherit; outline: 1px dashed currentColor; background: none; }

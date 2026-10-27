@@ -301,3 +301,8 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .rc.edit input:focus { border-color: #6f8dff; }
 .bh.glass .rc .mini { margin: 0; }
 .bh.glass .rc .ra .mini + .mini { margin-left: 0; }
+
+/* Urgent marks (user's choice C, 2026-10-27): the text stays readable ink, a small red dot says
+   「urgent」 (red text on blue/teal glass was hard to read). */
+.bh.glass .dd.hot, .bh.glass .c.due.hot, .bh.glass .inbox h4.warn { color: var(--ink); }
+.bh.glass .dd.hot::before, .bh.glass .inbox h4.warn::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ff4d5e; margin-right: 5px; vertical-align: 1px; }
