@@ -55,8 +55,8 @@
 .bh.glass .fc-theme-standard td, .bh.glass .fc-theme-standard th { border-color: var(--hair); }
 .bh.glass .fc .fc-col-header-cell { border: 0; }
 .bh.glass .fc .fc-col-header-cell-cushion { font-size: 11px; color: var(--ink2); font-weight: 400; padding: 2px 5px; }
-.bh.glass .fc-dayGridMonth-view .fc-col-header-cell { text-align: left; }
-.bh.glass .fc-dayGridMonth-view .fc-col-header-cell:first-child .fc-col-header-cell-cushion { color: #ff7d8f; }
+.bh.glass .fc-rolling-view .fc-col-header-cell { text-align: left; }
+.bh.glass .fc-rolling-view .fc-col-header-cell:first-child .fc-col-header-cell-cushion { color: #ff7d8f; }
 .bh.glass .fc .fc-daygrid-day-top { flex-direction: row; }
 .bh.glass .fc .fc-daygrid-day-number { font-size: 11.5px; font-weight: 700; padding: 0 4px; margin: 2px 0 0 4px; border-radius: 5px; color: var(--ink); }
 .bh.glass .fc .fc-day-sun .fc-daygrid-day-number { color: #ff7d8f; }
@@ -373,7 +373,7 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .al-b.ok { background: #fff; color: #0b2a5a; }
 .bh.glass .settings input:focus, .bh.glass .rc.edit input:focus { border-color: var(--ink2); }
 .bh.glass .settings .kbd.rec { border-color: var(--ink); color: var(--ink); }
-.bh.glass .fc-dayGridMonth-view .fc-col-header-cell:first-child .fc-col-header-cell-cushion, .bh.glass .fc .fc-day-sun .fc-daygrid-day-number { color: #ff5a5f; }
+.bh.glass .fc-rolling-view .fc-col-header-cell:first-child .fc-col-header-cell-cushion, .bh.glass .fc .fc-day-sun .fc-daygrid-day-number { color: #ff5a5f; }
 .bh.glass .dd.hot::before, .bh.glass .inbox h4.warn::before, .bh.glass .fc .hol::before, .bh.glass .fc .c.mdot.hot::before { background: #ff5a5f; }
 .bh.side .resizer:hover, .bh.side .resizer:focus-visible { background: linear-gradient(90deg, transparent 3px, var(--x-line) 3px, var(--x-line) 5px, transparent 5px); }
 /* 대화: 좁고 촘촘하게 */
@@ -416,3 +416,25 @@ html.native-glass .bh .bar { padding: 3px 12px 4px 84px; }
 .bh.glass .inbar .ic.sm:hover { background: var(--x-chip); color: var(--ink); }
 .bh.glass .inbar .ic.sm svg { width: 16px; height: 16px; }
 .bh.glass .inbar .ic.go.sm { background: var(--ink); color: var(--page); }
+/* 월(6주 굴림): 이번 주 = 둘째 줄, 지난 날은 옅게 */
+.bh .fc-rolling-view .fc-daygrid-body tbody tr:nth-child(2) td { background: rgba(255,255,255,.05); }
+.bh .fc-rolling-view .fc-day-past .fc-daygrid-day-number { opacity: .5; }
+
+/* 확정안: 머리줄 · 바탕(비침 없는 단색 파랑) · 대화 A(옅은 말풍선, 시각은 왼쪽) */
+.bh.glass .bar { display: block; padding: 6px 12px 4px; }
+html.native-glass .bh .bar { padding: 3px 12px 4px; }
+html.native-glass .bh .tlsp { display: block; width: 70px; height: 30px; }
+.bh.glass .barin .nb, .bh.glass .barin .seg, .bh.glass .barin .find { height: 30px; border-radius: 9px; }
+html.native-glass .bh.glass { background: radial-gradient(1100px 700px at 15% 0%, #1763b8, transparent 60%), radial-gradient(900px 800px at 60% 100%, #2e8796, transparent 60%), #0b3a8c; }
+html.native-glass .bh.glass[data-mode="light"] { background: radial-gradient(1100px 700px at 15% 0%, #dfe7f3, transparent 60%), radial-gradient(900px 800px at 60% 100%, #e6eef0, transparent 60%), #eef1f6; }
+.bh .mrow { align-self: flex-end; display: flex; align-items: flex-end; gap: 6px; max-width: 92%; }
+.bh .mrow .bub.me { max-width: none; }
+.bh .btime { font-size: 10.5px; color: var(--ink3); white-space: nowrap; flex: none; padding-bottom: 2px; font-variant-numeric: tabular-nums; }
+.bh.glass .bub.me { background: rgba(255,255,255,.16); color: var(--ink); border: 0; border-radius: 12px 12px 4px 12px; padding: 6px 10px; }
+.bh.glass[data-mode="light"] .bub.me { background: rgba(22,23,42,.08); color: var(--ink); }
+.bh.glass .bub.me.cont { border-top-right-radius: 12px; }
+.bh.glass .bub.ai { padding: 0; }
+.bh.glass .bub.ai .rc { background: none; border: 0; border-left: 2px solid var(--x-line); border-radius: 0; padding: 1px 0 1px 9px; margin-top: 4px; }
+.bh.glass .bub.ai .rc:first-child { margin-top: 0; }
+.bh.glass .barin .find { margin: 0; max-width: none; }
+.bh.glass .barin .nowline { margin: 0; max-width: none; }

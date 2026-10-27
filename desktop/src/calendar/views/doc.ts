@@ -153,7 +153,8 @@ export const doc: ThemeView = {
   bubble: (ctx, m: ChatMessage) => {
     if (m.who === "me") {
       const body = m.kind === "photo" || m.kind === "file" ? `<div class="photo">${esc(m.fileName ?? "파일")}</div>${m.text ? `<div>${esc(m.text)}</div>` : ""}` : m.kind === "voice" ? `<div class="voice">▶ 음성 메모</div>${m.text ? `<div>${esc(m.text)}</div>` : ""}` : esc(m.text);
-      return `<div class="bub me">${body}</div>${m.src ? `<div class="bsrc me">${esc(m.src)} · ${m.at.slice(11)}</div>` : ""}`;
+      // The time on the left of my words (where it came from only when not this Mac).
+      return `<div class="mrow"><span class="btime" title="${esc(m.src ?? "")} · ${m.at.slice(11)}">${m.src && m.src !== "데스크톱" && m.src !== "질문" ? `${esc(m.src)} ` : ""}${m.at.slice(11)}</span><div class="bub me">${body}</div></div>`;
     }
     return `<div class="bub ai ${m.error ? "err" : ""}">${esc(m.text)}${chatCards(ctx, m, fd)}</div>`;
   },

@@ -383,11 +383,10 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
    넓음 ≥1250 [하루표][할 일][주요 일정 · 루틴] · 보통 620–1250 [하루표][할 일 위 / 주요 일정·루틴 아래 나란히] · 좁음 <620 위아래로 쌓고 본문이 스크롤 */
 .bh .tdv .rstack > .panel.empty { flex: 0 0 auto; }
 @container (max-width: 1249px) {
-  .bh .tgrid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) fit-content(42%); grid-template-areas: "dt tl" "dt rs"; }
+  .bh .tgrid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: fit-content(62%) minmax(0, 1fr); grid-template-areas: "dt tl" "dt rs"; }
   .bh .tgrid > .dt { grid-area: dt; } .bh .tgrid > .tl { grid-area: tl; } .bh .tgrid > .rstack { grid-area: rs; }
-  .bh .tdv .rstack { flex-direction: row; min-height: 0; overflow: hidden; }
-  .bh .tdv .rstack > .panel { flex: 1 1 0; min-width: 0; }
-  .bh .tdv .rstack > .panel.empty { flex: 1 1 0; }
+  .bh .tdv .rstack { min-height: 0; overflow: hidden; }
+  .bh .tdv .rstack > .panel, .bh .tdv .rstack > .panel.empty { flex: 1 1 0; min-width: 0; }
   .bh .tdv .rstack .none { padding: 2px 0; }
 }
 @container (max-width: 619px) {
@@ -457,3 +456,40 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 .bh.drawer #bhComp .inp.tall textarea, .bh.drawer #bhComp .form.tall textarea { flex: 1; padding: 6px 0; }
 .bh.drawer #bhComp .inbar { flex: none; }
 .bh.drawer .composer { padding-top: 4px; padding-bottom: 8px; }
+
+/* ── 2026-10-27 확정안: 머리줄(날짜 한 덩어리, 아래 칸과 같은 두 칸) · 마감 카드 · 루틴 선 · 지금 시각 왼쪽 ── */
+.bh .bar { container-type: inline-size; }
+.bh .barin { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(230px, 290px); gap: 10px; align-items: center; }
+.bh .barin .cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.bh .barin .cell.r { grid-column: 2 / -1; justify-content: flex-end; }
+.bh .barin .cell > * { flex: none; }
+.bh .barin .cell .find { flex: 1 1 auto; min-width: 110px; width: auto; max-width: none; margin: 0; }
+.bh .barin .cell .nowline { flex: 1 1 auto; min-width: 0; max-width: none; margin: 0; }
+.bh .tlsp { display: none; }
+@container (max-width: 1249px) { .bh .barin { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); } .bh .barin .cell.r { grid-column: 2; } }
+@container (max-width: 619px) { .bh .barin { display: flex; flex-wrap: wrap; } .bh .barin .cell.l { flex: 1 1 100%; } .bh .barin .cell.r { flex: 1 1 100%; } .bh .barin .nowline { display: none; } }
+.bh .dctl { display: inline-flex; align-items: center; height: 30px; border: 1px solid var(--x-line, var(--line)); border-radius: 9px; background: var(--glass); overflow: hidden; }
+.bh .dctl .ar { position: relative; width: 28px; height: 100%; border: 0; background: none; color: var(--ink2); font-size: 15px; cursor: pointer; padding: 0; }
+.bh .dctl .ar:hover, .bh .dctl .ar.drop { background: var(--x-sel); color: var(--ink); }
+.bh .dctl .ar[data-flip]::after { content: attr(data-flip); position: absolute; top: 2px; right: 1px; font-size: 9px; font-weight: 800; color: var(--x-inv); background: var(--ink); border-radius: 4px; padding: 0 3px; }
+.bh .dctl .dlab { height: 100%; border: 0; background: none; color: var(--ink); font: inherit; font-size: 15px; font-weight: 800; letter-spacing: -.2px; padding: 0 6px; cursor: pointer; white-space: nowrap; }
+.bh .dctl .dlab:hover { background: var(--x-chip); }
+.bh .ctxm.pick .cm-g .sel { background: var(--x-sel); font-weight: 800; }
+/* deadline cards: one lane, bottom edge on the time */
+.bh .tdv .dl { position: absolute; left: 57%; right: 6px; height: 24px; display: flex; align-items: center; gap: 6px; padding: 0 8px 0 3px; border: 1px solid var(--x-line); border-bottom: 2px solid var(--ink2); border-radius: 6px 6px 0 0; background: var(--x-chip); font-size: 12px; white-space: nowrap; overflow: hidden; z-index: 4; cursor: pointer; }
+.bh .tdv .dl .tm { color: var(--ink2); font-variant-numeric: tabular-nums; }
+.bh .tdv .dl.urg { border-bottom-color: var(--ink); }
+.bh .tdv .dl.urg .tm { color: var(--ink); font-weight: 700; }
+.bh .tdv .dl .nm { overflow: hidden; text-overflow: ellipsis; }
+.bh .tdv .after { display: flex; align-items: flex-start; gap: 8px; margin: 0 8px 8px 0; padding-top: 6px; border-top: 1px solid var(--x-hair); }
+.bh .tdv .after > b { width: 58px; flex: none; padding: 4px 0 0 8px; font-size: 11px; color: var(--ink2); font-weight: 500; }
+.bh .tdv .after .afl { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.bh .tdv .after .dl { position: static; }
+/* routines: a dotted line with its name (click = done today) */
+.bh .tdv .dtg .rt { position: absolute; left: 0; width: 54%; height: 0; border-top: 1px dashed var(--x-line); z-index: 3; }
+.bh .tdv .dtg .rt button { position: absolute; left: 4px; top: -9px; border: 0; font: inherit; font-size: 11px; line-height: 16px; color: var(--ink2); background: var(--x-pinbg); padding: 0 6px; border-radius: 4px; cursor: pointer; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bh .tdv .dtg .rt.dn button { color: var(--ink3); }
+/* now: the time on the left, in the hour column */
+.bh .tdv .dtg .nowl { left: 0; }
+.bh .tdv .dtg .nowl::before { display: none; }
+.bh .tdv .dtg .nowl span { left: -54px; right: auto; width: 46px; text-align: center; top: -10px; font-size: 11px; padding: 1px 0; border-radius: 5px; font-variant-numeric: tabular-nums; }

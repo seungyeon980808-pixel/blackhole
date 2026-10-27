@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>블랙홀 시안 v4</title>
+<style>
+:root { --ink:#f4f6fb; --ink2:rgba(244,246,251,.72); --ink3:rgba(244,246,251,.45); --line:rgba(255,255,255,.22); --hair:rgba(255,255,255,.09); --glass:rgba(255,255,255,.1); --sel:rgba(255,255,255,.2); }
+* { box-sizing: border-box; }
+body { margin: 0; background: #1b1d22; font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; color: var(--ink); font-size: 13px; }
+.pick { display: flex; flex-wrap: wrap; gap: 14px 22px; padding: 14px 18px; background: #111317; position: sticky; top: 0; z-index: 9; }
+.pick .g { display: flex; align-items: center; gap: 6px; }
+.pick b { font-size: 12px; color: #aab; font-weight: 600; margin-right: 2px; }
+.pick button { background: #22252b; color: #dde; border: 1px solid #333842; border-radius: 7px; padding: 5px 10px; font: inherit; font-size: 12.5px; cursor: pointer; }
+.pick button.on { background: #e8ebf2; color: #111; border-color: #e8ebf2; font-weight: 700; }
+.pick .note { color: #889; font-size: 12px; width: 100%; }
+.stage { padding: 18px; overflow: hidden; }
+.scaler { width: 1280px; transform-origin: top left; margin: 0 auto; }
+/* the app window: 1280×800 */
+.win { width: 1280px; height: 800px; border-radius: 12px; overflow: hidden; position: relative; display: grid; grid-template-columns: minmax(0,1fr) 290px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.win.bg-solid { background: radial-gradient(1100px 700px at 15% 0%, #1763b8, transparent 60%), radial-gradient(900px 800px at 60% 100%, #2e8796, transparent 60%), #0b3a8c; }
+.win.bg-dim, .win.bg-now { background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1280' height='800'><defs><filter id='b'><feGaussianBlur stdDeviation='60'/></filter></defs><rect width='1280' height='800' fill='%23186cc0'/><g filter='url(%23b)'><ellipse cx='300' cy='620' rx='260' ry='120' fill='%23707a7a'/><ellipse cx='820' cy='520' rx='300' ry='140' fill='%2348606a'/><ellipse cx='1100' cy='300' rx='180' ry='160' fill='%2395a0a0'/><ellipse cx='600' cy='760' rx='400' ry='90' fill='%233a9a88'/></g></svg>"); background-size: cover; }
+.win.bg-dim::before { content: ""; position: absolute; inset: 0; background: rgba(11,42,110,.72); backdrop-filter: blur(30px); pointer-events: none; }
+.win > * { position: relative; }
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+/* header A: date as one control */
+/* the header uses the same two columns as the panels below: its edges line up with theirs */
+.bar { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); gap: 10px; padding: 9px 12px 6px; align-items: center; }
+.bar .cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.bar .cell.r { justify-content: flex-end; }
+.bar .ctl { flex: none; }
+.bar .srch { flex: 1 1 auto; min-width: 120px; max-width: none; margin: 0; }
+.bar .nowl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tl { display: flex; gap: 8px; margin-right: 10px; } .tl i { width: 12px; height: 12px; border-radius: 50%; display: block; background: rgba(255,255,255,.35); }
+.ctl { height: 30px; border: 1px solid var(--line); border-radius: 9px; background: var(--glass); display: inline-flex; align-items: center; white-space: nowrap; color: var(--ink); }
+.date { padding: 0; } .date .ar { width: 28px; text-align: center; color: var(--ink2); font-size: 15px; cursor: pointer; } .date .d { font-weight: 800; font-size: 15px; padding: 0 6px; cursor: pointer; }
+.srch { flex: 1; max-width: 520px; padding: 0 10px; color: var(--ink3); gap: 7px; margin: 0 auto; }
+.nowl { font-size: 12px; color: var(--ink2); white-space: nowrap; }
+.seg { padding: 0; overflow: hidden; } .seg span { height: 100%; display: inline-flex; align-items: center; padding: 0 11px; color: var(--ink2); } .seg .on { background: var(--sel); color: var(--ink); font-weight: 700; }
+.ic { width: 30px; justify-content: center; }
+.body { flex: 1; min-height: 0; padding: 6px 12px 12px; display: grid; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); gap: 10px; }
+.panel { background: rgba(255,255,255,.1); border: 1px solid var(--line); border-radius: 14px; min-height: 0; overflow: hidden; }
+.ph { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; } .ph b { font-size: 13.5px; } .ph span { font-size: 11.5px; color: var(--ink3); }
+/* day table */
+.dt { display: flex; flex-direction: column; }
+.dta { display: flex; gap: 6px; padding: 7px 10px; border-bottom: 1px solid var(--hair); font-size: 12px; align-items: center; } .dta .mode { margin-left: auto; display: flex; } .dta .mode span { border: 1px solid var(--hair); padding: 2px 9px; font-size: 11.5px; color: var(--ink2); } .dta .mode .on { background: var(--sel); color: var(--ink); font-weight: 700; }
+.chip { border: 1px solid var(--line); background: rgba(255,255,255,.14); border-radius: 6px; padding: 1px 8px; }
+.grid { position: relative; flex: 1; margin: 10px 8px 12px 58px; }
+.hr { position: absolute; left: -58px; right: 0; border-top: 1px solid var(--hair); } .hr span { position: absolute; left: 8px; top: -8px; font-size: 11px; color: var(--ink2); }
+.ev { position: absolute; left: 4px; width: 52%; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.4); border-left: 3px solid #fff; border-radius: 7px; padding: 2px 7px; } .ev .t { font-weight: 700; font-size: 12.5px; } .ev .r { font-size: 11px; color: var(--ink2); }
+.ev.past { opacity: .45; }
+/* deadlines: a card in their own lane (same left edge for all), its bottom edge sitting on the deadline time */
+.dl { position: absolute; left: 57%; right: 6px; height: 24px; display: flex; align-items: center; gap: 6px; padding: 0 8px 0 3px; border: 1px solid var(--line); border-bottom: 2px solid rgba(255,255,255,.75); border-radius: 6px 6px 0 0; background: rgba(255,255,255,.1); font-size: 12px; white-space: nowrap; overflow: hidden; }
+.dl .tm { color: var(--ink2); font-variant-numeric: tabular-nums; } .dl.urg { border-bottom-color: #fff; } .dl.urg .tm { color: #fff; font-weight: 700; }
+.dl .nm { overflow: hidden; text-overflow: ellipsis; }
+.after { display: flex; align-items: center; gap: 8px; margin: 0 8px 10px 0; padding: 6px 0 0; border-top: 1px solid var(--hair); font-size: 12px; }
+.after > b { width: 58px; flex: none; padding-left: 8px; font-size: 11px; color: var(--ink2); font-weight: 500; }
+.after .dl { position: static; flex: 1; }
+.no { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; border-radius: 5px; font-size: 11px; font-weight: 600; color: var(--ink2); background: rgba(255,255,255,.08); }
+.no.urg { color: #fff; background: var(--sel); }
+/* routines: a dotted line at their time with a small label (added in 설정 → 루틴) */
+.rt { position: absolute; left: 0; width: 54%; border-top: 1px dashed rgba(255,255,255,.35); pointer-events: none; }
+.rt span { position: absolute; left: 4px; top: -9px; font-size: 11px; color: var(--ink2); background: rgba(14,60,140,.9); padding: 0 6px; border-radius: 4px; }
+.rt.dn span { color: var(--ink3); }
+.lunch { position: absolute; left: 0; right: 0; background: repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 6px, transparent 6px 12px); }
+.off { position: absolute; left: 0; right: 0; background: rgba(0,10,40,.18); }
+/* now: the time on the left, in the hour column (the hour label next to it steps aside) */
+.now { position: absolute; left: 0; right: 0; border-top: 2px solid #fff; } .now span { position: absolute; left: -54px; width: 46px; text-align: center; top: -10px; font-size: 11px; font-weight: 800; color: #0b2a5a; background: #fff; padding: 1px 0; border-radius: 5px; font-variant-numeric: tabular-nums; }
+/* right column */
+.right { display: grid; gap: 10px; min-height: 0; }
+.right.split1 { grid-template-rows: auto minmax(0,1fr); }
+.right.split2 { grid-template-rows: minmax(0,1fr) minmax(0,1fr); }
+.tl2 { padding: 10px 12px; overflow: auto; }
+.sum { display: flex; gap: 5px; margin-bottom: 6px; flex-wrap: wrap; } .sum span { border: 1px solid var(--hair); border-radius: 999px; padding: 2px 9px; font-size: 12px; color: var(--ink2); } .sum .on { background: var(--sel); color: var(--ink); font-weight: 700; }
+.grp { font-size: 11.5px; color: var(--ink2); font-weight: 700; margin: 8px 0 2px; display: flex; justify-content: space-between; } .grp.later { color: var(--ink3); border-top: 1px solid var(--hair); padding-top: 8px; }
+.task { display: grid; grid-template-columns: 22px 16px 16px minmax(0,1fr) auto; gap: 6px; align-items: center; padding: 4px 2px; }
+.ck { width: 15px; height: 15px; border: 1.6px solid var(--ink2); border-radius: 5px; }
+.st { font-size: 15px; color: rgba(255,255,255,.3); } .s1 { color: #ffd84a; } .s2 { color: #ff5a5f; }
+.tn { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tn.b { font-weight: 700; }
+.due { font-size: 12px; color: var(--ink3); white-space: nowrap; } .due.urg { color: #fff; font-weight: 700; } .due.today { color: var(--ink2); }
+.later .task, .laterl { opacity: .72; }
+.fold { font-size: 11.5px; color: var(--ink3); margin-top: 8px; border-top: 1px solid var(--hair); padding-top: 6px; }
+.lower { display: grid; gap: 10px; min-height: 0; }
+.lower.two { grid-template-columns: 1fr 1fr; }
+.lp { padding: 10px 12px; overflow: auto; }
+.ms { display: grid; grid-template-columns: 16px minmax(0,1fr) auto; gap: 6px; padding: 5px 0; } .ms .t { font-size: 13.5px; } .ms .w { font-size: 11.5px; color: var(--ink2); } .ms .dd { font-weight: 700; font-size: 12.5px; color: var(--ink2); } .ms .dd.soon { color: #fff; }
+.rrow { display: grid; grid-template-columns: 18px 40px minmax(0,1fr) auto; gap: 6px; align-items: center; padding: 4px 0; } .rrow .tm { color: var(--ink2); font-size: 12px; } .rrow .rp { font-size: 11px; color: var(--ink3); } .rrow.dn .nm { text-decoration: line-through; color: var(--ink3); } .rrow.nx .tm, .rrow.nx .nm { font-weight: 700; color: #fff; }
+.tabs { display: flex; gap: 12px; margin-bottom: 6px; } .tabs span { font-size: 13.5px; color: var(--ink3); font-weight: 700; cursor: pointer; } .tabs .on { color: var(--ink); }
+/* chat */
+.chat { border-left: 1px solid var(--line); background: rgba(10,30,70,.28); display: flex; flex-direction: column; min-height: 0; }
+.chat .hd { display: flex; justify-content: space-between; align-items: center; padding: 12px 12px 6px; font-weight: 700; } .chat .hd span { color: var(--ink3); font-weight: 400; }
+.thread { flex: 1; overflow: auto; padding: 4px 12px 8px; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; line-height: 1.45; }
+.inp { margin: 6px 10px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--glass); padding: 8px 8px 5px 12px; }
+.inp .ph2 { color: var(--ink3); padding: 2px 0 6px; } .inp .bb { display: flex; align-items: center; gap: 8px; color: var(--ink2); } .inp .bb .sp { flex: 1; } .inp .go { width: 26px; height: 26px; border-radius: 8px; background: #fff; color: #0b2a5a; display: grid; place-items: center; font-weight: 800; }
+.sub { font-size: 10.5px; color: var(--ink3); } .w2 { font-size: 11.5px; color: var(--ink2); } .t2 { font-weight: 600; }
+/* chat A */
+.ca .me { align-self: flex-end; max-width: 86%; background: rgba(255,255,255,.16); border-radius: 12px 12px 4px 12px; padding: 6px 10px; }
+.ca .mrow2 { align-self: flex-end; display: flex; align-items: flex-end; gap: 6px; max-width: 92%; } .ca .mrow2 .me { max-width: none; }
+.ca .res { border-left: 2px solid rgba(255,255,255,.35); padding: 1px 0 1px 9px; }
+/* chat B */
+.cb { gap: 0; } .cb .ent { padding: 8px 2px; border-bottom: 1px solid var(--hair); } .cb .ent:last-child { border-bottom: 0; }
+.cb .q { display: flex; justify-content: space-between; gap: 8px; color: var(--ink2); font-size: 12px; } .cb .r { display: flex; gap: 6px; margin-top: 4px; align-items: baseline; } .cb .r i { font-style: normal; color: var(--ink3); width: 13px; } .cb .r2 { padding-left: 19px; }
+/* chat C */
+.cc .card { background: rgba(255,255,255,.08); border-radius: 10px; padding: 8px 10px; } .cc .q { display: flex; justify-content: space-between; color: var(--ink2); font-size: 12px; } .cc .hrz { height: 1px; background: var(--hair); margin: 6px 0; }
+/* month */
+.month { flex: 1; min-height: 0; margin: 6px 12px 12px; display: grid; grid-template-rows: auto repeat(6, minmax(0,1fr)); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: rgba(255,255,255,.06); }
+.mrow { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); border-top: 1px solid var(--hair); } .mrow.h { border-top: 0; } .mrow.h div { text-align: center; font-size: 11.5px; color: var(--ink2); padding: 5px 0; }
+.mrow > div { border-left: 1px solid var(--hair); padding: 4px 6px; font-size: 11.5px; overflow: hidden; } .mrow > div:first-child { border-left: 0; }
+.mrow .n { font-weight: 600; } .mrow .sun { color: #ff7d8f; } .mrow .past { opacity: .45; }
+.mrow.cur { background: rgba(255,255,255,.07); } .mrow .td .n { background: #fff; color: #0b2a5a; border-radius: 5px; padding: 0 4px; }
+.mrow .e { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); margin-top: 2px; } .mrow .e.d { color: var(--ink2); } .mrow .mlab { font-size: 10.5px; color: var(--ink3); }
+/* week */
+.week { flex: 1; min-height: 0; margin: 6px 12px 12px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: grid; grid-template-columns: 40px repeat(7, minmax(0,1fr)); grid-template-rows: 28px 1fr; background: rgba(255,255,255,.05); position: relative; }
+.week .wh { text-align: center; font-size: 12px; color: var(--ink2); padding-top: 6px; border-left: 1px solid var(--hair); } .week .wh.on b { background: #fff; color: #0b2a5a; border-radius: 5px; padding: 0 4px; }
+.week .col { border-left: 1px solid var(--hair); position: relative; border-top: 1px solid var(--hair); } .week .gut { border-top: 1px solid var(--hair); position: relative; }
+.week .hl { position: absolute; left: 0; right: 0; border-top: 1px solid var(--hair); } .week .gut .hl span { position: absolute; right: 6px; top: -7px; font-size: 10.5px; color: var(--ink2); }
+.week .band { position: absolute; left: 0; right: 0; background: rgba(255,255,255,.07); }
+.week .wev { position: absolute; left: 3px; right: 3px; border-top: 2px solid #fff; font-size: 11px; padding: 2px 4px; }
+.hidden { display: none !important; }
+.cap { text-align: center; color: #99a; font-size: 12.5px; padding: 0 0 18px; }
+</style></head>
+<body>
+<div class="pick">
+  <div class="g"><b>화면</b><button data-k="view" data-v="day" class="on">일</button><button data-k="view" data-v="week">주</button><button data-k="view" data-v="month">월</button></div>
+  <div class="g"><b>오른쪽 칸</b><button data-k="split" data-v="1" class="on">① 할 일은 내용만큼</button><button data-k="split" data-v="2">② 반반</button></div>
+  <div class="g"><b>대화창</b><button data-k="chat" data-v="a" class="on">A 옅은 말풍선</button><button data-k="chat" data-v="b">B 기록장</button><button data-k="chat" data-v="c">C 카드 묶음</button></div>
+  <div class="g"><b>바탕</b><button data-k="bg" data-v="solid" class="on">단색 파랑</button><button data-k="bg" data-v="dim">비침 흐리게</button><button data-k="bg" data-v="now">지금(비침 그대로)</button></div>
+  <div class="g"><b>주 화면 교시 띠</b><button data-k="band" data-v="off" class="on">빼기</button><button data-k="band" data-v="on">지금처럼</button></div>
+  <div class="note">가짜 자료입니다. 머리줄은 고르신 「날짜 한 덩어리」로 그렸습니다(요일 줄 없음 · 날짜 누르면 작은 달력 · 트랙패드 좌우로 넘기기). 월 화면은 이번 주가 항상 위에서 둘째 줄입니다. 루틴은 칸 없이 하루표 왼쪽에 시각 점선으로 박히고, 추가·수정은 설정 → 루틴에서만 합니다. 머리줄은 아래 칸들과 같은 두 칸으로 나눠 좌우 끝선을 맞췄습니다.</div>
+</div>
+<div class="stage" id="stage"><div class="scaler" id="scaler"><div class="win bg-solid" id="win">
+  <div class="main">
+    <div class="bar">
+      <div class="cell l">
+        <span class="tl"><i></i><i></i><i></i></span>
+        <span class="ctl date"><span class="ar">‹</span><span class="d" id="dlabel">10월 27일 (화)</span><span class="ar">›</span></span>
+        <span class="ctl srch">⌕ 찾기 · 기억·할 일·일정 <span style="margin-left:auto;font-size:10.5px">⌘F</span></span>
+      </div>
+      <div class="cell r">
+        <span class="nowl">지금 10:40 · 다음 11:00 학년 협의회</span>
+        <span class="ctl seg"><span data-sv="month">월</span><span data-sv="week">주</span><span data-sv="day" class="on">일</span><span>우선순위</span><span>기억</span></span>
+        <span class="ctl ic">⎙</span><span class="ctl ic">⚙</span>
+      </div>
+    </div>
+    <!-- day -->
+    <div class="body" id="vday">
+      <div class="panel dt">
+        <div class="dta"><span class="chip">종일 · 초과근무</span><span class="mode"><span class="on" style="border-radius:7px 0 0 7px">업무 08–17</span><span style="border-radius:0 7px 7px 0;border-left:0">하루 전체</span></span></div>
+        <div class="grid">
+          <div class="off" style="top:0;height:2.2%"></div>
+          <div class="hr" style="top:0"><span>08:00</span></div><div class="hr" style="top:11.1%"><span>09:00</span></div><div class="hr" style="top:22.2%"><span>10:00</span></div><div class="hr" style="top:33.3%"><span>11:00</span></div><div class="hr" style="top:44.4%"><span>12:00</span></div><div class="hr" style="top:55.5%"><span>13:00</span></div><div class="hr" style="top:66.6%"><span>14:00</span></div><div class="hr" style="top:77.7%"><span>15:00</span></div><div class="hr" style="top:88.8%"><span>16:00</span></div><div class="hr" style="top:100%"><span>17:00</span></div>
+          <div class="lunch" style="top:48.1%;height:11.1%"></div>
+          <div class="off" style="top:92.6%;bottom:0"></div>
+          <div class="ev past" style="top:11.1%;height:8.3%"><div class="t">2학년 3반 수업</div><div class="r">09:00–09:45</div></div>
+          <div class="ev" style="top:33.3%;height:11.1%"><div class="t">학년 협의회</div><div class="r">11:00–12:00</div></div>
+          <div class="ev" style="top:63%;height:9.2%"><div class="t">대의원회</div><div class="r">13:40–14:30</div></div>
+          <div class="dl urg" style="top:calc(27.7% - 24px)"><span class="no urg">2</span><span class="tm">10:30</span><span class="nm">출석부 정리</span></div>
+          <div class="dl urg" style="top:calc(77.7% - 24px)"><span class="no urg">1</span><span class="tm">15:00</span><span class="nm">출제 원안 제출</span></div>
+          <div class="rt dn" style="top:3.7%"><span>08:20 메일 확인 ✓</span></div>
+          <div class="rt" style="top:50%"><span>12:30 교실 환기</span></div>
+          <div class="rt" style="top:90.7%"><span>16:10 업무일지</span></div>
+          <div class="now" style="top:29.6%"><span>10:40</span></div>
+        </div>
+        <div class="after"><b>17:00 이후</b><div class="dl"><span class="no">3</span><span class="tm">18:00</span><span class="nm">가정통신문 기안</span></div></div>
+      </div>
+      <div class="right split1" id="right">
+        <div class="panel tl2">
+          <div class="ph"><b>할 일</b><span>완료 9</span></div>
+          <div class="sum"><span class="on">전체 5</span><span>지금 할 것 1</span><span>급함 2</span><span>중요 2</span><span>나머지 1</span></div>
+          <div class="grp">오늘 10/27(화)<span>3</span></div>
+          <div class="task"><span class="no urg">1</span><span class="ck"></span><span class="st s2">★</span><span class="tn b">출제 원안 제출 <span style="font-weight:400;font-size:11.5px;color:var(--ink2)">1/3 ▸</span></span><span class="due urg">15:00 · 4시간 20분</span></div>
+          <div class="task"><span class="no urg">2</span><span class="ck"></span><span class="st">☆</span><span class="tn">출석부 정리</span><span class="due urg">10:30 · 10분 지남</span></div>
+          <div class="task"><span class="no">3</span><span class="ck"></span><span class="st s1">★</span><span class="tn">가정통신문 기안</span><span class="due">18:00 · 7시간 20분</span></div>
+          <div class="grp later">나중<span>2</span></div>
+          <div class="laterl"><div class="task"><span class="no">4</span><span class="ck"></span><span class="st">☆</span><span class="tn">방과후 명단 확인</span><span class="due">10/28(수)</span></div>
+          <div class="task"><span class="no">5</span><span class="ck"></span><span class="st">☆</span><span class="tn">도서 반납</span><span class="due">마감 없음</span></div></div>
+          <div class="fold">▸ 완료 9</div>
+        </div>
+        <div class="panel lp" id="lower1"><div class="ph"><b>다가오는 주요 일정</b><span>30일</span></div>
+            <div class="ms"><span class="s2">★</span><div><div class="t">공개수업</div><div class="w">10/29(목) 10:00</div></div><span class="dd soon">D-2</span></div>
+            <div class="ms"><span class="s1">★</span><div><div class="t">생기부 점검</div><div class="w">10/30(금) 17:00까지 · 1/2 단계</div></div><span class="dd soon">D-3</span></div>
+            <div class="ms"><span class="s1">★</span><div><div class="t">교육청 연수</div><div class="w">11/5(목) 14:00</div></div><span class="dd">D-9</span></div>
+            <div class="ms"><span>☆</span><div><div class="t">학부모 총회</div><div class="w">11/12(목) 18:30</div></div><span class="dd">D-16</span></div>
+        </div>
+        <div class="panel lp hidden" id="lower2">
+          <div class="ph"><b>다가오는 주요 일정</b><span>30일</span></div>
+          <div class="ms"><span class="s2">★</span><div><div class="t">공개수업</div><div class="w">10/29(목) 10:00</div></div><span class="dd soon">D-2</span></div>
+          <div class="ms"><span class="s1">★</span><div><div class="t">생기부 점검</div><div class="w">10/30(금) 17:00까지 · 1/2 단계</div></div><span class="dd soon">D-3</span></div>
+          <div class="ms"><span class="s1">★</span><div><div class="t">교육청 연수</div><div class="w">11/5(목) 14:00</div></div><span class="dd">D-9</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- week -->
+    <div class="week hidden" id="vweek">
+      <div></div><div class="wh">일 25</div><div class="wh">월 26</div><div class="wh on">화 <b>27</b></div><div class="wh">수 28</div><div class="wh">목 29</div><div class="wh">금 30</div><div class="wh">토 31</div>
+      <div class="gut" id="wgut"></div>
+      <div class="col"></div><div class="col" data-sch></div><div class="col" data-sch><div class="wev" style="top:27%">마감 12:00 지킴이 완료</div><div class="wev" style="top:62%">마감 18:00 스티커 파일</div></div><div class="col" data-sch><div class="wev" style="top:6%">마감 08:00 화장실 영상 확인</div></div><div class="col" data-sch></div><div class="col" data-sch></div><div class="col"></div>
+    </div>
+    <!-- month -->
+    <div class="month hidden" id="vmonth"></div>
+  </div>
+  <div class="chat">
+    <div class="hd">대화<span>⇥</span></div>
+    <div class="thread cb" id="thread"></div>
+    <div class="inp"><div class="ph2">넣기·묻기 · Enter</div><div class="bb"><span>◎</span><span>♪</span><span class="sp"></span><span style="font-size:10.5px;color:var(--ink3)">Enter 넣기 · ⇧Enter 줄바꿈</span><span class="go">↑</span></div></div>
+  </div>
+</div></div></div>
+<div class="cap">위 단추로 바꿔 보세요. 마음에 드는 조합을 말씀해 주시면 그대로 앱에 반영합니다.</div>
+<script>
+const S = { view: "day", split: "1", chat: "a", bg: "solid", band: "off" };
+const items = [
+  { q: "내일 3시 학부모 상담", at: "14:05", kind: "일정", t: "학부모 상담", w: "10/28(수) 15:00–16:00" },
+  { q: "금요일까지 연수 보고서 제출하고 결재 받기", at: "15:23", kind: "할 일", t: "연수 보고서 제출", w: "10/30(금)까지 · 단계 2" },
+  { q: "진도 끝난 반 어디야?", at: "16:02", kind: "답", t: "2학년 4반이에요.", w: "근거 · 기억 「2학년 4반 진도 종료」" },
+  { q: "11월 16일 7교시 대의원회", at: "17:37", kind: "일정", t: "대의원회", w: "11/16(월) 15:10–15:55 · 가승인" }
+];
+const icon = { "일정": "▦", "할 일": "☑", "답": "↳" };
+function chat() {
+  const th = document.getElementById("thread");
+  th.className = "thread c" + S.chat;
+  if (S.chat === "a") th.innerHTML = items.map((x) => `<div class="mrow2"><span class="sub">${x.at}</span><div class="me">${x.q}</div></div><div class="res"><div class="t2">${x.t}</div><div class="w2">${x.kind === "답" ? x.w : x.kind + " · " + x.w}</div></div>`).join("");
+  if (S.chat === "b") th.innerHTML = items.map((x) => `<div class="ent"><div class="q"><span>› ${x.q}</span><span class="sub">${x.at}</span></div><div class="r"><i>${icon[x.kind]}</i><span class="t2">${x.t}</span></div><div class="w2 r2">${x.w}</div></div>`).join("");
+  if (S.chat === "c") th.innerHTML = items.map((x) => `<div class="card"><div class="q"><span>${x.q}</span><span class="sub">${x.at}</span></div><div class="hrz"></div><div class="t2">${x.t}</div><div class="w2">${x.kind === "답" ? x.w : x.kind + " · " + x.w}</div></div>`).join("");
+}
+function month() {
+  // the week of today (10/27) is always the second row: first row = last week
+  const start = new Date(2026, 9, 18);
+  const ev = { "2026-10-27": ["초과근무", "스티커 파일 제출"], "2026-10-28": ["방과후 명단 확인"], "2026-10-29": ["★ 공개수업"], "2026-11-03": ["교사개발자 첫 모임"], "2026-11-05": ["★ 교육청 연수"], "2026-11-16": ["대의원회"], "2026-10-21": ["학년 협의회"] };
+  let h = '<div class="mrow h">' + "일월화수목금토".split("").map((d) => `<div>${d}</div>`).join("") + "</div>";
+  for (let r = 0; r < 6; r++) {
+    h += `<div class="mrow ${r === 1 ? "cur" : ""}">`;
+    for (let c = 0; c < 7; c++) {
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + r * 7 + c);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const isToday = k === "2026-10-27";
+      const lab = d.getDate() === 1 ? `<span class="mlab">${d.getMonth() + 1}월 </span>` : "";
+      h += `<div class="${isToday ? "td" : ""} ${r === 0 || (r === 1 && c < 2) ? "past" : ""}"><span class="n ${c === 0 ? "sun" : ""}">${lab}${d.getDate()}</span>${(ev[k] || []).map((e) => `<span class="e ${e.startsWith("★") ? "" : "d"}">${e.replace("★ ", '<span class="s1">★</span> ')}</span>`).join("")}</div>`;
+    }
+    h += "</div>";
+  }
+  document.getElementById("vmonth").innerHTML = h;
+}
+function week() {
+  const g = document.getElementById("wgut");
+  g.innerHTML = Array.from({ length: 16 }, (_, i) => `<div class="hl" style="top:${(i / 16) * 100}%"><span>${i + 7}</span></div>`).join("");
+  document.querySelectorAll("#vweek .col").forEach((c) => {
+    c.querySelectorAll(".band, .hl").forEach((x) => x.remove());
+    for (let i = 0; i < 16; i++) c.insertAdjacentHTML("afterbegin", `<div class="hl" style="top:${(i / 16) * 100}%"></div>`);
+    if (S.band === "on" && c.hasAttribute("data-sch")) [[1.85, .75], [2.85, .75], [3.85, .75], [4.85, .75], [6.33, .75], [7.33, .75], [8.33, .75]].forEach(([a, l]) => c.insertAdjacentHTML("afterbegin", `<div class="band" style="top:${(a / 16) * 100}%;height:${(l / 16) * 100}%"></div>`));
+  });
+}
+function apply() {
+  document.getElementById("win").className = "win bg-" + S.bg;
+  for (const v of ["day", "week", "month"]) document.getElementById("v" + v).classList.toggle("hidden", S.view !== v);
+  document.querySelectorAll("[data-sv]").forEach((x) => x.classList.toggle("on", x.dataset.sv === S.view));
+  document.getElementById("dlabel").textContent = S.view === "month" ? "2026년 10월" : S.view === "week" ? "10월 25일 – 31일" : "10월 27일 (화)";
+  const right = document.getElementById("right");
+  right.className = "right split" + S.split;
+  document.getElementById("lower1").classList.toggle("hidden", S.split !== "1");
+  document.getElementById("lower2").classList.toggle("hidden", S.split !== "2");
+  chat(); week(); month();
+  document.querySelectorAll(".pick button").forEach((b) => b.classList.toggle("on", S[b.dataset.k] === b.dataset.v));
+}
+document.querySelectorAll(".pick button").forEach((b) => b.addEventListener("click", () => { S[b.dataset.k] = b.dataset.v; apply(); }));
+apply();
+// Shown at true size when the pane is wide enough, scaled down (never squeezed) when it is not.
+function fit() {
+  const st = document.getElementById("stage");
+  const sc = document.getElementById("scaler");
+  const k = Math.min(1, (st.clientWidth - 36) / 1280);
+  sc.style.transform = `scale(${k})`;
+  sc.style.marginLeft = k < 1 ? "0" : "auto";
+  st.style.height = `${800 * k + 36}px`;
+}
+addEventListener("resize", fit);
+fit();
+</script>
+</body></html>

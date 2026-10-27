@@ -14,18 +14,9 @@ import { dueBadge, type Ctx, type ThemeView } from "./views/common";
 
 export function fcEvents(s: CalendarState, withBells: boolean, around?: Date): EventInput[] {
   const out: EventInput[] = [];
-  // Week: faint school periods on weekdays around the shown week (설정 「학교 시간」).
-  if (withBells && around && s.settings.showPeriods) {
-    for (let n = -7; n < 14; n++) {
-      const d = addDays(around, n - around.getDay());
-      if (d.getDay() < 1 || d.getDay() > 5) continue;
-      const k = ymd(d);
-      for (const p of [...s.settings.periods, s.settings.lunch]) {
-        const [a, b] = p.split("-");
-        if (a && b) out.push({ start: `${k}T${a}`, end: `${k}T${b}`, display: "background", classNames: [p === s.settings.lunch ? "bh-lunch" : "bh-pd"], editable: false, extendedProps: { kind: "band", order: 9 } });
-      }
-    }
-  }
+  // (Week: no school-period bands any more — on the glass they read as stripes; the day table shows the periods.)
+  void withBells;
+  void around;
   for (const p of livePeriods(s)) {
     out.push({ id: p.id, title: p.title, start: p.from, end: ymd(addDays(parseDay(p.to), 1)), allDay: true, classNames: ["bh-per", p.area], extendedProps: { kind: "period", order: 0 }, editable: false });
   }
@@ -66,14 +57,16 @@ export class FcHost {
   }
 
   show(el: HTMLElement, ctx: Ctx, theme: ThemeName, view: ThemeView, handlers: FcHandlers, compact: boolean): void {
-    const fcView = ctx.view === "month" ? "dayGridMonth" : "timeGridWeek";
+    // Month: six weeks with the shown day's week always the second row (the week before on top).
+    const fcView = ctx.view === "month" ? "rolling" : "timeGridWeek";
+    const at = fcView === "rolling" ? addDays(ctx.cur, -ctx.cur.getDay() - 7) : ctx.cur;
     const key = `${fcView}|${theme}|${compact}`;
     const events = fcEvents(ctx.s, fcView === "timeGridWeek", ctx.cur);
     if (this.fc && this.key === key && this.el === el) {
       this.fc.batchRendering(() => {
         this.fc!.removeAllEvents();
         this.fc!.addEventSource(events);
-        this.fc!.gotoDate(ctx.cur);
+        this.fc!.gotoDate(at);
         this.fc!.setOption("now", ctx.now);
       });
       return;
@@ -85,12 +78,13 @@ export class FcHost {
     this.fc = new Calendar(el, {
       plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
       initialView: fcView,
-      initialDate: ctx.cur,
+      initialDate: at,
+      views: { rolling: { type: "dayGrid", duration: { days: 42 }, dateAlignment: "week" } },
       now: ctx.now,
       headerToolbar: false,
       height: "100%",
       firstDay: 0,
-      fixedWeekCount: true,
+      fixedWeekCount: fcView !== "rolling",
       dayMaxEvents: true,
       eventDisplay: "block",
       displayEventTime: false,
@@ -102,12 +96,14 @@ export class FcHost {
       scrollTime: "08:00:00",
       expandRows: false,
       slotLabelContent: (arg) => String(arg.date.getHours()),
-      dayHeaderContent: (arg) => (fcView === "dayGridMonth" ? DOW[arg.date.getDay()] : { html: `${DOW[arg.date.getDay()]} <b>${arg.date.getDate()}</b>` }),
+      dayHeaderContent: (arg) => (fcView === "rolling" ? DOW[arg.date.getDay()] : { html: `${DOW[arg.date.getDay()]} <b>${arg.date.getDate()}</b>` }),
       // Month: the date, and a public holiday's name in red.
       dayCellContent: (arg) => {
-        if (fcView !== "dayGridMonth") return "";
+        if (fcView !== "rolling") return "";
         const h = holiday(ymd(arg.date));
-        return h ? { html: `<span class="hol">${arg.date.getDate()} ${h}</span>` } : String(arg.date.getDate());
+        // The 1st says its month (the six weeks cross months).
+        const n = arg.date.getDate() === 1 ? `${arg.date.getMonth() + 1}월 1` : String(arg.date.getDate());
+        return h ? { html: `<span class="hol">${n} ${h}</span>` } : n;
       },
       moreLinkContent: (arg) => view.more(arg.num),
       eventOrder: "order,start,title",

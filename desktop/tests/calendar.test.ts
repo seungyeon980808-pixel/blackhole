@@ -110,11 +110,12 @@ describe("calendar app", () => {
     const root = await mount(fakeAdapter(proposal));
     expect(root.querySelector('[data-testid="connection"]')?.textContent).toBe("로컬·미연결");
     // 안 2: the day as one band on top, to-dos and tomorrow below.
-    // 「오늘」 화면: vertical day table · to-dos · upcoming + 루틴, and the week line on top.
+    // 「오늘」 화면: vertical day table · to-dos · upcoming; the date is one control in the header (no week line).
     expect(root.querySelector(".dtg")).not.toBeNull();
     expect(root.querySelector(".tl")).not.toBeNull();
     expect(root.querySelector(".rstack")).not.toBeNull();
-    expect(root.querySelectorAll(".wkd .wd")).toHaveLength(7);
+    expect(root.querySelector(".wkd")).toBeNull();
+    expect(root.querySelector(".dctl [data-datepick]")).not.toBeNull();
     expect(root.textContent).toContain("할 일");
     // No 「확인 대기 0 / 없음 / 오늘 들어온 것」 lines: fake data only, nothing came in today.
     expect(root.textContent).not.toContain("확인 대기");
@@ -160,7 +161,7 @@ describe("calendar app", () => {
   it("renders month on FullCalendar and the 공문서 week table", async () => {
     const root = await mount(fakeAdapter(proposal));
     app!.setView("month");
-    expect(root.querySelector(".fc-dayGridMonth-view")).not.toBeNull();
+    expect(root.querySelector(".fc-rolling-view")).not.toBeNull();
     app!.setTheme("doc");
     app!.setView("week");
     expect(root.querySelector("table.tb.week")).not.toBeNull();

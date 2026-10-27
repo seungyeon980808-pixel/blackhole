@@ -278,3 +278,7 @@ html.native-glass .bh .tool { padding: 3px 22px 0 84px; }
 .bh.doc .form.tall .inbar button { border: 0; width: 28px; height: 26px; padding: 0; }
 .bh.doc .form.tall .inbar button svg { width: 16px; height: 16px; }
 .bh.doc .form.tall .inbar button.go { background: var(--ink); color: #fff; }
+
+/* 확정안 (공문서): 내 말은 옅은 회색 말풍선 + 시각 왼쪽, 블랙홀 말의 카드는 왼쪽 선만 */
+.bh.doc .bub.me { background: #f0f0f0; color: #111; border: 0; border-radius: 10px 10px 3px 10px; }
+.bh.doc .bub.ai .rc { border: 0; border-left: 2px solid #999; border-radius: 0; padding: 1px 0 1px 9px; background: none; }

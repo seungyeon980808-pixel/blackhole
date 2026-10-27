@@ -47,14 +47,15 @@ describe("order and numbers", () => {
     const root = await mount(s);
     const list = [...root.querySelectorAll<HTMLElement>(".tl .task")].map((x) => `${x.dataset.num}:${x.dataset.task}`);
     expect(list).toEqual(["1:t2", "2:t1", "3:t3", "4:t4"]);
-    const pin = root.querySelector<HTMLElement>('.dtg .pin[data-ev="t2"]')!;
+    const pin = root.querySelector<HTMLElement>('.dtg .dl[data-ev="t2"]')!;
     expect(pin.dataset.num).toBe("1");
     expect(pin.textContent).toContain("15:00");
-    // 18:00 is outside 업무 08–17: at the bottom edge, 「이후 18:00」.
-    expect(root.querySelector('.dtg .pin[data-ev="t3"]')!.textContent).toContain("이후 18:00");
+    // 18:00 is outside 업무 08–17: in the row under the table, not floating on it.
+    expect(root.querySelector('.dtg .dl[data-ev="t3"]')).toBeNull();
+    expect(root.querySelector('.dt .after .dl[data-ev="t3"]')!.textContent).toContain("18:00");
     // Hovering a number lights the same number on both sides.
     root.querySelector<HTMLElement>('.tl .task[data-num="1"] .tn')!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-    expect([...root.querySelectorAll(".no.hl")].map((x) => x.closest(".pin, .task")!.className.split(" ")[0])).toEqual(["pin", "task"]);
+    expect([...root.querySelectorAll(".no.hl")].map((x) => x.closest(".dl, .task")!.className.split(" ")[0])).toEqual(["dl", "task"]);
     // Urgency is bold time, not a colored dot.
     expect(root.querySelector('.task[data-ev="t1"] .due')!.classList.contains("urg")).toBe(true);
     expect(root.querySelector('.task[data-ev="t3"] .due')!.classList.contains("urg")).toBe(false);
@@ -121,7 +122,8 @@ describe("루틴", () => {
     root.querySelector<HTMLElement>(`[data-rt="${made.id}"]`)!.click();
     await tick();
     expect(made.done).toEqual(["2026-10-27"]);
-    expect(root.querySelector(".rts .rrow")!.textContent).toContain("1일째");
+    // On the day table: a dotted line with its name, checked.
+    expect(root.querySelector(`.dtg .rt.dn [data-rt="${made.id}"]`)!.textContent).toContain("08:20 메일 확인");
     expect(JSON.stringify(sharedFrom(app!.state, "2026-10-27T10:40"))).not.toContain("메일 확인");
   });
 });
@@ -140,7 +142,7 @@ describe("moving to another day", () => {
     expect(app!.state.events.find((x) => x.id === "e1")!.reminders).toEqual(["2026-10-27T13:30"]);
   });
 
-  it("⌥→ moves the picked entry one day; dropping on the week strip moves to that day", async () => {
+  it("⌥→ moves the picked entry one day; dropping on the header's › moves it to the next day", async () => {
     const root = await mount(base());
     root.querySelector<HTMLElement>('.tl .task[data-ev="t3"] .due')!.click();
     document.dispatchEvent(new KeyboardEvent("keydown", { code: "ArrowRight", key: "ArrowRight", altKey: true, bubbles: true }));
@@ -149,9 +151,9 @@ describe("moving to another day", () => {
     app!.setView("day", "2026-10-27");
     const drop = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(drop, "dataTransfer", { value: { getData: () => "t1", types: ["text/bh-task"] } });
-    root.querySelector('.wd[data-wd="2026-10-30"]')!.dispatchEvent(drop);
+    root.querySelector('.dctl [data-nav="1"]')!.dispatchEvent(drop);
     await Promise.resolve();
-    expect(app!.state.tasks.find((t) => t.id === "t1")!.due).toBe("2026-10-30");
+    expect(app!.state.tasks.find((t) => t.id === "t1")!.due).toBe("2026-10-28");
   });
 });
 
@@ -175,9 +177,23 @@ describe("work blocks and the range", () => {
     expect(root.querySelector<HTMLElement>(".dtg")!.dataset.e).toBe(String(17 * 60));
     root.querySelector<HTMLButtonElement>('[data-dr="all"]')!.click();
     expect(root.querySelector<HTMLElement>(".dtg")!.dataset.e).toBe(String(24 * 60));
-    expect(root.querySelector('.dtg .pin[data-ev="t3"]')!.textContent).not.toContain("이후");
+    expect(root.querySelector('.dtg .dl[data-ev="t3"]')!.textContent).toContain("18:00"); // inside the table now
     app!.destroy();
     root = await mount(base());
     expect(root.querySelector<HTMLElement>(".dtg")!.dataset.s).toBe("0");
+  });
+});
+
+describe("month: this week always the second row", () => {
+  it("six weeks from the week before; navigating keeps the shown day's week second", async () => {
+    const root = await mount(base());
+    app!.setView("month", "2026-10-27");
+    const days = () => [...root.querySelectorAll<HTMLElement>(".fc-rolling-view .fc-daygrid-day[data-date]")].map((x) => x.dataset.date);
+    expect(days()).toHaveLength(42);
+    expect(days()[0]).toBe("2026-10-18"); // the week before
+    expect(days()[7]).toBe("2026-10-25"); // this week = second row
+    // No school-period bands on the week grid any more.
+    app!.setView("week", "2026-10-27");
+    expect(root.querySelector(".fc .bh-pd")).toBeNull();
   });
 });

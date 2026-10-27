@@ -138,18 +138,6 @@ export interface TodayOpts {
 
 const pct = (m: number, S: number, E: number) => `${(((m - S) / (E - S)) * 100).toFixed(3)}%`;
 
-/** 이번 주 날짜 줄: Mon–Sun with how many things; drop targets for moving to another day. */
-export function weekStrip(ctx: Ctx, k: string): string {
-  const d = parseDay(k);
-  const mon = addDays(d, -((d.getDay() + 6) % 7));
-  return `<div class="wkd" role="list">${Array.from({ length: 7 }, (_, i) => {
-    const x = ymd(addDays(mon, i));
-    const n = eventsOn(ctx.s, x).filter((e) => !e.workFor).length + dueOn(ctx.s, x).filter((t) => !t.done).length;
-    const dd = parseDay(x);
-    return `<button class="wd ${x === k ? "on" : ""} ${x === ctx.today ? "td" : ""}" data-wd="${x}" role="listitem" title="${dd.getMonth() + 1}/${dd.getDate()} · ${n}건 · 끌어 놓으면 이날로">${DOW[dd.getDay()]} ${dd.getDate()}${n ? `<small>${n}</small>` : ""}</button>`;
-  }).join("")}</div>`;
-}
-
 export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, number>, fd: (k: string) => string): string {
   const st = ctx.s.settings;
   const [S, E] = o.range === "work" ? [8 * 60, 17 * 60] : [0, 24 * 60];
@@ -159,7 +147,9 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
   const timed = evs.filter((e) => e.start);
   const step = o.range === "work" ? 1 : 2;
   let h = "";
-  for (let H = S / 60; H <= E / 60; H += step) h += `<div class="hr" style="top:${y(H * 60)}"><span>${String(H).padStart(2, "0")}:00</span></div>`;
+  const nowM = k === ctx.today ? ctx.nowM : -1;
+  // The hour next to 「now」 steps aside for it (the now time sits in the hour column).
+  for (let H = S / 60; H <= E / 60; H += step) h += `<div class="hr" style="top:${y(H * 60)}">${nowM >= 0 && Math.abs(H * 60 - nowM) < (step === 1 ? 14 : 28) ? "" : `<span>${String(H).padStart(2, "0")}:00</span>`}</div>`;
   const wd = parseDay(k).getDay();
   const school = wd >= 1 && wd <= 5;
   if (school && st.showPeriods) {
@@ -184,37 +174,46 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
       return { ...p, lane };
     });
   const L = Math.max(1, lanes.length);
-  const nowM = k === ctx.today ? ctx.nowM : -1;
   for (const { e, a, b, lane } of placed) {
     if (b <= S || a >= E) continue;
     const work = e.workFor ? num.get(e.workFor) : undefined;
     h += `<div class="ev ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.workFor ? "work" : ""} ${e.end ? "" : "noend"}" data-ev="${e.id}" data-evbox="${e.id}" draggable="false" style="top:${y(a)};height:max(20px, calc(${y(b)} - ${y(a)}));left:calc(${((lane / L) * 54).toFixed(2)}% + 4px);width:calc(${(54 / L).toFixed(2)}% - 6px)">
       <div class="t">${work ? `<span class="no">${work}</span> 작업 · ` : ""}${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</div><div class="r">${e.start}${e.end ? "–" + e.end : " · 끝 미정"}</div><i class="grip" title="끌어 늘이기"></i></div>`;
   }
-  // Deadlines: a thin line at the deadline time with 「번호 · 15:00 · 제목」 (outside the range: at the edge).
-  let lastTop = -99;
-  for (const t of dueOn(ctx.s, k).filter((x) => x.dueTime && !x.done).sort((a, b) => a.dueTime!.localeCompare(b.dueTime!))) {
+  // Deadlines: a card in its own lane (one left edge for all), its bottom edge on the deadline time.
+  // Close ones stack upward; ones outside the shown hours go to a row under the table.
+  const outside: string[] = [];
+  let stackAt = Infinity;
+  let stack = 0;
+  const card = (t: Task, n: number | undefined, urgent: boolean, style: string) =>
+    `<div class="dl ${urgent ? "urg" : ""}" data-ev="${t.id}" data-num="${n ?? ""}" style="${style}"><span class="no ${urgent ? "urg" : ""}" data-num="${n ?? ""}">${n ?? ""}</span><span class="tm">${t.dueTime}</span><span class="nm">${esc(t.title)}</span></div>`;
+  const dues = dueOn(ctx.s, k).filter((x) => x.dueTime && !x.done).sort((a, b) => b.dueTime!.localeCompare(a.dueTime!));
+  for (const t of dues) {
     const m = mins(t.dueTime!);
-    const out = m > E ? "after" : m < S ? "before" : "";
     const n = num.get(t.id);
     const urgent = isUrgent(t, ctx.now, st.offWork);
-    const top = (Math.max(S, Math.min(E, m)) - S) / (E - S);
-    // Marks closer than a label's height step down a little.
-    const nudge = top * 1000 - lastTop < 22 ? 18 : 0;
-    lastTop = top * 1000 + nudge;
-    h += `<div class="pin ${urgent ? "urg" : ""} ${out}" data-ev="${t.id}" data-num="${n ?? ""}" style="top:calc(${y(m)} + ${out === "after" ? -16 : nudge}px)"><span class="lb"><span class="no ${urgent ? "urg" : ""}" data-num="${n ?? ""}">${n ?? ""}</span><span class="tm">${out === "after" ? "이후 " : out === "before" ? "이전 " : ""}${t.dueTime}</span><span class="nm">${esc(t.title)}</span></span></div>`;
+    if (m > E || m < S) {
+      outside.unshift(card(t, n, urgent, ""));
+      continue;
+    }
+    // About one card high in minutes: closer than that, this one sits on top of the later one.
+    stack = stackAt - m < 36 * ((E - S) / 540) ? stack + 1 : 0;
+    stackAt = stack ? stackAt : m;
+    h += card(t, n, urgent, `top:calc(${y(stack ? stackAt : m)} - ${24 + stack * 26}px)`);
   }
-  // 루틴: a small dot at its time (filled when done), the name on hover.
+  // 루틴 (added in 설정 → 루틴): a dotted line at its time with its name; a click checks it for today.
   for (const r of ctx.s.routines.filter((x) => routineOn(x, k))) {
     const m = mins(r.at);
     if (m < S || m > E) continue;
-    h += `<div class="rtd ${r.done.includes(k) ? "dn" : ""}" style="top:${y(m)}" title="루틴 · ${esc(r.title)} · ${r.at} · ${repeatLabel(r)}${r.done.includes(k) ? " · 오늘 완료" : ""}"></div>`;
+    const dn = r.done.includes(k);
+    h += `<div class="rt ${dn ? "dn" : ""}" style="top:${y(m)}"><button data-rt="${r.id}" role="checkbox" aria-checked="${dn}" title="루틴 · ${repeatLabel(r)}${streak(r, k) ? ` · ${streak(r, k)}일째` : ""} · 누르면 ${dn ? "안 함으로" : "오늘 함"}">${r.at} ${esc(r.title)}${dn ? " ✓" : ""}</button></div>`;
   }
-  if (nowM >= S && nowM <= E) h += `<div class="nowl" style="top:${y(nowM)}"><span>지금 ${String(Math.floor(nowM / 60)).padStart(2, "0")}:${String(nowM % 60).padStart(2, "0")}</span></div>`;
+  if (nowM >= S && nowM <= E) h += `<div class="nowl" style="top:${y(nowM)}"><span>${String(Math.floor(nowM / 60)).padStart(2, "0")}:${String(nowM % 60).padStart(2, "0")}</span></div>`;
   const dups = duplicates(ctx.s).filter((d) => d.x.kind === "event" && d.x.date === k);
   return `<div class="dt panel g">
     <div class="dta">${allDay.map((e) => `<span class="chip ${e.provisional ? "prov" : ""}" data-ev="${e.id}">종일 · ${esc(e.title)}</span>`).join("")}${dups.length ? `<button class="warnlink" data-checks>같은 일정 ${dups.length + 1}개 · 합치기</button>` : ""}<span class="mode"><button data-dr="work" class="${o.range === "work" ? "on" : ""}">업무 08–17</button><button data-dr="all" class="${o.range === "all" ? "on" : ""}">하루 전체</button></span></div>
     <div class="dtgw"><div class="dtg" data-dtg="${k}" data-s="${S}" data-e="${E}">${h}<div class="dtc" data-dtc title="위아래로 끌면 새 일정 · 할 일을 끌어 놓으면 작업 시간"></div></div></div>
+    ${outside.length ? `<div class="after"><b>${E < 24 * 60 ? `${String(E / 60).padStart(2, "0")}:00 밖` : "밖"}</b><div class="afl">${outside.join("")}</div></div>` : ""}
   </div>`;
 }
 
@@ -262,9 +261,6 @@ export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => s
 
 export function rightStack(ctx: Ctx, k: string, fd: (k: string) => string): string {
   const up = upcoming(ctx.s, k, fd);
-  const rs = ctx.s.routines.filter((r) => routineOn(r, k)).sort((a, b) => a.at.localeCompare(b.at));
-  const doneN = rs.filter((r) => r.done.includes(k)).length;
-  const next = rs.find((r) => !r.done.includes(k));
   const find = (id: string) => [...ctx.s.events, ...ctx.s.tasks, ...ctx.s.periods].find((x) => x.id === id);
   return `<div class="rstack">
     <div class="panel g ups ${up.length ? "" : "empty"}"><div class="ph"><b>다가오는 주요 일정</b><span>30일</span></div>
@@ -272,12 +268,6 @@ export function rightStack(ctx: Ctx, k: string, fd: (k: string) => string): stri
         const x = find(u.id);
         return `<div class="ms" data-ev="${u.id}">${x ? starBtn(x) : "<span></span>"}<div><div class="t ${u.star === 2 ? "s2b" : ""}">${esc(u.title)}</div><div class="w">${esc(u.when)}</div>${u.steps ? `<div class="prog"><i style="--p:${((u.steps[0] / u.steps[1]) * 100).toFixed(0)}%"></i>${u.steps[0]}/${u.steps[1]} 단계</div>` : ""}</div><span class="d ${u.days <= 7 ? "soon" : ""}">D-${u.days}</span></div>`;
       }).join("") : '<div class="none">★ 표시한 일정·할 일과 기간이 여기에 D-day 순으로</div>'}</div>
-    <div class="panel g rts ${rs.length ? "" : "empty"}"><div class="ph"><b>루틴</b><span>${rs.length ? `오늘 ${doneN}/${rs.length}` : ""}</span></div>
-      ${rs.length ? rs.map((r) => {
-        const dn = r.done.includes(k);
-        const s = streak(r, k);
-        return `<div class="rrow ${dn ? "dn" : ""} ${r === next ? "nx" : ""}" title="${esc(r.title)} · ${repeatLabel(r)}"><span class="ck ${dn ? "on" : ""}" data-rt="${r.id}" role="checkbox" aria-checked="${dn}" tabindex="0" aria-label="${esc(r.title)} 오늘 함"></span><span class="tm">${r.at}</span><span class="nm">${esc(r.title)}</span><span class="rp">${repeatLabel(r)}${s ? ` · ${s}일째` : ""}</span></div>`;
-      }).join("") : '<div class="none">「매일 8시 20분 메일 확인 루틴」처럼 쓰거나 설정 → 루틴에서 추가</div>'}</div>
   </div>`;
 }
 
@@ -285,7 +275,6 @@ export function todayView(ctx: Ctx, o: TodayOpts, fd: (k: string) => string, che
   const k = ymd(ctx.cur);
   const { num } = orderedTasks(ctx.s, k === ctx.today ? ctx.today : k, ctx.now);
   return `<div class="tdv">
-    ${weekStrip(ctx, k)}
     ${checks}
     <div class="tgrid">${dayTable(ctx, k, o, num, fd)}${taskList(ctx, k, o, fd)}${rightStack(ctx, k, fd)}</div>
   </div>`;

@@ -219,7 +219,7 @@ describe("deadlines on the calendar (month · week · day, both themes)", () => 
     const { s, timed } = withDeadlines();
     const root = await mountWith(s);
     app!.setView("month", "2026-10-21");
-    const month = root.querySelector(".fc-dayGridMonth-view")!;
+    const month = root.querySelector(".fc-rolling-view")!;
     // 월 안 A: a dot + the title (red when today or late); 「마감」 and the urgency on hover.
     const hot = [...month.querySelectorAll<HTMLElement>(".c.due.mdot.hot")];
     expect(hot.some((x) => x.textContent === "출석부 마감" && x.title.includes("오늘"))).toBe(true);
@@ -233,8 +233,8 @@ describe("deadlines on the calendar (month · week · day, both themes)", () => 
     expect(week.querySelector(".fc-timegrid-event.bh-due")).not.toBeNull();
 
     app!.setView("day", timed.due);
-    // 오늘 화면: a timed deadline is a line on the day table with 「번호 · 시각 · 제목」.
-    const mark = root.querySelector<HTMLElement>(`.dtg .pin[data-ev="${timed.id}"]`)!;
+    // 오늘 화면: a timed deadline is a card on the day table with 「번호 · 시각 · 제목」 (or under it when outside the hours).
+    const mark = root.querySelector<HTMLElement>(`.dt .dl[data-ev="${timed.id}"]`)!;
     expect(mark.textContent).toContain(`${timed.dueTime}연수 보고서 제출`);
     app!.setView("day", "2026-10-21");
     expect(root.querySelector(".tl")!.textContent).toContain("출석부 마감");
@@ -246,7 +246,7 @@ describe("deadlines on the calendar (month · week · day, both themes)", () => 
     s.settings.theme = "doc";
     const root = await mountWith(s);
     app!.setView("month", "2026-10-21");
-    expect([...root.querySelectorAll(".fc-dayGridMonth-view .e.due.red")].map((x) => x.textContent).join()).toContain("□ 마감 출석부 마감 오늘");
+    expect([...root.querySelectorAll(".fc-rolling-view .e.due.red")].map((x) => x.textContent).join()).toContain("□ 마감 출석부 마감 오늘");
     app!.setView("week", timed.due);
     const row = root.querySelector(`table.tb.week tr[data-day="${timed.due}"]`)!;
     expect(row.textContent).toContain(`${timed.dueTime} 연수 보고서 제출`);

@@ -170,15 +170,17 @@ function taskRow(ctx: Ctx, t: Task): string {
 export const glass: ThemeView = {
   fd,
   shell: (ctx) => `
-    <header class="bar" data-tauri-drag-region>
-      <div class="title" id="bhTitle" data-nav="0" title="눌러서 오늘로 (T)"></div>
-      <button class="nb" data-nav="-1" aria-label="이전" title="이전 (←)">‹</button><button class="nb" data-nav="1" aria-label="다음" title="다음 (→)">›</button><button class="nb ibn today" data-nav="0" aria-label="오늘로" title="오늘로 (T)">${ICON.today}</button>
-      <span class="sp"></span>
-      <label class="find" title="찾기 (⌘F) · 내 기록에서만, 0원">${ICON.find}<input id="bhFind" type="search" placeholder="찾기 · 기억·할 일·일정" autocomplete="off" spellcheck="false" aria-label="찾기" aria-controls="bhFindRes"><kbd>⌘F</kbd></label><span class="nowline" id="bhNowLine" aria-live="off"></span>
-      <span class="conn" title="${esc(ctx.connection.detail)}" data-testid="connection">${esc(ctx.connection.label)}</span>
-      <div class="seg" role="group" aria-label="보기"><button data-v="month">월</button><button data-v="week">주</button><button data-v="day">일</button><button data-v="pri">우선순위</button><button data-v="memo">기억</button></div>
-      <button class="nb ibn" data-print title="출력 (⌘P)" aria-label="출력">${ICON.print}</button><button class="nb ibn" data-settings aria-haspopup="dialog" title="설정 (⌘,)" aria-label="설정">${ICON.gear}</button>
-    </header>
+    <header class="bar" data-tauri-drag-region><div class="barin" data-tauri-drag-region>
+      <div class="cell l" data-tauri-drag-region><span class="tlsp" data-tauri-drag-region></span>
+        <span class="dctl" role="group" aria-label="날짜"><button class="ar" data-nav="-1" aria-label="이전" title="이전 (←)">‹</button><button class="dlab" id="bhTitle" data-datepick aria-haspopup="dialog" title="날짜 고르기 (T: 오늘)"></button><button class="ar" data-nav="1" aria-label="다음" title="다음 (→)">›</button></span><button class="nb ibn today" data-nav="0" aria-label="오늘로" title="오늘로 (T)">${ICON.today}</button>
+        <label class="find" title="찾기 (⌘F) · 내 기록에서만, 0원">${ICON.find}<input id="bhFind" type="search" placeholder="찾기 · 기억·할 일·일정" autocomplete="off" spellcheck="false" aria-label="찾기" aria-controls="bhFindRes"><kbd>⌘F</kbd></label>
+      </div>
+      <div class="cell r" data-tauri-drag-region><span class="nowline" id="bhNowLine" aria-live="off"></span>
+        <span class="conn" title="${esc(ctx.connection.detail)}" data-testid="connection">${esc(ctx.connection.label)}</span>
+        <div class="seg" role="group" aria-label="보기"><button data-v="month">월</button><button data-v="week">주</button><button data-v="day">일</button><button data-v="pri">우선순위</button><button data-v="memo">기억</button></div>
+        <button class="nb ibn" data-print title="출력 (⌘P)" aria-label="출력">${ICON.print}</button><button class="nb ibn" data-settings aria-haspopup="dialog" title="설정 (⌘,)" aria-label="설정">${ICON.gear}</button>
+      </div>
+    </div></header>
     <main class="content" id="bhMain"></main>
     <footer class="composer" id="bhComp"></footer>`,
   head: (ctx) => {
@@ -228,7 +230,8 @@ export const glass: ThemeView = {
   bubble: (ctx, m: ChatMessage) => {
     if (m.who === "me") {
       const body = m.kind === "photo" || m.kind === "file" ? `<div class="photo">${esc(m.fileName ?? "파일")}</div>${m.text ? `<div>${esc(m.text)}</div>` : ""}` : m.kind === "voice" ? `<div class="voice">▶ 음성 메모</div>${m.text ? `<div>${esc(m.text)}</div>` : ""}` : esc(m.text);
-      return `<div class="bub me">${body}</div>${m.src ? `<div class="bsrc me">${esc(m.src)} · ${m.at.slice(11)}</div>` : ""}`;
+      // The time on the left of my words (where it came from only when not this Mac).
+      return `<div class="mrow"><span class="btime" title="${esc(m.src ?? "")} · ${m.at.slice(11)}">${m.src && m.src !== "데스크톱" && m.src !== "질문" ? `${esc(m.src)} ` : ""}${m.at.slice(11)}</span><div class="bub me">${body}</div></div>`;
     }
     return `<div class="bub ai ${m.error ? "err" : ""}">${esc(m.text)}${chatCards(ctx, m, fd)}</div>`;
   },

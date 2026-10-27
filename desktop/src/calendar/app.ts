@@ -251,6 +251,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <div class="pop" id="bhPop" role="dialog" aria-label="항목" hidden></div>
       <div class="tip" id="bhTip" role="tooltip" hidden></div>
       <div class="ctxm" id="bhCtx" role="menu" aria-label="날짜 옮기기" hidden></div>
+      <div class="ctxm pick" id="bhPick" role="dialog" aria-label="날짜 고르기" hidden></div>
       <div class="findres" id="bhFindRes" role="listbox" aria-label="찾은 것" hidden></div>
       <input type="file" id="bhFile" hidden accept="image/*,.pdf,.hwp,.hwpx,.docx,.xlsx,.txt,.wav">`;
     if (sideCapable) {
@@ -429,8 +430,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         h += `<div class="daysep">${d === c.today ? "오늘" : theme().fd(d)}</div>`;
       }
       let b = theme().bubble(c, m);
-      if (same(shown[i - 1], m) && shown[i - 1].at.slice(0, 10) === d) b = b.replace('class="bub ', 'class="bub cont ');
-      if (same(m, shown[i + 1])) b = b.replace(/<div class="bsrc[^"]*">[^<]*<\/div>$/, "");
+      // Same speaker, same minute: tighter, and the time only on the first of them.
+      if (same(shown[i - 1], m) && shown[i - 1].at.slice(0, 10) === d) b = b.replace('class="bub ', 'class="bub cont ').replace(/<span class="btime"[^>]*>[^<]*<\/span>/, '<span class="btime"></span>');
       h += b;
     });
     // Nothing yet (안 A): three grey lines of what one can type.
@@ -632,7 +633,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         <div class="set-row">점심 <input class="tin w2" data-time="lunch" value="${st.lunch}"></div>
         <div class="pgrid">${st.periods.map((p, i) => `<label>${i + 1}교시 <input class="tin w2" data-period="${i}" value="${p}"></label>`).join("")}</div>
         <div class="set-row">끝 없는 일정 기본 길이 <input class="tin" data-time="eventMinutes" value="${st.eventMinutes}" style="width:44px">분</div>
-        <label class="set-row"><input type="checkbox" data-set="showPeriods" ${st.showPeriods ? "checked" : ""}> 하루 띠·주 화면에 교시 구간 옅게</label>
+        <label class="set-row"><input type="checkbox" data-set="showPeriods" ${st.showPeriods ? "checked" : ""}> 하루표에 교시 구간 옅게</label>
         <div class="set-note">「퇴근 전」 「출근 전」 「점심시간에」 「3교시 전/에/끝나고」를 이 시간으로 읽습니다. 24시간(예: 08:50-09:35).</div>` },
       { id: "routine", name: "루틴", sum: `${s.routines.filter((r) => !r.gone).length}개`, body: routineRows() },
       { id: "alarm", name: "알람", sum: desk?.settings.alarmSound ?? "", body: `${soundRow}<div class="set-row"><button class="mini" data-testalarm>알람 시험 (1분 뒤)</button>${adapter.desk ? '<button class="mini" data-guide>처음 쓰기 안내</button>' : ""}</div>` }
@@ -1481,6 +1482,30 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
   }
 
+  /** The date in the header opens a small month to jump to a day (오늘 on top). */
+  let pickMonth: Date | null = null;
+  function renderPick(): void {
+    const el = root.querySelector<HTMLElement>("#bhPick");
+    if (!el) return;
+    if (!pickMonth) {
+      el.hidden = true;
+      return;
+    }
+    const m = pickMonth;
+    const first = new Date(m.getFullYear(), m.getMonth(), 1);
+    const cells = Array.from({ length: 42 }, (_, i) => addDays(first, i - first.getDay()));
+    const k = ymd(cur);
+    el.innerHTML = `<button data-pickgo="${ymd(clock())}">오늘<span>${theme().fd(ymd(clock()))}</span></button>
+      <div class="cm-cal"><div class="cm-mh"><button data-pickm="-1" aria-label="이전 달">‹</button><b>${m.getFullYear()}. ${m.getMonth() + 1}.</b><button data-pickm="1" aria-label="다음 달">›</button></div><div class="cm-g">${"일월화수목금토".split("").map((d) => `<i>${d}</i>`).join("")}${cells.map((d) => `<button data-pickgo="${ymd(d)}" class="${d.getMonth() === m.getMonth() ? "" : "out"} ${ymd(d) === ymd(clock()) ? "td" : ""} ${ymd(d) === k ? "sel" : ""}">${d.getDate()}</button>`).join("")}</div></div>`;
+    const b = root.querySelector<HTMLElement>("[data-datepick]")?.getBoundingClientRect();
+    const base = root.getBoundingClientRect();
+    if (b) {
+      el.style.left = `${Math.max(6, b.left - base.left)}px`;
+      el.style.top = `${b.bottom - base.top + 6}px`;
+    }
+    el.hidden = false;
+  }
+
   /** 「일정 ↔ 할 일」 on a card: an appointment becomes a deadline (its start) and back. */
   function swapKind(key: string): void {
     const id = key.slice(key.indexOf("|") + 1);
@@ -1933,7 +1958,6 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
     if (q("[data-star]")) return cycleStar(q("[data-star]")!.dataset.star!);
     if (q("[data-rt]")) return toggleRoutine(q("[data-rt]")!.dataset.rt!);
-    if (q("[data-wd]")) return openDay(q("[data-wd]")!.dataset.wd!);
     if (q("[data-swap]")) return swapKind(q("[data-swap]")!.dataset.swap!);
     if (q("[data-moveto]")) {
       const r = q("[data-moveto]")!.getBoundingClientRect();
@@ -2140,6 +2164,24 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       view = q("[data-v]")!.dataset.v as ViewName;
       return render();
     }
+    if (q("[data-datepick]")) {
+      pickMonth = pickMonth ? null : new Date(cur.getFullYear(), cur.getMonth(), 1);
+      return renderPick();
+    }
+    if (q("[data-pickm]")) {
+      pickMonth = new Date(pickMonth!.getFullYear(), pickMonth!.getMonth() + Number(q("[data-pickm]")!.dataset.pickm), 1);
+      return renderPick();
+    }
+    if (q("[data-pickgo]")) {
+      cur = parseDay(q("[data-pickgo]")!.dataset.pickgo!);
+      pickMonth = null;
+      renderPick();
+      return render();
+    }
+    if (pickMonth && !q("#bhPick")) {
+      pickMonth = null;
+      renderPick();
+    }
     if (q("[data-nav]")) {
       const n = Number(q("[data-nav]")!.dataset.nav);
       if (!n) cur = parseDay(ymd(clock()));
@@ -2188,6 +2230,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return root.querySelector<HTMLInputElement>("#bhIn")?.focus();
     }
     if (e.key === "Escape") {
+      if (pickMonth) {
+        pickMonth = null;
+        return renderPick();
+      }
       if (ctxMenu) {
         ctxMenu = null;
         return renderCtx();
@@ -2596,24 +2642,24 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     el.style.top = top(a);
     el.style.height = `max(20px, calc(${top(b)} - ${top(a)}))`;
     el.querySelector(".r")!.textContent = `${hm(Math.max(0, a))}–${hm(Math.min(1439, b))}`;
-    // Over the week line: show where it would go.
-    root.querySelectorAll(".wd.drop").forEach((w) => w.classList.remove("drop"));
-    (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest(".wd")?.classList.add("drop");
+    // Over ‹ ›: dropping there moves it to the day before / after.
+    root.querySelectorAll(".dctl .ar.drop").forEach((w) => w.classList.remove("drop"));
+    (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest(".dctl .ar")?.classList.add("drop");
   });
   window.addEventListener("pointerup", (e) => {
     const d0 = dt;
     dt = null;
     if (!d0 || !d0.moved) return;
     barJustDragged = true;
-    root.querySelectorAll(".wd.drop").forEach((w) => w.classList.remove("drop"));
+    root.querySelectorAll(".dctl .ar.drop").forEach((w) => w.classList.remove("drop"));
     const d = dtMin(d0, e.clientY);
     if (d0.mode === "new") {
       d0.ghost?.remove();
       const [a, b] = d >= 0 ? [d0.a, d0.a + Math.max(10, d)] : [d0.a + d, d0.a];
       return askNewEvent(d0.day, Math.max(0, a), Math.min(1439, b));
     }
-    const wd = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>(".wd");
-    if (wd && d0.mode === "move") return moveTo(d0.id!, wd.dataset.wd!);
+    const ar = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>(".dctl .ar");
+    if (ar && d0.mode === "move") return moveTo(d0.id!, ymd(addDays(parseDay(d0.day), Number(ar.dataset.nav))));
     const len = d0.b - d0.a;
     let a = d0.mode === "move" ? d0.a + d : d0.a;
     a = Math.max(0, Math.min(a, 24 * 60 - 10));
@@ -2629,22 +2675,49 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     e.dataTransfer.effectAllowed = "move";
     hideTip();
   });
-  const dropZone = (t: EventTarget | null) => (t as HTMLElement | null)?.closest?.<HTMLElement>(".dtg, .wd, .quad");
+  const dropZone = (t: EventTarget | null) => (t as HTMLElement | null)?.closest?.<HTMLElement>(".dtg, .quad, .dctl .ar");
+  // Held over ‹ ›: one more day every 0.7 s (the arrow shows 「+2」…); dropping moves it that far.
+  let flip: { el: HTMLElement; n: number; timer: ReturnType<typeof setInterval> } | null = null;
+  const endFlip = () => {
+    if (!flip) return;
+    clearInterval(flip.timer);
+    flip.el.removeAttribute("data-flip");
+    flip = null;
+  };
   root.addEventListener("dragover", (e) => {
     const z = dropZone(e.target);
     if (!z || !e.dataTransfer?.types.includes("text/bh-task")) return;
     e.preventDefault();
+    if (z.classList.contains("ar") && flip?.el !== z) {
+      endFlip();
+      const f = { el: z, n: 1, timer: setInterval(() => {
+        f.n++;
+        z.setAttribute("data-flip", `${Number(z.dataset.nav) < 0 ? "−" : "+"}${f.n}`);
+      }, 700) };
+      flip = f;
+      z.setAttribute("data-flip", `${Number(z.dataset.nav) < 0 ? "−" : "+"}1`);
+    } else if (!z.classList.contains("ar")) endFlip();
     root.querySelectorAll(".drop").forEach((x) => x !== z && x.classList.remove("drop"));
     z.classList.add("drop");
   });
-  root.addEventListener("dragleave", (e) => dropZone(e.target)?.classList.remove("drop"));
+  root.addEventListener("dragleave", (e) => {
+    const z = dropZone(e.target);
+    z?.classList.remove("drop");
+    if (z && flip?.el === z) endFlip();
+  });
+  root.addEventListener("dragend", endFlip);
   root.addEventListener("drop", (e) => {
     const z = dropZone(e.target);
     const id = e.dataTransfer?.getData("text/bh-task");
     root.querySelectorAll(".drop").forEach((x) => x.classList.remove("drop"));
     if (!z || !id) return;
     e.preventDefault();
-    if (z.classList.contains("wd")) return moveTo(id, z.dataset.wd!);
+    // Onto ‹ ›: the day before / after the one shown.
+    if (z.classList.contains("ar")) {
+      const n = flip?.el === z ? flip.n : 1;
+      endFlip();
+      return moveTo(id, ymd(addDays(cur, Number(z.dataset.nav) * n)));
+    }
     if (z.classList.contains("dtg")) {
       const r = z.getBoundingClientRect();
       const S = Number(z.dataset.s);
@@ -2795,9 +2868,26 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
     if (typing || cmd || e.altKey || settingsOpen) return;
     if (e.code === "ArrowLeft" || e.code === "ArrowRight") return go(() => root.querySelector<HTMLButtonElement>(`[data-nav="${e.code === "ArrowLeft" ? -1 : 1}"]`)?.click());
-    if (e.code === "KeyT") return go(() => root.querySelector<HTMLButtonElement>('[data-nav="0"]')?.click());
+    if (e.code === "KeyT") return go(() => {
+      cur = parseDay(ymd(clock()));
+      render();
+    });
   };
   document.addEventListener("keydown", onGlobalKey);
+  // Two fingers sideways on the trackpad: the previous / next day (week, month), like turning a page.
+  let swipe = 0;
+  let swipeAt = 0;
+  root.addEventListener("wheel", (e) => {
+    if (!(e.target as HTMLElement).closest?.("#bhMain") || Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 1.5 || view === "memo") return;
+    const now = Date.now();
+    if (now - swipeAt < 600) return;
+    swipe += e.deltaX;
+    if (Math.abs(swipe) < 120) return;
+    const n = swipe > 0 ? 1 : -1;
+    swipe = 0;
+    swipeAt = now;
+    root.querySelector<HTMLButtonElement>(`[data-nav="${n}"]`)?.click();
+  }, { passive: true });
   root.addEventListener("keydown", (e) => {
     const el = e.target as HTMLElement;
     if (el.id !== "bhFind" || e.isComposing) return;
