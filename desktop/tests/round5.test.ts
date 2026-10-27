@@ -38,20 +38,33 @@ async function mount(st: CalendarState, extra: Partial<BlackholeAdapter> = {}): 
 }
 
 describe("time words (B-7, B-8)", () => {
-  it("퇴근 전 · 점심 전/때 · n교시 전/후/에 · 1320까지 become clock times; 오반 → 5반", () => {
+  it("the user's school day (출근 08:20 · 퇴근 16:20 · 점심 12:20–13:20 · 45-minute periods); 오반 → 5반", () => {
     const d = DEFAULT_SETTINGS;
-    expect(timeWords("퇴근 전에 서류 내기", d)).toBe("16:40까지 서류 내기");
-    expect(timeWords("점심 전 출석부", d)).toBe("12:10까지 출석부");
-    expect(timeWords("3교시 후 상담", d)).toContain("11:20");
-    expect(timeWords("5교시에 공개수업", d)).toContain("13:00~13:40");
+    expect(timeWords("퇴근 전에 서류 내기", d)).toBe("16:20까지 서류 내기");
+    expect(timeWords("출근 전 복사", d)).toBe("08:20까지 복사");
+    expect(timeWords("점심 전 출석부", d)).toBe("12:20까지 출석부");
+    expect(timeWords("점심시간에 상담", d)).toContain("12:20~13:20");
     expect(timeWords("1320까지 안내", d)).toBe("13:20까지 안내");
     expect(fixNumbers("오반도 같이 가요")).toBe("5반도 같이 가요");
     expect(fixNumbers("삼학년 회의")).toBe("3학년 회의");
     expect(fixNumbers("이반 입니다")).toBe("2반 입니다");
+    // 「3교시에 ○○」 → 10:40–11:25 · 「3교시 전」 → 10:40 deadline · 「6교시 끝나고」 → from 15:00
+    const a = parseDraft("내일 3교시에 공개수업", NOW, d);
+    expect([a.kind, a.time, a.end]).toEqual(["SCHEDULE", "10:40", "11:25"]);
+    const b = parseDraft("내일 3교시 전 학습지 인쇄", NOW, d);
+    expect([b.kind, b.time]).toEqual(["TODO", "10:40"]);
+    const c = parseDraft("내일 6교시 끝나고 학부모 상담", NOW, d);
+    expect([c.kind, c.time]).toEqual(["SCHEDULE", "15:00"]);
     const r = parseDraft("오늘 퇴근 전에 공문 회신", NOW, d);
-    expect([r.kind, r.date, r.time]).toEqual(["TODO", "2026-10-27", "16:40"]);
-    const p = parseDraft("내일 5교시에 공개수업", NOW, d);
-    expect([p.kind, p.time, p.end]).toEqual(["SCHEDULE", "13:00", "13:40"]);
+    expect([r.kind, r.date, r.time]).toEqual(["TODO", "2026-10-27", "16:20"]);
+  });
+
+  it("old placeholder school times saved by the first build are replaced", async () => {
+    const { normalizeState } = await import("../src/calendar/model");
+    const st = normalizeState({ schemaVersion: 1, settings: { offWork: "16:40", lunch: "12:10-13:00", periods: ["09:00-09:40"] } })!;
+    expect([st.settings.offWork, st.settings.lunch, st.settings.periods[2]]).toEqual(["16:20", "12:20-13:20", "10:40-11:25"]);
+    const mine = normalizeState({ schemaVersion: 1, settings: { offWork: "17:00", lunch: "12:00-13:00", periods: ["09:00-09:40"] } })!;
+    expect(mine.settings.offWork).toBe("17:00"); // the user's own change stays
   });
 });
 

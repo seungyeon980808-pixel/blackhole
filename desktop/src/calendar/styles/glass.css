@@ -347,3 +347,8 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .fc .c.mdot.done { opacity: .45; text-decoration: line-through; }
 .bh.glass .tip { background: color-mix(in srgb, var(--page) 92%, transparent); color: var(--ink); border: 1px solid var(--line); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
 .bh.glass .fc .c .ct { font-variant-numeric: tabular-nums; opacity: .85; }
+.bh.glass .strip .spd { background: rgba(255, 255, 255, .06); }
+.bh.glass[data-mode="light"] .strip .spd { background: rgba(22, 23, 42, .05); }
+.bh.glass .fc .fc-bg-event.bh-pd { background: rgba(255, 255, 255, .05); opacity: 1; }
+.bh.glass .fc .fc-bg-event.bh-lunch { background: rgba(255, 211, 110, .06); opacity: 1; }
+.bh.glass .settings input.tin { background: var(--glass2); border: 1px solid var(--line); border-radius: 6px; color: var(--ink); padding: 2px 4px; }

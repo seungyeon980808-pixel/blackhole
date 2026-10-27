@@ -542,6 +542,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         <label class="set-row"><input type="checkbox" data-desk="mainWidget" ${desk.settings.mainWidget ? "checked" : ""}> 프로그램 큰 화면도 위젯처럼(바탕화면에 붙이기)</label>
         <label class="set-row">표시 방식 <select data-desk="boardMode"><option value="desktop" ${(desk.settings.boardMode ?? "desktop") === "desktop" ? "selected" : ""}>바탕화면에(다른 창 아래)</option><option value="top" ${desk.settings.boardMode === "top" ? "selected" : ""}>항상 위</option><option value="peek" ${desk.settings.boardMode === "peek" ? "selected" : ""}>단축키로 잠깐 앞으로</option></select></label>
         <div class="set-note">모든 데스크톱에 보입니다. 위치·크기는 기억합니다. ${escapeHtml(desk.pretty.widget || "⌃⌥⌘W")}를 누르면 위젯이 잠깐 맨 앞으로 옵니다(단축키는 「단축키 · 시작」에서 바꿈).</div>` : "" }] : []),
+      { id: "school", name: "학교 시간", sum: `${st.onWork}–${st.offWork} · 점심 ${st.lunch.replace("-", "–")}`, body: `<div class="set-row">출근 <input class="tin" data-time="onWork" value="${st.onWork}"> 퇴근 <input class="tin" data-time="offWork" value="${st.offWork}"></div>
+        <div class="set-row">점심 <input class="tin w2" data-time="lunch" value="${st.lunch}"></div>
+        <div class="pgrid">${st.periods.map((p, i) => `<label>${i + 1}교시 <input class="tin w2" data-period="${i}" value="${p}"></label>`).join("")}</div>
+        <div class="set-row">끝 없는 일정 기본 길이 <input class="tin" data-time="eventMinutes" value="${st.eventMinutes}" style="width:44px">분</div>
+        <label class="set-row"><input type="checkbox" data-set="showPeriods" ${st.showPeriods ? "checked" : ""}> 하루 띠·주 화면에 교시 구간 옅게</label>
+        <div class="set-note">「퇴근 전」 「출근 전」 「점심시간에」 「3교시 전/에/끝나고」를 이 시간으로 읽습니다. 24시간(예: 08:50-09:35).</div>` },
       { id: "alarm", name: "알람", sum: desk?.settings.alarmSound ?? "", body: `${soundRow}<div class="set-row"><button class="mini" data-testalarm>알람 시험 (1분 뒤)</button>${adapter.desk ? '<button class="mini" data-guide>처음 쓰기 안내</button>' : ""}</div>` }
     ];
     const info = (body: string) => {
@@ -1774,11 +1780,37 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       adapter.trySound?.(el.value);
       return void saveDesk((d) => (d.alarmSound = el.value));
     }
+    if (el.dataset.time || el.dataset.period) {
+      // 학교 시간: 「0820」 「8:20」 「08:50-09:35」 「0850~0935」 are all fine; anything else is not taken.
+      const one = (v: string) => {
+        const m = /^(\d{1,2}):?(\d{2})$/.exec(v.trim());
+        return m && +m[1] < 24 && +m[2] < 60 ? `${pad(+m[1])}:${m[2]}` : null;
+      };
+      const two = (v: string) => {
+        const [a, b] = v.split(/\s*[-~–]\s*/);
+        const x = a ? one(a) : null;
+        const y = b ? one(b) : null;
+        return x && y && y > x ? `${x}-${y}` : null;
+      };
+      const k = el.dataset.time;
+      const st = s.settings;
+      if (k === "eventMinutes") st.eventMinutes = Math.max(10, Math.min(600, Math.round(Number(el.value) || 60)));
+      else if (k === "onWork" || k === "offWork") st[k] = one(el.value) ?? st[k];
+      else if (k === "lunch") st.lunch = two(el.value) ?? st.lunch;
+      else if (el.dataset.period) {
+        const v = two(el.value);
+        if (v) st.periods[Number(el.dataset.period)] = v;
+      }
+      await save();
+      render();
+      return;
+    }
     const key = el.dataset.set;
     if (!key) return;
     if (key === "theme") s.settings.theme = el.value as ThemeName;
     if (key === "mode") s.settings.mode = el.value as "dark" | "light";
     if (key === "samples") s.settings.showSamples = (el as HTMLInputElement).checked;
+    if (key === "showPeriods") s.settings.showPeriods = (el as HTMLInputElement).checked;
     if (key === "glassBlur" || key === "glassBright") {
       s.settings[key] = Number(el.value);
       applyLook();

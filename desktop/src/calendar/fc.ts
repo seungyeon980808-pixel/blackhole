@@ -12,8 +12,20 @@ import type { CalendarState, Task, ThemeName } from "./model";
 import { liveEvents, livePeriods, liveTasks } from "./store";
 import { dueBadge, type Ctx, type ThemeView } from "./views/common";
 
-export function fcEvents(s: CalendarState, withBells: boolean): EventInput[] {
+export function fcEvents(s: CalendarState, withBells: boolean, around?: Date): EventInput[] {
   const out: EventInput[] = [];
+  // Week: faint school periods on weekdays around the shown week (설정 「학교 시간」).
+  if (withBells && around && s.settings.showPeriods) {
+    for (let n = -7; n < 14; n++) {
+      const d = addDays(around, n - around.getDay());
+      if (d.getDay() < 1 || d.getDay() > 5) continue;
+      const k = ymd(d);
+      for (const p of [...s.settings.periods, s.settings.lunch]) {
+        const [a, b] = p.split("-");
+        if (a && b) out.push({ start: `${k}T${a}`, end: `${k}T${b}`, display: "background", classNames: [p === s.settings.lunch ? "bh-lunch" : "bh-pd"], editable: false, extendedProps: { kind: "band", order: 9 } });
+      }
+    }
+  }
   for (const p of livePeriods(s)) {
     out.push({ id: p.id, title: p.title, start: p.from, end: ymd(addDays(parseDay(p.to), 1)), allDay: true, classNames: ["bh-per", p.area], extendedProps: { kind: "period", order: 0 }, editable: false });
   }
@@ -56,7 +68,7 @@ export class FcHost {
   show(el: HTMLElement, ctx: Ctx, theme: ThemeName, view: ThemeView, handlers: FcHandlers, compact: boolean): void {
     const fcView = ctx.view === "month" ? "dayGridMonth" : "timeGridWeek";
     const key = `${fcView}|${theme}|${compact}`;
-    const events = fcEvents(ctx.s, fcView === "timeGridWeek");
+    const events = fcEvents(ctx.s, fcView === "timeGridWeek", ctx.cur);
     if (this.fc && this.key === key && this.el === el) {
       this.fc.batchRendering(() => {
         this.fc!.removeAllEvents();
@@ -103,7 +115,7 @@ export class FcHost {
       slotEventOverlap: false,
       eventContent: (arg) => {
         const kind = arg.event.extendedProps.kind as string;
-        if (kind === "bell") return { html: `<span>${arg.event.title}</span>` };
+        if (kind === "bell" || kind === "band") return { html: "" };
         const x = byId(arg.event.id);
         if (!x) return true;
         if (fcView === "timeGridWeek" && kind === "event" && !arg.event.allDay) {

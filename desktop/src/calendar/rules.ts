@@ -205,6 +205,7 @@ function bareHour(raw: string): number | null {
  */
 /** The user's day (설정): 퇴근 시각, 점심, 교시표. */
 export interface DayClock {
+  onWork?: string;
   offWork?: string;
   lunch?: string;
   periods?: string[];
@@ -226,10 +227,12 @@ export function fixNumbers(raw: string): string {
  * 「11:20」, 「5교시에」 → 「13:00~13:40」. Four digits before 까지·에·부터 (「1320까지」) are a time.
  */
 export function timeWords(raw: string, day: DayClock = {}): string {
-  const off = day.offWork || "16:40";
-  const [l0, l1] = (day.lunch || "12:10-13:00").split("-");
+  const on = day.onWork || "08:20";
+  const off = day.offWork || "16:20";
+  const [l0, l1] = (day.lunch || "12:20-13:20").split("-");
   const per = day.periods ?? [];
   let v = fixNumbers(raw);
+  v = v.replace(/출근\s*(?:하기\s*)?(?:전에|전까지|전)/g, `${on}까지`).replace(/출근\s*(?:하면|후에|후|하고|해서)/g, `${on}`).replace(/아침에(?!\s*\d)/g, `${on}에`);
   v = v.replace(/퇴근\s*(?:하기\s*)?(?:전에|전까지|전|까지)/g, `${off}까지`).replace(/퇴근\s*(?:후에|후|하고)/g, `${off}`);
   v = v.replace(/점심\s*(?:시간\s*)?(?:전에|전까지|전)/g, `${l0}까지`).replace(/점심\s*(?:시간\s*)?(?:후에|후|먹고)/g, `${l1}`).replace(/점심\s*(?:시간|때)\s*(?:에)?/g, `${l0}~${l1} `);
   v = v.replace(/(\d{1,2})\s*교시\s*(전에|전까지|전|후에|후|끝나고|뒤|에|부터)?/g, (m, n: string, w = "") => {
@@ -237,7 +240,7 @@ export function timeWords(raw: string, day: DayClock = {}): string {
     if (!r) return m;
     const [a, b] = r.split("-");
     if (/전/.test(w)) return `${a}까지`;
-    if (/후|끝나고|뒤/.test(w)) return `${b}`;
+    if (/후|끝나고|뒤/.test(w)) return `${b}부터 `;
     return `${a}~${b} `;
   });
   v = v.replace(/(?<![\d./:-])([01]\d|2[0-3])([0-5]\d)(?=\s*(?:까지|에|부터|시작|마감))/g, "$1:$2");

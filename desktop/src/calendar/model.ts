@@ -137,6 +137,8 @@ export interface Settings {
   glassBlur: number;
   /** Glass theme: background and card brightness, -50 … 50 (0 = the approved look). */
   glassBright: number;
+  /** 「출근 전」 「아침에」: when the work day starts (HH:MM). */
+  onWork: string;
   /** 「퇴근 전」: when the work day ends (HH:MM). */
   offWork: string;
   /** 「점심 전/때」: lunch (HH:MM-HH:MM). */
@@ -145,6 +147,8 @@ export interface Settings {
   periods: string[];
   /** An appointment without an end is drawn this many minutes long (marked 「끝 미정」). */
   eventMinutes: number;
+  /** Faint school-period bands on the day band and the week (weekdays). */
+  showPeriods: boolean;
 }
 
 export interface CalendarState {
@@ -178,11 +182,22 @@ export const DEFAULT_SETTINGS: Settings = {
   messengerEnabled: false,
   glassBlur: 26,
   glassBright: 0,
-  offWork: "16:40",
-  lunch: "12:10-13:00",
-  periods: ["09:00-09:40", "09:50-10:30", "10:40-11:20", "11:30-12:10", "13:00-13:40", "13:50-14:30", "14:40-15:20"],
-  eventMinutes: 60
+  // The user's school (2026-10-27): 45-minute lessons, 10-minute breaks, lunch after 4교시.
+  onWork: "08:20",
+  offWork: "16:20",
+  lunch: "12:20-13:20",
+  periods: ["08:50-09:35", "09:45-10:30", "10:40-11:25", "11:35-12:20", "13:20-14:05", "14:15-15:00", "15:10-15:55"],
+  eventMinutes: 60,
+  showPeriods: true
 };
+
+/** The first build's placeholder school day (never shown in 설정): replaced by the real one. */
+function schoolTimes(st: Settings): Settings {
+  if (st.offWork === "16:40" && st.lunch === "12:10-13:00" && st.periods?.[0] === "09:00-09:40") {
+    return { ...st, onWork: DEFAULT_SETTINGS.onWork, offWork: DEFAULT_SETTINGS.offWork, lunch: DEFAULT_SETTINGS.lunch, periods: DEFAULT_SETTINGS.periods.slice() };
+  }
+  return st;
+}
 
 export function emptyState(): CalendarState {
   return {
@@ -223,7 +238,7 @@ export function normalizeState(value: unknown): CalendarState | null {
     ingestedJobs: list<string>(v.ingestedJobs),
     draftedJobs: list<string>(v.draftedJobs),
     appliedActions: list<string>(v.appliedActions),
-    settings: { ...DEFAULT_SETTINGS, ...(v.settings ?? {}) },
+    settings: schoolTimes({ ...DEFAULT_SETTINGS, ...(v.settings ?? {}) }),
     nextId: typeof v.nextId === "number" && v.nextId > 0 ? v.nextId : 1
   };
 }

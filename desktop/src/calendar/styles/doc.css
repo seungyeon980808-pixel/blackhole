@@ -235,3 +235,6 @@
 .bh.doc .conn.warn { background: #c9a227; }
 .bh.doc .dtitle[data-nav] { cursor: pointer; }
 .bh.doc .tip { background: #fff; color: #111; border: 1.5px solid var(--rule); border-radius: 2px; font-family: var(--sans); }
+.bh.doc .fc .fc-bg-event.bh-pd { background: rgba(30, 50, 100, .04); opacity: 1; }
+.bh.doc .fc .fc-bg-event.bh-lunch { background: rgba(201, 162, 39, .07); opacity: 1; }
+.bh.doc .settings input.tin { border: 1px solid #777; padding: 1px 4px; }

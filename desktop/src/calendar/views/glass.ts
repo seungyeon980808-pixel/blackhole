@@ -130,9 +130,26 @@ export function dayStrip(ctx: Ctx, k: string): string {
   const ticks = Array.from({ length: Math.floor((H1 - H0) / 2) + 1 }, (_, i) => H0 + i * 2).map((h) => `<span style="left:${x(h * 60)}">${h}</span>`).join("");
   const marks = dues.map((t) => `<div class="sd ${dueBadge(ctx.today, t)?.hot && !t.done ? "hot" : ""} ${t.done ? "done" : ""}" data-ev="${t.id}" style="left:${x(mins(t.dueTime!))}" title="${esc(`마감 ${t.dueTime} ${t.title}`)}"></div>`).join("");
   const now = k === ctx.today && ctx.nowM >= H0 * 60 && ctx.nowM <= H1 * 60 ? `<div class="snow" style="left:${x(ctx.nowM)}"></div>` : "";
+  // School periods, faint, on weekdays (설정 「학교 시간」): 1…7 and 점심, to place school things.
+  const wd = parseDay(k).getDay();
+  const st = ctx.s.settings;
+  const bands = st.showPeriods && wd >= 1 && wd <= 5
+    ? [...st.periods.map((p, i) => [p, `${i + 1}`] as const), [st.lunch, "점심"] as const].map(([p, n]) => {
+        const [a, b] = p.split("-");
+        if (!a || !b) return "";
+        return `<div class="spd" style="left:${x(mins(a))};width:calc(${x(mins(b))} - ${x(mins(a))})"></div>`;
+      }).join("")
+    : "";
+  // Their names in one thin row under the hours (not on top of them).
+  const bandNames = bands
+    ? `<div class="spl">${[...st.periods.map((p, i) => [p, `${i + 1}교시`] as const), [st.lunch, "점심"] as const].map(([p, n]) => {
+        const [a, b] = p.split("-");
+        return a && b ? `<span style="left:${x((mins(a) + mins(b)) / 2)}" title="${n} ${a}–${b}">${n.replace("교시", "")}</span>` : "";
+      }).join("")}</div>`
+    : "";
   const h = Math.max(1, lanes.length) * 19;
   return `<div class="strip g">${allDay.length ? `<div class="sall">${allDay.map((e) => `<span class="${e.provisional ? "prov" : ""}" title="종일 ${esc(e.title)}">종일 ${esc(e.title)}</span>`).join("")}</div>` : ""}
-    <div class="sh">${ticks}</div><div class="sl" data-h0="${H0}" data-h1="${H1}" style="height:${h}px">${bars || (allDay.length ? "" : '<div class="none">일정 없음</div>')}${marks}${now}</div></div>`;
+    <div class="sh">${ticks}</div>${bandNames}<div class="sl" data-h0="${H0}" data-h1="${H1}" style="height:${h}px">${bands}${bars || (allDay.length ? "" : '<div class="none">일정 없음</div>')}${marks}${now}</div></div>`;
 }
 
 /** 「2시간 10분 남음」 before a deadline today (nothing once it has passed). */
