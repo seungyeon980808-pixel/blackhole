@@ -379,16 +379,26 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 .bh .ctxm .cm-g button { justify-content: center; padding: 3px 0; font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .bh .ctxm .cm-g .td { font-weight: 800; outline: 1px solid var(--x-line); } .bh .ctxm .cm-g .out { color: var(--ink3); }
 /* narrow: everything stacks (phone width 360 too) */
-@container (max-width: 980px) { .bh .tgrid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } .bh .tdv .rstack { grid-column: 1 / -1; flex-direction: row; } .bh .tdv .rstack > .panel { flex: 1 1 0; } }
-@container (max-width: 620px) { .bh .tgrid { grid-template-columns: minmax(0, 1fr); } .bh .tdv .rstack { flex-direction: column; } }
-@media (max-width: 760px) {
+/* 폭 단계 (본문 = 대화 패널을 뺀 폭; 줄바꿈으로 떨어지지 않게 단계마다 배치를 정함, 칸은 안에서만 스크롤):
+   넓음 ≥1250 [하루표][할 일][주요 일정 · 루틴] · 보통 620–1250 [하루표][할 일 위 / 주요 일정·루틴 아래 나란히] · 좁음 <620 위아래로 쌓고 본문이 스크롤 */
+.bh .tdv .rstack > .panel.empty { flex: 0 0 auto; }
+@container (max-width: 1249px) {
+  .bh .tgrid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) fit-content(42%); grid-template-areas: "dt tl" "dt rs"; }
+  .bh .tgrid > .dt { grid-area: dt; } .bh .tgrid > .tl { grid-area: tl; } .bh .tgrid > .rstack { grid-area: rs; }
+  .bh .tdv .rstack { flex-direction: row; min-height: 0; overflow: hidden; }
+  .bh .tdv .rstack > .panel { flex: 1 1 0; min-width: 0; }
+  .bh .tdv .rstack > .panel.empty { flex: 1 1 0; }
+  .bh .tdv .rstack .none { padding: 2px 0; }
+}
+@container (max-width: 619px) {
   .bh .tdv { height: auto; }
-  .bh .content:has(.tdv), .bh .content:has(.matrix) { overflow-y: auto; }
-  .bh .tgrid { grid-template-columns: minmax(0, 1fr); }
-  .bh .tdv .rstack { flex-direction: column; }
+  .bh .tgrid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "dt" "tl" "rs"; }
+  .bh .tdv .rstack { flex-direction: column; overflow: visible; }
   .bh .tdv .dtg { min-height: 420px; }
   .bh .matrix { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; height: auto; }
   .bh .matrix .mh, .bh .matrix .mr, .bh .matrix > span { display: none; }
+}
+.bh .content:has(.tdv), .bh .content:has(.matrix) { overflow-y: auto; }
 }
 /* 설정 → 루틴 */
 .bh .settings .rtset { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
@@ -432,3 +442,18 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 .bh .findres .fask small { color: var(--ink3); font-size: 11px; font-variant-numeric: tabular-nums; }
 .bh .checks .fixq .rt { font-weight: 700; margin-bottom: 3px; }
 @media (max-width: 760px) { .bh .find { width: 100%; order: 5; flex: 1 1 100%; } .bh .find kbd { display: none; } }
+
+/* 좁은 Mac 창: 대화는 오른쪽에서 밀려 나오는 서랍(폭을 차지하지 않음) */
+.bh.drawer .chatsheet { left: auto; top: 0; bottom: 0; height: auto; width: min(380px, 92%); transform: translateX(105%); background: var(--x-pinbg, #fff); border-left: 1px solid var(--x-line, #999); box-shadow: -12px 0 40px rgba(0,0,0,.3); }
+.bh.drawer .chatsheet.open { transform: none; }
+.bh.drawer .chatsheet .grab { display: none; }
+.bh.drawer [data-panel="open"] { display: inline-grid !important; }
+.bh.drawer .panelbar { display: flex; align-items: center; gap: 6px; padding: 12px 12px 6px; font-size: 13px; }
+.bh.drawer .panelbar .sp { flex: 1; }
+.bh.drawer .thread { padding: 4px 12px 8px; }
+/* 서랍 모드의 아래 입력칸: 한 줄(내용이 길면 늘어남), 손잡이·안내 숨김 */
+.bh.drawer #bhComp .grab, .bh.drawer .chatsheet .sheethead, .bh.drawer #bhComp .ihint { display: none; }
+.bh.drawer #bhComp .inp.tall, .bh.drawer #bhComp .form.tall { flex-direction: row; align-items: flex-end; gap: 4px; padding: 4px 4px 4px 12px; }
+.bh.drawer #bhComp .inp.tall textarea, .bh.drawer #bhComp .form.tall textarea { flex: 1; padding: 6px 0; }
+.bh.drawer #bhComp .inbar { flex: none; }
+.bh.drawer .composer { padding-top: 4px; padding-bottom: 8px; }

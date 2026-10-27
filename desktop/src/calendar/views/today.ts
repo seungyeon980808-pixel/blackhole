@@ -267,12 +267,12 @@ export function rightStack(ctx: Ctx, k: string, fd: (k: string) => string): stri
   const next = rs.find((r) => !r.done.includes(k));
   const find = (id: string) => [...ctx.s.events, ...ctx.s.tasks, ...ctx.s.periods].find((x) => x.id === id);
   return `<div class="rstack">
-    <div class="panel g ups"><div class="ph"><b>다가오는 주요 일정</b><span>30일</span></div>
+    <div class="panel g ups ${up.length ? "" : "empty"}"><div class="ph"><b>다가오는 주요 일정</b><span>30일</span></div>
       ${up.length ? up.map((u) => {
         const x = find(u.id);
         return `<div class="ms" data-ev="${u.id}">${x ? starBtn(x) : "<span></span>"}<div><div class="t ${u.star === 2 ? "s2b" : ""}">${esc(u.title)}</div><div class="w">${esc(u.when)}</div>${u.steps ? `<div class="prog"><i style="--p:${((u.steps[0] / u.steps[1]) * 100).toFixed(0)}%"></i>${u.steps[0]}/${u.steps[1]} 단계</div>` : ""}</div><span class="d ${u.days <= 7 ? "soon" : ""}">D-${u.days}</span></div>`;
       }).join("") : '<div class="none">★ 표시한 일정·할 일과 기간이 여기에 D-day 순으로</div>'}</div>
-    <div class="panel g rts"><div class="ph"><b>루틴</b><span>${rs.length ? `오늘 ${doneN}/${rs.length}` : ""}</span></div>
+    <div class="panel g rts ${rs.length ? "" : "empty"}"><div class="ph"><b>루틴</b><span>${rs.length ? `오늘 ${doneN}/${rs.length}` : ""}</span></div>
       ${rs.length ? rs.map((r) => {
         const dn = r.done.includes(k);
         const s = streak(r, k);

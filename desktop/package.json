@@ -10,7 +10,8 @@
     "test:watch": "node scripts/run-tool.mjs vitest",
     "acceptance": "node scripts/check.mjs",
     "tauri": "tauri",
-    "build:phone": "tsc --noEmit && node scripts/run-tool.mjs vite build --config vite.phone.config.mjs"
+    "build:phone": "tsc --noEmit && node scripts/run-tool.mjs vite build --config vite.phone.config.mjs",
+    "layout": "node scripts/layout-check.mjs"
   },
   "dependencies": {
     "@fontsource/nanum-gothic": "5.3.0",

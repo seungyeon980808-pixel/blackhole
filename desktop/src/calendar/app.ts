@@ -42,8 +42,8 @@ export interface BlackholeApp {
 
 const THEMES: Record<ThemeName, ThemeView> = { glass, doc };
 const COMPACT = 760;
-/** Narrower than this (the calendar would be under ~740px), the chat panel folds away and the input goes back under the calendar. */
-export const SIDE_MIN = 1100;
+/** The calendar keeps at least this width beside the chat panel; narrower, the chat becomes a drawer from the right. */
+export const CONTENT_MIN = 850;
 const PANEL_MIN = 280;
 const PANEL_MAX = 560;
 const CHAT_NOISE = /^(?:초안 \d+건을 AI가 다듬었어요\.?\s*|\d+건 (?:더 )?넣었어요\.?\s*)+/;
@@ -272,8 +272,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let mainObserver: ResizeObserver | undefined;
 
   /** The chat panel is on the right when the window is wide enough and the user did not fold it. */
+  /** Room for the panel beside a calendar of at least CONTENT_MIN. */
+  function wideEnough(): boolean {
+    return root.clientWidth - panelW >= CONTENT_MIN;
+  }
+
   function sideOn(): boolean {
-    return sideCapable && sidePref && root.clientWidth >= SIDE_MIN;
+    return sideCapable && sidePref && wideEnough();
   }
 
   function setSidePref(open: boolean): void {
@@ -500,7 +505,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     // 「오늘로」 shows only when today is not on screen.
     const showsToday = view === "memo" || (view === "day" ? ymd(cur) === c.today : view === "week" ? Math.abs(addDays(cur, -cur.getDay()).getTime() - addDays(parseDay(c.today), -parseDay(c.today).getDay()).getTime()) < 864e5 / 2 : cur.getMonth() === c.now.getMonth() && cur.getFullYear() === c.now.getFullYear());
     root.querySelectorAll<HTMLElement>(".today[data-nav]").forEach((b) => (b.hidden = showsToday));
-    root.classList.toggle("panel-closed", sideCapable && !sidePref && root.clientWidth >= SIDE_MIN);
+    root.classList.toggle("panel-closed", sideCapable && !sidePref && wideEnough());
+    // Desktop, too narrow for the panel: the chat slides in from the right (takes no width).
+    root.classList.toggle("drawer", sideCapable && !side);
     root.style.setProperty("--panel-w", `${panelW}px`);
     root.classList.toggle("chat-open", chatOpen && !side);
     root.querySelector("#bhChat")?.classList.toggle("open", chatOpen || side);
@@ -1856,7 +1863,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
     if (q("[data-drag]")) return;
     if (q("[data-undo]")) return undo();
-    if (q("[data-panel]")) return setSidePref(q("[data-panel]")!.dataset.panel === "open");
+    if (q("[data-panel]")) {
+      const open = q("[data-panel]")!.dataset.panel === "open";
+      // Too narrow for the panel: the button slides the drawer in and out.
+      if (sideCapable && !wideEnough()) return setChat(open);
+      return setSidePref(open);
+    }
     if (q("[data-choose]")) {
       const b = q("[data-choose]")!;
       const i = s.chat.findIndex((m) => m.id === b.dataset.cmsg);
@@ -2379,7 +2391,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   /* chat sheet: pull the handle up to open, down to close; click toggles */
   let drag: { y: number; open: boolean } | null = null;
   function setChat(open: boolean): void {
-    if (side || (sideCapable && !sidePref && root.clientWidth >= SIDE_MIN)) return setSidePref(open && !side);
+    if (side || (sideCapable && !sidePref && wideEnough())) return setSidePref(open && !side);
     chatOpen = open;
     const el = root.querySelector<HTMLElement>("#bhChat");
     el?.classList.toggle("open", open);
@@ -2391,7 +2403,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
   let resizing: { x: number; w: number } | null = null;
   const setPanelW = (w: number, keep: boolean) => {
-    panelW = Math.max(PANEL_MIN, Math.min(PANEL_MAX, Math.round(w), Math.max(PANEL_MIN, root.clientWidth - 740)));
+    panelW = Math.max(PANEL_MIN, Math.min(PANEL_MAX, Math.round(w), Math.max(PANEL_MIN, root.clientWidth - CONTENT_MIN)));
     root.style.setProperty("--panel-w", `${panelW}px`);
     if (keep) {
       try {
