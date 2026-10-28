@@ -227,6 +227,11 @@ pub fn write_memo_note(root: &Path, text: &str) -> Result<std::path::PathBuf, St
 
 /// The same, saying where the 기억 came from (Mac 입력, 휴대폰, 인박스).
 pub fn write_memo_note_from(root: &Path, text: &str, via: &str) -> Result<std::path::PathBuf, String> {
+    write_memo_note_tagged(root, text, via, &[])
+}
+
+/// The same with its tags in the front matter (`tags: [진도, 2-3]`): Obsidian finds them as #진도.
+pub fn write_memo_note_tagged(root: &Path, text: &str, via: &str, tags: &[String]) -> Result<std::path::PathBuf, String> {
     let now = chrono::Local::now();
     let title = safe_name(text.lines().next().unwrap_or("기억"));
     let dir = root.join("노트").join("기억");
@@ -237,7 +242,14 @@ pub fn write_memo_note_from(root: &Path, text: &str, via: &str) -> Result<std::p
         path = dir.join(format!("{} {} ({n}).md", now.format("%Y-%m-%d"), title));
         n += 1;
     }
-    let body = format!("---\n종류: 기억\n받은 시각: {}\n출처: {}\n---\n\n{}\n", now.format("%Y-%m-%dT%H:%M"), via.replace('\n', " "), text.trim());
+    let tags: Vec<String> = tags
+        .iter()
+        .map(|t| t.chars().filter(|c| !matches!(c, ',' | '[' | ']' | '#' | ':' | '\n' | '"' | '\'')).collect::<String>().split_whitespace().collect::<Vec<_>>().join("_"))
+        .filter(|t| !t.is_empty())
+        .take(5)
+        .collect();
+    let tag_line = if tags.is_empty() { String::new() } else { format!("tags: [{}]\n", tags.join(", ")) };
+    let body = format!("---\n종류: 기억\n받은 시각: {}\n출처: {}\n{}---\n\n{}\n", now.format("%Y-%m-%dT%H:%M"), via.replace('\n', " "), tag_line, text.trim());
     std::fs::write(&path, body).map_err(|e| e.to_string())?;
     Ok(path)
 }
@@ -245,6 +257,16 @@ pub fn write_memo_note_from(root: &Path, text: &str, via: &str) -> Result<std::p
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn memo_note_front_matter_has_its_tags() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = write_memo_note_tagged(dir.path(), "2학년 3반 진도 종료", "Mac", &["진도".into(), "2-3".into(), "a, b]".into()]).unwrap();
+        let body = std::fs::read_to_string(p).unwrap();
+        assert!(body.contains("tags: [진도, 2-3, a_b]\n---"), "{body}");
+        let p = write_memo_note_from(dir.path(), "태그 없음", "Mac").unwrap();
+        assert!(!std::fs::read_to_string(p).unwrap().contains("tags:"));
+    }
 
     fn state() -> Value {
         json!({

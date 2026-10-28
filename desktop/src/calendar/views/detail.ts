@@ -5,6 +5,7 @@
  */
 import type { Entry } from "../model";
 import { findEntry } from "../store";
+import { tagsOf } from "../tags";
 import { aiOffer, esc, ICON, type Ctx } from "./common";
 
 const KIND = { event: "일정", task: "할 일", period: "기간", note: "기억" } as const;
@@ -44,6 +45,10 @@ export function detailHTML(ctx: Ctx, id: string, fd: (k: string) => string): str
     const day = x.kind === "event" ? x.date : x.due;
     rows.push(field("알림", `<span class="drem">${x.reminders.map((r, i) => `<span class="dchip">${esc(remLabel(r, day))}<button type="button" data-drem="${i}" title="이 알림 지우기" aria-label="알림 지우기">×</button></span>`).join("")}<input data-df="rem" placeholder="+ 15:30 · 30분 전 · 하루 전" autocomplete="off" spellcheck="false" aria-label="알림 더하기"></span>`));
   }
+  if (x.kind === "note") {
+    const tags = tagsOf(x);
+    rows.push(field("태그", `<span class="drem">${tags.map((t) => `<span class="dchip">#${esc(t)}<button type="button" data-dtagdel="${esc(t)}" title="태그 지우기" aria-label="태그 지우기">×</button></span>`).join("")}<input data-df="tag" placeholder="+ 태그" autocomplete="off" spellcheck="false" aria-label="태그 더하기"></span>`));
+  }
   const star = x.star ?? 0;
   rows.push(field("중요", `<span class="dseg dstar" role="group">${[0, 1, 2].map((n) => `<button type="button" data-dstar="${n}" class="${n === star ? "on" : ""} s${n}" aria-pressed="${n === star}" title="${["보통", "중요(노랑)", "아주 중요(빨강)"][n]}">${n ? "★" : "☆"}</button>`).join("")}</span>`));
   rows.push(field("영역", seg("data-darea", [["school", "학교"], ["personal", "개인"]], x.area)));
@@ -56,7 +61,7 @@ export function detailHTML(ctx: Ctx, id: string, fd: (k: string) => string): str
   const b = (attr: string, label: string, icon: string) => `<button type="button" class="ib" ${attr} title="${label}" aria-label="${label}">${icon}<span>${label}</span></button>`;
   const acts = [
     x.kind === "task" ? b(`data-tdone="${x.id}"`, x.done ? "완료 취소" : "완료", x.done ? ICON.undo : ICON.ok) : x.kind === "event" && x.provisional ? b(`data-ok="${x.id}"`, "확정", ICON.ok) : "",
-    x.kind !== "note" ? b(`data-moveto="${x.id}"`, "날짜 옮기기", ICON.move) : "",
+    x.kind !== "note" ? b(`data-moveto="${x.id}"`, "날짜 옮기기", ICON.move) : b(`data-convert="event|d|${x.id}"`, "일정으로", ICON.cal) + b(`data-convert="task|d|${x.id}"`, "할 일로", ICON.todo),
     (x.kind === "event" && x.start) || (x.kind === "task" && x.dueTime) ? b(`data-droutine="${x.id}"`, "루틴으로", ICON.swap) : "",
     b(`data-ddup="${x.id}"`, "복제", ICON.copy),
     b(`data-no="${x.id}"`, "지우기", ICON.x)

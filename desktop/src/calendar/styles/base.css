@@ -586,3 +586,36 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .dpanel .doffer { font-size: 12px; }
 .bh .dpanel .dacts .ib { width: auto; height: auto; }
 .bh .dpanel .subadd, .bh.glass .dpanel .subadd { display: block; width: 100%; margin-top: 2px; border: 0; border-bottom: 1px dashed var(--line, #999); border-radius: 0; background: none; padding: 3px 0; font-size: 12.5px; }
+
+/* 기억 보기(2026-10-28): 날짜별·주제별, 태그는 색 없는 작은 칩, 긴 내용은 한 줄 말줄임 */
+.bh .memov .mtop { display: flex; align-items: center; gap: 8px; flex: none; }
+.bh .memov .mtop .msearch { flex: 1; }
+.bh .mseg { display: inline-flex; border: 1px solid var(--line, #999); border-radius: 8px; overflow: hidden; flex: none; }
+.bh .mseg button { font: inherit; font-size: 12px; padding: 4px 12px; border: 0; background: none; color: var(--ink2); cursor: pointer; }
+.bh .mseg button + button { border-left: 1px solid var(--line, #999); }
+.bh .mseg button.on { background: var(--x-sel, #ddd); color: var(--ink); font-weight: 700; }
+.bh .mtagbar { display: flex; flex-wrap: wrap; gap: 4px; flex: none; max-height: 58px; overflow: auto; }
+.bh .mtag { font: inherit; font-size: 11.5px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line, #999); background: none; color: var(--ink2); cursor: pointer; white-space: nowrap; }
+.bh .mtag small { color: var(--ink3, #888); font-variant-numeric: tabular-nums; }
+.bh .mtag.on { background: var(--ink); color: var(--page, #fff); border-color: var(--ink); }
+.bh .mtag.on small { color: inherit; opacity: .7; }
+.bh .memol .mgh { font-size: 11.5px; color: var(--ink3, #888); padding: 8px 10px 2px; font-weight: 600; }
+.bh .memol .mgh small { font-weight: 400; }
+.bh .mrow .t { flex: 0 1 auto; max-width: 42%; }
+.bh .mrow .mts { flex: none; display: inline-flex; gap: 3px; }
+.bh .mrow .mt { font-size: 10.5px; color: var(--ink2); border: 1px solid var(--hair, #ccc); border-radius: 999px; padding: 0 6px; }
+.bh .mrow .dt { flex: none; }
+.bh .mgrp { border-bottom: 1px solid var(--hair, #ddd); }
+.bh .mgrp > summary { display: flex; align-items: center; gap: 7px; padding: 7px 10px; cursor: pointer; list-style: none; white-space: nowrap; min-width: 0; }
+.bh .mgrp > summary::before { content: "▸"; font-size: 10px; color: var(--ink3, #888); }
+.bh .mgrp[open] > summary::before { content: "▾"; }
+.bh .mgrp > summary small { color: var(--ink3, #888); font-variant-numeric: tabular-nums; }
+.bh .mgrp .msum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: var(--ink2); }
+.bh .mgrp .mtools { margin-left: auto; display: inline-flex; gap: 2px; opacity: 0; }
+.bh .mgrp > summary:hover .mtools, .bh .mgrp .mtools:focus-within { opacity: 1; }
+.bh .mgrp .mtools .ib { color: var(--ink3, #888); cursor: pointer; }
+.bh .mgrp .mtools .ib svg { width: 14px; height: 14px; }
+.bh .mgrp .mtren { font: inherit; font-size: 12px; width: 120px; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--ink2); background: var(--page, #fff); color: var(--ink); outline: 0; }
+.bh .mgrp .msumrow { font-size: 12px; color: var(--ink2); padding: 2px 10px 4px 26px; }
+.bh .mgrp .msumrow small { color: var(--ink3, #888); }
+.bh .mgrp .mrow { padding-left: 26px; }

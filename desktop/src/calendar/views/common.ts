@@ -1,5 +1,6 @@
 import { diffDays, hm, mins } from "../dates";
-import type { CalendarState, ChatMessage, Entry, Task } from "../model";
+import type { CalendarState, ChatMessage, Entry, Memo, Task } from "../model";
+import { DATE_GROUPS, dateGroup, isClassTag, liveNotes, splitTagQuery, summaries, tagCounts, tagsOf } from "../tags";
 import { findEntry, type Alarm } from "../store";
 import { KIND_LABEL, type AskHit } from "../ask";
 import { fixNumbers } from "../rules";
@@ -30,6 +31,8 @@ export interface Ctx {
   canEdit?: boolean;
   /** The chat panel is on the right (확인할 것 lives there; otherwise on top of the day). */
   side?: boolean;
+  /** 기억 보기: 날짜별/주제별, the tags chosen to filter, the tag being renamed. */
+  memo?: { mode: "date" | "topic"; tags: string[]; edit?: string | null };
 }
 
 /** A fold whose rows are drawn only while open (data-fold: the app re-renders on toggle). */
@@ -271,23 +274,56 @@ export function chatCards(ctx: Ctx, m: ChatMessage, fd: (k: string) => string): 
  * 「기억」 (정리안): a find box and one line per note — title · start of the text · day, newest
  * first, the whole width. A click opens that line into its card (수정 · 일정으로 · 할 일로 · ✕).
  */
+/**
+ * 기억 보기 (2026-10-28): 「날짜별 | 주제별」, the tags with their counts on top (a click filters,
+ * several narrow it down), 「#진도」 in the box filters too. 주제별: one fold per tag, most used
+ * first; like records in one line (「진도 종료: 2-3, 2-4」).
+ */
 export function memoList(ctx: Ctx, fd: (k: string) => string, query = ""): string {
-  return `<div class="memov"><label class="msearch">${ICON.find}<input data-memoq value="${esc(query)}" placeholder="기억에서 찾기" aria-label="기억에서 찾기" autocomplete="off" spellcheck="false"></label><div class="memol">${memoRows(ctx, fd, query)}</div></div>`;
+  const m = ctx.memo ?? { mode: "date", tags: [] };
+  const counts = tagCounts(ctx.s);
+  const bar = counts.length
+    ? `<div class="mtagbar" role="group" aria-label="태그로 거르기">${counts.map(([t, n]) => `<button class="mtag ${m.tags.includes(t) ? "on" : ""}" data-memotag="${esc(t)}" aria-pressed="${m.tags.includes(t)}">#${esc(t)} <small>${n}</small></button>`).join("")}</div>`
+    : "";
+  return `<div class="memov"><div class="mtop"><label class="msearch">${ICON.find}<input data-memoq value="${esc(query)}" placeholder="기억에서 찾기 · #진도" aria-label="기억에서 찾기" autocomplete="off" spellcheck="false"></label><span class="mseg" role="group" aria-label="묶기"><button data-memomode="date" class="${m.mode === "date" ? "on" : ""}">날짜별</button><button data-memomode="topic" class="${m.mode === "topic" ? "on" : ""}">주제별</button></span></div>${bar}<div class="memol">${memoRows(ctx, fd, query)}</div></div>`;
 }
 
 export function memoRows(ctx: Ctx, fd: (k: string) => string, query = ""): string {
-  const q = query.trim().toLowerCase();
-  const notes = ctx.s.notes
-    .filter((n) => !n.gone && (ctx.s.settings.showSamples || !n.sample))
+  const m = ctx.memo ?? { mode: "date", tags: [] };
+  const { tags: qTags, words } = splitTagQuery(query);
+  const want = [...new Set([...m.tags, ...qTags])];
+  const q = words.toLowerCase();
+  const notes = liveNotes(ctx.s)
     .filter((n) => !q || `${n.title} ${n.details ?? ""}`.toLowerCase().includes(q))
+    .filter((n) => !want.length || want.every((t) => tagsOf(n).includes(t)))
     .reverse()
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  if (!notes.length) return `<div class="none">${q ? `「${esc(query.trim())}」 기억 없음` : "아직 기억이 없어요 · 날짜·시간 없이 쓰거나 「메모 …」로 시작하면 여기에 모입니다."}</div>`;
-  return notes.map((n) => {
+  if (!notes.length) return `<div class="none">${q || want.length ? `${want.map((t) => `#${esc(t)} `).join("")}${esc(words)} 기억 없음` : "아직 기억이 없어요 · 날짜·시간 없이 쓰거나 「메모 …」로 시작하면 여기에 모입니다."}</div>`;
+  const row = (n: Memo) => {
     if (ctx.open?.has(`memo:${n.id}`)) return `<div class="mopen">${resultCard(ctx, n.id, fd, false, "memo")}<button class="ib mclose" data-mopen="${n.id}" title="접기" aria-label="접기">${ICON.x}</button></div>`;
     const d = n.createdAt.slice(0, 10);
-    return `<div class="mrow" data-mopen="${n.id}" role="button" tabindex="0"><b class="t">${esc(n.title)}</b>${n.details ? `<span class="d">${esc(n.details.replace(/\s+/g, " "))}</span>` : ""}<span class="dt">${d === ctx.today ? "오늘" : fd(d)}</span></div>`;
-  }).join("");
+    const full = `${n.title}${n.details ? ` — ${n.details}` : ""}`;
+    return `<div class="mrow" data-mopen="${n.id}" data-ev="${n.id}" role="button" tabindex="0" title="${esc(full)}"><b class="t">${esc(n.title)}</b>${n.details ? `<span class="d">${esc(n.details.replace(/\s+/g, " "))}</span>` : '<span class="d"></span>'}<span class="mts">${tagsOf(n).map((t) => `<span class="mt">#${esc(t)}</span>`).join("")}</span><span class="dt">${d === ctx.today ? "오늘" : fd(d)}</span></div>`;
+  };
+  if (m.mode === "date") {
+    const groups = new Map<string, Memo[]>();
+    for (const n of notes) {
+      const g = dateGroup(n.createdAt.slice(0, 10), ctx.today);
+      groups.set(g, [...(groups.get(g) ?? []), n]);
+    }
+    return DATE_GROUPS.filter((g) => groups.has(g)).map((g) => `<div class="mgh">${g} <small>${groups.get(g)!.length}</small></div>${groups.get(g)!.map(row).join("")}`).join("");
+  }
+  // Topics only (the 학반 filter from the bar and sit in the summary lines).
+  const counts = tagCounts(ctx.s, notes).filter(([t]) => !isClassTag(t));
+  const untagged = notes.filter((n) => !tagsOf(n).some((t) => !isClassTag(t)));
+  const fold = (t: string, list: Memo[], label: string, tools: string) => {
+    const sums = summaries(list);
+    const sumLine = sums.map((x) => `${x.key}: ${x.classes.join(", ")}`).join(" · ");
+    const open = !!ctx.open?.has(`mtag:${t}`) || want.includes(t);
+    return `<details class="mgrp" data-fold="mtag:${esc(t)}" ${open ? "open" : ""}><summary><b>${label}</b> <small>${list.length}</small><span class="msum" title="${esc(sumLine)}">${open ? "" : esc(sumLine)}</span>${tools}</summary>${open ? `${sums.map((x) => `<div class="msumrow">${esc(x.key)}: ${esc(x.classes.join(", "))} <small>${x.ids.length}건</small></div>`).join("")}${list.map(row).join("")}` : ""}</details>`;
+  };
+  const tools = (t: string) => ctx.canEdit ? `<span class="mtools">${ctx.memo?.edit === t ? `<input class="mtren" data-tagrename="${esc(t)}" value="${esc(t)}" aria-label="태그 이름 (있는 이름이면 합침)" spellcheck="false">` : `<button class="ib" data-tagren="${esc(t)}" title="이름 바꾸기 · 있는 이름으로 바꾸면 합침" aria-label="태그 이름 바꾸기">${ICON.edit}</button><button class="ib" data-tagdel="${esc(t)}" title="이 태그 지우기 (기억은 그대로)" aria-label="태그 지우기">${ICON.x}</button>`}</span>` : "";
+  return counts.map(([t]) => fold(t, notes.filter((n) => tagsOf(n).includes(t)), `#${esc(t)}`, tools(t))).join("") + (untagged.length ? fold("", untagged, "기타", "") : "");
 }
 
 /**

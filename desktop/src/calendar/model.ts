@@ -102,6 +102,8 @@ export interface Period extends Base {
 /** 기억: information without a date. */
 export interface Memo extends Base {
   kind: "note";
+  /** Tags the user set by hand (no 「#」); without them the local rules' tags show. Mac only, not in 달력.json. */
+  tags?: string[];
 }
 
 export type Entry = CalEvent | Task | Period | Memo;
@@ -348,8 +350,9 @@ export function sharedFrom(s: CalendarState, now: string): SharedCalendar {
   // New Mac-only fields (★, 작업 시간 blocks, 루틴) stay out until the phone's reader knows them.
   const real = <T extends { sample?: boolean }>(list: T[]) => list.filter((x) => !x.sample);
   const plain = <T extends Entry>(x: T): T => {
-    if (x.star === undefined && x.starHint === undefined) return x;
-    const { star: _s, starHint: _h, ...rest } = x;
+    if (x.star === undefined && x.starHint === undefined && !("tags" in x)) return x;
+    const { star: _s, starHint: _h, ...rest } = x as T & { tags?: string[] };
+    delete rest.tags;
     return rest as T;
   };
   return { kind: "blackhole-calendar", schemaVersion: 1, exportedAt: now, events: real(s.events).filter((e) => !e.workFor).map(plain), tasks: real(s.tasks).map(plain), periods: real(s.periods).map(plain), notes: real(s.notes).map(plain), appliedActions: s.appliedActions.slice(-500), sources: [...new Set([...s.ingestedJobs, ...s.draftedJobs])].slice(-500) };

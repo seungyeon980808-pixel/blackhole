@@ -8,7 +8,7 @@ import { looksSecret } from "./secret";
 import { answer as answerQuestion, AskIndex, classify, docsOf, KIND_LABEL, lineOf, whenOf, type AskDoc, type AskHit, type AskSources } from "./ask";
 import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
-import { normalizeState, sharedFrom, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type SharedCalendar, type ThemeName, type UserAction } from "./model";
+import { normalizeState, sharedFrom, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type SharedCalendar, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
 import { clockText, isSimpleCertain, memoDraft, parseDraft, parseRule, singleTime, timeRange, timeWords } from "./rules";
 import { seedState } from "./samples";
@@ -18,6 +18,7 @@ import {
 import { phoneToday, priorityView, todayView, type TodayOpts } from "./views/today";
 import { checksBar, dictationFixes, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
 import { detailHTML } from "./views/detail";
+import { cleanTag, ruleTags, tagsOf } from "./tags";
 import { doc, printSheet } from "./views/doc";
 import { glass } from "./views/glass";
 
@@ -173,6 +174,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let picked: string | null = null;
   /** The 「기억」 find box. */
   let memoQuery = "";
+  /** 기억 보기: 날짜별/주제별 (remembered), the tags chosen to filter, the tag being renamed. */
+  const memo: { mode: "date" | "topic"; tags: string[]; edit: string | null } = { mode: "date", tags: [], edit: null };
+  try {
+    if (localStorage.getItem("bh-memomode") === "topic") memo.mode = "topic";
+  } catch {
+    /* private storage */
+  }
   let guideLines: Record<string, string> = {};
   let toastTimer: number | undefined;
   /** ⌘Z: the last hand-made changes, newest last (check · uncheck · cancel · a new entry). */
@@ -235,6 +243,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       editing,
       canEdit: !adapter.recordAction,
       side,
+      memo,
       hint: adapter.origin === "휴대폰" ? "쓰고 보내기 — 「내일 3시 치과」" : adapter.onPut ? (side ? "넣기·묻기 · Enter" : "넣기·묻기 — 「내일 3시 치과」, 「치과 언제야?」 · 파일은 끌어 놓기, 사진은 ⌘V") : "넣기·묻기 — 「내일 3시 치과」, 「치과 언제야?」"
     };
   }
@@ -661,6 +670,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (!v || v === x.title) return void (el.value = x.title);
       return editEntry(id, "제목", (y) => void (y.title = v.slice(0, 200)));
     }
+    if (f === "tag") {
+      const t = cleanTag(v);
+      if (!t || x.kind !== "note") return;
+      el.value = "";
+      if (tagsOf(x).includes(t)) return;
+      return editEntry(id, "태그", (y) => void (y.kind === "note" && (y.tags = [...tagsOf(y), t])));
+    }
     if (f === "details") {
       if (v === (x.details ?? "")) return;
       return editEntry(id, "메모", (y) => void (y.details = v || undefined));
@@ -1050,7 +1066,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         log(s, { label: line.label, msg: line.msg, src, ref: x.id }, now);
         s.inbox.push({ at: stamp(now), title: d.text.slice(0, 40), src, state: "완료", out: "1건" });
         card("", [x.id]);
-        if (memo) void adapter.writeMemo?.(d.text, src).catch(() => undefined);
+        if (memo) void adapter.writeMemo?.(d.text, src, ruleTags(d.text)).catch(() => undefined);
       } else {
         log(s, { label: "초안", msg: line.msg, src, ref: x.id }, now);
         card("다듬는 중…", [x.id]);
@@ -1119,7 +1135,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       // The AI only suggests a ★ (출제·결재·평가·제출 …); the user sets it.
       if (x && (x.kind === "task" || x.kind === "event") && x.star === undefined && /출제|결재|평가|제출|기안|마감|보고서|성적|생기부|생활기록부/.test(x.title)) x.starHint = 1;
       // Every 기억 is also an Obsidian note (all of them, wherever they came from).
-      if (x?.kind === "note") void adapter.writeMemo?.(`${x.title}${x.details ? `\n${x.details}` : ""}`, src).catch(() => undefined);
+      if (x?.kind === "note") void adapter.writeMemo?.(`${x.title}${x.details ? `\n${x.details}` : ""}`, src, tagsOf(x)).catch(() => undefined);
       const d = describe(s, id, theme().fd);
       log(s, { label: updated.includes(id) ? "다듬음" : d.label, msg: d.msg, src, ref: id }, now);
     }
@@ -1684,6 +1700,33 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     return made.id;
   }
 
+  /**
+   * 태그 관리: rename a tag on every 기억 (to a name already used = 합치기), or take it off (to null).
+   * Rule tags become the 기억's own then. One ⌘Z.
+   */
+  function retag(from: string, to: string | null): void {
+    const name = to === null ? null : cleanTag(to);
+    if (name === "" || name === from) {
+      memo.edit = null;
+      return render();
+    }
+    const was = s.notes.map((n) => [n, n.tags] as const);
+    let n = 0;
+    for (const x of s.notes) {
+      if (x.gone || !tagsOf(x).includes(from)) continue;
+      x.tags = [...new Set(tagsOf(x).flatMap((t) => (t === from ? (name ? [name] : []) : [t])))];
+      n++;
+    }
+    memo.edit = null;
+    memo.tags = memo.tags.filter((t) => t !== from);
+    undoStack.push({ label: `태그 #${from}`, run: () => {
+      for (const [x, t] of was) x.tags = t;
+      void act(() => undefined);
+    } });
+    toast(name ? `#${from} → #${name} · ${n}개` : `#${from} 태그를 지웠어요 · ${n}개 (기억은 그대로)`, undefined, true);
+    void act(() => undefined);
+  }
+
   /** 복제 (panel): the same entry once more, opened in the panel. One ⌘Z takes it away. */
   function duplicateEntry(id: string): void {
     const x = findEntry(s, id);
@@ -1799,7 +1842,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     log(s, { label: "기억", msg: x.title, src, ref: x.id }, now);
     s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: "", refs: [x.id] });
     adapter.aiSkipped?.("rule");
-    void adapter.writeMemo?.(v.replace(/^\s*(메모|기억|노트)\s*[:：,]?\s+/, ""), src).catch(() => undefined);
+    void adapter.writeMemo?.(v.replace(/^\s*(메모|기억|노트)\s*[:：,]?\s+/, ""), src, tagsOf(x as Memo)).catch(() => undefined);
     toast(`기억 · ${x.title}`, x.id);
     await save();
     renderComposer();
@@ -1831,6 +1874,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const m = s.chat.find((c) => c.id === msgId);
     if (m) m.refs = [...(m.refs ?? []).filter((r2) => r2 !== x.id), made.id];
     log(s, { label: to === "event" ? "일정으로" : "할 일로", msg: made.title, src: adapter.origin, ref: made.id }, now);
+    // From the 상세 편집 panel ("d"): the new entry opens there, its day ready to set.
+    if (msgId === "d") {
+      detailId = made.id;
+      void act(() => undefined).then(() => root.querySelector<HTMLInputElement>('#bhDetail [data-df="date"]')?.focus());
+      return;
+    }
     editing = `${msgId}|${made.id}`;
     void act(() => undefined).then(() => [...root.querySelectorAll<HTMLElement>("[data-editing]")].find((e) => e.dataset.editing === editing)?.querySelector<HTMLInputElement>(".ed-d, .ed-t")?.focus());
   }
@@ -2121,6 +2170,36 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return render();
     }
     if (q("[data-restore]")) return userAction({ type: "restore", ref: q("[data-restore]")!.dataset.restore! });
+    if (q("[data-memomode]")) {
+      memo.mode = q("[data-memomode]")!.dataset.memomode === "topic" ? "topic" : "date";
+      try {
+        localStorage.setItem("bh-memomode", memo.mode);
+      } catch {
+        /* not kept */
+      }
+      return render();
+    }
+    if (q("[data-memotag]")) {
+      const t = q("[data-memotag]")!.dataset.memotag!;
+      memo.tags = memo.tags.includes(t) ? memo.tags.filter((x) => x !== t) : [...memo.tags, t];
+      return render();
+    }
+    if (q("[data-tagren]")) {
+      ev.preventDefault();
+      memo.edit = q("[data-tagren]")!.dataset.tagren!;
+      render();
+      const inp = root.querySelector<HTMLInputElement>("[data-tagrename]");
+      inp?.focus();
+      inp?.select();
+      return;
+    }
+    if (q("[data-tagdel]")) {
+      ev.preventDefault();
+      return retag(q("[data-tagdel]")!.dataset.tagdel!, null);
+    }
+    if (q("[data-tagrename]")) return void ev.preventDefault();
+    // Mac: a 기억 opens in the 상세 편집 panel too (the phone keeps the card that unfolds in place).
+    if (q(".mrow[data-mopen]") && !adapter.recordAction) return openDetail(q(".mrow[data-mopen]")!.dataset.mopen!);
     if (q("[data-mopen]") && !q("[data-editing]") && (!q("button") || q("button.mclose"))) {
       const key = `memo:${q("[data-mopen]")!.dataset.mopen}`;
       if (openFolds.has(key)) openFolds.delete(key);
@@ -2206,6 +2285,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       });
       if (q("[data-dsubdel]")) return editEntry(id, "하위 지움", (y) => void (y.kind === "task" && y.subs.splice(Number(q("[data-dsubdel]")!.dataset.dsubdel), 1)));
       if (q("[data-ddup]")) return duplicateEntry(id);
+      if (q("[data-dtagdel]")) return editEntry(id, "태그 지움", (y) => {
+        if (y.kind === "note") y.tags = tagsOf(y).filter((t) => t !== q("[data-dtagdel]")!.dataset.dtagdel);
+      });
       if (q("[data-droutine]")) return toRoutine(id);
     }
     const POP = ".strip [data-ev], .dstrip [data-ev], .dtg [data-ev], .tl .task[data-ev] .tn, .ups .ms[data-ev], .dta .chip[data-ev]";
@@ -2474,11 +2556,20 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
       return;
     }
+    if (el.matches?.("[data-tagrename]") && !e.isComposing && (e.key === "Enter" || e.key === "Escape")) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Escape") {
+        memo.edit = null;
+        return render();
+      }
+      return retag(el.dataset.tagrename!, (el as HTMLInputElement).value);
+    }
     if (el.matches?.("#bhDetail [data-df]") && !e.isComposing && e.key === "Enter" && (el.dataset.df !== "details" || e.metaKey) && !e.shiftKey) {
       e.preventDefault();
       e.stopPropagation();
       detailField(el as HTMLInputElement);
-      if (el.dataset.df === "rem") (el as HTMLInputElement).value = "";
+      if (el.dataset.df === "rem" || el.dataset.df === "tag") (el as HTMLInputElement).value = "";
       return;
     }
     if (el.matches?.("#bhDetail [data-df]") && e.key === "Escape") {
@@ -2856,7 +2947,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   // Panel fields save when they lose focus (a date picked saves at once).
   root.addEventListener("focusout", (e) => {
     const el = e.target as HTMLInputElement;
-    if (el.matches?.("#bhDetail [data-df]") && el.dataset.df !== "rem") detailField(el);
+    if (el.matches?.("#bhDetail [data-df]") && el.dataset.df !== "rem" && el.dataset.df !== "tag") detailField(el);
   });
   root.addEventListener("input", (e) => {
     const el = e.target as HTMLInputElement;

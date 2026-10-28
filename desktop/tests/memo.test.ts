@@ -108,8 +108,9 @@ describe("memo or calendar", () => {
     box.value = "첫";
     box.dispatchEvent(new Event("input", { bubbles: true }));
     expect([...root.querySelectorAll(".mrow .t")].map((b) => b.textContent)).toEqual(["첫째"]);
+    // A click opens the 기억 in the 상세 편집 panel (일정으로 · 할 일로 there).
     root.querySelector<HTMLElement>(".mrow")!.click();
-    expect(root.querySelector(".mopen [data-convert]")).not.toBeNull();
+    expect(root.querySelector("#bhDetail [data-convert]")).not.toBeNull();
   });
 });
 
