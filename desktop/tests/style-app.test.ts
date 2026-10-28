@@ -26,16 +26,19 @@ afterEach(() => {
 async function typed(id: string) {
   const c = set.cases.find((x: { id: string }) => x.id === id);
   let asked = 0;
+  let sent = "";
   document.body.innerHTML = '<div id="app"></div>';
   const root = document.querySelector<HTMLElement>("#app")!;
   Object.defineProperty(root, "clientWidth", { configurable: true, get: () => 1300 });
-  const adapter = { ...memoryAdapter(), origin: "데스크톱", claude: async () => claude, analyze: async () => (asked++, rec[id].proposal), aiSkipped: () => undefined, writeMemo: async () => undefined };
+  const adapter = { ...memoryAdapter(), origin: "데스크톱", claude: async () => claude, analyze: async (input: { text?: string }) => (asked++, (sent = input.text ?? ""), rec[id].proposal), aiSkipped: () => undefined, writeMemo: async () => undefined };
   app = await mountBlackhole(root, adapter, { now: () => new Date(NOW), seed: false });
   const s = app.state;
   for (const e of set.fixture.events) s.events.push({ area: "school", ...e, kind: "event", source: "데스크톱", createdAt: "2026-10-27T09:00", provisional: false, reminders: [] } as CalEvent);
   for (const t of set.fixture.tasks) s.tasks.push({ ...t, kind: "task", area: "school", source: "데스크톱", createdAt: "2026-10-27T09:00", dueTime: null, done: false, reminders: [], subs: [] } as Task);
   await app.submitText(c.text);
   const live = [...s.events, ...s.tasks, ...s.periods, ...s.notes].filter((x) => !x.gone);
+  // The AI reads the words as said (not 「15:00~16:00로 바뀜」).
+  if (asked) expect(sent).toBe(c.text);
   return { s, asked, made: live.filter((x) => !String(x.id).includes("fx")), get: (id: string) => [...s.events, ...s.tasks].find((x) => x.id === id)! };
 }
 

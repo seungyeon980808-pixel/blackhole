@@ -10,7 +10,7 @@ import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type Period, type Task, type SharedCalendar, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
-import { clockText, isFiller, isSimpleCertain, memoDraft, needsAi, parseDraft, parseRule, singleTime, timeRange, timeWords } from "./rules";
+import { isFiller, isSimpleCertain, memoDraft, needsAi, parseDraft, parseRule, singleTime, timeRange, timeWords } from "./rules";
 import { seedState } from "./samples";
 import {
   anchorRelativeDates, applyAction, describe, type Applied, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
@@ -1338,8 +1338,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       render();
       return;
     }
-    // The AI gets said ranges as clock times (it misread 「1620~2120」 as a whole day).
-    await analyze({ text: clockText(v, s.settings), now: clock() }, { text: v, kind: "text" }, src, "문장");
+    // The AI gets the words as said, like a phone text in the inbox: the worker reads 「1620~2120」 itself, and the
+    // app fills 교시·점심·퇴근 after. (Sending clock times turned 「1209~1210 기말고사」 into 12:09~12:10,
+    // 「2026학년도」 into 20:26, 「3시에서 4시로 바뀜」 into a 15:00~16:00 range — 2026-10-28 밤.)
+    await analyze({ text: v, now: clock() }, { text: v, kind: "text" }, src, "문장");
   }
 
   /** The local index over the records (+ secret names and notes from the Mac), rebuilt when stale. */
