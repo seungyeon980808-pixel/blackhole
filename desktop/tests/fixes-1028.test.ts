@@ -233,3 +233,16 @@ describe("붙여 넣은 메시지는 넣기", () => {
     expect(classify("2026년 10월 일정 뭐 있어?", NOW)).toBe("ask");
   });
 });
+
+describe("이미 지난 알림", () => {
+  it("an appointment written down after it began gets no reminder (never a 「놓친 알람」)", async () => {
+    const { draftFromText, missedAlarms } = await import("../src/calendar/store");
+    const night = new Date(2026, 9, 28, 23, 0);
+    const s = emptyState();
+    const x = draftFromText(s, "오늘 오전 8시 회의", "데스크톱", night, "k") as CalEvent;
+    expect(x.reminders).toEqual([]);
+    expect(missedAlarms(s, new Date(2026, 9, 29, 7, 0))).toEqual([]);
+    const later = draftFromText(s, "내일 오전 8시 회의", "데스크톱", night, "k2") as CalEvent;
+    expect(later.reminders).toEqual(["2026-10-29T07:30"]);
+  });
+});

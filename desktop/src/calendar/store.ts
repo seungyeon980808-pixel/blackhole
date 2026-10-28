@@ -325,7 +325,9 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       item = { ...item, startAt: moved.toISOString(), endAt: span ? at(span.end).toISOString() : "", reminders, reviewReasons, needsReview: reviewReasons.length > 0 };
     }
     const common = { title: item.title, area: areaOf(item.area), source, createdAt, details: item.details || undefined, review: itemReview(item), ...(srcKey ? { srcKey } : {}) };
-    const reminders = item.reminders.map(isoToStamp);
+    // A reminder already past when it is put in (「오늘 오전 8시 회의」 written down at night) never rings,
+    // not even later as 「놓친 알람」.
+    const reminders = item.reminders.filter((r) => new Date(r).getTime() > now.getTime()).map(isoToStamp);
     if (item.kind === "NOTE" || (item.kind !== "TODO" && !item.startAt)) {
       const note: Memo = { ...common, id: newId(s, "n"), kind: "note" };
       if (item.kind !== "NOTE") {
@@ -495,6 +497,7 @@ export function draftFromText(s: CalendarState, text: string, source: string, no
       end: `${String(Math.floor(endM / 60)).padStart(2, "0")}:${String(endM % 60).padStart(2, "0")}`,
       provisional: true, reminders: [plusMinutes(r.date, r.time, -(r.remindBefore ?? 30))]
     };
+    ev.reminders = ev.reminders.filter((r) => fromStamp(r).getTime() > now.getTime());
     s.events.push(ev);
     return ev;
   }
@@ -503,6 +506,7 @@ export function draftFromText(s: CalendarState, text: string, source: string, no
     reminders: r.date ? [r.hasTime && r.time ? plusMinutes(r.date, r.time, -(r.remindBefore ?? 30)) : r.remindBefore ? plusMinutes(r.date, "09:00", -r.remindBefore) : `${r.date}T09:00`] : [], subs: []
   };
   if (!r.date) task.noDue = true;
+  task.reminders = task.reminders.filter((x) => fromStamp(x).getTime() > now.getTime());
   s.tasks.push(task);
   return task;
 }
