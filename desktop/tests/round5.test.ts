@@ -69,12 +69,14 @@ describe("time words (B-7, B-8)", () => {
 });
 
 describe("the day (A-2, A-5, B-10, B-11)", () => {
-  it("bars say their time range; no end is drawn the default length and marked; done to-dos fold at the bottom", async () => {
+  it("bars say the time by their place (the range on hover); no end is drawn the default length and marked; done to-dos fold at the bottom", async () => {
     const root = await mount(base());
     app!.setView("day", "2026-10-27");
     const bar = root.querySelector<HTMLElement>('.dtg [data-ev="e1"]')!;
     expect(bar.querySelector(".t")!.textContent).toBe("초과근무");
-    expect(bar.querySelector(".r")!.textContent).toBe("16:20–21:20");
+    // The box's place on the axis says the time (사용자 지적): the range only on hover.
+    expect(bar.querySelector(".r")).toBeNull();
+    expect(bar.querySelector<HTMLElement>(".t")!.title).toBe("16:20–21:20 초과근무");
     const open = root.querySelector<HTMLElement>('.dtg [data-ev="e2"]')!;
     expect(open.classList.contains("noend")).toBe(true);
     expect(open.textContent).toContain("끝 미정");

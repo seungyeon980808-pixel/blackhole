@@ -310,7 +310,7 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .ib { color: var(--ink2); }
 .bh.glass .ib:hover { background: var(--glass2); color: var(--ink); }
 .bh.glass .rc .ra { background: color-mix(in srgb, var(--page) 55%, transparent); }
-.bh.glass .chkbar { background: rgba(255, 201, 77, .14); border: 1px solid rgba(255, 201, 77, .4); color: var(--ink); }
+.bh.glass .chkbar { background: var(--x-chip); border: 1px solid var(--x-line); color: var(--ink); }
 .bh.glass .strip .sh { color: var(--ink3); }
 .bh.glass .strip .sb { background: color-mix(in srgb, var(--school) 55%, transparent); color: var(--ink); }
 .bh.glass .strip .sb.personal { background: color-mix(in srgb, var(--personal) 50%, transparent); }
@@ -350,7 +350,7 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 .bh.glass .strip .spd { background: rgba(255, 255, 255, .06); }
 .bh.glass[data-mode="light"] .strip .spd { background: rgba(22, 23, 42, .05); }
 .bh.glass .fc .fc-bg-event.bh-pd { background: rgba(255, 255, 255, .05); opacity: 1; }
-.bh.glass .fc .fc-bg-event.bh-lunch { background: rgba(255, 211, 110, .06); opacity: 1; }
+.bh.glass .fc .fc-bg-event.bh-lunch { background: rgba(255, 255, 255, .04); opacity: 1; }
 .bh.glass .settings input.tin { background: var(--glass2); border: 1px solid var(--line); border-radius: 6px; color: var(--ink); padding: 2px 4px; }
 
 /* ── 색은 별의 노랑·빨강만: 나머지는 흰색 밝기(밝은 모드는 먹색 농도) ── */

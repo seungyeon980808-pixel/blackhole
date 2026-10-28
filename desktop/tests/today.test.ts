@@ -49,7 +49,9 @@ describe("order and numbers", () => {
     expect(list).toEqual(["1:t2", "2:t1", "3:t3", "4:t4"]);
     const pin = root.querySelector<HTMLElement>('.dtg .dl[data-ev="t2"]')!;
     expect(pin.dataset.num).toBe("1");
-    expect(pin.textContent).toContain("15:00");
+    // On the axis the place says the time: 「번호 · 제목」, the time on hover.
+    expect(pin.textContent).not.toContain("15:00");
+    expect(pin.title).toContain("15:00");
     // 18:00 is outside 업무 08–17: in the row under the table, not floating on it.
     expect(root.querySelector('.dtg .dl[data-ev="t3"]')).toBeNull();
     expect(root.querySelector('.dt .after .dl[data-ev="t3"]')!.textContent).toContain("18:00");
@@ -123,7 +125,9 @@ describe("루틴", () => {
     await tick();
     expect(made.done).toEqual(["2026-10-27"]);
     // On the day table: a dotted line with its name, checked.
-    expect(root.querySelector(`.dtg .rt.dn [data-rt="${made.id}"]`)!.textContent).toContain("08:20 메일 확인");
+    const rt = root.querySelector<HTMLElement>(`.dtg .rt.dn [data-rt="${made.id}"]`)!;
+    expect(rt.textContent).toBe("메일 확인 ✓"); // the line's place says the time
+    expect(rt.title).toContain("루틴 08:20");
     expect(JSON.stringify(sharedFrom(app!.state, "2026-10-27T10:40"))).not.toContain("메일 확인");
   });
 });
@@ -192,7 +196,7 @@ describe("work blocks and the range", () => {
     expect(root.querySelector<HTMLElement>(".dtg")!.dataset.e).toBe(String(17 * 60));
     root.querySelector<HTMLButtonElement>('[data-dr="all"]')!.click();
     expect(root.querySelector<HTMLElement>(".dtg")!.dataset.e).toBe(String(24 * 60));
-    expect(root.querySelector('.dtg .dl[data-ev="t3"]')!.textContent).toContain("18:00"); // inside the table now
+    expect(root.querySelector('.dtg .dl[data-ev="t3"]')!.getAttribute("title")).toContain("18:00"); // inside the table now
     app!.destroy();
     root = await mount(base());
     expect(root.querySelector<HTMLElement>(".dtg")!.dataset.s).toBe("0");

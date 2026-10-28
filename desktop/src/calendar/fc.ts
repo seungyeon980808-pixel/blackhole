@@ -10,7 +10,7 @@ import interactionPlugin from "@fullcalendar/interaction";
 import { addDays, DOW, mins, parseDay, ymd } from "./dates";
 import type { CalendarState, Task, ThemeName } from "./model";
 import { liveEvents, livePeriods, liveTasks } from "./store";
-import { dueBadge, shortWhen, type Ctx, type ThemeView } from "./views/common";
+import { dueBadge, type Ctx, type ThemeView } from "./views/common";
 
 /** Week 「업무 08–17」: these hours fill the window; things before/after fold into a 20-minute row. */
 const WORK_S = 8 * 60;
@@ -241,15 +241,16 @@ export class FcHost {
         }
         const x = byId(arg.event.id);
         if (!x) return true;
-        // Week boxes: the title first, the start short after it (「5교시」); a narrow box drops the time first.
+        // Week boxes on the time axis: the place says the time (사용자 지적), so the title only — the
+        // exact time on hover. (The fold rows outside the hours keep theirs.)
         if (!month && kind === "event" && !arg.event.allDay) {
           const e = x as { date: string; start: string | null; end?: string | null; title: string; draft?: boolean };
-          return { html: `<div class="wbt" title="${escapeText(`${e.start ?? ""}${e.end ? "–" + e.end : ""} ${e.title}`)}"><span class="w1">${escapeText(e.title)}${e.draft ? '<span class="dr">초안</span>' : ""}</span><span class="w2">${e.start ? shortWhen(ctx.s, e.date, e.start) : ""}</span></div>` };
+          return { html: `<div class="wbt" title="${escapeText(`${e.start ?? ""}${e.end ? "–" + e.end : ""} ${e.title}`)}"><span class="w1">${escapeText(e.title)}${e.draft ? '<span class="dr">초안</span>' : ""}</span></div>` };
         }
         if (!month && kind === "task" && !arg.event.allDay) {
           const t = x as unknown as Task;
           const bd = dueBadge(ctx.today, t);
-          return { html: `<div class="wbt due ${bd?.hot ? "hot" : ""}" title="${escapeText(`마감 ${t.dueTime ?? ""} ${t.title}`)}"><span class="w1">${escapeText(t.title)}</span><span class="w2">${t.dueTime ?? ""}까지${bd ? ` ${bd.text}` : ""}</span></div>` };
+          return { html: `<div class="wbt due ${bd?.hot ? "hot" : ""}" title="${escapeText(`마감 ${t.dueTime ?? ""} ${t.title}`)}"><span class="w1">${escapeText(t.title)}</span>${bd ? `<span class="w2">${bd.text}</span>` : ""}</div>` };
         }
         if (!month && kind === "period") {
           const p = x as { title: string; from: string; to: string };

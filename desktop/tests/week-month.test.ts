@@ -1,6 +1,6 @@
 /**
  * 2026-10-28 사용자 지시: 주 보기 「업무 08–17」이 창을 채우고 그 밖은 위·아래 접은 줄로,
- * 기간·마감 줄은 끝낸 할 일 대신 「완료 n」, 상자는 제목 먼저 · 시각은 뒤에 짧게(「5교시」).
+ * 기간·마감 줄은 끝낸 할 일 대신 「완료 n」, 시간축 위 상자는 제목만(시각은 위치로, 마우스 올리면).
  * 월 보기: 제목 먼저 · 시작 시각 오른쪽, 끝낸 할 일은 「완료 n」만.
  */
 import { afterEach, describe, expect, it } from "vitest";
@@ -61,7 +61,7 @@ describe("week 「업무 08–17」", () => {
     expect(shortWhen(s, "2026-10-25", "13:20")).toBe("13:20");
   });
 
-  it("draws the week: 08–17 fills, fold rows, 「완료 2」 in the header, title before the time", async () => {
+  it("draws the week: 08–17 fills, fold rows, 「완료 2」 in the header, titles without the time", async () => {
     document.body.innerHTML = '<div id="app" style="width:1200px;height:800px"></div>';
     const root = document.querySelector<HTMLElement>("#app")!;
     const adapter = memoryAdapter();
@@ -76,7 +76,9 @@ describe("week 「업무 08–17」", () => {
     expect(w.querySelector(".bh-fold.bot")!.textContent).toContain("이후 17:00 맨드살롱");
     expect(w.querySelector(".fc-col-header-cell.fc-day-mon")!.textContent).toContain("완료 2");
     expect(w.textContent).not.toContain("출장 신청");
-    expect(w.querySelector('[data-ev="e2"] .wbt')!.textContent).toBe("수행평가 점수 확인5교시");
+    // On the time axis the box's place says the time: the title only, the time on hover.
+    expect(w.querySelector('[data-ev="e2"] .wbt')!.textContent).toBe("수행평가 점수 확인");
+    expect(w.querySelector<HTMLElement>('[data-ev="e2"] .wbt')!.title).toBe("13:20–14:05 수행평가 점수 확인");
 
     app.setView("month", "2026-10-28");
     const m = root.querySelector(".fc-rolling-view")!;

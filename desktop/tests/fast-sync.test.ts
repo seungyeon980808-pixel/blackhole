@@ -233,7 +233,10 @@ describe("deadlines on the calendar (month · week · day, both themes)", () => 
     root.querySelector<HTMLElement>(".wrng")!.click();
     const week = root.querySelector(".fc-timeGridWeek-view")!;
     expect(week.querySelector(".bh-fold")).toBeNull();
-    expect(week.querySelector(".fc-timegrid-event.bh-due")!.textContent).toContain(`연수 보고서 제출${timed.dueTime}까지`);
+    const due = week.querySelector<HTMLElement>(".fc-timegrid-event.bh-due .wbt")!;
+    expect(due.textContent).toContain("연수 보고서 제출");
+    expect(due.textContent).not.toContain(timed.dueTime!);
+    expect(due.title).toContain(`마감 ${timed.dueTime} 연수 보고서 제출`);
     root.querySelector<HTMLElement>(".wrng")!.click();
 
     app!.setView("day", timed.due);

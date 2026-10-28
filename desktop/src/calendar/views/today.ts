@@ -178,15 +178,17 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
     if (b <= S || a >= E) continue;
     const work = e.workFor ? num.get(e.workFor) : undefined;
     h += `<div class="ev ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.workFor ? "work" : ""} ${e.end ? "" : "noend"}" data-ev="${e.id}" data-evbox="${e.id}" draggable="false" style="top:${y(a)};height:max(20px, calc(${y(b)} - ${y(a)}));left:calc(${((lane / L) * 54).toFixed(2)}% + 4px);width:calc(${(54 / L).toFixed(2)}% - 6px)">
-      <div class="t">${work ? `<span class="no">${work}</span> 작업 · ` : ""}${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</div><div class="r">${e.start}${e.end ? "–" + e.end : " · 끝 미정"}</div><i class="grip" title="끌어 늘이기"></i></div>`;
+      <div class="t" title="${esc(`${e.start}${e.end ? "–" + e.end : ""} ${e.title}`)}">${work ? `<span class="no">${work}</span> 작업 · ` : ""}${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</div>${e.end ? "" : '<div class="r">끝 미정</div>'}<i class="grip" title="끌어 늘이기"></i></div>`;
   }
   // Deadlines: a card in its own lane (one left edge for all), its bottom edge on the deadline time.
   // Close ones stack upward; ones outside the shown hours go to a row under the table.
   const outside: string[] = [];
   let stackAt = Infinity;
   let stack = 0;
+  // On the axis the card's place says the time (사용자 지적): 「번호 · 제목」 only; the row under the
+  // table (outside the hours) keeps the time.
   const card = (t: Task, n: number | undefined, urgent: boolean, style: string) =>
-    `<div class="dl ${urgent ? "urg" : ""}" data-ev="${t.id}" data-num="${n ?? ""}" style="${style}"><span class="no ${urgent ? "urg" : ""}" data-num="${n ?? ""}">${n ?? ""}</span><span class="tm">${t.dueTime}</span><span class="nm">${esc(t.title)}</span></div>`;
+    `<div class="dl ${urgent ? "urg" : ""}" data-ev="${t.id}" data-num="${n ?? ""}" style="${style}" title="${esc(`${t.dueTime}까지 ${t.title}`)}"><span class="no ${urgent ? "urg" : ""}" data-num="${n ?? ""}">${n ?? ""}</span>${style ? "" : `<span class="tm">${t.dueTime}</span>`}<span class="nm">${esc(t.title)}</span></div>`;
   const dues = dueOn(ctx.s, k).filter((x) => x.dueTime && !x.done).sort((a, b) => b.dueTime!.localeCompare(a.dueTime!));
   for (const t of dues) {
     const m = mins(t.dueTime!);
@@ -206,7 +208,7 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
     const m = mins(r.at);
     if (m < S || m > E) continue;
     const dn = r.done.includes(k);
-    h += `<div class="rt ${dn ? "dn" : ""}" style="top:${y(m)}"><button data-rt="${r.id}" role="checkbox" aria-checked="${dn}" title="루틴 · ${repeatLabel(r)}${streak(r, k) ? ` · ${streak(r, k)}일째` : ""} · 누르면 ${dn ? "안 함으로" : "오늘 함"}">${r.at} ${esc(r.title)}${dn ? " ✓" : ""}</button></div>`;
+    h += `<div class="rt ${dn ? "dn" : ""}" style="top:${y(m)}"><button data-rt="${r.id}" role="checkbox" aria-checked="${dn}" title="루틴 ${r.at} · ${repeatLabel(r)}${streak(r, k) ? ` · ${streak(r, k)}일째` : ""} · 누르면 ${dn ? "안 함으로" : "오늘 함"}">${esc(r.title)}${dn ? " ✓" : ""}</button></div>`;
   }
   if (nowM >= S && nowM <= E) h += `<div class="nowl" style="top:${y(nowM)}"><span>${String(Math.floor(nowM / 60)).padStart(2, "0")}:${String(nowM % 60).padStart(2, "0")}</span></div>`;
   const dups = duplicates(ctx.s).filter((d) => d.x.kind === "event" && d.x.date === k);
