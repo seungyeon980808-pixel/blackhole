@@ -496,6 +496,32 @@ export function singleTime(raw: string): { time: string; rest: string; match: st
 /** 「메모 …」 「기억: …」 at the start: always a 기억, whatever else is in it. */
 const MEMO_HEAD = /^\s*(메모|기억|노트)\s*[:：,]?\s+/;
 
+/** A to-do without a day (「견적서 받으면 품의 올리기」 「출장 신청서 제출」), a finished report (「출장 신청 다 했어요」), a
+ * change (「학부모 상담 취소」), or a day the rules cannot read (「1029 3학년 기말고사」 「11. 9.(월)」): not a plain
+ * 기억 — the AI reads it (2026-10-28 밤: these were kept as 기억 and the to-do, the check, the cancel never happened). */
+const TODO_END = /(?:[가-힣]기|해야\s*(?:함|됨|해|돼|된다|한다)?|야\s*함|할\s*것|하자|해\s*줘|발송|제출|기안|품의|신청|입력|회신|수합|취합|출력|인쇄|채점|연락|전달|주문|예약|구입|구매|정리|작성)\s*[.!~]*\s*$/;
+const DONE_END = /(?:[했냈갔봤왔줬끝](?:어요?|음|다|습니다)|함|했음|했어요?|했다|했습니다|완료|끝|끝남|끝났(?:어|음|다|습니다)?|종료|마침|마쳤(?:음|어|다)?|보냄|보냈(?:음|어|다)?|나감|나갔(?:음|어|다)?)\s*[.!~]*\s*$/;
+const CONDITION = /[가-힣]면\s|[가-힣]고\s+[가-힣]+(?:기|하기)\b/;
+const DATE_DIGITS = (raw: string): boolean =>
+  /\d{1,2}\s*\.\s*\d{1,2}\s*\.|\d{1,2}\/\d{1,2}/.test(raw) ||
+  [...raw.matchAll(/(?<!\d)(\d{2})(\d{2})(?!\d)/g)].some((m) => {
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    return a >= 1 && a <= 12 && b >= 1 && b <= 31;
+  });
+/** 「음...」 「ㅋㅋㅋ」 「ㅇㅇ」 「아 맞다」 「어 잠깐만」: nothing to keep (a pocket recording, a stray send). */
+export const isFiller = (raw: string): boolean => {
+  const t = raw.trim().replace(/[.!?~,·…\s]+/g, " ").trim();
+  if (!t) return true;
+  if (/^[ㄱ-ㅎㅏ-ㅣ\s]+$/.test(t)) return true;
+  if (/^(?:\p{Extended_Pictographic}|\s)+$/u.test(t)) return true;
+  return /^(?:(?:음|어|아|응|네|예|엉|흠|헐|오|와|그|저|뭐|아니|맞다|잠깐|잠깐만|잠시만|그냥|해본\s*말|테스트|ㅎㅎ|ㅋㅋ)\s*)+$/.test(t);
+};
+
+export const notJustAMemo = (raw: string): boolean => {
+  const t = raw.trim();
+  return TODO_END.test(t) || DONE_END.test(t) || CONDITION.test(t) || AI_ONLY.test(t) || DATE_DIGITS(t);
+};
+
 /**
  * What the words alone make: a 기억 unless they clearly say when. `final`: no AI needed (an
  * explicit 「메모 …」, or nothing about a day or time at all). A date without a time and without
@@ -513,7 +539,7 @@ export function memoDraft(raw0: string, now: Date, day: DayClock = {}): { title:
   const r = parseRule(raw, now);
   // Something about a day the rules could not read: not a sure 기억 — let the AI decide.
   const dayHint = /(?<![\d-])\d{1,2}\s*일(?!\s*(?:동안|간|째))|주말|월말|말일|(?:뒤|후)(?:에)?(?:\s|$)|안에|중에|내로|자정|정오|연휴|다음\s*달|이번\s*달|오전|오후|저녁|아침|새벽|방과\s*후/.test(raw);
-  if (!r.date && !r.hasTime) return memo(!dayHint);
+  if (!r.date && !r.hasTime) return memo(!dayHint && !notJustAMemo(raw0));
   // Hearsay (「…보내준대」, 「…온다고」) is something to remember, even with a to-do word in it.
   const hearsay = /(대|래|더라|다고|라고|한다)\s*[.!]?\s*$/.test(raw.trim());
   if (r.date && !r.hasTime && !EVENT_WORDS.test(raw) && (hearsay || !TASK_WORDS.test(raw)) && !/까지|마감|일정|약속|예약/.test(raw)) return memo(false);
@@ -667,7 +693,21 @@ const TITLE_TAIL = /(?:있어|있음|있다|있고|해|해야|해줘|해 줘|줘
  * skip the AI (「간단한 문장은 AI 생략」). Lists, sub-tasks, reminders, school items, documents and
  * photos always go to the AI.
  */
+/** Said in a way only the AI reads right (2026-10-28 밤: these skipped it and went in wrong): a correction or change
+ * (「3시 아니 4시」 「4시로 바뀜」 → a second 치과), a to-do (「…고민할 것」), minutes in words (「세 시 사십 분」). */
+const AI_ONLY = /아니|말고|바뀌|바뀜|바꿈|바꿔|변경|미뤄|미룸|미뤘|연기|당겨|당김|앞당|옮|취소|없어|무산|할\s*것|해야|하기\s*$|할게|하자|고민|[일이삼사오육칠팔구십]\s*분/;
+/** 「1030 1530」 「1220 송년회」: glued days and times are the AI's to read, unless a day is also said and the four
+ * digits are only a 「1620~2120」 range. */
+const gluedDigits = (raw: string): boolean => {
+  const loose = raw.replace(/\d{4}\s*[~\-–]\s*\d{4}|\d{8}/g, "");
+  return /\d{4}/.test(loose) || (/\d{4}/.test(raw) && !/오늘|내일|모레|글피|요일|\d+\s*월\s*\d+\s*일/.test(raw));
+};
+
+/** The sentence as typed (before 「1102」 is read as 11:02) needs the AI whatever the rule draft says. */
+export const needsAi = (said: string): boolean => AI_ONLY.test(said) || gluedDigits(said);
+
 export function isSimpleCertain(raw: string, r: RuleResult): boolean {
+  if (needsAi(raw)) return false;
   // A said range (「1620~2120」) is as clear as a single time: judge the rest of the sentence.
   const text = normalize(r.end ? timeRange(raw)?.rest ?? raw : singleTime(raw)?.rest ?? raw).trim();
   if (r.kind !== "SCHEDULE" || !r.hasTime || r.needsReview || r.explanation !== "날짜와 시간을 찾음") return false;

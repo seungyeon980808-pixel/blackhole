@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { emptyState, type CalEvent, type Entry, type Task } from "../src/calendar/model";
-import { applyProposal } from "../src/calendar/store";
+import { draftFromText, refineDrafts } from "../src/calendar/store";
+import { isFiller, isSimpleCertain, memoDraft, needsAi, parseDraft, timeWords } from "../src/calendar/rules";
 import type { Proposal } from "../src/worker/proposal";
 
 interface Want {
@@ -71,7 +72,18 @@ export function problems(c: Case, p: Proposal, set: CaseSet): string[] {
   const NOW = new Date(set.now);
   const s = stateWithFixture(set.fixture);
   const before = new Set([...s.events, ...s.tasks, ...s.periods, ...s.notes].map((x) => x.id));
-  applyProposal(s, p, "데스크톱", NOW);
+  // The app's own path for a sentence (app.ts submitText / pullDrafts): filler → nothing; a sure 기억 or a
+  // simple sentence → the rule draft is final (no AI); otherwise the draft is refined by the worker's answer.
+  // A file goes straight to the worker.
+  const text = c.text;
+  if (text === undefined) refineDrafts(s, "k", p, "인박스", NOW);
+  else if (!isFiller(text)) {
+    const memo = memoDraft(text, NOW, s.settings)?.final;
+    const simple = !memo && !needsAi(text) && isSimpleCertain(timeWords(text, s.settings), parseDraft(text, NOW, s.settings));
+    const x = draftFromText(s, text, "데스크톱", NOW, "k");
+    if (memo || simple) x.draft = false;
+    else refineDrafts(s, "k", p, "데스크톱", NOW);
+  }
   const made = [...s.events, ...s.tasks, ...s.periods, ...s.notes].filter((x) => !before.has(x.id) && !x.gone);
   const bad: string[] = [];
   const left = [...made];

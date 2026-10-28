@@ -91,7 +91,8 @@ export function changeTargets(s: CalendarState, item: ProposalItem, now: Date): 
   if (name.length < 2) return [];
   const today = ymd(now);
   const named = (x: { title: string }) => squash(x.title).includes(name) || (squash(x.title).length >= 2 && name.includes(squash(x.title)));
-  let list: (CalEvent | Task)[] = [...liveEvents(s).filter((e) => e.date >= today && !e.workFor && named(e)), ...liveTasks(s).filter((t) => !t.done && named(t))];
+  // Drafts are what is being said right now (「치과 4시로 바뀜」 is a 치과 draft too): never the target.
+  let list: (CalEvent | Task)[] = [...liveEvents(s).filter((e) => e.date >= today && !e.workFor && !e.draft && named(e)), ...liveTasks(s).filter((t) => !t.done && !t.draft && named(t))];
   // 「교과협의회 다음주 금요일 걸로 취소」: a cancel's day says which one.
   const from = (item.changeFrom || (item.change === "CANCEL" ? `${item.evidence.dateText} ${item.evidence.timeText}` : "")).trim();
   // 「다음주 교과협의회 취소」: only a week said.
@@ -171,7 +172,7 @@ export function doneReport(text: string): boolean {
 }
 
 /** Words that make an item school work whatever the model said (「행정실 가서 카드 제출」 「2학년 9반 …」). */
-const SCHOOL_WORDS = /\d+\s*반(?![가-힣])|\d+\s*반(?:도|은|는|에|의|부터|까지)|\d\s*학년|\d\s*교시|행정실|교무실|교원|교사|기안|공문|결재|수행평가|생기부|세특|방과후|학생|학부모|담임|쿨메신저|협의회|협의록|출장|급식지도|진도|교학공|대의원회|학생회/;
+const SCHOOL_WORDS = /초과근무|벌점|지각|교육청|장학사|체험학습|교직원|교과|보강|시간표|나이스|학급|종례|조회|(?<!수영|피아노|요가|미술|영어|태권도|발레|필라테스|골프|테니스)\s*수업|\d+\s*반(?![가-힣])|\d+\s*반(?:도|은|는|에|의|부터|까지)|\d\s*학년|\d\s*교시|행정실|교무실|교원|교사|기안|공문|결재|수행평가|생기부|세특|방과후|학생|학부모|담임|쿨메신저|협의회|협의록|출장|급식지도|진도|교학공|대의원회|학생회/;
 
 /** The class numbers a text names: 「2학년 3반 … 6반」 → ["3반", "6반"]. */
 const classesIn = (text: string): string[] => [...new Set([...text.matchAll(/(\d{1,2})\s*반(?=$|[^가-힣]|도|은|는|에|의|부터|까지|이|가)/g)].map((m) => `${m[1]}반`))];
@@ -186,7 +187,7 @@ const PARTICLE = /(?:께서|에게|께|에서|에|을|를|은|는|이|가|도|�
 export function finishedBy(s: CalendarState, sentence: string): Task[] {
   const said = sentence.replace(/\s+/g, "");
   const saidClasses = classesIn(sentence);
-  const scored = liveTasks(s).filter((t) => !t.done).flatMap((t) => {
+  const scored = liveTasks(s).filter((t) => !t.done && !t.draft).flatMap((t) => {
     const words = t.title.split(/\s+/).map((w) => w.replace(PARTICLE, "")).filter(Boolean);
     if (words.length < 2) return [];
     const own = classesIn(t.title);
@@ -228,7 +229,7 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
     if (!item.change && (item.kind === "TODO" || item.kind === "SCHEDULE") && item.startAt && item.evidence.dateText) {
       const name = item.title.replace(/\s+/g, "");
       const spoken = words.replace(/\s+/g, "");
-      const same = [...liveTasks(s).filter((t) => !t.done), ...liveEvents(s).filter((e) => e.date >= today && !e.workFor)].filter((x) => x.title.replace(/\s+/g, "") === name);
+      const same = [...liveTasks(s).filter((t) => !t.done && !t.draft), ...liveEvents(s).filter((e) => e.date >= today && !e.workFor && !e.draft)].filter((x) => x.title.replace(/\s+/g, "") === name);
       if (name.length >= 2 && same.length === 1 && (spoken.includes(`${name}은`) || spoken.includes(`${name}는`))) item = { ...item, change: "MOVE" };
     }
     // 「치과 예약 취소했음」 put down as a record: it is the 치과 in the calendar that is off.
@@ -380,7 +381,9 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       const e = new Date(item.endAt);
       end = ymd(e) === ymd(start) ? nowHM(e) : "23:59";
     } else if (timed) {
-      end = nowHM(new Date(start.getTime() + 3600e3));
+      // An hour, but never past midnight (「밤 11시 반」 ended 00:30, before it began).
+      const e = new Date(start.getTime() + 3600e3);
+      end = ymd(e) === ymd(start) ? nowHM(e) : "23:59";
     }
     const ev: CalEvent = {
       ...common,
@@ -473,12 +476,12 @@ export function draftFromText(s: CalendarState, text: string, source: string, no
   // A note to remember is never forced into an appointment (「차 번호 12가 3456」, 「메모 …」).
   const m = memoDraft(text, now, s.settings);
   if (m) {
-    const note: Memo = { id: draftId("n"), kind: "note", title: m.title || "기억", details: m.details, area: "personal", source, createdAt: stamp(now), draft: !m.final, srcKey };
+    const note: Memo = { id: draftId("n"), kind: "note", title: m.title || "기억", details: m.details, area: SCHOOL_WORDS.test(text) ? "school" : "personal", source, createdAt: stamp(now), draft: !m.final, srcKey };
     s.notes.push(note);
     return note;
   }
   const r = parseDraft(text, now, s.settings);
-  const base = { title: r.title, area: "personal" as Area, source, createdAt: stamp(now), draft: true, srcKey, review: r.needsReview ? [r.explanation] : undefined };
+  const base = { title: r.title, area: (SCHOOL_WORDS.test(text) ? "school" : "personal") as Area, source, createdAt: stamp(now), draft: true, srcKey, review: r.needsReview ? [r.explanation] : undefined };
   // 「11월 2일부터 6일까지 체험학습」: a span of days is a 기간.
   if (r.until && r.date) {
     const period: Period = { ...base, id: draftId("p"), kind: "period", from: r.date, to: r.until };
@@ -591,7 +594,8 @@ export function refineDrafts(s: CalendarState, key: string, p: Proposal, source:
     const d = left.splice(i, 1)[0];
     removeEntry(s, n);
     // The words said a clock time and the AI answer lost it (all-day, no deadline): keep it.
-    if (d.kind === "event" && n.kind === "event" && d.start && !n.start && d.date === n.date) {
+    // (A draft's own 「오전 9시로 임시」 was never said: the AI's all-day answer stands.)
+    if (d.kind === "event" && n.kind === "event" && d.start && !n.start && d.date === n.date && !d.review?.some((r) => r.includes("임시"))) {
       n.start = d.start;
       n.end = d.end;
       if (!n.reminders.length) n.reminders = d.reminders;

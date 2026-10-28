@@ -8,9 +8,9 @@ import { looksSecret } from "./secret";
 import { answer as answerQuestion, AskIndex, classify, docsOf, KIND_LABEL, lineOf, whenOf, type AskDoc, type AskHit, type AskSources } from "./ask";
 import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
-import { normalizeState, sharedFrom, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type SharedCalendar, type ThemeName, type UserAction } from "./model";
+import { normalizeState, sharedFrom, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type Period, type Task, type SharedCalendar, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
-import { clockText, isSimpleCertain, memoDraft, parseDraft, parseRule, singleTime, timeRange, timeWords } from "./rules";
+import { clockText, isFiller, isSimpleCertain, memoDraft, needsAi, parseDraft, parseRule, singleTime, timeRange, timeWords } from "./rules";
 import { seedState } from "./samples";
 import {
   anchorRelativeDates, applyAction, describe, type Applied, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
@@ -1057,6 +1057,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (s.draftedJobs.includes(d.jobId) || s.ingestedJobs.includes(d.jobId) || !d.text.trim()) continue;
       s.draftedJobs.push(d.jobId);
       if (s.draftedJobs.length > 2000) s.draftedJobs.splice(0, s.draftedJobs.length - 2000);
+      // A pocket recording (「음...」): nothing goes in, and it never reaches the AI.
+      if (isFiller(d.text)) {
+        skip.push(d.jobId);
+        n++;
+        continue;
+      }
       const now = clock();
       const src = "휴대폰";
       const at = d.at ? new Date(d.at) : now;
@@ -1269,7 +1275,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   /** 「간단한 문장은 AI 생략」: only where the AI costs money (the Mac), and only when it is on. */
   function skipsAi(text: string, at: Date): boolean {
-    return !!adapter.aiSkipped && claude?.skipSimple !== false && claude?.analyzer !== "local" && isSimpleCertain(timeWords(text, s.settings), parseDraft(text, at, s.settings));
+    return !!adapter.aiSkipped && claude?.skipSimple !== false && claude?.analyzer !== "local" && !needsAi(text) && isSimpleCertain(timeWords(text, s.settings), parseDraft(text, at, s.settings));
   }
 
   async function submitText(text: string, src = adapter.origin, checked = false, mode?: "put"): Promise<void> {
@@ -1306,6 +1312,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         renderLast();
         return;
       }
+    }
+    // 「음...」 「ㅋㅋㅋ」: nothing to keep, said so in the chat (no 기억, no AI).
+    if (isFiller(v)) {
+      s.chat.push({ id: newId(s, "c"), at: stamp(clock()), who: "me", text: v, kind: "text", src }, { id: newId(s, "c"), at: stamp(clock()), who: "ai", text: "넣을 내용이 없어 그냥 두었어요" });
+      await save();
+      return render();
     }
     // Nothing about a day or time (or 「메모 …」): a 기억 at once, no AI, never on the calendar.
     if (memoDraft(v, clock(), s.settings)?.final) return saveMemoText(v, src);
@@ -1847,14 +1859,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (!day && !at) return false;
     const name = m[1].trim();
     const hits = (await askIndex()).search(name).filter((h) => h.cover >= 0.6 && ["event", "task", "period"].includes(h.doc.kind));
-    const x = hits.map((h) => findEntry(s, h.doc.id)).find((e) => e && !e.gone && !(e.kind === "task" && e.done));
+    // Only a sure single match moves here; none or several (two 교과협의회) go to the AI path, which finds
+    // the one by the day said or asks in 확인할 것 (it used to take the first hit, even a past one).
+    const live = [...new Set(hits.map((h) => findEntry(s, h.doc.id)))].filter((e): e is CalEvent | Task | Period => !!e && !e.gone && !e.draft && !(e.kind === "task" && e.done) && !(e.kind === "event" && e.date < today) && !(e.kind === "period" && e.to < today));
+    if (live.length !== 1) return false;
+    const x = live[0];
     s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: v, kind: "text", src });
-    if (!x) {
-      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: `「${name}」을(를) 찾지 못했어요` });
-      await save();
-      render();
-      return true;
-    }
     if (at && x.kind !== "period") retime(x.id, day, { start: at }, "", "옮김");
     else if (day) moveTo(x.id, day);
     else {
