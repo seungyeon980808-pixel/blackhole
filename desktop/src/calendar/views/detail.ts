@@ -52,6 +52,7 @@ export function detailHTML(ctx: Ctx, id: string, fd: (k: string) => string): str
   const star = x.star ?? 0;
   rows.push(field("중요", `<span class="dseg dstar" role="group">${[0, 1, 2].map((n) => `<button type="button" data-dstar="${n}" class="${n === star ? "on" : ""} s${n}" aria-pressed="${n === star}" title="${["보통", "중요(노랑)", "아주 중요(빨강)"][n]}">${n ? "★" : "☆"}</button>`).join("")}</span>`));
   rows.push(field("영역", seg("data-darea", [["school", "학교"], ["personal", "개인"]], x.area)));
+  if (x.kind === "task") rows.push(field("기다림", `<input data-df="wait" value="${esc(x.wait ?? "")}" placeholder="먼저 있어야 할 일 · 비우면 없음" autocomplete="off" spellcheck="false">`));
   if (x.kind === "task") {
     rows.push(`<div class="df col"><span class="dl2">하위 단계 ${x.subs.length ? `${x.subs.filter((t) => t.done).length}/${x.subs.length}` : ""}</span><div class="dsubs">${x.subs.map((t, i) => `<div class="dsub ${t.done ? "done" : ""}"><span class="bx" data-sub="${x.id}:${i}" role="checkbox" aria-checked="${t.done}" tabindex="0">${t.done ? "✓" : ""}</span><span class="st">${esc(t.title)}${t.ai ? '<span class="aisug">AI 제안</span>' : ""}</span>${i ? `<button type="button" data-dsubup="${i}" title="위로" aria-label="위로">↑</button>` : ""}<button type="button" data-dsubdel="${i}" title="지우기" aria-label="하위 단계 지우기">×</button></div>`).join("")}<input class="subadd on" data-subadd="${x.id}" placeholder="+ 하위 단계" aria-label="하위 단계 추가">${x.subs.some((t) => t.ai) ? '<button type="button" class="mini" data-dsubai>제안 단계 모두 지우기</button>' : ""}</div></div>`);
   }

@@ -94,6 +94,8 @@ export interface Task extends Base {
   subs: SubTask[];
   /** No deadline was given ("due" is only the day it came in): kept off the calendar. */
   noDue?: boolean;
+  /** 「기다림」: what has to happen first (「병렬협조 마무리」 「한 선생님 연락」). */
+  wait?: string;
 }
 
 /** Several whole days, inclusive. */

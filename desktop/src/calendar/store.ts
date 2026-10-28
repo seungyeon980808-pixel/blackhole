@@ -66,7 +66,51 @@ export interface Applied {
   refs: string[];
   /** Items that had no usable date (kept as 기억 with a review note). */
   missing: string[];
+  /** Open to-dos the sentence said were finished (「3반 수행평가 점수 확인함」), now checked. */
+  done?: string[];
 }
+
+/* ---------- how the owner writes (tests/fixtures/style-cases.json) ---------- */
+
+/** 「확인함」 「제출했음」 「진도 종료」 「끝」: a report of something finished, not a to-do (「해야함」 is not). */
+export function doneReport(text: string): boolean {
+  const t = text.trim().replace(/[.!~\s]+$/, "");
+  if (/(?:해야|야)\s*함$|할\s*것$|하기$/.test(t)) return false;
+  return /(?:함|했음|했어요?|했다|했습니다|완료|끝|끝남|끝났(?:어|음|다|습니다)?|종료|마침|마쳤(?:음|어|다)?)$/.test(t);
+}
+
+/** Words that make an item school work whatever the model said (「행정실 가서 카드 제출」 「2학년 9반 …」). */
+const SCHOOL_WORDS = /\d+\s*반(?![가-힣])|\d+\s*반(?:도|은|는|에|의|부터|까지)|\d\s*학년|\d\s*교시|행정실|교무실|교원|교사|기안|공문|결재|수행평가|생기부|세특|방과후|학생|학부모|담임|쿨메신저|협의회|협의록|출장|급식지도|진도|교학공|대의원회|학생회/;
+
+/** The class numbers a text names: 「2학년 3반 … 6반」 → ["3반", "6반"]. */
+const classesIn = (text: string): string[] => [...new Set([...text.matchAll(/(\d{1,2})\s*반(?=$|[^가-힣]|도|은|는|에|의|부터|까지|이|가)/g)].map((m) => `${m[1]}반`))];
+
+const PARTICLE = /(?:께서|에게|께|에서|에|을|를|은|는|이|가|도|과|와|및|랑|으로|로)$/;
+
+/**
+ * 「오늘 6반 진도종료, 수행평가 점수도 확인함」: the one open to-do it finishes (「6반 수행평가 점수 확인」).
+ * Most of the to-do's words and its last word (the action) are in the sentence, and a class it
+ * names is the sentence's. Two equally good candidates: none (it never guesses between them).
+ */
+export function finishedBy(s: CalendarState, sentence: string): Task[] {
+  const said = sentence.replace(/\s+/g, "");
+  const saidClasses = classesIn(sentence);
+  const scored = liveTasks(s).filter((t) => !t.done).flatMap((t) => {
+    const words = t.title.split(/\s+/).map((w) => w.replace(PARTICLE, "")).filter(Boolean);
+    if (words.length < 2) return [];
+    const own = classesIn(t.title);
+    if (own.some((c) => !saidClasses.includes(c))) return [];
+    if (!said.includes(words[words.length - 1])) return [];
+    const hit = words.filter((w) => said.includes(w)).length;
+    return hit >= 2 && hit * 3 >= words.length * 2 ? [{ t, score: hit / words.length + (own.length ? 1 : 0) }] : [];
+  });
+  if (!scored.length) return [];
+  const best = Math.max(...scored.map((x) => x.score));
+  const top = scored.filter((x) => x.score === best);
+  return top.length === 1 ? [top[0].t] : [];
+}
+
+const RELATIVE_SAID = /(일주일|한\s*주|\d+\s*주|하루|이틀|사흘|나흘|\d+\s*일)\s*전|전날|당일|다음\s*날/;
 
 function itemReview(item: ProposalItem): string[] | undefined {
   return item.needsReview && item.reviewReasons.length ? item.reviewReasons : undefined;
@@ -77,9 +121,28 @@ function itemReview(item: ProposalItem): string[] | undefined {
  * (the UI offers 되돌리기).
  */
 export function applyProposal(s: CalendarState, p: Proposal, source: string, now: Date, srcKey?: string): Applied {
-  const out: Applied = { refs: [], missing: [] };
+  const out: Applied = { refs: [], missing: [], done: [] };
   const createdAt = stamp(now);
+  const today = ymd(now);
+  const said = new Map<string, string>();
   for (let item of p.items) {
+    const sentence = item.evidence.sentence || (p.items.length === 1 ? p.sourceText ?? "" : "");
+    const finished = doneReport(sentence) || doneReport(item.title);
+    // 「5반 수행평가 점수 확인 끝」: a record of what was done, and the open to-do it finishes.
+    if (finished && item.kind === "TODO") item = { ...item, kind: "NOTE" };
+    if (finished && item.kind === "NOTE") {
+      for (const t of finishedBy(s, `${item.title} ${sentence}`)) {
+        t.done = true;
+        t.subs.forEach((y) => (y.done = true));
+        out.done!.push(t.id);
+      }
+    }
+    // 「11/20 재량휴업일」: a day still ahead is an appointment (all day), not a 기억.
+    if (item.kind === "NOTE" && item.startAt && !finished && ymd(new Date(item.startAt)) >= today) item = { ...item, kind: "SCHEDULE" };
+    // 「오늘 3반 수행평가 점수 확인함」 → 「3반 …」: the class the sentence names stays in the title.
+    const classes = sentence.length <= 160 ? classesIn(sentence) : [];
+    if (classes.length === 1 && !classesIn(item.title).length) item = { ...item, title: `${classes[0]} ${item.title}` };
+    if (item.area !== "SCHOOL" && SCHOOL_WORDS.test(`${item.title} ${sentence}`)) item = { ...item, area: "SCHOOL" };
     // 「3교시」 「점심시간」 「퇴근 전」: school words the worker does not know — this school's own times.
     const school = item.startAt && /교시|점심|출근|퇴근/.test(item.evidence.timeText) ? timeWords(item.evidence.timeText, s.settings) : "";
     const span = school ? timeRange(school) : null;
@@ -91,7 +154,11 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
     };
     if (span || one) {
       const reviewReasons = item.reviewReasons.filter((r) => !r.includes("오전 9시로 임시"));
-      item = { ...item, startAt: at(span?.start ?? one!.time).toISOString(), endAt: span ? at(span.end).toISOString() : "", reviewReasons, needsReview: reviewReasons.length > 0 };
+      const moved = at(span?.start ?? one!.time);
+      // Reminders said against the start (「10분 전」, the default 30) move with it.
+      const shift = moved.getTime() - new Date(item.startAt).getTime();
+      const reminders = item.reminders.map((r) => new Date(new Date(r).getTime() + shift).toISOString());
+      item = { ...item, startAt: moved.toISOString(), endAt: span ? at(span.end).toISOString() : "", reminders, reviewReasons, needsReview: reviewReasons.length > 0 };
     }
     const common = { title: item.title, area: areaOf(item.area), source, createdAt, details: item.details || undefined, review: itemReview(item), ...(srcKey ? { srcKey } : {}) };
     const reminders = item.reminders.map(isoToStamp);
@@ -129,8 +196,17 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
         reminders,
         subs: [...item.subtasks.map((title) => ({ title, done: false })), ...(item.suggestedSubtasks ?? []).slice(0, 5).map((title) => ({ title, done: false, ai: true as const }))]
       };
+      if (item.waitFor) task.wait = item.waitFor;
       // No deadline: 「날짜 없음」, not today (and nothing to ask about).
-      if (!item.startAt) task.noDue = true;
+      // 「이따가 코디 선생님께 전달할 때 …」: later today.
+      if (!item.startAt && /이따가?|있다가/.test(sentence)) task.due = today;
+      else if (!item.startAt) {
+        task.noDue = true;
+        // 「대의원회 전날 회의 자료 출력」: counted from an appointment (anchorRelativeDates below).
+        const rel = RELATIVE_SAID.exec(sentence)?.[0];
+        if (rel && !task.review?.some((r) => r.startsWith(UNREAD))) task.review = [...(task.review ?? []), `${UNREAD}「${rel}」`];
+        if (sentence) said.set(task.id, sentence);
+      }
       s.tasks.push(task);
       out.refs.push(task.id);
       continue;
@@ -156,7 +232,7 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
     s.events.push(ev);
     out.refs.push(ev.id);
   }
-  anchorRelativeDates(s, now);
+  anchorRelativeDates(s, now, { prefer: new Set(out.refs), said });
   return out;
 }
 
@@ -183,7 +259,7 @@ const MANY_ANCHORS = "기준 일정이 여럿이라 날짜를 정하지 못함: 
  * appointment (or period) whose title it names. None or several: it stays 날짜 없음 and
  * 확인할 것 says why. Returns the to-dos that got a date.
  */
-export function anchorRelativeDates(s: CalendarState, now: Date): string[] {
+export function anchorRelativeDates(s: CalendarState, now: Date, hint: { prefer?: Set<string>; said?: Map<string, string> } = {}): string[] {
   const done: string[] = [];
   const today = ymd(now);
   const squash = (x: string) => x.replace(/\s+/g, "");
@@ -194,11 +270,14 @@ export function anchorRelativeDates(s: CalendarState, now: Date): string[] {
     const phrase = note.slice(note.indexOf("「") + 1, note.lastIndexOf("」"));
     const offset = relativeOffset(phrase);
     if (offset === null) continue;
-    const text = squash(`${t.title} ${t.details ?? ""}`);
-    const anchors = [
-      ...liveEvents(s).filter((e) => !e.workFor).map((e) => ({ title: e.title, date: e.date })),
-      ...livePeriods(s).map((p) => ({ title: p.title, date: p.from }))
+    const text = squash(`${t.title} ${t.details ?? ""} ${hint.said?.get(t.id) ?? ""}`);
+    let anchors = [
+      ...liveEvents(s).filter((e) => !e.workFor).map((e) => ({ id: e.id, title: e.title, date: e.date })),
+      ...livePeriods(s).map((p) => ({ id: p.id, title: p.title, date: p.from }))
     ].filter((a) => a.date >= today && squash(a.title).length >= 2 && text.includes(squash(a.title)));
+    // 「11. 6. 대의원회 … 일주일 전부터 기안」: the appointment said in the same words comes first.
+    const same = anchors.filter((a) => hint.prefer?.has(a.id));
+    if (same.length) anchors = same;
     const days = [...new Set(anchors.map((a) => a.date))];
     let next: string;
     if (days.length === 1) {
@@ -334,6 +413,7 @@ export function refineDrafts(s: CalendarState, key: string, p: Proposal, source:
   }
   const applied = applyProposal(s, p, source, now, key);
   out.missing = applied.missing;
+  out.done = applied.done;
   const fresh = applied.refs.map((id) => findEntry(s, id)!).filter(Boolean);
   const left = group.slice();
   for (const n of fresh) {

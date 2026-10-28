@@ -33,6 +33,8 @@ export interface ProposalItem {
   subtasks: string[];
   /** Steps the model proposed that the source did not say (「AI 제안」, at most 5). */
   suggestedSubtasks?: string[];
+  /** What has to happen first (「기다림」), when the source says so. */
+  waitFor?: string;
   evidence: ProposalEvidence;
   confidence: number;
   needsReview: boolean;

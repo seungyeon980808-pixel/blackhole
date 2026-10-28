@@ -680,6 +680,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (tagsOf(x).includes(t)) return;
       return editEntry(id, "태그", (y) => void (y.kind === "note" && (y.tags = [...tagsOf(y), t])));
     }
+    if (f === "wait") {
+      if (x.kind !== "task" || v === (x.wait ?? "")) return;
+      return editEntry(id, "기다림", (y) => void (y.kind === "task" && (v ? (y.wait = v.slice(0, 80)) : delete y.wait)));
+    }
     if (f === "details") {
       if (v === (x.details ?? "")) return;
       return editEntry(id, "메모", (y) => void (y.details = v || undefined));
@@ -1027,10 +1031,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
           changed = true;
           continue;
         }
-        afterApplied(applied.refs, applied.missing, "인박스", now, applied.updated, applied.suggested);
+        afterApplied(applied.refs, applied.missing, "인박스", now, applied.updated, applied.suggested, applied.done);
         s.inbox.push({ at: stamp(now), title: r.fileName, src: "인박스", state: r.proposal.needsReview ? "검토 필요" : "완료", out: `${applied.refs.length}건` });
         if (!drafted) s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: "", kind: "file", fileName: r.fileName, src: "인박스" });
-        card(aiText(applied.refs.length, applied.missing.length, r.proposal.reviewReasons, applied), applied.refs.length ? applied.refs : applied.suggested);
+        card(withDone(aiText(applied.refs.length, applied.missing.length, r.proposal.reviewReasons, applied), applied.done), applied.refs.length ? applied.refs : applied.suggested);
       } else {
         s.inbox.push({ at: stamp(now), title: r.fileName, src: "인박스", state: "실패", out: r.error ?? "" });
       }
@@ -1123,6 +1127,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     return m;
   }
 
+  /** 「완료로 체크함: 3반 수행평가 점수 확인」 after what the card already says. */
+  function withDone(text: string, done: string[] = []): string {
+    if (!done.length) return text;
+    const names = done.map((id) => `「${findEntry(s, id)?.title ?? ""}」`).join(" ");
+    return [text, `완료로 체크함: ${names}`].filter(Boolean).join(" · ");
+  }
+
   function aiText(n: number, miss: number, reasons: string[] = [], r?: { updated: string[]; suggested: string[] }): string {
     if (r?.suggested.length && !n) return "손댄 항목이라 그대로 두고 AI 제안만 붙였어요.";
     if (!n && reasons.length) return `넣은 것이 없어요. ※ ${reasons.join(" · ")}`;
@@ -1131,7 +1142,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     return miss ? `${miss}건은 날짜를 못 찾아 기억으로 두었어요.` : "";
   }
 
-  function afterApplied(refs: string[], missing: string[], src: string, now: Date, updated: string[] = [], suggested: string[] = []): void {
+  function afterApplied(refs: string[], missing: string[], src: string, now: Date, updated: string[] = [], suggested: string[] = [], done: string[] = []): void {
+    // 「3반 수행평가 점수 확인함」 checked the open to-do it finished.
+    for (const id of done) log(s, { label: "완료", msg: findEntry(s, id)?.title ?? "", src, ref: id }, now);
     for (const id of refs) {
       const x = findEntry(s, id);
       // The AI only suggests a ★ (출제·결재·평가·제출 …); the user sets it.
@@ -1177,13 +1190,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const proposal = await adapter.analyze(input);
       const at = clock();
       const applied = refineDrafts(s, key, proposal, src, at);
-      afterApplied(applied.refs, applied.missing, src, at, applied.updated, applied.suggested);
+      afterApplied(applied.refs, applied.missing, src, at, applied.updated, applied.suggested, applied.done);
       if (me.kind === "voice" && proposal.sourceText) s.chat[s.chat.length - 1].text = proposal.sourceText;
       const dup = dropDuplicates(applied.refs);
       const shown = [...(applied.refs.length ? applied.refs : applied.suggested).filter((r) => !dup.gone.includes(r)), ...dup.kept];
       let text = dup.gone.length ? "이미 있어서 다시 넣지 않았어요" : aiText(applied.refs.length, applied.missing.length, proposal.reviewReasons, applied);
       // A small note only when the AI changed what the draft said.
       const y = draftId ? findEntry(s, draftId) : undefined;
+      text = withDone(text, applied.done);
       if (!text && y && draftWas !== JSON.stringify([y.kind, y.title, (y as { date?: string }).date, (y as { start?: string }).start, (y as { end?: string }).end, (y as { due?: string }).due, (y as { dueTime?: string }).dueTime])) text = "AI가 고침";
       if (draftMsg) Object.assign(draftMsg, { text, refs: [...new Set([...(draftMsg.refs ?? []).filter((r) => !dup.gone.includes(r)), ...shown])] });
       else card(text, shown);

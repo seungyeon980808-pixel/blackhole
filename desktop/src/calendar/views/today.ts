@@ -246,7 +246,7 @@ export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => s
     const open = !!ctx.open?.has(`subs:${t.id}`);
     return `<div class="task" data-ev="${t.id}" data-task="${t.id}" data-num="${n}" draggable="true">
       <span class="no ${urgent ? "urg" : ""}" data-num="${n}">${n}</span><span class="ck" data-tdone="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="${esc(t.title)} 완료"></span>${starBtn(t)}
-      <span class="tn ${t.star === 2 ? "s2b" : ""}">${esc(t.title)}${t.draft ? '<span class="dr">초안</span>' : ""}${t.subs.length ? `<button class="pg" data-subs="${t.id}" aria-expanded="${open}">${sd}/${t.subs.length} ${open ? "▾" : "▸"}</button>` : `<button class="pg add" data-subs="${t.id}" title="단계 추가">+</button>`}</span>
+      <span class="tn ${t.star === 2 ? "s2b" : ""}">${esc(t.title)}${t.draft ? '<span class="dr">초안</span>' : ""}${t.wait ? `<span class="wait" title="먼저 있어야 할 일">기다림 · ${esc(t.wait)}</span>` : ""}${t.subs.length ? `<button class="pg" data-subs="${t.id}" aria-expanded="${open}">${sd}/${t.subs.length} ${open ? "▾" : "▸"}</button>` : `<button class="pg add" data-subs="${t.id}" title="단계 추가">+</button>`}</span>
       <span class="due ${urgent ? "urg" : t.due <= ctx.today ? "today" : ""}">${dueText(t, ctx.now, ctx.today, fd, off)}</span></div>${stepRows(t, n, open)}`;
   };
   const chip = (key: TodayOpts["filter"], name: string, c: number) => `<button class="${o.filter === key ? "on" : ""}" data-tf="${key}">${name}<b>${c}</b></button>`;
@@ -339,7 +339,7 @@ export function phoneToday(ctx: Ctx, o: TodayOpts, fd: (k: string) => string): s
     const urg = isUrgent(t, ctx.now, off);
     const due = dueText(t, ctx.now, ctx.today, fd, off);
     const [left, right] = t.dueTime && t.due <= k ? [t.dueTime, due.split(" · ")[1] ?? ""] : [t.noDue ? "—" : t.due === k ? "오늘" : `${parseDay(t.due).getMonth() + 1}/${parseDay(t.due).getDate()}`, t.noDue ? "날짜 없음" : ""];
-    return `<div class="prow" data-ev="${t.id}"><span class="tm ${urg ? "b" : ""}">${left}</span><span class="tn"><span class="ck" data-tdone="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="${esc(t.title)} 완료"></span><span class="no">${n ?? ""}</span>${t.star ? `<span class="star s${t.star}">★</span> ` : ""}${esc(t.title)}${t.subs.length ? ` <i class="x">${t.subs.filter((x) => x.done).length}/${t.subs.length}</i>` : ""}</span><span class="x ${urg ? "b" : ""}">${right}</span></div>`;
+    return `<div class="prow" data-ev="${t.id}"><span class="tm ${urg ? "b" : ""}">${left}</span><span class="tn"><span class="ck" data-tdone="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="${esc(t.title)} 완료"></span><span class="no">${n ?? ""}</span>${t.star ? `<span class="star s${t.star}">★</span> ` : ""}${esc(t.title)}${t.wait ? ` <i class="x">기다림 · ${esc(t.wait)}</i>` : ""}${t.subs.length ? ` <i class="x">${t.subs.filter((x) => x.done).length}/${t.subs.length}</i>` : ""}</span><span class="x ${urg ? "b" : ""}">${right}</span></div>`;
   };
   // Today's appointments and 루틴 in time order (routines tap to check).
   const hm = `${p2(ctx.now.getHours())}:${p2(ctx.now.getMinutes())}`;

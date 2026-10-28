@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const PROPOSAL_SCHEMA_VERSION: u32 = 2;
-pub const PROMPT_VERSION: &str = "extract-ko-v4-suggested-steps";
+pub const PROMPT_VERSION: &str = "extract-ko-v5-owner-style";
 pub const WORKER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -96,6 +96,9 @@ pub struct ProposalItem {
     /// Kept as 「AI 제안」 steps the user can drop; never a reason for review.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub suggested_subtasks: Vec<String>,
+    /// 「병렬협조 마무리되면 …」 「김선생님 연락 오는 거 보고 …」: what has to happen first (「기다림」).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub wait_for: String,
     pub evidence: Evidence,
     /// Model self-reported confidence, 0.0..=1.0; capped at 0.5 when review is needed.
     pub confidence: f64,
