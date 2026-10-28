@@ -122,6 +122,8 @@ function weekLines(s: CalendarState, first: Date): number[] {
 
 export interface FcHandlers {
   openDay: (k: string) => void;
+  /** An appointment, deadline or period was clicked: its 상세 편집 panel. */
+  openEntry?: (id: string) => void;
   /** An appointment or deadline was dragged or resized (10-minute steps); null end = keep length. */
   onMove?: (id: string, start: Date, end: Date | null, allDay: boolean) => void;
 }
@@ -272,6 +274,8 @@ export class FcHost {
       navLinks: false,
       eventClick: (arg) => {
         arg.jsEvent.preventDefault();
+        const kind = arg.event.extendedProps.kind as string;
+        if (handlers.openEntry && (kind === "event" || kind === "task" || kind === "period")) return handlers.openEntry(arg.event.id);
         const start = arg.event.start;
         if (start) handlers.openDay(ymd(start));
       },

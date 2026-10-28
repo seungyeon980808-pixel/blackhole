@@ -17,6 +17,7 @@ import {
 } from "./store";
 import { phoneToday, priorityView, todayView, type TodayOpts } from "./views/today";
 import { checksBar, dictationFixes, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
+import { detailHTML } from "./views/detail";
 import { doc, printSheet } from "./views/doc";
 import { glass } from "./views/glass";
 
@@ -159,6 +160,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let setGroup: string | null = null;
   /** The card shown over the day band. */
   let popId: { id: string; x: number; y: number } | null = null;
+  /** The entry open in the 상세 편집 panel (where the chat panel sits). */
+  let detailId: string | null = null;
   /** 오늘 화면: 업무 08–17 / 하루 전체, and the to-do filter chip (both remembered). */
   const today: TodayOpts = { range: "work", filter: "all" };
   try {
@@ -252,6 +255,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       <div class="alarm" id="bhAlarm" aria-live="assertive"></div>
       <div class="toast" id="bhToast" role="status" aria-live="polite" hidden></div>
       <div class="pop" id="bhPop" role="dialog" aria-label="항목" hidden></div>
+      <aside class="dpanel" id="bhDetail" role="dialog" aria-label="상세 편집" hidden></aside>
       <div class="tip" id="bhTip" role="tooltip" hidden></div>
       <div class="ctxm" id="bhCtx" role="menu" aria-label="날짜 옮기기" hidden></div>
       <div class="ctxm pick" id="bhPick" role="dialog" aria-label="날짜 고르기" hidden></div>
@@ -282,7 +286,15 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
 
   function sideOn(): boolean {
-    return sideCapable && sidePref && wideEnough();
+    // The 상세 편집 panel takes the chat panel's place: a folded chat makes room for it while it is open.
+    return sideCapable && (sidePref || detailId !== null) && wideEnough();
+  }
+
+  /** Opens (id) or closes (null) the 상세 편집 panel; a folded chat panel's room opens and closes with it. */
+  function setDetail(id: string | null): void {
+    detailId = id;
+    if (sideCapable && !sidePref) relayout();
+    else renderDetail();
   }
 
   function setSidePref(open: boolean): void {
@@ -486,7 +498,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         host = main.querySelector<HTMLElement>(".fchost")!;
       }
       host.classList.toggle("g", s.settings.theme === "glass");
-      fcHost.show(host, c, s.settings.theme, t, { openDay, onMove: fcMoved }, root.clientWidth > 0 && root.clientWidth < COMPACT, today.range);
+      fcHost.show(host, c, s.settings.theme, t, { openDay, openEntry: adapter.recordAction ? undefined : openDetail, onMove: fcMoved }, root.clientWidth > 0 && root.clientWidth < COMPACT, today.range);
     } else {
       fcHost.destroy();
       const scroll = main.querySelector<HTMLElement>(".ttwrap, .colx")?.scrollTop;
@@ -531,6 +543,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     renderLast();
     if (chatOpen || side) renderChat();
     renderPop();
+    renderDetail();
     const checks = root.querySelector<HTMLElement>("#bhChecks");
     if (checks) checks.innerHTML = side ? checksBar(c, t.fd) : "";
     if (settingsOpen) renderSettings();
@@ -552,6 +565,136 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     el.style.left = `${Math.max(8, Math.min(popId!.x, root.clientWidth - 300))}px`;
     el.style.top = `${popId!.y}px`;
     el.hidden = false;
+  }
+
+  /**
+   * 상세 편집 panel: over the chat panel when it is on the right (nothing else is covered), else a
+   * panel sliding in at the right edge under the header. Not redrawn while a field in it is being typed in.
+   */
+  function renderDetail(): void {
+    const el = root.querySelector<HTMLElement>("#bhDetail");
+    if (!el) return;
+    const x = detailId ? findEntry(s, detailId) : undefined;
+    if (!x || x.gone) {
+      detailId = null;
+      el.hidden = true;
+      el.dataset.id = "";
+      return;
+    }
+    const typing = el.dataset.id === x.id && el.contains(document.activeElement) && document.activeElement?.matches("input, textarea");
+    if (!typing) {
+      const scroll = el.querySelector(".dbody")?.scrollTop ?? 0;
+      el.innerHTML = detailHTML(ctx(), x.id, theme().fd);
+      el.querySelector(".dbody")!.scrollTop = el.dataset.id === x.id ? scroll : 0;
+    }
+    el.dataset.id = x.id;
+    const base = root.getBoundingClientRect();
+    const sheet = root.classList.contains("side") ? root.querySelector<HTMLElement>(".chatsheet") : null;
+    const bar = root.querySelector<HTMLElement>(".bar, .tool")?.getBoundingClientRect();
+    const r = sheet?.getBoundingClientRect();
+    const top = r ? r.top - base.top : (bar ? bar.bottom - base.top : 0) + 4;
+    const w = r ? r.width : Math.min(360, Math.max(280, base.width * 0.36));
+    el.style.top = `${top}px`;
+    el.style.height = `${(r ? r.bottom - base.top : base.height - 6) - top}px`;
+    el.style.width = `${w}px`;
+    el.style.right = r ? `${base.right - r.right}px` : "6px";
+    el.classList.toggle("over", !r);
+    el.hidden = false;
+  }
+
+  function openDetail(id: string): void {
+    hideTip();
+    popId = null;
+    renderPop();
+    setDetail(detailId === id ? null : id);
+  }
+
+  /** One change in the panel: kept with one ⌘Z (the whole entry as it was). */
+  function editEntry(id: string, label: string, fn: (x: Entry) => string | void): void {
+    const x = findEntry(s, id);
+    if (!x) return;
+    const before = structuredClone(x);
+    const put = (y: Entry) => {
+      for (const k of Object.keys(y)) delete (y as unknown as Record<string, unknown>)[k];
+      Object.assign(y, structuredClone(before));
+    };
+    const err = fn(x);
+    if (err) {
+      put(x);
+      toast(err);
+      return render();
+    }
+    x.touched = true;
+    x.draft = false;
+    log(s, { label, msg: x.title, src: adapter.origin, ref: x.id }, clock());
+    undoStack.push({ label: `「${before.title}」 ${label}`, run: () => {
+      const y = findEntry(s, id);
+      if (y) put(y);
+      void act(() => undefined);
+    } });
+    void act(() => undefined);
+  }
+
+  /** 「15:30」 「30분 전」 「1시간 전」 「하루 전」 → a reminder stamp for the entry. */
+  function reminderFrom(x: Entry, v: string): string | null {
+    if (x.kind !== "event" && x.kind !== "task") return null;
+    const day = x.kind === "event" ? x.date : x.due;
+    const at = x.kind === "event" ? x.start : x.dueTime;
+    const rel = /^(\d+)\s*(분|시간)\s*전$|^(하루|이틀|\d+일)\s*전$/.exec(v.replace(/\s+/g, " ").trim());
+    if (rel) {
+      const base = fromStamp(`${day}T${at ?? "09:00"}`).getTime();
+      const m = rel[1] ? Number(rel[1]) * (rel[2] === "시간" ? 60 : 1) : (rel[3] === "하루" ? 1 : rel[3] === "이틀" ? 2 : parseInt(rel[3])) * 1440;
+      return stamp(new Date(base - m * 60e3));
+    }
+    const t = timeField(v);
+    return t ? `${day}T${t.start}` : null;
+  }
+
+  /** A field in the panel lost focus or took Enter: saved if it changed. */
+  function detailField(el: HTMLInputElement | HTMLTextAreaElement): void {
+    const id = detailId;
+    const x = id ? findEntry(s, id) : undefined;
+    if (!x || !id) return;
+    const v = el.value.trim();
+    const f = el.dataset.df!;
+    if (f === "title") {
+      if (!v || v === x.title) return void (el.value = x.title);
+      return editEntry(id, "제목", (y) => void (y.title = v.slice(0, 200)));
+    }
+    if (f === "details") {
+      if (v === (x.details ?? "")) return;
+      return editEntry(id, "메모", (y) => void (y.details = v || undefined));
+    }
+    if (f === "rem") {
+      if (!v) return;
+      const r = reminderFrom(x, v);
+      if (!r) return toast("알림을 알아보지 못했어요 · 예: 15:30, 30분 전, 하루 전");
+      return editEntry(id, "알림", (y) => {
+        if (y.kind === "event" || y.kind === "task") y.reminders = [...new Set([...y.reminders, r])].sort();
+      });
+    }
+    if (f === "from" || f === "to") {
+      if (x.kind !== "period" || !v || v === x[f]) return;
+      return editEntry(id, "기간", (y) => {
+        if (y.kind !== "period") return;
+        y[f] = v;
+        if (y.from > y.to) return "시작이 끝보다 늦어요";
+      });
+    }
+    if (x.kind !== "event" && x.kind !== "task") return;
+    if (f === "date") {
+      const now = x.kind === "event" ? x.date : x.noDue ? "" : x.due;
+      if (!v || v === now) return;
+      return retime(id, v, false, "", "옮김");
+    }
+    if (f === "time") {
+      const t = timeField(v);
+      if (t === undefined) return toast("시각을 알아보지 못했어요 · 예: 1620, 16:20~17:30");
+      const now = x.kind === "event" ? (x.start ? `${x.start}${x.end ? "~" + x.end : ""}` : "") : x.dueTime ?? "";
+      const said = t ? (x.kind === "event" && t.end ? `${t.start}~${t.end}` : t.start) : "";
+      if (said === now || (x.kind === "event" && t && !t.end && t.start === x.start)) return;
+      return retime(id, null, t, "", "시각");
+    }
   }
 
   function scrollToNow(el: HTMLElement, nowM: number): void {
@@ -1519,7 +1662,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
 
   /** 「일정 ↔ 할 일」 on a card: an appointment becomes a deadline (its start) and back. */
-  function swapKind(key: string): void {
+  function swapKind(key: string): string | undefined {
     const id = key.slice(key.indexOf("|") + 1);
     const x = findEntry(s, id);
     if (!x || (x.kind !== "event" && x.kind !== "task")) return;
@@ -1537,6 +1680,41 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       void act(() => undefined);
     } });
     toast(`${made.kind === "event" ? "일정" : "할 일"}으로 바꿨어요: 「${x.title}」`, undefined, true);
+    void act(() => undefined);
+    return made.id;
+  }
+
+  /** 복제 (panel): the same entry once more, opened in the panel. One ⌘Z takes it away. */
+  function duplicateEntry(id: string): void {
+    const x = findEntry(s, id);
+    if (!x) return;
+    const y = { ...structuredClone(x), id: newId(s, x.kind === "event" ? "e" : x.kind === "task" ? "t" : x.kind === "period" ? "p" : "n"), createdAt: stamp(clock()), source: "복제", touched: true, draft: false } as Entry;
+    if (y.kind === "event") s.events.push(y);
+    else if (y.kind === "task") s.tasks.push(y);
+    else if (y.kind === "period") s.periods.push(y);
+    else s.notes.push(y);
+    detailId = y.id;
+    undoStack.push({ label: `「${x.title}」 복제`, run: () => {
+      y.gone = true;
+      void act(() => undefined);
+    } });
+    toast(`복제했어요: 「${x.title}」`, undefined, true);
+    void act(() => undefined);
+  }
+
+  /** 루틴으로 (panel): a timed entry becomes a 루틴 on its weekday (평일이면 평일), the entry stays. */
+  function toRoutine(id: string): void {
+    const x = findEntry(s, id);
+    const at = x?.kind === "event" ? x.start : x?.kind === "task" ? x.dueTime : null;
+    if (!x || !at || (x.kind !== "event" && x.kind !== "task")) return;
+    const wd = parseDay(x.kind === "event" ? x.date : x.due).getDay();
+    const r: Routine = { id: newId(s, "r"), title: x.title.slice(0, 60), at, repeat: wd >= 1 && wd <= 5 ? "weekdays" : [wd], done: [], createdAt: stamp(clock()) };
+    s.routines.push(r);
+    undoStack.push({ label: `루틴 「${r.title}」`, run: () => {
+      r.gone = true;
+      void act(() => undefined);
+    } });
+    toast(`루틴으로 만들었어요: ${wd >= 1 && wd <= 5 ? "평일" : "매주 " + "일월화수목금토"[wd]} ${at} ${r.title} · 설정 → 루틴에서 고침`, undefined, true);
     void act(() => undefined);
   }
 
@@ -1997,13 +2175,48 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       barJustDragged = false;
       return;
     }
+    // 상세 편집 panel: its own buttons; a click elsewhere (not on another entry) closes it.
+    if (detailId && !q("#bhDetail, #bhCtx, #bhToast, [data-ev], .fc-event")) {
+      setDetail(null);
+    }
+    if (q("[data-dclose]")) {
+      return setDetail(null);
+    }
+    if (q("#bhDetail") && detailId) {
+      const id = detailId;
+      const x = findEntry(s, id);
+      if (!x) return;
+      if (q("[data-dkind]")) {
+        if (q("[data-dkind]")!.dataset.dkind === x.kind) return;
+        const made = swapKind(`d|${id}`);
+        if (made) detailId = made;
+        return;
+      }
+      if (q("[data-dstar]")) return editEntry(id, "별", (y) => {
+        y.star = Number(q("[data-dstar]")!.dataset.dstar) as 0 | 1 | 2;
+        delete y.starHint;
+      });
+      if (q("[data-darea]")) return editEntry(id, "영역", (y) => void (y.area = q("[data-darea]")!.dataset.darea as Entry["area"]));
+      if (q("[data-drem]")) return editEntry(id, "알림 지움", (y) => {
+        if (y.kind === "event" || y.kind === "task") y.reminders.splice(Number(q("[data-drem]")!.dataset.drem), 1);
+      });
+      if (q("[data-dsubup]")) return editEntry(id, "하위 순서", (y) => {
+        const i = Number(q("[data-dsubup]")!.dataset.dsubup);
+        if (y.kind === "task" && i > 0) [y.subs[i - 1], y.subs[i]] = [y.subs[i], y.subs[i - 1]];
+      });
+      if (q("[data-dsubdel]")) return editEntry(id, "하위 지움", (y) => void (y.kind === "task" && y.subs.splice(Number(q("[data-dsubdel]")!.dataset.dsubdel), 1)));
+      if (q("[data-ddup]")) return duplicateEntry(id);
+      if (q("[data-droutine]")) return toRoutine(id);
+    }
     const POP = ".strip [data-ev], .dstrip [data-ev], .dtg [data-ev], .tl .task[data-ev] .tn, .ups .ms[data-ev], .dta .chip[data-ev]";
     if ((view === "day" || view === "pri") && (q(POP) || q(".quad .mq[data-ev] .tn")) && !q("button, [role=checkbox], input")) {
       const hit = q<HTMLElement>(POP) ?? q<HTMLElement>(".quad .mq[data-ev] .tn")!;
       const t = hit.dataset.ev ? hit : hit.closest<HTMLElement>("[data-ev]")!;
+      // Mac: a click opens the 상세 편집 panel (the hover card is the preview). The phone (changes
+      // travel as actions only) keeps the small card with its buttons.
+      if (!adapter.recordAction) return openDetail(t.dataset.ev!);
       const r = t.getBoundingClientRect();
       const base = root.getBoundingClientRect();
-      // Next to where it was clicked (a long 공문서 row would put it over the rows below).
       const x = t.tagName === "TR" ? ev.clientX - base.left + 12 : r.left - base.left;
       const y = t.tagName === "TR" ? r.top - base.top : r.bottom - base.top + 4;
       popId = popId?.id === t.dataset.ev ? null : { id: t.dataset.ev!, x, y };
@@ -2261,6 +2474,17 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
       return;
     }
+    if (el.matches?.("#bhDetail [data-df]") && !e.isComposing && e.key === "Enter" && (el.dataset.df !== "details" || e.metaKey) && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      detailField(el as HTMLInputElement);
+      if (el.dataset.df === "rem") (el as HTMLInputElement).value = "";
+      return;
+    }
+    if (el.matches?.("#bhDetail [data-df]") && e.key === "Escape") {
+      e.stopPropagation();
+      return setDetail(null);
+    }
     const ed = el.closest?.<HTMLElement>("[data-editing]");
     if (ed && !e.isComposing && (e.key === "Enter" || e.key === "Escape")) {
       e.preventDefault();
@@ -2286,6 +2510,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (popId) {
         popId = null;
         return renderPop();
+      }
+      if (detailId) {
+        return setDetail(null);
       }
       if (!printRoot.hidden) printRoot.hidden = true;
       else if (guideOpen) {
@@ -2589,6 +2816,52 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   root.addEventListener("click", onClick);
   root.addEventListener("keydown", onKey);
   root.addEventListener("change", (e) => void onChange(e));
+  // Double click on an entry's name: the title only, in place (Enter 저장 · Esc 그만).
+  root.addEventListener("dblclick", (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>("[data-ev]");
+    if (!t || t.closest("#bhDetail, #bhPop, .rc, .chatsheet") || (e.target as HTMLElement).closest("input, textarea, button, [role=checkbox]")) return;
+    const x = findEntry(s, t.dataset.ev!);
+    if (!x || x.gone) return;
+    e.preventDefault();
+    setDetail(null);
+    const label = t.querySelector<HTMLElement>(".t, .nm, .w1, .tn, .st, .c") ?? t;
+    const r = label.getBoundingClientRect();
+    const base = root.getBoundingClientRect();
+    const inp = document.createElement("input");
+    inp.className = "inlined";
+    inp.value = x.title;
+    inp.setAttribute("aria-label", "제목 고치기");
+    Object.assign(inp.style, { left: `${r.left - base.left - 2}px`, top: `${r.top - base.top - 2}px`, width: `${Math.max(160, r.width + 4)}px`, height: `${Math.max(22, r.height + 4)}px` });
+    root.appendChild(inp);
+    inp.focus();
+    inp.select();
+    let done = false;
+    const finish = (keep: boolean) => {
+      if (done) return;
+      done = true;
+      const v = inp.value.trim();
+      inp.remove();
+      if (keep && v && v !== x.title) editEntry(x.id, "제목", (y) => void (y.title = v.slice(0, 200)));
+    };
+    inp.addEventListener("keydown", (k) => {
+      if (k.isComposing) return;
+      if (k.key === "Enter" || k.key === "Escape") {
+        k.preventDefault();
+        k.stopPropagation();
+        finish(k.key === "Enter");
+      }
+    });
+    inp.addEventListener("blur", () => finish(false));
+  });
+  // Panel fields save when they lose focus (a date picked saves at once).
+  root.addEventListener("focusout", (e) => {
+    const el = e.target as HTMLInputElement;
+    if (el.matches?.("#bhDetail [data-df]") && el.dataset.df !== "rem") detailField(el);
+  });
+  root.addEventListener("input", (e) => {
+    const el = e.target as HTMLInputElement;
+    if (el.matches?.('#bhDetail input[type="date"][data-df]') && el.value) detailField(el);
+  });
   // Sliders: show the look while dragging; it is saved on 「change」.
   root.addEventListener("input", (e) => {
     const el = e.target as HTMLInputElement;

@@ -499,3 +499,7 @@ html.native-glass .bh .tlsp { display: block; width: 70px; height: 30px; }
   .bh.glass .fc .wbt { font-size: 12px; line-height: 15px; padding: 2px 5px; }
   .bh.glass .fc .wbt.fold { font-size: 11px; }
 }
+/* 상세 편집 패널: 대화 패널과 같은 유리 */
+.bh.glass .dpanel { background: color-mix(in srgb, var(--page) 92%, transparent); backdrop-filter: blur(28px) saturate(160%); -webkit-backdrop-filter: blur(28px) saturate(160%); }
+.bh.glass .dpanel input, .bh.glass .dpanel textarea { color-scheme: dark; }
+.bh.glass[data-mode="light"] .dpanel input, .bh.glass[data-mode="light"] .dpanel textarea { color-scheme: light; }

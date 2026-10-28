@@ -1,6 +1,7 @@
 // 레이아웃 검사 (실제 브라우저): 일·주·월 보기 × 창 4가지 × 대화 열림/접힘 × 테마 2가지에서
 //   (a) 창 밖으로 나간 칸 0  (b) 칸끼리 겹침 0  (c) 날짜 줄과 아래 칸의 좌우 끝선 일치(일 보기)
 //   (d) 주 「업무 08–17」·월: 달력이 창 높이를 꽉 채움(아래 빈 공간 0, 달력 안 스크롤 없음)
+//   (e) 일 보기에서 상세 편집 패널을 연 상태: 창 안, 옆 자리가 있으면 하루의 칸들과 겹침 0
 // 가짜 자료(tests/layout)만 씁니다. 사용: npm run layout  (그림: LAYOUT_OUT=폴더)
 // playwright-core와 Chromium은 이 저장소에 넣지 않습니다: 설치된 것을 PLAYWRIGHT_CORE·CHROMIUM으로 알려 주면 씁니다.
 import { spawn } from "node:child_process";
@@ -132,6 +133,30 @@ try {
           });
           if (d) r.out.push(d);
           await page.screenshot({ path: join(OUT, `${tag}-drawer.png`) });
+        }
+        // 상세 편집 panel open (a click on a box on the day table): inside the window; where the chat
+        // panel can sit it takes that place and covers none of the day's parts.
+        if (view === "day") {
+          await page.click(".dtg .ev[data-ev]");
+          await page.waitForTimeout(350);
+          const d = await page.evaluate(() => {
+            const p = document.querySelector("#bhDetail");
+            if (!p || p.hidden) return ["상세 패널이 안 열림"];
+            const b = p.getBoundingClientRect();
+            const out = [];
+            if (b.left < -1 || b.top < -1 || b.right > innerWidth + 1 || b.bottom > innerHeight + 1) out.push(`상세 패널 창 밖 (${Math.round(b.left)},${Math.round(b.top)},${Math.round(b.right)},${Math.round(b.bottom)})`);
+            if (p.classList.contains("over")) return out; // narrow window: slides over (no room beside)
+            for (const [name, sel] of [["하루표", ".tgrid > .dt"], ["할 일", ".tgrid > .tl"], ["주요 일정", ".rstack .ups"], ["루틴", ".rstack .rts"], ["머리줄", ".bar, .tool"], ["입력", "#bhComp .inp, #bhComp .form"]]) {
+              const el = document.querySelector(sel);
+              if (!el || !el.getBoundingClientRect().width) continue;
+              const e = el.getBoundingClientRect();
+              if (Math.min(e.right, b.right) - Math.max(e.left, b.left) > 1 && Math.min(e.bottom, b.bottom) - Math.max(e.top, b.top) > 1) out.push(`겹침: 상세 패널↔${name}`);
+            }
+            return out;
+          });
+          r.out.push(...d.filter((x) => !x.startsWith("겹침")));
+          r.overlap.push(...d.filter((x) => x.startsWith("겹침")).map((x) => x.slice(4)));
+          await page.screenshot({ path: join(OUT, `${tag}-detail.png`) });
         }
         const bad = [...r.out.map((x) => `창 밖: ${x}`), ...r.overlap.map((x) => `겹침: ${x}`), r.edge && `끝선: ${r.edge}`, r.scroll, r.fill, ...errors].filter(Boolean);
         n++;

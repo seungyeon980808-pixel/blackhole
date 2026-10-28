@@ -139,7 +139,7 @@ describe("calendar app", () => {
     app!.setView("day", ev.date);
     // A click on its bar on the day band shows its card; ✓ confirms.
     root.querySelector<HTMLElement>(`.dtg [data-ev="${ev.id}"]`)!.click();
-    root.querySelector<HTMLButtonElement>(`#bhPop [data-ok="${ev.id}"]`)!.click();
+    root.querySelector<HTMLButtonElement>(`#bhDetail [data-ok="${ev.id}"]`)!.click();
     await Promise.resolve();
     expect(app!.state.events.find((e) => e.id === ev.id)!.provisional).toBe(false);
   });

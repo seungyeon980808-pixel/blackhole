@@ -88,7 +88,7 @@ describe("no repeated information", () => {
     expect(root.querySelector(".checks")).toBeNull(); // nothing unsettled, nothing overlapping
     const eye = st.events.find((e) => e.title === "안과 진료")!;
     root.querySelector<HTMLElement>(`.dtg [data-ev="${eye.id}"]`)!.click();
-    root.querySelector<HTMLButtonElement>(`#bhPop [data-ok="${eye.id}"]`)!.click();
+    root.querySelector<HTMLButtonElement>(`#bhDetail [data-ok="${eye.id}"]`)!.click();
     await new Promise((r) => setTimeout(r, 0));
     expect(eye.provisional).toBe(false);
     // Two appointments at the same time, one provisional → 「확인할 것」.

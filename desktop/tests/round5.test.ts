@@ -95,11 +95,10 @@ describe("the day (A-2, A-5, B-10, B-11)", () => {
 });
 
 describe("changing the time (A-3)", () => {
-  it("the card's time box takes 1620~1730 and ↑↓ moves by 10 minutes; ⌘Z puts it back", async () => {
+  it("the panel's time box takes 1620~1730 and ↑↓ moves by 10 minutes; ⌘Z puts it back", async () => {
     const root = await mount(base());
     root.querySelector<HTMLElement>('.dtg [data-ev="e1"]')!.click();
-    root.querySelector<HTMLButtonElement>("#bhPop [data-edit]")!.click();
-    const box = root.querySelector<HTMLInputElement>("#bhPop .ed-h, [data-editing] .ed-h")!;
+    const box = root.querySelector<HTMLInputElement>('#bhDetail [data-df="time"]')!;
     expect(box.value).toBe("16:20~21:20");
     box.value = "1600~1730";
     box.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));

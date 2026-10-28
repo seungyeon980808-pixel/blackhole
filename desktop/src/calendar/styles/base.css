@@ -537,3 +537,52 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .fc .fc-popover-close.fc-icon-x::before { content: "×"; }
 /* 주·월 보기 「완료 n」: 끝낸 할 일은 줄 대신 숫자만 (두 테마 공통) */
 .bh .fc .dn { font-size: 9.5px; font-weight: 400; color: var(--ink3, #888); margin-left: 5px; font-variant-numeric: tabular-nums; }
+
+/* 상세 편집 패널(2026-10-28): 대화 패널 자리에 겹쳐 열림, 칸마다 바로 저장. 단추는 아래 한 줄(글자와 겹치지 않음) */
+.bh .dpanel { position: absolute; z-index: 60; display: flex; flex-direction: column; box-sizing: border-box; background: var(--page, #fff); color: var(--ink); border-left: 1px solid var(--line, #999); font-size: 13px; }
+.bh .dpanel.over { border: 1px solid var(--line, #999); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+.bh .dpanel .dph { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px 14px; border-bottom: 1px solid var(--hair, #ddd); flex: none; }
+.bh .dpanel .dph b { font-size: 12px; color: var(--ink2); font-weight: 600; }
+.bh .dpanel .dhint { flex: 1; font-size: 10.5px; color: var(--ink3, #888); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bh .dpanel .dbody { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 14px; display: flex; flex-direction: column; gap: 9px; }
+.bh .dpanel .d-title { font: inherit; font-size: 16px; font-weight: 700; line-height: 1.35; resize: none; width: 100%; box-sizing: border-box; border: 1px solid transparent; border-radius: 7px; padding: 4px 6px; margin: 0 -6px; background: none; color: var(--ink); outline: 0; }
+.bh .dpanel .d-title:hover, .bh .dpanel .d-title:focus { border-color: var(--line, #999); }
+.bh .dpanel .df { display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: center; gap: 8px; }
+.bh .dpanel .df.col { grid-template-columns: 1fr; gap: 4px; }
+.bh .dpanel .dl2 { font-size: 11.5px; color: var(--ink3, #888); }
+.bh .dpanel input:not([type=checkbox]), .bh .dpanel textarea[data-df=details] { font: inherit; font-size: 13px; min-width: 0; width: 100%; box-sizing: border-box; padding: 4px 7px; border-radius: 7px; border: 1px solid var(--line, #999); background: var(--x-chip, transparent); color: var(--ink); outline: 0; color-scheme: inherit; }
+.bh .dpanel textarea[data-df=details] { resize: vertical; min-height: 54px; line-height: 1.45; }
+.bh .dpanel input:focus, .bh .dpanel textarea:focus { border-color: var(--ink2); }
+.bh .dpanel .drow { display: flex; align-items: center; gap: 5px; }
+.bh .dpanel .dseg { display: inline-flex; border: 1px solid var(--line, #999); border-radius: 7px; overflow: hidden; justify-self: start; }
+.bh .dpanel .dseg button { font: inherit; font-size: 12px; padding: 3px 11px; border: 0; background: none; color: var(--ink2); cursor: pointer; }
+.bh .dpanel .dseg button + button { border-left: 1px solid var(--line, #999); }
+.bh .dpanel .dseg button.on { background: var(--x-sel, #ddd); color: var(--ink); font-weight: 700; }
+.bh .dpanel .dstar button { font-size: 14px; padding: 1px 10px; }
+.bh .dpanel .dstar .s1.on { color: #ffcc33; }
+.bh .dpanel .dstar .s2.on { color: #ff4d5e; }
+.bh .dpanel .drem { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.bh .dpanel .drem input { flex: 1 1 120px; }
+.bh .dpanel .dchip { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; padding: 1px 2px 1px 8px; border-radius: 999px; border: 1px solid var(--line, #999); font-variant-numeric: tabular-nums; }
+.bh .dpanel .dchip button, .bh .dpanel .dsub button { border: 0; background: none; color: var(--ink3, #888); cursor: pointer; font-size: 13px; padding: 0 5px; line-height: 18px; }
+.bh .dpanel .dchip button:hover, .bh .dpanel .dsub button:hover { color: var(--ink); }
+.bh .dpanel .dsubs { display: flex; flex-direction: column; gap: 3px; }
+.bh .dpanel .dsub { display: flex; align-items: center; gap: 7px; min-height: 22px; }
+.bh .dpanel .dsub .st { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.bh .dpanel .dsub.done .st { text-decoration: line-through; opacity: .5; }
+.bh .dpanel .dsub .bx { width: 15px; height: 15px; flex: none; display: inline-grid; place-items: center; border: 1.5px solid var(--ink2); border-radius: 4px; font-size: 10px; cursor: pointer; }
+.bh .dpanel .dsrc { font-size: 12px; color: var(--ink2); line-height: 1.5; }
+.bh .dpanel .dsaid { margin-top: 3px; color: var(--ink); overflow-wrap: anywhere; }
+.bh .dpanel .dacts { flex: none; display: flex; gap: 2px; padding: 7px 8px; border-top: 1px solid var(--hair, #ddd); }
+.bh .dpanel .dacts .ib { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: none; color: var(--ink2); cursor: pointer; padding: 4px 2px; border-radius: 7px; font: inherit; font-size: 10.5px; }
+.bh .dpanel .dacts .ib:hover { background: var(--x-chip, #eee); color: var(--ink); }
+.bh .dpanel .dacts .ib span { white-space: nowrap; }
+.bh .dpanel .dph .ib { border: 0; background: none; color: var(--ink2); cursor: pointer; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 7px; padding: 0; }
+.bh .dpanel .dph .ib:hover { background: var(--x-chip, #eee); color: var(--ink); }
+.bh .dpanel .ib svg { width: 16px; height: 16px; }
+/* 두 번 눌러 제목만 고치기 */
+.bh .inlined { position: absolute; z-index: 70; box-sizing: border-box; font: inherit; font-size: 12.5px; padding: 2px 6px; border-radius: 6px; border: 1.5px solid var(--ink); background: var(--page, #fff); color: var(--ink); outline: 0; box-shadow: 0 6px 18px rgba(0,0,0,.3); }
+.bh .dpanel .dwarn { font-size: 12px; color: var(--ink2); }
+.bh .dpanel .doffer { font-size: 12px; }
+.bh .dpanel .dacts .ib { width: auto; height: auto; }
+.bh .dpanel .subadd, .bh.glass .dpanel .subadd { display: block; width: 100%; margin-top: 2px; border: 0; border-bottom: 1px dashed var(--line, #999); border-radius: 0; background: none; padding: 3px 0; font-size: 12.5px; }
