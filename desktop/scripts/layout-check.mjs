@@ -1,5 +1,6 @@
-// 레이아웃 검사 (실제 브라우저): 창 4가지 × 대화 열림/접힘 × 테마 2가지에서
-//   (a) 창 밖으로 나간 칸 0  (b) 칸끼리 겹침 0  (c) 날짜 줄과 아래 칸의 좌우 끝선 일치
+// 레이아웃 검사 (실제 브라우저): 일·주·월 보기 × 창 4가지 × 대화 열림/접힘 × 테마 2가지에서
+//   (a) 창 밖으로 나간 칸 0  (b) 칸끼리 겹침 0  (c) 날짜 줄과 아래 칸의 좌우 끝선 일치(일 보기)
+//   (d) 주 「업무 08–17」·월: 달력이 창 높이를 꽉 채움(아래 빈 공간 0, 달력 안 스크롤 없음)
 // 가짜 자료(tests/layout)만 씁니다. 사용: npm run layout  (그림: LAYOUT_OUT=폴더)
 // playwright-core와 Chromium은 이 저장소에 넣지 않습니다: 설치된 것을 PLAYWRIGHT_CORE·CHROMIUM으로 알려 주면 씁니다.
 import { spawn } from "node:child_process";
@@ -58,11 +59,11 @@ const browser = await pw.chromium.launch({ executablePath: chromiumPath() });
 const fails = [];
 let n = 0;
 try {
-  for (const theme of ["glass", "doc"]) {
+  for (const view of ["day", "week", "month"]) for (const theme of ["glass", "doc"]) {
     for (const [w, h] of SIZES) {
       for (const chat of ["open", "closed"]) {
         const ctx = await browser.newContext({ viewport: { width: w, height: h }, locale: "ko-KR", timezoneId: "Asia/Seoul" });
-        await ctx.addInitScript(`window.__BH_LAYOUT=${JSON.stringify({ theme, chat })};\n${FIXTURE}`);
+        await ctx.addInitScript(`window.__BH_LAYOUT=${JSON.stringify({ theme, chat })};\n${FIXTURE}\ntry { localStorage.setItem("bh-view", ${JSON.stringify(view)}); } catch {}`);
         await ctx.addInitScript(MOCK);
         const page = await ctx.newPage();
         const errors = [];
@@ -70,7 +71,7 @@ try {
         await page.goto(`http://127.0.0.1:${PORT}/`);
         // The Mac window shows the desktop through (vibrancy); a plain backdrop stands in for it.
         await page.addStyleTag({ content: "html.native-glass{background:linear-gradient(135deg,#1d3f7a,#2a5f9a 50%,#2e8796) !important}" });
-        await page.waitForSelector(".tdv .tgrid", { timeout: 8000 });
+        await page.waitForSelector(view === "day" ? ".tdv .tgrid" : view === "month" ? ".fc-daygrid-body" : theme === "glass" ? ".fc-timegrid-body" : ".tb.week", { timeout: 8000 });
         await page.waitForTimeout(400);
         const r = await page.evaluate(() => {
           const box = (el) => {
@@ -85,6 +86,7 @@ try {
             ["할 일", document.querySelector(".tgrid > .tl")],
             ["주요 일정", document.querySelector(".rstack .ups")],
             ["루틴", document.querySelector(".rstack .rts")],
+            ["달력", document.querySelector("#bhMain > .fchost, #bhMain > .colx")],
             ["대화", side],
             ["입력", document.querySelector("#bhComp .inp, #bhComp .form")]
           ].filter(([, el]) => el && el.getBoundingClientRect().width > 0).map(([name, el]) => ({ name, ...box(el) }));
@@ -106,12 +108,22 @@ try {
           const edge = wk && grid && (Math.abs(wk.left - grid.left) > 1 || Math.abs(wk.right - grid.right) > 1) ? `날짜 줄 ${Math.round(wk.left)}–${Math.round(wk.right)} / 칸 ${Math.round(grid.left)}–${Math.round(grid.right)}` : "";
           const page = document.scrollingElement;
           const scroll = page.scrollWidth > W + 1 || page.scrollHeight > H + 1 ? `창 전체가 스크롤됨 ${page.scrollWidth}×${page.scrollHeight}` : "";
-          return { out, overlap, edge, scroll, mode: document.querySelector(".bh.side") ? "옆 대화" : document.querySelector(".bh.panel-closed") ? "접힘" : "서랍" };
+          // Week (work hours) and month: the calendar fills its box to the bottom and does not scroll inside.
+          let fill = "";
+          const host = document.querySelector("#bhMain > .fchost");
+          if (host && host.querySelector(".fc-daygrid-body, .fc.wk-work .fc-timegrid-body")) {
+            const hb = host.getBoundingClientRect();
+            const sc = host.querySelector(".fc-timegrid-body, .fc-daygrid-body")?.closest(".fc-scroller");
+            const last = host.querySelector(host.querySelector(".fc-timegrid-slots") ? ".fc-timegrid-slots tr:last-child" : ".fc-daygrid-body tbody > tr:last-child")?.getBoundingClientRect();
+            if (sc && sc.scrollHeight > sc.clientHeight + 1) fill = `달력 안 스크롤 ${sc.scrollHeight}/${sc.clientHeight}`;
+            else if (last && hb.bottom - last.bottom > 3) fill = `아래 빈 공간 ${Math.round(hb.bottom - last.bottom)}px`;
+          }
+          return { out, overlap, edge, scroll, fill, mode: document.querySelector(".bh.side") ? "옆 대화" : document.querySelector(".bh.panel-closed") ? "접힘" : "서랍" };
         });
-        const tag = `${theme}-${w}x${h}-${chat}`;
+        const tag = `${view}-${theme}-${w}x${h}-${chat}`;
         await page.screenshot({ path: join(OUT, `${tag}.png`) });
         // Too narrow for the panel and the chat 「open」: the drawer slides in and stays inside the window.
-        if (r.mode === "서랍" && chat === "open") {
+        if (r.mode === "서랍" && chat === "open" && view === "day") {
           await page.click('[data-panel="open"]');
           await page.waitForTimeout(450);
           const d = await page.evaluate(() => {
@@ -121,7 +133,7 @@ try {
           if (d) r.out.push(d);
           await page.screenshot({ path: join(OUT, `${tag}-drawer.png`) });
         }
-        const bad = [...r.out.map((x) => `창 밖: ${x}`), ...r.overlap.map((x) => `겹침: ${x}`), r.edge && `끝선: ${r.edge}`, r.scroll, ...errors].filter(Boolean);
+        const bad = [...r.out.map((x) => `창 밖: ${x}`), ...r.overlap.map((x) => `겹침: ${x}`), r.edge && `끝선: ${r.edge}`, r.scroll, r.fill, ...errors].filter(Boolean);
         n++;
         console.log(`${bad.length ? "✗" : "✓"} ${tag} (${r.mode})${bad.length ? " — " + bad.join(" · ") : ""}`);
         if (bad.length) fails.push(tag);

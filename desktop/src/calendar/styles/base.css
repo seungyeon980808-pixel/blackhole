@@ -535,3 +535,5 @@ html.phone .bh .content { overflow-y: auto; }
 /* The 「+N」 list's close button: FullCalendar draws it with a data: icon font the app's CSP blocks (font-src 'self'). */
 .bh .fc .fc-popover-close.fc-icon { font-family: inherit !important; font-size: 16px; line-height: 1; }
 .bh .fc .fc-popover-close.fc-icon-x::before { content: "×"; }
+/* 주·월 보기 「완료 n」: 끝낸 할 일은 줄 대신 숫자만 (두 테마 공통) */
+.bh .fc .dn { font-size: 9.5px; font-weight: 400; color: var(--ink3, #888); margin-left: 5px; font-variant-numeric: tabular-nums; }

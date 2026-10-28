@@ -35,3 +35,30 @@
   class D extends R { constructor(...a) { a.length ? super(...a) : super(R.now() + off); } static now() { return R.now() + off; } }
   window.Date = D;
 })();
+
+// 주·월 보기 검사용: 이번 주와 앞뒤 주에 일정·마감·기간을 더 (07:40 · 17:00 이후처럼 업무 시간 밖, 끝낸 할 일, 한 날에 여러 개)
+(() => {
+  const s = JSON.parse(localStorage.getItem("bh-mock-state"));
+  const p = (n) => String(n).padStart(2, "0");
+  const d0 = new Date(); const k = (o) => { const d = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + o); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+  const wd = d0.getDay(); const w = (i) => k(i - wd); // 이번 주 일(0)~토(6)
+  const at = "2026-10-01T08:00";
+  const ev = (id, title, date, start, end, x = {}) => ({ id, kind: "event", title, area: "school", source: "t", createdAt: at, date, start, end, reminders: [], ...x });
+  const tk = (id, title, due, dueTime, x = {}) => ({ id, kind: "task", title, area: "school", source: "t", createdAt: at, due, dueTime, done: false, reminders: [], subs: [], ...x });
+  s.events.push(
+    ev("w1", "등교 지도", w(1), "07:40", "08:20"), ev("w2", "수행평가 점수 확인", w(1), "13:20", "14:05"), ev("w3", "맨드살롱", w(1), "17:00", "18:00", { area: "personal" }),
+    ev("w4", "교과협의회", w(2), "14:15", "15:00"), ev("w5", "3학년 진로 상담 주간 안내", w(2), "10:40", "11:25", { provisional: true }),
+    ev("w6", "학부모 총회 준비", w(4), "15:10", "16:30"), ev("w7", "동아리 지도", w(4), "13:20", "14:05"), ev("w8", "저녁 약속", w(5), "19:00", "21:00", { area: "personal" }),
+    ev("w9", "체육대회", w(5), null, null), ev("w10", "학년 회식", w(3), "17:30", "19:30", { area: "personal" }),
+    ev("m1", "교육청 컨설팅", k(-9), "14:00", "16:00"), ev("m2", "부장 회의", k(-8), "15:10", "16:00"), ev("m3", "치과", k(12), "17:30", "18:00", { area: "personal" }),
+    ev("m4", "수업 공개의 날", k(15), "09:00", "12:00"), ev("m5", "학교운영위원회", k(15), "16:30", "18:00"), ev("m6", "현장체험학습 사전답사", k(16), "13:00", "17:00"),
+    ev("m7", "성적 처리 마감 회의", k(16), "15:10", "16:00"), ev("m8", "방과후 강사 면담", k(16), "16:30", "17:00"));
+  s.tasks.push(
+    tk("x1", "수행평가 채점", w(1), null), tk("x2", "출장 신청", w(1), null, { done: true }), tk("x3", "결재 올리기", w(1), null, { done: true }),
+    tk("x4", "주간 계획 제출", w(2), null), tk("x5", "체험학습 동의서 회수", w(2), null), tk("x6", "시험 범위 공지", w(2), null), tk("x7", "교실 게시판 정리", w(2), null), tk("x8", "급식 지도표 확인", w(2), null, { done: true }),
+    tk("x9", "보충수업 계획서", w(4), "16:00"), tk("x10", "가정통신문 회수", k(-6), null, { done: true }), tk("x11", "연수 이수증 제출", k(10), null),
+    tk("x12", "생활기록부 입력", k(16), null), tk("x13", "출결 마감", k(16), null), tk("x14", "도서 구입 신청", k(16), null));
+  s.periods = [{ id: "p1", kind: "period", title: "2학기 중간고사 기간", area: "school", source: "t", createdAt: at, from: k(19), to: k(23) }, { id: "p2", kind: "period", title: "진로 상담 주간", area: "school", source: "t", createdAt: at, from: w(1), to: w(5) }];
+  s.settings = { ...s.settings, showPeriods: true };
+  localStorage.setItem("bh-mock-state", JSON.stringify(s));
+})();

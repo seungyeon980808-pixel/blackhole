@@ -228,9 +228,13 @@ describe("deadlines on the calendar (month · week · day, both themes)", () => 
     expect(month.textContent).not.toContain("언젠가 할 일");
 
     app!.setView("week", timed.due);
+    // 「업무 08–17」: an 18:00 deadline is folded into the row under the hours; 「하루 전체」 puts it at its time.
+    expect(root.querySelector(".fc-timeGridWeek-view .bh-fold.bot")!.textContent).toContain(`이후 ${timed.dueTime} 연수 보고서 제출`);
+    root.querySelector<HTMLElement>(".wrng")!.click();
     const week = root.querySelector(".fc-timeGridWeek-view")!;
-    expect(week.textContent).toContain(`마감 ${timed.dueTime} 연수 보고서 제출`);
-    expect(week.querySelector(".fc-timegrid-event.bh-due")).not.toBeNull();
+    expect(week.querySelector(".bh-fold")).toBeNull();
+    expect(week.querySelector(".fc-timegrid-event.bh-due")!.textContent).toContain(`연수 보고서 제출${timed.dueTime}까지`);
+    root.querySelector<HTMLElement>(".wrng")!.click();
 
     app!.setView("day", timed.due);
     // 오늘 화면: a timed deadline is a card on the day table with 「번호 · 시각 · 제목」 (or under it when outside the hours).

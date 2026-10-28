@@ -3,7 +3,7 @@ import { holiday } from "../holidays";
 import { addDays, DOW, fdShort, mins, parseDay, ymd, diffDays } from "../dates";
 import type { CalEvent, ChatMessage, Period, Task } from "../model";
 import { alarmsOn, dueOn, eventsOn, findEntry, pending, periodsOn, taskGroups, type Alarm } from "../store";
-import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, hourSegments, ICON, KIND_WORD, chatCards, checksBar, inputHint, lazyFold, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
+import { aiOffer, dday, draftTag, dueBadge, dueMarks, esc, shortWhen, hourSegments, ICON, KIND_WORD, chatCards, checksBar, inputHint, lazyFold, needsReview, nextReminder, pct, todayResults, type Ctx, type ThemeView } from "./common";
 
 const fd = fdShort;
 const none = '<div class="none">없음</div>';
@@ -241,8 +241,9 @@ export const glass: ThemeView = {
   monthChip: (ctx, kind, x) => {
     if (kind === "event") {
       const e = x as unknown as CalEvent;
-      // 「15:00–17:00 제목」 (user's direct instruction): the time range in front.
-      return `<span class="c ${e.area} ${e.provisional ? "prov" : ""} ${e.draft ? "draft" : ""}">${e.start ? `<span class="ct">${e.start}${e.end ? "–" + e.end : ""}</span> ` : ""}${esc(e.title)}</span>`;
+      // The title first, the start faint on the right (「5교시」 in school hours); a narrow day drops
+      // the time first. The end and the rest on hover. Kind by shape: filled · dashed 가승인.
+      return `<span class="c cev ${e.provisional ? "prov" : ""} ${e.draft ? "draft" : ""}" title="${esc(`${e.start ? `${e.start}${e.end ? "–" + e.end : ""} ` : "종일 "}${e.title}`)}"><span class="w1">${esc(e.title)}</span>${e.start ? `<span class="ct">${shortWhen(ctx.s, e.date, e.start)}</span>` : ""}</span>`;
     }
     if (kind === "task") {
       const t = x as unknown as Task;

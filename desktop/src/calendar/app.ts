@@ -486,7 +486,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         host = main.querySelector<HTMLElement>(".fchost")!;
       }
       host.classList.toggle("g", s.settings.theme === "glass");
-      fcHost.show(host, c, s.settings.theme, t, { openDay, onMove: fcMoved }, root.clientWidth > 0 && root.clientWidth < COMPACT);
+      fcHost.show(host, c, s.settings.theme, t, { openDay, onMove: fcMoved }, root.clientWidth > 0 && root.clientWidth < COMPACT, today.range);
     } else {
       fcHost.destroy();
       const scroll = main.querySelector<HTMLElement>(".ttwrap, .colx")?.scrollTop;

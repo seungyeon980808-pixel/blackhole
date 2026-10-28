@@ -124,6 +124,20 @@ export function dueBadge(today: string, t: Task): { text: string; hot: boolean }
   return null;
 }
 
+/**
+ * Week/month boxes: the start said short, after the title. On a school day a start within 5
+ * minutes of a period's start says 「5교시」 (설정 「학교 시간」); otherwise the time.
+ */
+export function shortWhen(s: CalendarState, day: string, start: string): string {
+  const wd = new Date(`${day}T00:00`).getDay();
+  if (wd >= 1 && wd <= 5) {
+    const m = mins(start);
+    const i = s.settings.periods.findIndex((p) => Math.abs(mins(p.split("-")[0] ?? "") - m) <= 5);
+    if (i >= 0) return `${i + 1}교시`;
+  }
+  return start;
+}
+
 /** Not refined by the AI yet. */
 export const draftTag = (x: Entry): string => (x.draft ? '<span class="dr" title="규칙으로 바로 넣은 초안 · AI가 다듬는 중">초안</span>' : "");
 

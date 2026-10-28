@@ -441,3 +441,61 @@ html.native-glass .bh .tlsp { display: block; width: 70px; height: 30px; }
 .bh .thread > * { min-width: 0; max-width: 100%; }
 .bh .brow .bub.me { overflow-wrap: anywhere; }
 .bh .bub.ai { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+
+/* 주 보기 「업무 08–17」(2026-10-28 사용자 지시): 08–17시가 창 높이를 꽉 채우고, 그 밖의 일은 위·아래 얇은 줄에 접음.
+   일과 시간(설정 출근–퇴근)은 한 단계 밝게·시각 크고 굵게, 그 밖은 어둡고 작게 */
+.bh.glass .fc.wk-work .fc-timegrid-slot { height: 8px; border-top: 0; }
+.bh.glass .fc.wk-work .fc-timegrid-slot-lane { font-size: 0; line-height: 0; }
+.bh.glass .fc.wk-work .fc-timegrid-slot.hr { border-top: 1px solid var(--hair); }
+.bh.glass .fc.wk-work .fc-timegrid-slot-label-frame { height: 0; line-height: 10px; overflow: visible; }
+.bh.glass .fc.wk-work .fc-timegrid-slot-label-cushion { line-height: 10px; padding: 1px 5px 0 2px; }
+.bh.glass .fc .fc-timegrid-slot-lane.inday { background: rgba(255,255,255,.055); }
+.bh.glass .fc .fc-timegrid-slot-lane.outday { background: rgba(0,10,40,.12); }
+.bh.glass .fc .fc-timegrid-slot-lane.fold { background: rgba(0,10,40,.28); }
+.bh.glass[data-mode="light"] .fc .fc-timegrid-slot-lane.inday { background: rgba(255,255,255,.5); }
+.bh.glass[data-mode="light"] .fc .fc-timegrid-slot-lane.outday { background: rgba(22,23,42,.04); }
+.bh.glass[data-mode="light"] .fc .fc-timegrid-slot-lane.fold { background: rgba(22,23,42,.08); }
+.bh.glass .fc .fc-timegrid-slot-label.inday .fc-timegrid-slot-label-cushion { font-size: 12px; font-weight: 700; color: var(--ink); }
+.bh.glass .fc .fc-timegrid-slot-label.outday .fc-timegrid-slot-label-cushion { font-size: 9.5px; color: var(--ink3); }
+.bh.glass .fc .fc-timegrid-col.fc-day-sat, .bh.glass .fc .fc-timegrid-col.fc-day-sun { background: rgba(0,10,40,.1); }
+/* 교시 번호: 일 보기처럼 옅게(띠 없이 시작선과 번호만) */
+.bh.glass .fc .fc-bg-event.bh-pn { background: none; opacity: 1; border-top: 1px dotted rgba(255,255,255,.09); }
+.bh.glass .fc .bh-pn .pn { position: absolute; right: 3px; top: 1px; font-size: 9px; line-height: 10px; color: var(--ink3); opacity: .7; }
+/* 접힌 줄 「이전 07:40 …」·「이후 17:00 …」 */
+.bh.glass .fc .fc-timegrid-event.bh-fold { background: none; box-shadow: none; }
+.bh.glass .fc .wbt.fold { height: 100%; display: flex; align-items: center; color: var(--ink2); font-size: 10px; padding: 0 4px; }
+.bh.glass .fc .wbt.fold .w1 { flex: 0 1 auto; }
+/* 일정 상자: 제목 먼저, 시각은 뒤에 짧게. 좁으면 시각이 다음 줄로 밀려 가려짐(제목은 남음) */
+.bh.glass .fc .wbt { display: flex; flex-wrap: wrap; align-content: flex-start; column-gap: 5px; height: 100%; box-sizing: border-box; }
+.bh.glass .fc .wbt .w1 { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.bh.glass .fc .wbt .w2 { flex: none; white-space: nowrap; opacity: .65; font-variant-numeric: tabular-nums; }
+.bh.glass .fc .wbt.fold .w2 { opacity: .8; }
+.bh.glass .fc .wbt.due .w1 { font-weight: 500; }
+.bh.glass .fc .fc-timegrid-event .fc-event-main { padding: 0; height: 100%; }
+/* 머리줄 「완료 n」·기간·마감 줄의 범위 단추 */
+.bh.glass .fc .dn { font-size: 9.5px; font-weight: 400; color: var(--ink3); margin-left: 5px; font-variant-numeric: tabular-nums; }
+.bh.glass .fc .wrng { font: inherit; font-size: 10px; line-height: 16px; padding: 0 5px; border-radius: 5px; border: 1px solid var(--line); background: var(--x-chip); color: var(--ink2); cursor: pointer; white-space: nowrap; }
+.bh.glass .fc .wrng:hover { color: var(--ink); background: var(--x-sel); }
+.bh.glass .fc .fc-timegrid-axis-cushion:has(.wrng) { padding: 2px; display: flex; justify-content: center; }
+.bh.glass .fc .fc-timegrid-more-link, .bh.glass .fc .fc-daygrid-more-link { font-size: 10px; color: var(--ink2); }
+
+/* 월 보기: 제목 먼저·시작 시각 오른쪽에 옅게(좁으면 시각부터 숨김), 종류는 모양으로(확정 = 옅게 채움 · 가승인 = 점선 · 할 일 = ○) */
+.bh.glass .fc .c.cev { display: flex; flex-wrap: wrap; height: 15px; background: rgba(255,255,255,.13); }
+.bh.glass[data-mode="light"] .fc .c.cev { background: rgba(22,23,42,.07); }
+.bh.glass .fc .c.cev.prov { background: none; }
+.bh.glass .fc .c.cev .w1 { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bh.glass .fc .c.cev .ct { flex: none; margin-left: auto; padding-left: 5px; font-size: 10px; opacity: .6; }
+.bh.glass .fc .c.mdot::before { background: none; border: 1.5px solid var(--todo); box-sizing: border-box; width: 7px; height: 7px; }
+.bh.glass .fc .c.mdot.hot::before { background: none; border-color: #ff5a5f; }
+.bh.glass .fc .fc-daygrid-day-top { position: relative; z-index: 4; }
+.bh.glass .fc .fc-daygrid-day-number { position: static; }
+.bh.glass .fc .fc-daygrid-day-number .dn { position: absolute; right: 5px; top: 3px; margin: 0; font-weight: 400; }
+.bh.glass .fc .fc-day-today .fc-daygrid-day-number .dn { color: var(--ink3); }
+.bh.glass .fc-rolling-view .fc-daygrid-day-events { margin-bottom: 0; }
+/* 달력 안 할 일 줄은 일정 줄과 같은 높이(.task 목록의 위아래 여백이 묻어 와 24px이던 것) */
+.bh.glass .fc .c.task { padding: 0 0 0 1px; }
+/* 큰 창: 주 보기 상자 글씨도 한 단계 크게 */
+@media (min-height: 860px) and (min-width: 1300px) {
+  .bh.glass .fc .wbt { font-size: 12px; line-height: 15px; padding: 2px 5px; }
+  .bh.glass .fc .wbt.fold { font-size: 11px; }
+}
