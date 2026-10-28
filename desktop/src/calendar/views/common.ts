@@ -356,6 +356,7 @@ export function checksOf(ctx: Ctx): { x: Entry; why: string }[] {
     const r = x.review!.find((r) => r.startsWith("기준 일정"));
     if (r) add(x, r.startsWith("기준 일정이 여럿") ? "기준 일정이 여럿 · 날짜를 정해 주세요" : "기준 일정을 못 찾음 · 날짜를 정해 주세요");
   }
+  for (const x of needsReview(ctx)) if (x.review!.some((r) => r.startsWith("바꿀 일정이 여럿"))) add(x, "바꿀 일정이 여럿 · 어느 것인지 골라 주세요");
   for (const d of duplicates(ctx.s)) add(d.x, `같은 ${KIND_WORD[d.x.kind]}이 두 번 · 합치면 하나만 남김`);
   const timed = live.filter((e) => e.start && e.end && e.date >= ctx.today);
   for (const a of timed) {

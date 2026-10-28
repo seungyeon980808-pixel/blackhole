@@ -35,6 +35,10 @@ export interface ProposalItem {
   suggestedSubtasks?: string[];
   /** What has to happen first (「기다림」), when the source says so. */
   waitFor?: string;
+  /** 「치과 4시로 바뀜」 「협의회 취소됨」: change an entry already in the calendar named by `title`. */
+  change?: "CANCEL" | "MOVE";
+  /** The old day/time as said (「금요일 3시」). */
+  changeFrom?: string;
   evidence: ProposalEvidence;
   confidence: number;
   needsReview: boolean;

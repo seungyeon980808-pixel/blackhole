@@ -1,0 +1,813 @@
+{
+ "f-hand": {
+  "text": "style-files/hand.png",
+  "proposal": {
+   "engine": {
+    "id": "B",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-10-29T10:00:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "내일 3교시 5반 실험",
+      "timeText": "3교시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-10-29T08:30:00+09:00",
+     "reminders": [
+      "2026-10-29T08:30:00+09:00"
+     ],
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-10-29T09:00:00+09:00",
+     "subtasks": [],
+     "title": "5반 실험"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "",
+     "endAt": "2026-10-30T10:00:00+09:00",
+     "evidence": {
+      "dateText": "금요일까지",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "금요일까지 수행평가 보고서 제출!!",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-10-30T09:00:00+09:00",
+     "reminders": [
+      "2026-10-30T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-30T09:00:00+09:00",
+     "subtasks": [],
+     "title": "수행평가 보고서 제출"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 22507,
+    "format": "png",
+    "sha256": "9276647583449357dab97bb345d2789879fdcc74549b56276f2420f8a0e1db05",
+    "type": "image"
+   },
+   "sourceText": "내일 3교시 5반 실험\n금요일까지 수행평가 보고서 제출!!",
+   "summary": "내일 3교시 5반 실험, 금요일까지 수행평가 보고서 제출"
+  }
+ },
+ "f-table": {
+  "text": "style-files/timetable.png",
+  "proposal": {
+   "engine": {
+    "id": "B",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "우천 시 연기",
+     "endAt": "2026-11-05T10:00:00+09:00",
+     "evidence": {
+      "dateText": "11. 5.(목)",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "",
+      "timeText": ""
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-11-05T09:00:00+09:00",
+     "reminders": [
+      "2026-11-05T09:00:00+09:00"
+     ],
+     "reviewReasons": [
+      "근거 문장이 원문과 달라 버림",
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-11-05T09:00:00+09:00",
+     "subtasks": [],
+     "title": "체육대회"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-11-13T10:00:00+09:00",
+     "evidence": {
+      "dateText": "11. 13.(금)",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "",
+      "timeText": ""
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-11-13T09:00:00+09:00",
+     "reminders": [
+      "2026-11-13T09:00:00+09:00"
+     ],
+     "reviewReasons": [
+      "근거 문장이 원문과 달라 버림",
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-11-13T09:00:00+09:00",
+     "subtasks": [],
+     "title": "축제"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "학생 휴업",
+     "endAt": "2026-11-19T10:00:00+09:00",
+     "evidence": {
+      "dateText": "11. 19.(목)",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "",
+      "timeText": ""
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-11-19T09:00:00+09:00",
+     "reminders": [
+      "2026-11-19T09:00:00+09:00"
+     ],
+     "reviewReasons": [
+      "근거 문장이 원문과 달라 버림",
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-11-19T09:00:00+09:00",
+     "subtasks": [],
+     "title": "수능"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-11-20T10:00:00+09:00",
+     "evidence": {
+      "dateText": "11. 20.(금)",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "",
+      "timeText": ""
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-11-20T09:00:00+09:00",
+     "reminders": [
+      "2026-11-20T09:00:00+09:00"
+     ],
+     "reviewReasons": [
+      "근거 문장이 원문과 달라 버림",
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-11-20T09:00:00+09:00",
+     "subtasks": [],
+     "title": "재량휴업일"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 18522,
+    "format": "png",
+    "sha256": "21154926a6dead063a972103a428861120994f889c6fd74ba87f423ea160b304",
+    "type": "image"
+   },
+   "sourceText": "2026학년도 11월 학사일정\n날짜 | 행사 | 비고\n11. 5.(목) | 체육대회 | 우천 시 연기\n11. 13.(금) | 축제 |\n11. 19.(목) | 수능 | 학생 휴업\n11. 20.(금) | 재량휴업일 |",
+   "summary": "2026학년도 11월 학사일정: 체육대회, 축제, 수능, 재량휴업일"
+  }
+ },
+ "f-gongmun": {
+  "text": "style-files/gongmun.png",
+  "proposal": {
+   "engine": {
+    "id": "B",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "본관 2층 시청각실, 대상 1~3학년 희망 학생",
+     "endAt": "2026-11-18T16:00:00+09:00",
+     "evidence": {
+      "dateText": "2026. 11. 18.(수)",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "2. 2026 과학의 날 행사를 다음과 같이 운영하오니 학생들이 참여할 수 있도록 안내하여 주시기 바랍니다. 가. 일시: 2026. 11. 18.(수) 14:00~16:00",
+      "timeText": "14:00~16:00"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-11-18T13:30:00+09:00",
+     "reminders": [
+      "2026-11-18T13:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-18T14:00:00+09:00",
+     "subtasks": [],
+     "title": "2026 과학의 날 행사"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.8,
+     "details": "과학부로 제출, 참가 신청서 첨부",
+     "endAt": "2026-11-10T10:00:00+09:00",
+     "evidence": {
+      "dateText": "2026. 11. 10.(화)",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "라. 참가 신청서는 2026. 11. 10.(화)까지 과학부로 제출",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-11-10T09:00:00+09:00",
+     "reminders": [
+      "2026-11-10T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-10T09:00:00+09:00",
+     "subtasks": [],
+     "suggestedSubtasks": [
+      "참가 신청서 작성",
+      "과학부 제출"
+     ],
+     "title": "과학의 날 참가 신청서 제출"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 46775,
+    "format": "png",
+    "sha256": "4490a13eb7f87a10ee3053abb3ff49bfcf3068e043ca9db66901c70c9425f41f",
+    "type": "image"
+   },
+   "sourceText": "한빛중학교\n수신자 각 담임교사 (경유)\n제목 2026 과학의 날 행사 안내\n1. 관련: 과학부-1234(2026. 10. 20.)\n2. 2026 과학의 날 행사를 다음과 같이 운영하오니 학생들이 참여할 수 있도록 안내하여 주시기 바랍니다.\n가. 일시: 2026. 11. 18.(수) 14:00~16:00\n나. 장소: 본관 2층 시청각실\n다. 대상: 1~3학년 희망 학생\n라. 참가 신청서는 2026. 11. 10.(화)까지 과학부로 제출\n붙임 참가 신청서 1부. 끝.\n한빛중학교장",
+   "summary": "11월 18일 과학의 날 행사 안내와 11월 10일까지 참가 신청서 제출"
+  }
+ },
+ "f-gongmun-blur": {
+  "text": "style-files/gongmun-blur.jpg",
+  "proposal": {
+   "engine": {
+    "id": "B",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.9,
+     "details": "본관 2층 시청각실, 대상 1~3학년 희망 학생",
+     "endAt": "2026-11-18T16:00:00+09:00",
+     "evidence": {
+      "dateText": "2026. 11. 18.(수)",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "가. 일시: 2026. 11. 18.(수) 14:00~16:00",
+      "timeText": "14:00~16:00"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-11-18T13:30:00+09:00",
+     "reminders": [
+      "2026-11-18T13:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-18T14:00:00+09:00",
+     "subtasks": [],
+     "title": "2026 과학의 날 행사"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "과학부 제출, 참가 신청서 1부 첨부",
+     "endAt": "2026-11-10T10:00:00+09:00",
+     "evidence": {
+      "dateText": "2026. 11. 10.(화)",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "라. 참가 신청서는 2026. 11. 10.(화)까지 과학부로 제출",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-11-10T09:00:00+09:00",
+     "reminders": [
+      "2026-11-10T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-10T09:00:00+09:00",
+     "subtasks": [],
+     "title": "과학의 날 참가 신청서 제출"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 15735,
+    "format": "jpg",
+    "sha256": "dd3c8a5baa4541981283cf81ae818383d9dda13375efce8dc7571c6aee2a0222",
+    "type": "image"
+   },
+   "sourceText": "한빛중학교\n수신자 각 담임교사\n(경유)\n제목 2026 과학의 날 행사 안내\n1. 관련: 과학부-1234(2026. 10. 20.)\n2. 2026 과학의 날 행사를 다음과 같이 운영하오니 학생들이 참여할 수 있도록 안내하여 주시기 바랍니다.\n가. 일시: 2026. 11. 18.(수) 14:00~16:00\n나. 장소: 본관 2층 시청각실\n다. 대상: 1~3학년 희망 학생\n라. 참가 신청서는 2026. 11. 10.(화)까지 과학부로 제출\n붙임 참가 신청서 1부. 끝\n한빛중학교장",
+   "summary": "11월 18일 과학의 날 행사 안내와 11월 10일까지 참가 신청서 제출"
+  }
+ },
+ "f-board": {
+  "text": "style-files/board-dark.jpg",
+  "proposal": {
+   "engine": {
+    "id": "B",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.9,
+     "details": "회장단 전원",
+     "endAt": "2026-11-04T17:00:00+09:00",
+     "evidence": {
+      "dateText": "11/4",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "11/4 학생회 회의 4시 (회장단 전원)",
+      "timeText": "4시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-11-04T15:30:00+09:00",
+     "reminders": [
+      "2026-11-04T15:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-04T16:00:00+09:00",
+     "subtasks": [],
+     "title": "학생회 회의"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 4742,
+    "format": "jpg",
+    "sha256": "ea6d31e34e248361f1ab31a6b2e119bc983a03a88f781718cc1b02448990d17d",
+    "type": "image"
+   },
+   "sourceText": "11/4 학생회 회의 4시\n(회장단 전원)",
+   "summary": "11월 4일 4시 학생회 회의(회장단 전원)"
+  }
+ },
+ "f-kakao": {
+  "text": "style-files/kakao.png",
+  "proposal": {
+   "engine": {
+    "id": "B",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-10-29T10:00:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "내일 7교시 교직원 회의 있습니다",
+      "timeText": "7교시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-10-29T08:30:00+09:00",
+     "reminders": [
+      "2026-10-29T08:30:00+09:00"
+     ],
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-10-29T09:00:00+09:00",
+     "subtasks": [],
+     "title": "교직원 회의"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.9,
+     "details": "",
+     "endAt": "2026-11-05T10:00:00+09:00",
+     "evidence": {
+      "dateText": "11월 5일까지",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "11월 5일까지 성적 입력 마감입니다 꼭 확인 부탁드려요",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-11-05T09:00:00+09:00",
+     "reminders": [
+      "2026-11-05T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-05T09:00:00+09:00",
+     "subtasks": [],
+     "title": "성적 입력"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.6,
+     "details": "",
+     "endAt": "",
+     "evidence": {
+      "dateText": "",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "넵 확인했습니다",
+      "timeText": ""
+     },
+     "kind": "NOTE",
+     "needsReview": false,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [],
+     "startAt": "",
+     "subtasks": [],
+     "title": "김선생 확인 완료"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 20258,
+    "format": "png",
+    "sha256": "cdcf5f4442ce9642c5ecfa7d79c63d0e690d2d642e788cece1c3c645f20413f1",
+    "type": "image"
+   },
+   "sourceText": "교무부장: 내일 7교시 교직원 회의 있습니다\n교무부장: 11월 5일까지 성적 입력 마감입니다 꼭 확인 부탁드려요\n김선생님: 넵 확인했습니다",
+   "summary": "교직원 회의와 성적 입력 마감 공지"
+  }
+ },
+ "f-csv": {
+  "text": "style-files/schedule.csv",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-11-03T00:00:00+09:00",
+     "evidence": {
+      "dateText": "2026-11-02",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "2026-11-02,학부모 상담 주간 시작,",
+      "timeText": ""
+     },
+     "kind": "PERIOD",
+     "needsReview": true,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [
+      "기간의 끝 날짜가 없어 하루로 둠"
+     ],
+     "startAt": "2026-11-02T00:00:00+09:00",
+     "subtasks": [],
+     "title": "학부모 상담 주간"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-11-09T16:00:00+09:00",
+     "evidence": {
+      "dateText": "2026-11-09",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "2026-11-09,교원 연수,오후",
+      "timeText": "오후"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-11-09T14:30:00+09:00",
+     "reminders": [
+      "2026-11-09T14:30:00+09:00"
+     ],
+     "reviewReasons": [
+      "대략 시각: 「오후」을 15:00로 둠"
+     ],
+     "startAt": "2026-11-09T15:00:00+09:00",
+     "subtasks": [],
+     "title": "교원 연수"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "본관 회의실",
+     "endAt": "2026-11-25T16:30:00+09:00",
+     "evidence": {
+      "dateText": "2026-11-25",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "2026-11-25,학교폭력 예방 교육,15:30 본관 회의실",
+      "timeText": "15:30"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-11-25T15:00:00+09:00",
+     "reminders": [
+      "2026-11-25T15:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-25T15:30:00+09:00",
+     "subtasks": [],
+     "title": "학교폭력 예방 교육"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 123,
+    "format": "csv",
+    "sha256": "95327aa10edc7400fe712abced0106b1c69f366c368c32c03a18ebd2cd7bc069",
+    "type": "text"
+   },
+   "sourceText": "날짜,행사,비고\n2026-11-02,학부모 상담 주간 시작,\n2026-11-09,교원 연수,오후\n2026-11-25,학교폭력 예방 교육,15:30 본관 회의실\n",
+   "summary": "11월 학부모 상담 주간, 교원 연수, 학교폭력 예방 교육 일정"
+  }
+ },
+ "f-notice": {
+  "text": "style-files/notice.pdf",
+  "proposal": {
+   "engine": {
+    "id": "B",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "국립과천과학관, 준비물: 도시락, 필기도구",
+     "endAt": "2026-11-12T15:00:00+09:00",
+     "evidence": {
+      "dateText": "2026년 11월 12일(목)",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "",
+      "timeText": "08:30 ~ 15:00"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-11-12T08:00:00+09:00",
+     "reminders": [
+      "2026-11-12T08:00:00+09:00"
+     ],
+     "reviewReasons": [
+      "근거 문장이 원문과 달라 버림"
+     ],
+     "startAt": "2026-11-12T08:30:00+09:00",
+     "subtasks": [],
+     "title": "2학년 현장체험학습"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.9,
+     "details": "담임선생님께 제출",
+     "endAt": "2026-11-06T10:00:00+09:00",
+     "evidence": {
+      "dateText": "2026년 11월 6일(금)",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "4. 참가 동의서 제출: 2026년 11월 6일(금)까지 담임선생님께",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-11-06T09:00:00+09:00",
+     "reminders": [
+      "2026-11-06T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-06T09:00:00+09:00",
+     "subtasks": [],
+     "title": "현장체험학습 참가 동의서 제출"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 53884,
+    "format": "pdf",
+    "sha256": "84dfefa6613664af58973f5b0f00600f1a4b4cf99935ad23cc004cc27c0b30ca",
+    "type": "document"
+   },
+   "sourceText": "가정통신문\n현장체험학습 안내\n학부모님 안녕하십니까? 2학년 현장체험학습을 다음과 같이 실시합니다.\n1. 일시: 2026년 11월 12일(목) 08:30 ~ 15:00\n2. 장소: 국립과천과학관\n3. 준비물: 도시락, 필기도구\n4. 참가 동의서 제출: 2026년 11월 6일(금)까지 담임선생님께\n2026. 10. 27.\n한빛중학교장",
+   "summary": "2학년 현장체험학습(11월 12일 국립과천과학관)과 11월 6일까지 참가 동의서 제출"
+  }
+ },
+ "f-txt": {
+  "text": "style-files/memo-euckr.txt",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.9,
+     "details": "",
+     "endAt": "2026-10-29T16:00:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "내일 오후 3시 학부모 상담",
+      "timeText": "오후 3시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-10-29T14:30:00+09:00",
+     "reminders": [
+      "2026-10-29T14:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-29T15:00:00+09:00",
+     "subtasks": [],
+     "title": "학부모 상담"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "",
+     "endAt": "2026-10-30T10:00:00+09:00",
+     "evidence": {
+      "dateText": "금요일까지",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "금요일까지 출석부 제출",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-10-30T09:00:00+09:00",
+     "reminders": [
+      "2026-10-30T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-30T09:00:00+09:00",
+     "subtasks": [],
+     "title": "출석부 제출"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 51,
+    "format": "txt",
+    "sha256": "853856ef1533827fb2b8ea6a9628a0853ec49d96ddb9e869c0d2bd6c980c0569",
+    "type": "text"
+   },
+   "sourceText": "내일 오후 3시 학부모 상담\r\n금요일까지 출석부 제출\r\n",
+   "summary": "내일 학부모 상담과 금요일까지 출석부 제출"
+  }
+ },
+ "f-docx": {
+  "text": "style-files/memo.docx",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "kordoc/4.24.3",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.9,
+     "details": "",
+     "endAt": "2026-11-02T11:00:00+09:00",
+     "evidence": {
+      "dateText": "다음주 월요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "다음주 월요일 10시 교직원 회의",
+      "timeText": "10시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-11-02T09:30:00+09:00",
+     "reminders": [
+      "2026-11-02T09:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-02T10:00:00+09:00",
+     "subtasks": [],
+     "title": "교직원 회의"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "",
+     "endAt": "2026-11-06T10:00:00+09:00",
+     "evidence": {
+      "dateText": "11월 6일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "11월 6일까지 생기부 입력 끝내기",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-11-06T09:00:00+09:00",
+     "reminders": [
+      "2026-11-06T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-06T09:00:00+09:00",
+     "subtasks": [],
+     "title": "생기부 입력 끝내기"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 1035,
+    "format": "docx",
+    "sha256": "e6eebf6b428d64cdbf17373db8bbd9ead041cc7eb16b87b5f4f11ab4ae00aacf",
+    "type": "document"
+   },
+   "sourceText": "2학년 협의 메모\n\n다음주 월요일 10시 교직원 회의\n\n11월 6일까지 생기부 입력 끝내기",
+   "summary": "교직원 회의와 생기부 입력 마감"
+  }
+ }
+}

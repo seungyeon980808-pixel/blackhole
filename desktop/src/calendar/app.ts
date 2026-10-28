@@ -13,7 +13,7 @@ import { startRecording, type Recording } from "./recorder";
 import { clockText, isSimpleCertain, memoDraft, parseDraft, parseRule, singleTime, timeRange, timeWords } from "./rules";
 import { seedState } from "./samples";
 import {
-  anchorRelativeDates, applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
+  anchorRelativeDates, applyAction, describe, type Applied, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
 } from "./store";
 import { phoneToday, priorityView, todayView, type TodayOpts } from "./views/today";
 import { checksBar, dictationFixes, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
@@ -1031,10 +1031,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
           changed = true;
           continue;
         }
-        afterApplied(applied.refs, applied.missing, "인박스", now, applied.updated, applied.suggested, applied.done);
+        afterApplied(applied.refs, applied.missing, "인박스", now, applied.updated, applied.suggested, applied.done, applied.changed);
         s.inbox.push({ at: stamp(now), title: r.fileName, src: "인박스", state: r.proposal.needsReview ? "검토 필요" : "완료", out: `${applied.refs.length}건` });
         if (!drafted) s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: "", kind: "file", fileName: r.fileName, src: "인박스" });
-        card(withDone(aiText(applied.refs.length, applied.missing.length, r.proposal.reviewReasons, applied), applied.done), applied.refs.length ? applied.refs : applied.suggested);
+        card(withDone(aiText(applied.refs.length, applied.missing.length, r.proposal.reviewReasons, applied), applied.done, applied), applied.refs.length ? applied.refs : applied.suggested);
       } else {
         s.inbox.push({ at: stamp(now), title: r.fileName, src: "인박스", state: "실패", out: r.error ?? "" });
       }
@@ -1128,10 +1128,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
 
   /** 「완료로 체크함: 3반 수행평가 점수 확인」 after what the card already says. */
-  function withDone(text: string, done: string[] = []): string {
-    if (!done.length) return text;
-    const names = done.map((id) => `「${findEntry(s, id)?.title ?? ""}」`).join(" ");
-    return [text, `완료로 체크함: ${names}`].filter(Boolean).join(" · ");
+  function withDone(text: string, done: string[] = [], a?: Pick<Applied, "changed" | "unmatched">): string {
+    const parts = [text];
+    if (done.length) parts.push(`완료로 체크함: ${done.map((id) => `「${findEntry(s, id)?.title ?? ""}」`).join(" ")}`);
+    for (const c of a?.changed ?? []) parts.push(`${c.what} (⌘Z 되돌리기)`);
+    if (a?.unmatched?.length) parts.push(`바꿀 일정을 못 찾음: ${a.unmatched.map((t) => `「${t}」`).join(" ")}`);
+    // 「찾은 것이 없어요」 is not true when something was changed or checked.
+    if ((done.length || a?.changed?.length) && /^찾은 것이 없어요/.test(text)) parts.shift();
+    return parts.filter(Boolean).join(" · ");
   }
 
   function aiText(n: number, miss: number, reasons: string[] = [], r?: { updated: string[]; suggested: string[] }): string {
@@ -1142,9 +1146,21 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     return miss ? `${miss}건은 날짜를 못 찾아 기억으로 두었어요.` : "";
   }
 
-  function afterApplied(refs: string[], missing: string[], src: string, now: Date, updated: string[] = [], suggested: string[] = [], done: string[] = []): void {
+  function afterApplied(refs: string[], missing: string[], src: string, now: Date, updated: string[] = [], suggested: string[] = [], done: string[] = [], changed: Applied["changed"] = []): void {
     // 「3반 수행평가 점수 확인함」 checked the open to-do it finished.
     for (const id of done) log(s, { label: "완료", msg: findEntry(s, id)?.title ?? "", src, ref: id }, now);
+    // 「치과 4시로 바뀜」 「협의회 취소됨」: changed in place, one ⌘Z each puts it back.
+    for (const c of changed ?? []) {
+      log(s, { label: c.what.startsWith("취소") ? "취소" : "바꿈", msg: c.what.replace(/^[^:]+:\s*/, ""), src, ref: c.id }, now);
+      undoStack.push({ label: c.what, run: () => {
+        const y = findEntry(s, c.id);
+        if (y) {
+          for (const k of Object.keys(y)) delete (y as unknown as Record<string, unknown>)[k];
+          Object.assign(y, structuredClone(c.before));
+        }
+        void act(() => undefined);
+      } });
+    }
     for (const id of refs) {
       const x = findEntry(s, id);
       // The AI only suggests a ★ (출제·결재·평가·제출 …); the user sets it.
@@ -1190,14 +1206,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const proposal = await adapter.analyze(input);
       const at = clock();
       const applied = refineDrafts(s, key, proposal, src, at);
-      afterApplied(applied.refs, applied.missing, src, at, applied.updated, applied.suggested, applied.done);
+      afterApplied(applied.refs, applied.missing, src, at, applied.updated, applied.suggested, applied.done, applied.changed);
       if (me.kind === "voice" && proposal.sourceText) s.chat[s.chat.length - 1].text = proposal.sourceText;
       const dup = dropDuplicates(applied.refs);
       const shown = [...(applied.refs.length ? applied.refs : applied.suggested).filter((r) => !dup.gone.includes(r)), ...dup.kept];
       let text = dup.gone.length ? "이미 있어서 다시 넣지 않았어요" : aiText(applied.refs.length, applied.missing.length, proposal.reviewReasons, applied);
       // A small note only when the AI changed what the draft said.
       const y = draftId ? findEntry(s, draftId) : undefined;
-      text = withDone(text, applied.done);
+      text = withDone(text, applied.done, applied);
       if (!text && y && draftWas !== JSON.stringify([y.kind, y.title, (y as { date?: string }).date, (y as { start?: string }).start, (y as { end?: string }).end, (y as { due?: string }).due, (y as { dueTime?: string }).dueTime])) text = "AI가 고침";
       if (draftMsg) Object.assign(draftMsg, { text, refs: [...new Set([...(draftMsg.refs ?? []).filter((r) => !dup.gone.includes(r)), ...shown])] });
       else card(text, shown);

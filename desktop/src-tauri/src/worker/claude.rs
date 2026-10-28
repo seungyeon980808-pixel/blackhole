@@ -54,7 +54,8 @@ impl ClaudeChat {
             timeout: Duration::from_secs(120),
             api_key: None,
             usage_log: Some(usage_log_path()),
-            answer_cache: Some(data_dir().join("claude-answers")),
+            // BLACKHOLE_NO_ANSWER_CACHE=1: always ask (the style tests run the same sentences again).
+            answer_cache: if std::env::var_os("BLACKHOLE_NO_ANSWER_CACHE").is_some() { None } else { Some(data_dir().join("claude-answers")) },
             budget_usd: Some(AiSettings::load().budget_usd),
         }
     }
@@ -359,8 +360,9 @@ fn append_line(path: &PathBuf, line: Value) {
     if let Some(dir) = path.parent() {
         let _ = fs::create_dir_all(dir);
     }
+    // One write per line: several workers at once (inbox + desktop) must not interleave their lines.
     if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(path) {
-        let _ = writeln!(f, "{line}");
+        let _ = f.write_all(format!("{line}\n").as_bytes());
     }
 }
 

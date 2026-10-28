@@ -160,6 +160,16 @@ where
         if path.extension().is_some_and(|e| e == PHONE_ACTION_EXT || e == PHONE_STT_EXT) {
             continue;
         }
+        // An Office lock file (「~$메모.docx」) or a download still on its way (「.tmp」 「.crdownload」,
+        // or 0 bytes while Drive fetches it): not a file the user put in. Left alone, no error.
+        let partial = path.extension().is_some_and(|e| ["tmp", "crdownload", "part", "partial", "download"].contains(&e.to_string_lossy().to_lowercase().as_str()));
+        if name.starts_with("~$") || partial {
+            continue;
+        }
+        if fs::metadata(&path).is_ok_and(|m| m.len() == 0) {
+            report.waiting.push(name);
+            continue;
+        }
         if source_type_for(&path).is_err() {
             report.unsupported.push(name);
             continue;
@@ -212,6 +222,10 @@ where
     // 4. A note for every result that does not have one yet.
     for job in queue.jobs().iter().filter(|j| j.state == JobState::HasResult) {
         let Some(proposal) = &job.proposal else { continue };
+        // 「ㅋㅋㅋㅋ」: nothing found in a few letters is no note worth keeping.
+        if proposal.items.is_empty() && proposal.source_text.chars().filter(|c| !c.is_whitespace()).count() <= 20 {
+            continue;
+        }
         let received = DateTime::parse_from_rfc3339(&job.created_at).unwrap_or(now);
         let original = Path::new(&job.source_path);
         let file_name = original.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();

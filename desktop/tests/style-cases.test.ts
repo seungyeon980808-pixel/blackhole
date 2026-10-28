@@ -3,25 +3,38 @@
 // checked against what the owner meant.
 import { writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import cases from "./fixtures/style-cases.json";
-import recorded from "./fixtures/style-proposals.json";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { emptyState, type CalEvent, type Entry, type Task } from "../src/calendar/model";
 import { applyProposal } from "../src/calendar/store";
 import type { Proposal } from "../src/worker/proposal";
 
 interface Want {
   k: string; has: string[]; area?: string; date?: string; start?: string | null; end?: string; remind?: string;
-  due?: string; time?: string | null; noDue?: boolean; subsMin?: number; wait?: string; from?: string; to?: string;
+  due?: string; dueIn?: [string, string]; time?: string | null; noDue?: boolean; subsMin?: number; wait?: string; from?: string; to?: string;
 }
-interface Case { id: string; text: string; only?: boolean; done?: string[]; expect: Want[] }
+interface Changed { id: string; gone?: boolean; date?: string; start?: string; end?: string; due?: string; time?: string }
+interface Case { id: string; text?: string; file?: string; only?: boolean; done?: string[]; changed?: Changed[]; expect: Want[] }
+interface Fixture { events: { id: string; title: string; date: string; start: string; end: string; area?: string }[]; tasks: { id: string; title: string; due: string }[] }
+interface CaseSet { now: string; fixture: Fixture; cases: Case[] }
 
-const NOW = new Date(cases.now);
+/** Each set: its sentences and the worker answers recorded for them (scripts/style-record.mjs). */
+const SETS: Record<string, [string, string]> = {
+  "1": ["style-cases.json", "style-proposals.json"],
+  "2": ["style-cases-2.json", "style-proposals-2.json"],
+  files: ["style-files.json", "style-files-proposals.json"],
+  // Scored only at the end: STYLE_HOLDOUT=1.
+  ...(process.env.STYLE_HOLDOUT ? { holdout: ["style-holdout.json", "style-holdout-proposals.json"] as [string, string] } : {})
+};
+const dir = join(__dirname, "fixtures");
+const read = (f: string) => JSON.parse(readFileSync(join(dir, f), "utf8"));
+const sets = Object.entries(SETS).filter(([, [c, r]]) => existsSync(join(dir, c)) && existsSync(join(dir, r))).map(([name, [c, r]]) => ({ name, set: read(c) as CaseSet, rec: read(r) as Record<string, { text: string; proposal: Proposal }> }));
 const squash = (x: string) => x.replace(/\s+/g, "");
 
-function stateWithFixture() {
+function stateWithFixture(fx: Fixture) {
   const s = emptyState();
-  for (const e of cases.fixture.events) s.events.push({ ...e, kind: "event", area: "school", source: "데스크톱", createdAt: "2026-10-27T09:00", provisional: false, reminders: [] });
-  for (const t of cases.fixture.tasks) s.tasks.push({ ...t, kind: "task", area: "school", source: "데스크톱", createdAt: "2026-10-27T09:00", dueTime: null, done: false, reminders: [], subs: [] });
+  for (const e of fx.events) s.events.push({ area: "school", ...e, kind: "event", source: "데스크톱", createdAt: "2026-10-27T09:00", provisional: false, reminders: [`${e.date}T${e.start}`] } as CalEvent);
+  for (const t of fx.tasks) s.tasks.push({ ...t, kind: "task", area: "school", source: "데스크톱", createdAt: "2026-10-27T09:00", dueTime: null, done: false, reminders: [], subs: [] });
   return s;
 }
 
@@ -42,6 +55,7 @@ function mismatches(w: Want, x: Entry): string[] {
   check("start", w.start, f.start);
   check("end", w.end, f.end);
   check("due", w.due, f.noDue ? "날짜없음" : f.due);
+  if (w.dueIn && (f.noDue || String(f.due) < w.dueIn[0] || String(f.due) > w.dueIn[1])) bad.push(`「${x.title}」 due ${f.noDue ? "날짜없음" : String(f.due)} → ${w.dueIn.join("~")}`);
   check("time", w.time, f.time);
   check("from", w.from, f.from);
   check("to", w.to, f.to);
@@ -53,8 +67,9 @@ function mismatches(w: Want, x: Entry): string[] {
 }
 
 /** What is wrong for one case (empty: right). */
-export function problems(c: Case, p: Proposal): string[] {
-  const s = stateWithFixture();
+export function problems(c: Case, p: Proposal, set: CaseSet): string[] {
+  const NOW = new Date(set.now);
+  const s = stateWithFixture(set.fixture);
   const before = new Set([...s.events, ...s.tasks, ...s.periods, ...s.notes].map((x) => x.id));
   applyProposal(s, p, "데스크톱", NOW);
   const made = [...s.events, ...s.tasks, ...s.periods, ...s.notes].filter((x) => !before.has(x.id) && !x.gone);
@@ -72,6 +87,12 @@ export function problems(c: Case, p: Proposal): string[] {
     bad.push(...best.wrong);
   }
   if (c.only && left.length) bad.push(`더 생김: ${left.map((x) => `${x.kind} 「${x.title}」`).join(", ")}`);
+  for (const ch of c.changed ?? []) {
+    const x = [...s.events, ...s.tasks].find((y) => y.id === ch.id);
+    if (!x) continue;
+    const got: Record<string, unknown> = x.kind === "event" ? { gone: !!x.gone, date: x.date, start: x.start, end: x.end } : { gone: !!x.gone, due: x.due, time: x.dueTime };
+    for (const [k, v] of Object.entries(ch)) if (k !== "id" && got[k] !== v) bad.push(`바뀜 ${ch.id} 「${x.title}」 ${k} ${String(got[k])} → ${String(v)}`);
+  }
   if (c.done) {
     const doneNow = s.tasks.filter((t) => t.done && before.has(t.id)).map((t) => t.id).sort();
     if (JSON.stringify(doneNow) !== JSON.stringify([...c.done].sort())) bad.push(`완료 체크 ${JSON.stringify(doneNow)} → ${JSON.stringify(c.done)}`);
@@ -79,17 +100,15 @@ export function problems(c: Case, p: Proposal): string[] {
   return bad;
 }
 
-const rec = recorded as unknown as Record<string, { text: string; proposal: Proposal }>;
-
-describe("the owner's sentences, worker answer → calendar", () => {
-  it.each((cases.cases as Case[]).filter((c) => rec[c.id]))("$id $text", (c) => {
-    expect(rec[c.id].text).toBe(c.text);
-    expect(problems(c, rec[c.id].proposal)).toEqual([]);
+describe.each(sets)("the owner's sentences ($name), worker answer → calendar", ({ set, rec }) => {
+  it.each(set.cases.filter((c) => rec[c.id]))("$id $text$file", (c) => {
+    expect(rec[c.id].text).toBe(c.text ?? c.file);
+    expect(problems(c, rec[c.id].proposal, set)).toEqual([]);
   });
 });
 
 // STYLE_REPORT=<file>: every case's problems in one file (for reading a whole run at once).
 if (process.env.STYLE_REPORT) {
-  const report = (cases.cases as Case[]).filter((c) => rec[c.id]).map((c) => ({ id: c.id, text: c.text, problems: problems(c, rec[c.id].proposal) }));
+  const report = sets.flatMap(({ name, set, rec }) => set.cases.filter((c) => rec[c.id]).map((c) => ({ set: name, id: c.id, text: c.text ?? c.file, problems: problems(c, rec[c.id].proposal, set) })));
   writeFileSync(process.env.STYLE_REPORT, JSON.stringify(report, null, 1));
 }

@@ -1,0 +1,319 @@
+{
+ "about": "Owner-style files: fake notices, a blurred photo, handwriting, a timetable, a chat screenshot, a dark board photo, a PDF letter home, CSV and text in EUC-KR, a Word file (all made up).",
+ "now": "2026-10-28T09:00:00+09:00",
+ "fixture": {
+  "events": [
+   {
+    "id": "e-fx1",
+    "title": "대의원회",
+    "date": "2026-11-16",
+    "start": "15:10",
+    "end": "15:55"
+   },
+   {
+    "id": "e-fx2",
+    "title": "학년 협의회",
+    "date": "2026-11-03",
+    "start": "15:00",
+    "end": "16:00"
+   },
+   {
+    "id": "e-fx3",
+    "title": "치과",
+    "date": "2026-10-30",
+    "start": "15:00",
+    "end": "16:00",
+    "area": "personal"
+   },
+   {
+    "id": "e-fx4",
+    "title": "교과협의회",
+    "date": "2026-10-30",
+    "start": "10:00",
+    "end": "11:00"
+   },
+   {
+    "id": "e-fx5",
+    "title": "교과협의회",
+    "date": "2026-11-06",
+    "start": "10:00",
+    "end": "11:00"
+   },
+   {
+    "id": "e-fx6",
+    "title": "학부모 상담",
+    "date": "2026-10-29",
+    "start": "16:30",
+    "end": "17:00"
+   }
+  ],
+  "tasks": [
+   {
+    "id": "t-fx1",
+    "title": "3반 수행평가 점수 확인",
+    "due": "2026-10-28"
+   },
+   {
+    "id": "t-fx7",
+    "title": "출장 신청",
+    "due": "2026-10-30"
+   },
+   {
+    "id": "t-fx8",
+    "title": "성적 입력",
+    "due": "2026-11-05"
+   },
+   {
+    "id": "t-fx9",
+    "title": "가정통신문 발송",
+    "due": "2026-10-29"
+   }
+  ]
+ },
+ "cases": [
+  {
+   "id": "f-gongmun",
+   "file": "style-files/gongmun.png",
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "과학의 날"
+     ],
+     "date": "2026-11-18",
+     "start": "14:00",
+     "end": "16:00",
+     "area": "school"
+    },
+    {
+     "k": "task",
+     "has": [
+      "신청서"
+     ],
+     "due": "2026-11-10",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "f-gongmun-blur",
+   "file": "style-files/gongmun-blur.jpg",
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "과학의 날"
+     ],
+     "date": "2026-11-18",
+     "start": "14:00",
+     "end": "16:00",
+     "area": "school"
+    },
+    {
+     "k": "task",
+     "has": [
+      "신청서"
+     ],
+     "due": "2026-11-10",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "f-hand",
+   "file": "style-files/hand.png",
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "5반"
+     ],
+     "date": "2026-10-29",
+     "start": "10:40",
+     "area": "school"
+    },
+    {
+     "k": "task",
+     "has": [
+      "보고서"
+     ],
+     "due": "2026-10-30",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "f-table",
+   "file": "style-files/timetable.png",
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "체육대회"
+     ],
+     "date": "2026-11-05"
+    },
+    {
+     "k": "event",
+     "has": [
+      "축제"
+     ],
+     "date": "2026-11-13"
+    },
+    {
+     "k": "event",
+     "has": [
+      "수능"
+     ],
+     "date": "2026-11-19"
+    },
+    {
+     "k": "event",
+     "has": [
+      "재량휴업일"
+     ],
+     "date": "2026-11-20"
+    }
+   ]
+  },
+  {
+   "id": "f-kakao",
+   "file": "style-files/kakao.png",
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "교직원 회의"
+     ],
+     "date": "2026-10-29",
+     "start": "15:10",
+     "area": "school"
+    },
+    {
+     "k": "task",
+     "has": [
+      "성적"
+     ],
+     "due": "2026-11-05",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "f-board",
+   "file": "style-files/board-dark.jpg",
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "학생회"
+     ],
+     "date": "2026-11-04",
+     "start": "16:00",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "f-notice",
+   "file": "style-files/notice.pdf",
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "체험학습"
+     ],
+     "date": "2026-11-12",
+     "start": "08:30",
+     "end": "15:00",
+     "area": "school"
+    },
+    {
+     "k": "task",
+     "has": [
+      "동의서"
+     ],
+     "due": "2026-11-06",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "f-csv",
+   "file": "style-files/schedule.csv",
+   "expect": [
+    {
+     "k": "period",
+     "has": [
+      "상담"
+     ],
+     "from": "2026-11-02",
+     "area": "school"
+    },
+    {
+     "k": "event",
+     "has": [
+      "연수"
+     ],
+     "date": "2026-11-09",
+     "area": "school"
+    },
+    {
+     "k": "event",
+     "has": [
+      "학교폭력"
+     ],
+     "date": "2026-11-25",
+     "start": "15:30",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "f-txt",
+   "file": "style-files/memo-euckr.txt",
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "학부모 상담"
+     ],
+     "date": "2026-10-29",
+     "start": "15:00",
+     "area": "school"
+    },
+    {
+     "k": "task",
+     "has": [
+      "출석부"
+     ],
+     "due": "2026-10-30",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "f-docx",
+   "file": "style-files/memo.docx",
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "교직원 회의"
+     ],
+     "date": "2026-11-02",
+     "start": "10:00",
+     "area": "school"
+    },
+    {
+     "k": "task",
+     "has": [
+      "생기부"
+     ],
+     "due": "2026-11-06",
+     "area": "school"
+    }
+   ]
+  }
+ ]
+}

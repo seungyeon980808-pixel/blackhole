@@ -17,7 +17,7 @@ const SYSTEM_PROMPT: &str = "너는 한국어 메모·지시·문서를 일정, 
 - summary: 입력 전체를 한 줄로 요약.
 - items: 입력에 들어 있는 일을 하나씩 나눠 담는다. 한 입력에 여러 일이 있으면 모두 따로 적고, 정리할 것이 없으면 빈 목록.
   - kind: 정해진 때에 가거나 만나거나 참석하는 일(회의, 상담, 수업, 약속, 진료, 행사 등, \"~에 가야 함\"도)은 \"SCHEDULE\", 내가 끝내야 하는 행동(제출, 구매, 연락, 준비, 신청, 기안, 요청 등, 마감 포함)은 \"TODO\", 여러 날에 걸친 기간(시험 기간, 상담 주간, 방학, 챌린지 등)은 \"PERIOD\", 나중에 다시 볼 사실·정보(\"기억해 둬\", 장소, 준비물, 결정 사항, 연락처 등)는 \"NOTE\".
-    날짜만 있는 학교 행사·휴일(\"11/20 재량휴업일\", \"1029 기말고사\")은 NOTE가 아니라 SCHEDULE. \"~해야 함\", \"~할 것\", \"~하기\"로 끝나는 행동은 시각이 있어도 TODO(그 시각이 마감). 이미 끝낸 일을 알리는 말(\"~함\", \"~했음\", \"완료\", \"끝\", \"진도 종료\")은 NOTE.
+    공문·안내문·메모의 제목이나 머리말(\"과학의 날 행사 안내 공문\", \"2학년 협의 메모\")은 그 안의 일정·할 일로 담았으면 따로 NOTE로 만들지 않는다. 번호·주소·위치·연락처 같은 정보만 있고 해야 한다는 말이 없으면(\"주차 등록 차량번호 34나 5678\") NOTE. 날짜만 있는 학교 행사·휴일(\"11/20 재량휴업일\", \"1029 기말고사\")은 NOTE가 아니라 SCHEDULE. \"~해야 함\", \"~할 것\", \"~하기\"로 끝나는 행동은 시각이 있어도 TODO(그 시각이 마감). 이미 끝낸 일을 알리는 말(\"~함\", \"~했음\", \"완료\", \"끝\", \"진도 종료\")은 NOTE.
   - area: 학교 일(학생, 학부모, 수업, 담임, 교무, 시험, 생활기록부, 교직원, 학년, 동아리, 공문 등)은 \"SCHOOL\", 그 밖은 \"PERSONAL\".
   - title: 날짜·시간과 \"추가해 줘\", \"기억해 줘\" 같은 부탁 말을 뺀 짧은 제목. 원문에 있는 말을 쓴다. 반·학년·사람 이름처럼 일을 구별하는 말은 제목에 남긴다(\"6반 수행평가 점수 확인\", \"9반 성운부터 설명\"). 반이나 대상이 다르면 항목을 따로 나눈다. 목록 머리말(\"급식지도 일정\") 아래 줄들은 머리말과 그 줄의 말을 합쳐 제목을 짓는다(\"급식지도 (복도)\").
   - details: 장소, 준비물, 대상 같은 덧붙일 정보. 없으면 \"\".
@@ -26,7 +26,8 @@ const SYSTEM_PROMPT: &str = "너는 한국어 메모·지시·문서를 일정, 
   - endDateText: PERIOD일 때 끝 날짜 표현을 글자 그대로(예: \"6일\", \"11월 6일\"). dateText는 시작 날짜. PERIOD가 아니면 \"\".
   - subtasks: 할 일 아래 나열된 하위 할 일들을 원문 말 그대로 목록으로(예: \"보고서 제출: 자료 정리, 초안, 결재\" → [\"자료 정리\",\"초안\",\"결재\"]). 원문에 단계가 없어도 순서가 있는 일(기안·준비·제출처럼 여러 단계)이면 꼭 필요한 단계를 짧게 최대 5개까지 순서대로 제안해도 된다. 단순한 일이면 []. 한 목적을 위해 이어서 하는 행동들(\"가능한지 확인해보고, 요청하고, 신청해야 함\")은 TODO를 여러 개로 나누지 말고 마지막 목적을 제목으로 한 TODO 하나에 원문 순서대로 subtasks로 담는다.
   - waitFor: \"~되면\", \"~보고\", \"~알려주시면\", \"~오면\", \"~받고 나서\"처럼 다른 일이 먼저 있어야 시작할 수 있으면 그 조건을 짧게(예: \"병렬협조 마무리\", \"한 선생님 연락\", \"일정 확정\"). 조건 자체를 따로 일정이나 할 일로 만들지 않는다. 조건에 날짜·시간이 붙어 있으면(\"내일 9시에 연락 오는 거 보고\") 그것을 이 할 일의 dateText·timeText로 쓴다. 조건이 없으면 \"\".
-  - 날짜가 아직 정해지지 않았다고 하면(\"수요일일지 목요일일지 모름\", \"미정\") dateText는 \"\".
+  - change: 이미 잡혀 있는 일정·할 일을 취소하는 말(\"취소됨\", \"안 함\", \"없어짐\")이면 \"CANCEL\", 날짜·시간을 바꾸는 말(\"바뀜\", \"변경\", \"미뤄짐\", \"연기\", \"앞당김\", \"연장\", \"~로\")이면 \"MOVE\", 아니면 \"\". 이때 title은 바뀌는 일정의 이름만(\"치과\"), dateText·timeText는 새 날짜·시간만(바뀌지 않은 쪽은 \"\"), changeFrom은 원래 날짜·시간 표현(\"금요일 3시\", 없으면 \"\"). 새 일정·할 일을 만드는 말이면 change는 \"\".
+  - 날짜가 아직 정해지지 않았다고 하면(\"수요일일지 목요일일지 모름\", \"미정\") dateText는 \"\". 미정이라는 말 자체를 따로 NOTE로 만들지 않는다.
   - reminderText: \"~에 알려 줘\", \"~에 알림\"처럼 알림 때를 따로 말했으면 그 날짜·시간 표현을 글자 그대로(예: \"목요일 9시\"). 없으면 \"\".
   - evidence: 그 항목의 근거가 된 원문 구절.
   - confidence: 0과 1 사이 숫자. 애매하면 낮게.
@@ -53,10 +54,12 @@ pub fn output_schema(with_transcript: bool) -> Value {
             "subtasks": { "type": "array", "items": { "type": "string" } },
             "reminderText": { "type": "string" },
             "waitFor": { "type": "string" },
+            "change": { "type": "string", "enum": ["", "CANCEL", "MOVE"] },
+            "changeFrom": { "type": "string" },
             "evidence": { "type": "string" },
             "confidence": { "type": "number" }
         },
-        "required": ["kind", "area", "title", "details", "dateText", "timeText", "endDateText", "subtasks", "reminderText", "waitFor", "evidence", "confidence"]
+        "required": ["kind", "area", "title", "details", "dateText", "timeText", "endDateText", "subtasks", "reminderText", "waitFor", "change", "changeFrom", "evidence", "confidence"]
     });
     let mut properties = json!({
         "summary": { "type": "string" },
@@ -102,27 +105,27 @@ fn few_shot() -> Vec<Value> {
     let mut messages = example(
         FEW_SHOT_INPUTS[0],
         json!({"summary":"교무 회의와 자료 인쇄","items":[
-            {"kind":"SCHEDULE","area":"SCHOOL","title":"교무 회의","details":"","dateText":"다음 주 월요일","timeText":"오전 10시","endDateText":"","subtasks":[],"reminderText":"","waitFor":"","evidence":"다음 주 월요일 오전 10시에 교무 회의 있고","confidence":0.9},
-            {"kind":"TODO","area":"SCHOOL","title":"회의 자료 인쇄","details":"교무 회의 전에","dateText":"","timeText":"","endDateText":"","subtasks":[],"reminderText":"","waitFor":"","evidence":"회의 자료 인쇄해야 돼","confidence":0.8}]}),
+            {"kind":"SCHEDULE","area":"SCHOOL","title":"교무 회의","details":"","dateText":"다음 주 월요일","timeText":"오전 10시","endDateText":"","subtasks":[],"reminderText":"","waitFor":"","change":"","changeFrom":"","evidence":"다음 주 월요일 오전 10시에 교무 회의 있고","confidence":0.9},
+            {"kind":"TODO","area":"SCHOOL","title":"회의 자료 인쇄","details":"교무 회의 전에","dateText":"","timeText":"","endDateText":"","subtasks":[],"reminderText":"","waitFor":"","change":"","changeFrom":"","evidence":"회의 자료 인쇄해야 돼","confidence":0.8}]}),
     );
     messages.extend(example(
         FEW_SHOT_INPUTS[1],
         json!({"summary":"공유기 위치 기억","items":[
-            {"kind":"NOTE","area":"PERSONAL","title":"와이파이 공유기 위치","details":"거실 책장 뒤","dateText":"","timeText":"","endDateText":"","subtasks":[],"reminderText":"","waitFor":"","evidence":"와이파이 공유기는 거실 책장 뒤에 있다","confidence":0.9}]}),
+            {"kind":"NOTE","area":"PERSONAL","title":"와이파이 공유기 위치","details":"거실 책장 뒤","dateText":"","timeText":"","endDateText":"","subtasks":[],"reminderText":"","waitFor":"","change":"","changeFrom":"","evidence":"와이파이 공유기는 거실 책장 뒤에 있다","confidence":0.9}]}),
     ));
     messages.extend(example(
         FEW_SHOT_INPUTS[2],
         json!({"summary":"보고서 제출과 체육 주간","items":[
-            {"kind":"TODO","area":"SCHOOL","title":"동아리 결과 보고서 제출","details":"","dateText":"다음 달 7일","timeText":"6시","endDateText":"","subtasks":["사진 정리","활동 기록","결재"],"reminderText":"6일 저녁 8시","waitFor":"","evidence":"다음 달 7일 6시까지 동아리 결과 보고서 내야 해","confidence":0.85},
-            {"kind":"PERIOD","area":"SCHOOL","title":"학년 체육 주간","details":"","dateText":"3일","timeText":"","endDateText":"5일","subtasks":[],"reminderText":"","waitFor":"","evidence":"3일부터 5일까지는 학년 체육 주간이야","confidence":0.85}]}),
+            {"kind":"TODO","area":"SCHOOL","title":"동아리 결과 보고서 제출","details":"","dateText":"다음 달 7일","timeText":"6시","endDateText":"","subtasks":["사진 정리","활동 기록","결재"],"reminderText":"6일 저녁 8시","waitFor":"","change":"","changeFrom":"","evidence":"다음 달 7일 6시까지 동아리 결과 보고서 내야 해","confidence":0.85},
+            {"kind":"PERIOD","area":"SCHOOL","title":"학년 체육 주간","details":"","dateText":"3일","timeText":"","endDateText":"5일","subtasks":[],"reminderText":"","waitFor":"","change":"","changeFrom":"","evidence":"3일부터 5일까지는 학년 체육 주간이야","confidence":0.85}]}),
     ));
     messages.extend(example(
         FEW_SHOT_INPUTS[3],
         json!({"summary":"공개수업, 출장 신청, 진도, 자료 제출","items":[
-            {"kind":"SCHEDULE","area":"SCHOOL","title":"학부모 공개수업","details":"","dateText":"1112","timeText":"","endDateText":"","subtasks":[],"reminderText":"","waitFor":"","evidence":"1112 학부모 공개수업","confidence":0.9},
-            {"kind":"TODO","area":"SCHOOL","title":"출장 신청","details":"","dateText":"","timeText":"","endDateText":"","subtasks":["출장 가능한지 확인","출장 신청"],"reminderText":"","waitFor":"","evidence":"출장 가능한지 확인해보고 출장 신청해야함","confidence":0.85},
-            {"kind":"NOTE","area":"SCHOOL","title":"2반 진도 종료","details":"","dateText":"","timeText":"","endDateText":"","subtasks":[],"reminderText":"","waitFor":"","evidence":"2반 진도 종료","confidence":0.9},
-            {"kind":"TODO","area":"SCHOOL","title":"자료 취합해서 제출","details":"","dateText":"","timeText":"","endDateText":"","subtasks":[],"reminderText":"","waitFor":"김선생님 자료","evidence":"김선생님이 자료 보내주시면 취합해서 제출","confidence":0.85}]}),
+            {"kind":"SCHEDULE","area":"SCHOOL","title":"학부모 공개수업","details":"","dateText":"1112","timeText":"","endDateText":"","subtasks":[],"reminderText":"","waitFor":"","change":"","changeFrom":"","evidence":"1112 학부모 공개수업","confidence":0.9},
+            {"kind":"TODO","area":"SCHOOL","title":"출장 신청","details":"","dateText":"","timeText":"","endDateText":"","subtasks":["출장 가능한지 확인","출장 신청"],"reminderText":"","waitFor":"","change":"","changeFrom":"","evidence":"출장 가능한지 확인해보고 출장 신청해야함","confidence":0.85},
+            {"kind":"NOTE","area":"SCHOOL","title":"2반 진도 종료","details":"","dateText":"","timeText":"","endDateText":"","subtasks":[],"reminderText":"","waitFor":"","change":"","changeFrom":"","evidence":"2반 진도 종료","confidence":0.9},
+            {"kind":"TODO","area":"SCHOOL","title":"자료 취합해서 제출","details":"","dateText":"","timeText":"","endDateText":"","subtasks":[],"reminderText":"","waitFor":"김선생님 자료","change":"","changeFrom":"","evidence":"김선생님이 자료 보내주시면 취합해서 제출","confidence":0.85}]}),
     ));
     messages
 }
@@ -296,6 +299,34 @@ fn optional_string(object: &Map<String, Value>, key: &str, at: &str) -> Result<S
     }
 }
 
+/// 「칠교시」 → 「7교시」, 「오반도」 → 「5반도」, 「삼학년」 → 「3학년」: one number word glued to 반·학년·교시·모둠·조
+/// at a word start (same rule as the app's fixNumbers).
+pub fn dictated_numbers(text: &str) -> String {
+    use std::sync::OnceLock;
+    static WORD: OnceLock<regex::Regex> = OnceLock::new();
+    const PARTICLES: [&str; 14] = ["도", "은", "는", "이", "가", "에", "의", "과", "와", "을", "를", "만", "부터", "까지"];
+    let word = WORD.get_or_init(|| regex::Regex::new(r"(일|이|삼|사|오|육|칠|팔|구|십)(반|학년|교시|모둠|조)").unwrap());
+    let mut out = String::with_capacity(text.len());
+    let mut last = 0;
+    for c in word.captures_iter(text) {
+        let m = c.get(0).unwrap();
+        let before = text[..m.start()].chars().next_back();
+        let after = &text[m.end()..];
+        let starts = before.is_none_or(|ch| !('가'..='힣').contains(&ch));
+        let ends = after.chars().next().is_none_or(|ch| !('가'..='힣').contains(&ch)) || PARTICLES.iter().any(|p| after.starts_with(p));
+        if !(starts && ends) {
+            continue;
+        }
+        let n = match &c[1] { "일" => "1", "이" => "2", "삼" => "3", "사" => "4", "오" => "5", "육" => "6", "칠" => "7", "팔" => "8", "구" => "9", _ => "10" };
+        out.push_str(&text[last..m.start()]);
+        out.push_str(n);
+        out.push_str(&c[2]);
+        last = m.end();
+    }
+    out.push_str(&text[last..]);
+    out
+}
+
 /// True when `needle` starts a line (or a 「/」 part of one) of `source`: 「1029 3학년 기말고사」.
 fn line_head(source: &str, needle: &str) -> bool {
     source.lines().flat_map(|l| l.split('/')).any(|part| part.trim_start().starts_with(needle))
@@ -358,6 +389,11 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
     let mut end_date_text = optional_string(object, "endDateText", &at)?;
     let reminder_text = optional_string(object, "reminderText", &at)?;
     let wait_for = optional_string(object, "waitFor", &at)?;
+    let change = match optional_string(object, "change", &at)?.as_str() {
+        c @ ("CANCEL" | "MOVE") => c.to_string(),
+        _ => String::new(),
+    };
+    let change_from = if change.is_empty() { String::new() } else { optional_string(object, "changeFrom", &at)? };
     let raw_subtasks: Vec<String> = match object.get("subtasks") {
         None | Some(Value::Null) => Vec::new(),
         Some(Value::Array(list)) => list
@@ -400,6 +436,10 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         if digits_only && !compact_dates(&time_text).is_empty() && line_head(source_text, &time_text) {
             date_text = std::mem::take(&mut time_text);
         }
+    }
+    // 「다음주 내내」 quoted as both start and end: the week itself (week_span), not an end day.
+    if kind == "PERIOD" && end_date_text == date_text {
+        end_date_text.clear();
     }
     // 「1209~1210」 as a period's start: its end is the second day.
     if kind == "PERIOD" && end_date_text.is_empty() {
@@ -566,7 +606,9 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         subtasks,
         suggested_subtasks,
         wait_for,
-        evidence: Evidence { sentence, date_text, time_text, end_date_text, reminder_text },
+        change,
+        change_from,
+        evidence: Evidence { sentence: dictated_numbers(&sentence), date_text, time_text: dictated_numbers(&time_text), end_date_text, reminder_text },
         confidence: if needs_review { confidence.min(0.5) } else { confidence },
         needs_review,
         review_reasons: reasons,
@@ -619,6 +661,15 @@ fn fold_waited_schedules(mut items: Vec<ProposalItem>) -> Vec<ProposalItem> {
     items
 }
 
+/// 「… 확정되면 보내기(지금은 수요일일지 목요일일지 알지 못함)」: the 「not known yet」 part is no
+/// item of its own (it came out as a dateless 「인사자문위원회」 appointment, then a 기억).
+fn drop_unsure_echoes(items: Vec<ProposalItem>) -> Vec<ProposalItem> {
+    if items.len() < 2 {
+        return items;
+    }
+    items.into_iter().filter(|x| !(x.kind != "TODO" && x.start_at.is_empty() && unsure_date(&x.evidence.sentence))).collect()
+}
+
 /// Parses raw model output. Shape errors fail the job; nothing is filled in by guessing.
 /// `source_text` is `None` for engine B, where the text comes from the model's `transcript`.
 pub fn validate(raw: &str, source_text: Option<&str>, reference: DateTime<FixedOffset>) -> Result<Extraction, WorkerError> {
@@ -639,7 +690,11 @@ pub fn validate_with(raw: &str, source_text: Option<&str>, reference: DateTime<F
             Some(text)
         }
     };
-    let text = source_text.map(str::to_owned).or_else(|| transcript.clone()).unwrap_or_default();
+    // 「칠교시」 「오반도」 as dictated: the model writes 「7교시」 「5반도」 (as told) or quotes them as they
+    // are, so its phrases are checked against both (the fixed lines first, then the original ones).
+    let said = source_text.map(str::to_owned).or_else(|| transcript.clone()).unwrap_or_default();
+    let fixed = dictated_numbers(&said);
+    let text = if fixed == said { said } else { format!("{fixed}\n{said}") };
     let summary = string_field(object, "summary", "")?.trim().to_string();
     let items = object
         .get("items")
@@ -653,7 +708,7 @@ pub fn validate_with(raw: &str, source_text: Option<&str>, reference: DateTime<F
         .enumerate()
         .map(|(index, item)| validate_item(item, index, &text, items.len() == 1, reference, options))
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(Extraction { transcript, summary, items: fold_waited_schedules(drop_echoed_subtasks(items)) })
+    Ok(Extraction { transcript, summary, items: drop_unsure_echoes(fold_waited_schedules(drop_echoed_subtasks(items))) })
 }
 
 #[cfg(test)]
@@ -971,6 +1026,15 @@ mod tests {
         assert!(chunks.iter().all(|c| c.chars().count() <= 40));
         assert_eq!(chunks.join("\n"), text);
         assert_eq!(chunk_text(&"가".repeat(25), 10).len(), 3);
+    }
+
+    #[test]
+    fn dictated_numbers_are_read_as_numbers() {
+        assert_eq!(dictated_numbers("칠교시에 동아리, 오반도 진도, 내일 일교시"), "7교시에 동아리, 5반도 진도, 내일 1교시");
+        assert_eq!(dictated_numbers("이반장 오반장님 구조대"), "이반장 오반장님 구조대");
+        let text = "칠교시에 동아리 활동";
+        let e = validate(&answer(vec![said("SCHEDULE", "동아리 활동", "", "7교시", "7교시에 동아리 활동")]).to_string(), Some(text), reference()).unwrap();
+        assert!(e.items[0].start_at.starts_with("2026-10-21"), "{:?}", e.items[0]);
     }
 
     fn said(kind: &str, title: &str, date: &str, time: &str, evidence: &str) -> Value {

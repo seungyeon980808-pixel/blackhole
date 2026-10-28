@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const PROPOSAL_SCHEMA_VERSION: u32 = 2;
-pub const PROMPT_VERSION: &str = "extract-ko-v5-owner-style";
+pub const PROMPT_VERSION: &str = "extract-ko-v6-change-cancel";
 pub const WORKER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,6 +99,13 @@ pub struct ProposalItem {
     /// 「병렬협조 마무리되면 …」 「김선생님 연락 오는 거 보고 …」: what has to happen first (「기다림」).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub wait_for: String,
+    /// 「치과 3시에서 4시로 바뀜」 「학년 협의회 취소됨」: "MOVE" | "CANCEL" an entry already in the
+    /// calendar named by `title` (start_at = the new day/time said; empty phrases keep the old one).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub change: String,
+    /// The old day/time as said (「금요일 3시」), to pick the right one among several.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub change_from: String,
     pub evidence: Evidence,
     /// Model self-reported confidence, 0.0..=1.0; capped at 0.5 when review is needed.
     pub confidence: f64,

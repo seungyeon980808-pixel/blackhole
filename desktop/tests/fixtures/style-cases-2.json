@@ -1,0 +1,1077 @@
+{
+ "about": "Owner-style sentences, set 2 (harsh: dictation, glued words, corrections, chat exports, notices, changes). See style-cases.json for the format; changed = fixture entries the words change.",
+ "now": "2026-10-28T09:00:00+09:00",
+ "fixture": {
+  "events": [
+   {
+    "id": "e-fx1",
+    "title": "대의원회",
+    "date": "2026-11-16",
+    "start": "15:10",
+    "end": "15:55"
+   },
+   {
+    "id": "e-fx2",
+    "title": "학년 협의회",
+    "date": "2026-11-03",
+    "start": "15:00",
+    "end": "16:00"
+   },
+   {
+    "id": "e-fx3",
+    "title": "치과",
+    "date": "2026-10-30",
+    "start": "15:00",
+    "end": "16:00",
+    "area": "personal"
+   },
+   {
+    "id": "e-fx4",
+    "title": "교과협의회",
+    "date": "2026-10-30",
+    "start": "10:00",
+    "end": "11:00"
+   },
+   {
+    "id": "e-fx5",
+    "title": "교과협의회",
+    "date": "2026-11-06",
+    "start": "10:00",
+    "end": "11:00"
+   },
+   {
+    "id": "e-fx6",
+    "title": "학부모 상담",
+    "date": "2026-10-29",
+    "start": "16:30",
+    "end": "17:00"
+   }
+  ],
+  "tasks": [
+   {
+    "id": "t-fx1",
+    "title": "3반 수행평가 점수 확인",
+    "due": "2026-10-28"
+   },
+   {
+    "id": "t-fx7",
+    "title": "출장 신청",
+    "due": "2026-10-30"
+   },
+   {
+    "id": "t-fx8",
+    "title": "성적 입력",
+    "due": "2026-11-05"
+   },
+   {
+    "id": "t-fx9",
+    "title": "가정통신문 발송",
+    "due": "2026-10-29"
+   }
+  ]
+ },
+ "cases": [
+  {
+   "id": "s1",
+   "text": "내일 오후 세시 학부모 상담",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "학부모 상담"
+     ],
+     "date": "2026-10-29",
+     "start": "15:00",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "text": "다음주 월요일 열시 반 교직원 회의",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "교직원 회의"
+     ],
+     "date": "2026-11-02",
+     "start": "10:30",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "s3",
+   "text": "모레 아홉시 반까지 출석부 제출",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "출석부"
+     ],
+     "due": "2026-10-30",
+     "time": "09:30",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "s4",
+   "text": "삼반 수행평가 점수 입력해야됨",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "3반",
+      "수행평가"
+     ],
+     "noDue": true,
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "s5",
+   "text": "칠교시에 동아리 활동",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "동아리"
+     ],
+     "date": "2026-10-28",
+     "start": "15:10",
+     "end": "15:55",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "s6",
+   "text": "내일 일교시 2반 공개수업",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "2반",
+      "공개수업"
+     ],
+     "date": "2026-10-29",
+     "start": "08:50",
+     "end": "09:35",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "s7",
+   "text": "내일오후3시치과예약",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "치과"
+     ],
+     "date": "2026-10-29",
+     "start": "15:00",
+     "area": "personal"
+    }
+   ]
+  },
+  {
+   "id": "s8",
+   "text": "어 그러니까 음 내일 내일 오후 두시에 학년 회의 있어",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "학년 회의"
+     ],
+     "date": "2026-10-29",
+     "start": "14:00",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "s9",
+   "text": "내일 3시 아니 4시에 진로 상담",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "진로 상담"
+     ],
+     "date": "2026-10-29",
+     "start": "16:00",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "s10",
+   "text": "목요일 아니고 금요일에 부서 회식",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "회식"
+     ],
+     "date": "2026-10-30"
+    }
+   ]
+  },
+  {
+   "id": "s11",
+   "text": "이번주 일요일 등산",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "등산"
+     ],
+     "date": "2026-11-01",
+     "area": "personal"
+    }
+   ]
+  },
+  {
+   "id": "s12",
+   "text": "다다음주 월요일 연수",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "연수"
+     ],
+     "date": "2026-11-09"
+    }
+   ]
+  },
+  {
+   "id": "s13",
+   "text": "1월 3일 동창회",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "동창회"
+     ],
+     "date": "2027-01-03",
+     "area": "personal"
+    }
+   ]
+  },
+  {
+   "id": "s14",
+   "text": "12월 25일 크리스마스 가족 모임",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "가족 모임"
+     ],
+     "date": "2026-12-25",
+     "area": "personal"
+    }
+   ]
+  },
+  {
+   "id": "s15",
+   "text": "1130까지 연수 이수",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "연수"
+     ],
+     "due": "2026-11-30",
+     "time": null
+    }
+   ]
+  },
+  {
+   "id": "s16",
+   "text": "오늘 1130까지 연수 이수",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "연수"
+     ],
+     "due": "2026-10-28",
+     "time": "11:30"
+    }
+   ]
+  },
+  {
+   "id": "s17",
+   "text": "2시 학년 회의",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "학년 회의"
+     ],
+     "date": "2026-10-28",
+     "start": "14:00",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "s18",
+   "text": "내일 새벽 1시 택배 확인",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "택배"
+     ],
+     "due": "2026-10-29",
+     "time": "01:00",
+     "area": "personal"
+    }
+   ]
+  },
+  {
+   "id": "s19",
+   "text": "말일까지 보고서 제출",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "보고서"
+     ],
+     "due": "2026-10-31"
+    }
+   ]
+  },
+  {
+   "id": "s20",
+   "text": "다음주 중에 학부모 연락 돌리기",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "학부모"
+     ],
+     "dueIn": [
+      "2026-11-02",
+      "2026-11-08"
+     ],
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "s21",
+   "text": "12/21~1/2 겨울방학",
+   "only": true,
+   "expect": [
+    {
+     "k": "period",
+     "has": [
+      "겨울방학"
+     ],
+     "from": "2026-12-21",
+     "to": "2027-01-02"
+    }
+   ]
+  },
+  {
+   "id": "s22",
+   "text": "11월 2일부터 6일까지 학부모 상담 주간",
+   "only": true,
+   "expect": [
+    {
+     "k": "period",
+     "has": [
+      "상담 주간"
+     ],
+     "from": "2026-11-02",
+     "to": "2026-11-06"
+    }
+   ]
+  },
+  {
+   "id": "s23",
+   "text": "다음주 내내 수행평가 기간",
+   "only": true,
+   "expect": [
+    {
+     "k": "period",
+     "has": [
+      "수행평가"
+     ],
+     "from": "2026-11-02",
+     "to": "2026-11-06"
+    }
+   ]
+  },
+  {
+   "id": "s24",
+   "text": "점심시간에 2반 학생 상담",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "2반",
+      "상담"
+     ],
+     "date": "2026-10-28",
+     "start": "12:20",
+     "end": "13:20",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "s25",
+   "text": "6교시 끝나고 교무실로 오라고 3반 반장한테 전달",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "3반"
+     ],
+     "due": "2026-10-28",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "s26",
+   "text": "내일 7시 반 조찬 모임",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "조찬"
+     ],
+     "date": "2026-10-29",
+     "start": "07:30"
+    }
+   ]
+  },
+  {
+   "id": "s27",
+   "text": "금요일 저녁 7시 영화",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "영화"
+     ],
+     "date": "2026-10-30",
+     "start": "19:00",
+     "area": "personal"
+    }
+   ]
+  },
+  {
+   "id": "k1",
+   "text": "[오후 3:13] 교무부장: 내일 7교시 교직원 회의 있습니다\n[오후 3:15] 교무부장: 11월 5일까지 성적 입력 마감입니다",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "교직원 회의"
+     ],
+     "date": "2026-10-29",
+     "start": "15:10",
+     "area": "school"
+    },
+    {
+     "k": "task",
+     "has": [
+      "성적"
+     ],
+     "due": "2026-11-05",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "k2",
+   "text": "1. 행사명: 2026 과학의 날 행사\n2. 일시: 2026. 11. 18.(수) 14:00~16:00\n3. 장소: 시청각실\n4. 참가 신청서 제출: 11. 10.(화)까지",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "과학의 날"
+     ],
+     "date": "2026-11-18",
+     "start": "14:00",
+     "end": "16:00",
+     "area": "school"
+    },
+    {
+     "k": "task",
+     "has": [
+      "신청서"
+     ],
+     "due": "2026-11-10",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "k3",
+   "text": "2026년 10월 28일 수요일\n[오전 8:01] 학년부장: 오늘 4교시 학년 회의\n[오전 8:02] 학년부장: 다들 시간 되시나요?",
+   "only": false,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "학년 회의"
+     ],
+     "date": "2026-10-28",
+     "start": "11:35",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "k4",
+   "text": "11월 일정\n- 11/4 학생회 회의\n- 11/11 빼빼로데이 행사\n- 11/27 학부모 총회 (18:30)",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "학생회"
+     ],
+     "date": "2026-11-04",
+     "area": "school"
+    },
+    {
+     "k": "event",
+     "has": [
+      "빼빼로"
+     ],
+     "date": "2026-11-11"
+    },
+    {
+     "k": "event",
+     "has": [
+      "학부모 총회"
+     ],
+     "date": "2026-11-27",
+     "start": "18:30",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "k5",
+   "text": "오늘 할 거: 출석부 정리, 가정통신문 회수, 수행평가 채점 / 내일: 1교시 공개수업 / 금요일까지 생기부 입력",
+   "only": false,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "출석부"
+     ],
+     "due": "2026-10-28"
+    },
+    {
+     "k": "task",
+     "has": [
+      "회수"
+     ],
+     "due": "2026-10-28"
+    },
+    {
+     "k": "task",
+     "has": [
+      "채점"
+     ],
+     "due": "2026-10-28"
+    },
+    {
+     "k": "event",
+     "has": [
+      "공개수업"
+     ],
+     "date": "2026-10-29",
+     "start": "08:50"
+    },
+    {
+     "k": "task",
+     "has": [
+      "생기부"
+     ],
+     "due": "2026-10-30"
+    }
+   ]
+  },
+  {
+   "id": "c1",
+   "text": "교장선생님 결재 나면 체험학습 안내문 발송",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "안내문"
+     ],
+     "noDue": true,
+     "wait": "결재",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "c2",
+   "text": "견적서 받으면 품의 올리기",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "품의"
+     ],
+     "noDue": true,
+     "wait": "견적",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "c3",
+   "text": "다음주에 시간표 나오면 보강 계획 짜기",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "보강"
+     ],
+     "wait": "시간표",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "c4",
+   "text": "부장님이 확인해주시면 내일까지 계획서 수정해서 다시 올리기",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "계획서"
+     ],
+     "due": "2026-10-29",
+     "wait": "부장",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "p1",
+   "text": "보고서 초안 쓰고 부장님께 검토받고 금요일까지 최종 제출",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "보고서"
+     ],
+     "due": "2026-10-30",
+     "subsMin": 2
+    }
+   ]
+  },
+  {
+   "id": "f1",
+   "text": "출장 신청 완료",
+   "only": true,
+   "expect": [
+    {
+     "k": "note",
+     "has": [
+      "출장"
+     ],
+     "area": "school"
+    }
+   ],
+   "done": [
+    "t-fx7"
+   ]
+  },
+  {
+   "id": "f2",
+   "text": "가정통신문 다 보냄",
+   "only": true,
+   "expect": [
+    {
+     "k": "note",
+     "has": [
+      "가정통신문"
+     ],
+     "area": "school"
+    }
+   ],
+   "done": [
+    "t-fx9"
+   ]
+  },
+  {
+   "id": "f3",
+   "text": "성적 입력 끝냈어요",
+   "only": true,
+   "expect": [
+    {
+     "k": "note",
+     "has": [
+      "성적"
+     ],
+     "area": "school"
+    }
+   ],
+   "done": [
+    "t-fx8"
+   ]
+  },
+  {
+   "id": "f4",
+   "text": "오늘 3반 수행평가 점수 다 확인했습니다",
+   "only": true,
+   "expect": [
+    {
+     "k": "note",
+     "has": [
+      "3반"
+     ],
+     "area": "school"
+    }
+   ],
+   "done": [
+    "t-fx1"
+   ]
+  },
+  {
+   "id": "f5",
+   "text": "어제 4반 진도 나감",
+   "only": true,
+   "expect": [
+    {
+     "k": "note",
+     "has": [
+      "4반",
+      "진도"
+     ],
+     "area": "school"
+    }
+   ],
+   "done": []
+  },
+  {
+   "id": "x1",
+   "text": "11월 3일 학년 협의회 취소됨",
+   "only": true,
+   "expect": [],
+   "changed": [
+    {
+     "id": "e-fx2",
+     "gone": true
+    }
+   ]
+  },
+  {
+   "id": "x2",
+   "text": "치과 금요일 3시에서 4시로 바뀜",
+   "only": true,
+   "expect": [],
+   "changed": [
+    {
+     "id": "e-fx3",
+     "date": "2026-10-30",
+     "start": "16:00",
+     "end": "17:00"
+    }
+   ]
+  },
+  {
+   "id": "x3",
+   "text": "학부모 상담 5시로 변경",
+   "only": true,
+   "expect": [],
+   "changed": [
+    {
+     "id": "e-fx6",
+     "date": "2026-10-29",
+     "start": "17:00",
+     "end": "17:30"
+    }
+   ]
+  },
+  {
+   "id": "x4",
+   "text": "출장 신청 마감 다음주 수요일로 연장",
+   "only": true,
+   "expect": [],
+   "changed": [
+    {
+     "id": "t-fx7",
+     "due": "2026-11-04"
+    }
+   ]
+  },
+  {
+   "id": "x5",
+   "text": "대의원회 11월 20일로 미뤄짐",
+   "only": true,
+   "expect": [],
+   "changed": [
+    {
+     "id": "e-fx1",
+     "date": "2026-11-20",
+     "start": "15:10"
+    }
+   ]
+  },
+  {
+   "id": "x6",
+   "text": "교과협의회 다음주 금요일 걸로 취소",
+   "only": true,
+   "expect": [],
+   "changed": [
+    {
+     "id": "e-fx5",
+     "gone": true
+    },
+    {
+     "id": "e-fx4",
+     "gone": false
+    }
+   ]
+  },
+  {
+   "id": "x7",
+   "text": "내일 학부모 상담 안 하기로 함",
+   "only": true,
+   "expect": [],
+   "changed": [
+    {
+     "id": "e-fx6",
+     "gone": true
+    }
+   ]
+  },
+  {
+   "id": "i1",
+   "text": "3반 반장 김도현 부반장 이서윤",
+   "only": true,
+   "expect": [
+    {
+     "k": "note",
+     "has": [
+      "3반"
+     ],
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "i2",
+   "text": "교무실 프린터 토너는 캐비닛 두번째 칸",
+   "only": true,
+   "expect": [
+    {
+     "k": "note",
+     "has": [
+      "토너"
+     ],
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "i3",
+   "text": "https://padlet.com/abc 이거 2학년 모둠활동 패들렛",
+   "only": true,
+   "expect": [
+    {
+     "k": "note",
+     "has": [
+      "패들렛"
+     ],
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "i5",
+   "text": "엄마 생신 11월 9일",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "생신"
+     ],
+     "date": "2026-11-09",
+     "area": "personal"
+    }
+   ]
+  },
+  {
+   "id": "i6",
+   "text": "주차 등록 차량번호 34나 5678",
+   "only": true,
+   "expect": [
+    {
+     "k": "note",
+     "has": [
+      "차량"
+     ],
+     "area": "personal"
+    }
+   ]
+  },
+  {
+   "id": "g1",
+   "text": "음...",
+   "only": true,
+   "expect": []
+  },
+  {
+   "id": "g2",
+   "text": "ㅋㅋㅋ",
+   "only": true,
+   "expect": []
+  },
+  {
+   "id": "g3",
+   "text": "아 맞다",
+   "only": true,
+   "expect": []
+  },
+  {
+   "id": "a2",
+   "text": "토요일 2시 결혼식 강남",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "결혼식"
+     ],
+     "date": "2026-10-31",
+     "start": "14:00",
+     "area": "personal"
+    }
+   ]
+  },
+  {
+   "id": "a3",
+   "text": "다음주 화요일 건강검진 오전 8시",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "건강검진"
+     ],
+     "date": "2026-11-03",
+     "start": "08:00",
+     "area": "personal"
+    }
+   ]
+  },
+  {
+   "id": "m1",
+   "text": "내일 정오에 교장선생님 면담",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "면담"
+     ],
+     "date": "2026-10-29",
+     "start": "12:00",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "m2",
+   "text": "모레 17:30~18:30 학부모 면담",
+   "only": true,
+   "expect": [
+    {
+     "k": "event",
+     "has": [
+      "학부모 면담"
+     ],
+     "date": "2026-10-30",
+     "start": "17:30",
+     "end": "18:30",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "m3",
+   "text": "오늘 오후 4시 반 전에 공문 접수",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "공문"
+     ],
+     "due": "2026-10-28",
+     "time": "16:30",
+     "area": "school"
+    }
+   ]
+  },
+  {
+   "id": "m4",
+   "text": "금요일 오전 중으로 기안 올리기",
+   "only": true,
+   "expect": [
+    {
+     "k": "task",
+     "has": [
+      "기안"
+     ],
+     "due": "2026-10-30",
+     "area": "school"
+    }
+   ]
+  }
+ ]
+}

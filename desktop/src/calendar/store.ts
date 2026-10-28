@@ -4,7 +4,7 @@
 import type { Proposal, ProposalItem } from "../worker/proposal";
 import { addDays, diffDays, fdShort, fromStamp, isoToStamp, mins, nowHM, parseDay, stamp, ymd } from "./dates";
 import { type Area, type CalEvent, type CalendarState, type Entry, type LogEntry, type Memo, type Period, type Suggestion, type Task, type UserAction } from "./model";
-import { memoDraft, parseDraft, singleTime, timeRange, timeWords } from "./rules";
+import { memoDraft, parseDraft, parseRule, singleTime, timeRange, timeWords } from "./rules";
 
 export const newId = (s: CalendarState, prefix: string): string => `${prefix}-${s.nextId++}`;
 
@@ -68,7 +68,82 @@ export interface Applied {
   missing: string[];
   /** Open to-dos the sentence said were finished (「3반 수행평가 점수 확인함」), now checked. */
   done?: string[];
+  /** Entries a 「취소됨」 「4시로 바뀜」 changed: how they were (for ⌘Z) and what was done. */
+  changed?: { id: string; before: Entry; what: string }[];
+  /** A 「취소」 「변경」 that named nothing in the calendar. */
+  unmatched?: string[];
 }
+
+export const MANY_TARGETS = "바꿀 일정이 여럿이라 확인 필요: ";
+const CANCEL_SAID = /취소|안\s*하|안\s*함|없어|없던|무산|안\s*열|빠지|빠짐|빠졌/;
+const MOVE_SAID = /바뀌|바뀜|바꿈|변경|미뤄|미룸|미뤘|연기|앞당|연장|늘어|늘렸|늘림|옮|(?:으로|로)(?:\s|$|까지)/;
+
+/**
+ * 「치과 금요일 3시에서 4시로 바뀜」 「학년 협의회 취소됨」: the one live appointment or open to-do
+ * the words name (the old day/time said narrows it down). Several: none (asked in 확인할 것).
+ */
+export function changeTargets(s: CalendarState, item: ProposalItem, now: Date): (CalEvent | Task)[] {
+  const squash = (x: string) => x.replace(/\s+/g, "");
+  const name = squash(item.title);
+  if (name.length < 2) return [];
+  const today = ymd(now);
+  const named = (x: { title: string }) => squash(x.title).includes(name) || (squash(x.title).length >= 2 && name.includes(squash(x.title)));
+  let list: (CalEvent | Task)[] = [...liveEvents(s).filter((e) => e.date >= today && !e.workFor && named(e)), ...liveTasks(s).filter((t) => !t.done && named(t))];
+  // 「교과협의회 다음주 금요일 걸로 취소」: a cancel's day says which one.
+  const from = (item.changeFrom || (item.change === "CANCEL" ? `${item.evidence.dateText} ${item.evidence.timeText}` : "")).trim();
+  if (list.length > 1 && from) {
+    const r = parseRule(`${from} 일정`, now);
+    const dated = /\d+\s*월|\d+\s*일|[월화수목금토일]요일|오늘|내일|모레|\d+\/\d+/.test(from);
+    const narrowed = list.filter((x) => {
+      const day = x.kind === "event" ? x.date : x.due;
+      const hm = x.kind === "event" ? x.start : x.dueTime;
+      return (!dated || !r.date || day === r.date) && (!r.hasTime || hm === r.time);
+    });
+    if (narrowed.length) list = narrowed;
+  }
+  return list;
+}
+
+/** The change itself (one target): gone, or moved to the day/time said (the rest kept, reminders moved along). */
+function applyChange(x: CalEvent | Task, item: ProposalItem): string {
+  if (item.change === "CANCEL") {
+    x.gone = true;
+    return `취소: 「${x.title}」`;
+  }
+  const at = item.startAt ? new Date(item.startAt) : null;
+  const newDay = at && item.evidence.dateText ? ymd(at) : null;
+  const newTime = at && item.evidence.timeText ? nowHM(at) : null;
+  const dayOf = (k: string) => fromStamp(`${k}T00:00`).getTime();
+  if (x.kind === "event") {
+    const was = `${fdShort(x.date)}${x.start ? ` ${x.start}` : ""}`;
+    const oldAt = fromStamp(`${x.date}T${x.start ?? "00:00"}`).getTime();
+    const length = x.start && x.end ? mins(x.end) - mins(x.start) : null;
+    if (newDay) x.date = newDay;
+    if (newTime) {
+      x.start = newTime;
+      const end = item.endAt && item.evidence.timeText.match(/[~\-–]|부터/) ? nowHM(new Date(item.endAt)) : length !== null ? hmOf(mins(newTime) + length) : hmOf(mins(newTime) + 60);
+      x.end = end;
+    }
+    const shift = fromStamp(`${x.date}T${x.start ?? "00:00"}`).getTime() - oldAt;
+    x.reminders = x.reminders.map((r) => stamp(new Date(fromStamp(r).getTime() + shift)));
+    return `바꿈: 「${x.title}」 ${was} → ${fdShort(x.date)}${x.start ? ` ${x.start}` : ""}`;
+  }
+  const was = `${x.noDue ? "날짜 없음" : fdShort(x.due)}${x.dueTime ? ` ${x.dueTime}` : ""}`;
+  const oldAt = dayOf(x.due) + (x.dueTime ? mins(x.dueTime) * 60e3 : 0);
+  if (newDay) {
+    x.due = newDay;
+    delete x.noDue;
+  }
+  if (newTime) x.dueTime = newTime;
+  const shift = dayOf(x.due) + (x.dueTime ? mins(x.dueTime) * 60e3 : 0) - oldAt;
+  x.reminders = x.reminders.map((r) => stamp(new Date(fromStamp(r).getTime() + shift)));
+  return `바꿈: 「${x.title}」 ${was} → ${fdShort(x.due)}${x.dueTime ? ` ${x.dueTime}` : ""}`;
+}
+
+const hmOf = (m: number): string => {
+  const c = Math.min(Math.max(m, 0), 23 * 60 + 59);
+  return `${String(Math.floor(c / 60)).padStart(2, "0")}:${String(c % 60).padStart(2, "0")}`;
+};
 
 /* ---------- how the owner writes (tests/fixtures/style-cases.json) ---------- */
 
@@ -121,11 +196,37 @@ function itemReview(item: ProposalItem): string[] | undefined {
  * (the UI offers 되돌리기).
  */
 export function applyProposal(s: CalendarState, p: Proposal, source: string, now: Date, srcKey?: string): Applied {
-  const out: Applied = { refs: [], missing: [], done: [] };
+  const out: Applied = { refs: [], missing: [], done: [], changed: [], unmatched: [] };
   const createdAt = stamp(now);
   const today = ymd(now);
   const said = new Map<string, string>();
-  for (let item of p.items) {
+  const queue = p.items.slice();
+  for (let i = 0; i < queue.length; i++) {
+    let item = queue[i];
+    // The model once took 「출장 신청 다 했어요」 for a cancel: a change counts only when its words are said.
+    const words = item.evidence.sentence || p.sourceText || "";
+    if (item.change === "CANCEL" && !CANCEL_SAID.test(words)) item = { ...item, change: undefined };
+    if (item.change === "MOVE" && !MOVE_SAID.test(words)) item = { ...item, change: undefined };
+    // 「취소됨」 「4시로 바뀜」: the entry already in the calendar, not a new one.
+    if (item.change) {
+      const targets = changeTargets(s, item, now);
+      if (targets.length === 1) {
+        const x = targets[0];
+        const before = JSON.parse(JSON.stringify(x)) as Entry;
+        out.changed!.push({ id: x.id, before, what: applyChange(x, item) });
+        continue;
+      }
+      if (targets.length > 1) {
+        const note: Memo = { id: newId(s, "n"), kind: "note", title: `${item.title} ${item.change === "CANCEL" ? "취소" : "변경"}`, details: item.evidence.sentence || undefined, area: areaOf(item.area), source, createdAt, review: [`${MANY_TARGETS}${targets.map((t) => `「${t.title}」 ${t.kind === "event" ? fdShort(t.date) : fdShort(t.due)}`).join(", ")}`], ...(srcKey ? { srcKey } : {}) };
+        s.notes.push(note);
+        out.refs.push(note.id);
+        continue;
+      }
+      out.unmatched!.push(item.title);
+      // 「치과 4시로 바뀜」 with no 치과 in the calendar: nothing to change; a move still says when, so it goes in as new.
+      if (item.change === "CANCEL") continue;
+      item = { ...item, change: undefined };
+    }
     const sentence = item.evidence.sentence || (p.items.length === 1 ? p.sourceText ?? "" : "");
     const finished = doneReport(sentence) || doneReport(item.title);
     // 「5반 수행평가 점수 확인 끝」: a record of what was done, and the open to-do it finishes.
@@ -141,8 +242,21 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
     if (item.kind === "NOTE" && item.startAt && !finished && ymd(new Date(item.startAt)) >= today) item = { ...item, kind: "SCHEDULE" };
     // 「오늘 3반 수행평가 점수 확인함」 → 「3반 …」: the class the sentence names stays in the title.
     const classes = sentence.length <= 160 ? classesIn(sentence) : [];
+    // 「금요일까지 2반 6반 수행평가 채점」 made one to-do: one per class, as the owner checks them.
+    if (classes.length > 1 && (item.kind === "TODO" || item.kind === "SCHEDULE") && !classesIn(item.title).length && !p.items.some((y) => classesIn(y.title).length)) {
+      const [first, ...rest] = classes;
+      const base = item;
+      queue.splice(i + 1, 0, ...rest.map((c) => ({ ...base, title: `${c} ${base.title}` })));
+      item = { ...item, title: `${first} ${item.title}` };
+    }
     if (classes.length === 1 && !classesIn(item.title).length) item = { ...item, title: `${classes[0]} ${item.title}` };
     if (item.area !== "SCHOOL" && SCHOOL_WORDS.test(`${item.title} ${sentence}`)) item = { ...item, area: "SCHOOL" };
+    // 「퇴근 전에 공문 회신」 with the time words left out by the model: today, at this school's time.
+    if (!item.startAt && (item.kind === "TODO" || item.kind === "SCHEDULE") && !item.change && /\d\s*교시|점심|출근|퇴근/.test(sentence)) {
+      const d = new Date(now);
+      d.setHours(9, 0, 0, 0);
+      item = { ...item, startAt: d.toISOString(), endAt: "", evidence: { ...item.evidence, timeText: sentence } };
+    }
     // 「3교시」 「점심시간」 「퇴근 전」: school words the worker does not know — this school's own times.
     const school = item.startAt && /교시|점심|출근|퇴근/.test(item.evidence.timeText) ? timeWords(item.evidence.timeText, s.settings) : "";
     const span = school ? timeRange(school) : null;
@@ -268,9 +382,10 @@ export function anchorRelativeDates(s: CalendarState, now: Date, hint: { prefer?
     const note = t.review.find((r) => r.startsWith(UNREAD) || r.startsWith(NO_ANCHOR) || r.startsWith(MANY_ANCHORS));
     if (!note) continue;
     const phrase = note.slice(note.indexOf("「") + 1, note.lastIndexOf("」"));
-    const offset = relativeOffset(phrase);
+    // 「대의원회 전날」 quoted whole: the relative part counts, the name is the anchor.
+    const offset = relativeOffset(phrase) ?? relativeOffset(RELATIVE_SAID.exec(phrase)?.[0] ?? "");
     if (offset === null) continue;
-    const text = squash(`${t.title} ${t.details ?? ""} ${hint.said?.get(t.id) ?? ""}`);
+    const text = squash(`${t.title} ${t.details ?? ""} ${hint.said?.get(t.id) ?? ""} ${phrase}`);
     let anchors = [
       ...liveEvents(s).filter((e) => !e.workFor).map((e) => ({ id: e.id, title: e.title, date: e.date })),
       ...livePeriods(s).map((p) => ({ id: p.id, title: p.title, date: p.from }))
@@ -414,6 +529,8 @@ export function refineDrafts(s: CalendarState, key: string, p: Proposal, source:
   const applied = applyProposal(s, p, source, now, key);
   out.missing = applied.missing;
   out.done = applied.done;
+  out.changed = applied.changed;
+  out.unmatched = applied.unmatched;
   const fresh = applied.refs.map((id) => findEntry(s, id)!).filter(Boolean);
   const left = group.slice();
   for (const n of fresh) {
