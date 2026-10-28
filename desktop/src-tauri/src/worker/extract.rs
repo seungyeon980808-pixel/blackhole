@@ -10,6 +10,8 @@ use serde_json::{json, Map, Value};
 
 pub const MAX_ITEMS: usize = 20;
 pub const MAX_SUBTASKS: usize = 20;
+/// 「AI 제안」 steps kept per to-do.
+pub const MAX_SUGGESTED: usize = 5;
 
 const SYSTEM_PROMPT: &str = "너는 한국어 메모·지시·문서를 일정, 할 일, 기억할 정보로 정리하는 도구다. 입력은 말로 한 지시, 받아 적은 음성, 공문·안내문·사진에서 뽑은 글일 수 있다. JSON 하나로만 답한다.
 - summary: 입력 전체를 한 줄로 요약.
@@ -21,7 +23,7 @@ const SYSTEM_PROMPT: &str = "너는 한국어 메모·지시·문서를 일정, 
   - dateText: 원문의 날짜 표현을 글자 그대로 옮긴다(예: \"내일\", \"다음 주 화요일\", \"11월 3일\"). 날짜를 계산하거나 바꾸지 않는다. 없으면 \"\".
   - timeText: 원문의 시간 표현을 글자 그대로 옮긴다(예: \"오후 3시\", \"10시 반\", \"1620\", \"16:20~21:20\", \"16202120\"). 숫자만 쓴 시각도 시간 표현이다. 없으면 \"\".
   - endDateText: PERIOD일 때 끝 날짜 표현을 글자 그대로(예: \"6일\", \"11월 6일\"). dateText는 시작 날짜. PERIOD가 아니면 \"\".
-  - subtasks: 할 일 아래 나열된 하위 할 일들을 원문 말 그대로 목록으로(예: \"보고서 제출: 자료 정리, 초안, 결재\" → [\"자료 정리\",\"초안\",\"결재\"]). 없으면 [].
+  - subtasks: 할 일 아래 나열된 하위 할 일들을 원문 말 그대로 목록으로(예: \"보고서 제출: 자료 정리, 초안, 결재\" → [\"자료 정리\",\"초안\",\"결재\"]). 원문에 단계가 없어도 순서가 있는 일(기안·준비·제출처럼 여러 단계)이면 꼭 필요한 단계를 짧게 최대 5개까지 순서대로 제안해도 된다. 단순한 일이면 [].
   - reminderText: \"~에 알려 줘\", \"~에 알림\"처럼 알림 때를 따로 말했으면 그 날짜·시간 표현을 글자 그대로(예: \"목요일 9시\"). 없으면 \"\".
   - evidence: 그 항목의 근거가 된 원문 구절.
   - confidence: 0과 1 사이 숫자. 애매하면 낮게.
@@ -392,16 +394,20 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         _ => {}
     }
 
+    // Steps the source names stay as they are; steps the model added are kept apart as
+    // 「AI 제안」 (at most MAX_SUGGESTED, in order) instead of being dropped. Dates and times
+    // are still checked strictly against the source above — only steps are let through.
     let mut subtasks = Vec::new();
+    let mut suggested_subtasks = Vec::new();
     for sub in raw_subtasks.into_iter().filter(|s| !s.is_empty()) {
-        if subtasks.len() == MAX_SUBTASKS {
-            reasons.push(format!("하위 할 일이 많아 {MAX_SUBTASKS}개까지만 둠"));
-            break;
-        }
         if quoted_in(source_text, &sub) {
+            if subtasks.len() == MAX_SUBTASKS {
+                reasons.push(format!("하위 할 일이 많아 {MAX_SUBTASKS}개까지만 둠"));
+                break;
+            }
             subtasks.push(sub);
-        } else {
-            reasons.push(format!("원문에 없는 하위 할 일을 버림: 「{sub}」"));
+        } else if suggested_subtasks.len() < MAX_SUGGESTED && kind == "TODO" {
+            suggested_subtasks.push(sub);
         }
     }
 
@@ -477,6 +483,7 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         reminder_at: iso(reminders.first().copied()),
         reminders: reminders.iter().map(|r| r.to_rfc3339()).collect(),
         subtasks,
+        suggested_subtasks,
         evidence: Evidence { sentence, date_text, time_text, end_date_text, reminder_text },
         confidence: if needs_review { confidence.min(0.5) } else { confidence },
         needs_review,
@@ -491,10 +498,12 @@ fn drop_echoed_subtasks(mut items: Vec<ProposalItem>) -> Vec<ProposalItem> {
     let titles: Vec<String> = items.iter().map(|i| squash(&i.title)).collect();
     for item in &mut items {
         let own = squash(&item.title);
-        item.subtasks.retain(|sub| {
+        let keep = |sub: &String| {
             let sub = squash(sub);
             sub != own && !titles.iter().any(|t| *t == sub)
-        });
+        };
+        item.subtasks.retain(keep);
+        item.suggested_subtasks.retain(keep);
     }
     items
 }
@@ -637,7 +646,9 @@ mod tests {
         let e = validate(&answer(vec![v]).to_string(), Some(TEXT), reference()).unwrap();
         let t = &e.items[0];
         assert_eq!(t.subtasks, vec!["상담 일정"]);
-        assert!(t.review_reasons.iter().any(|r| r.contains("원문에 없는 하위 할 일")));
+        // A step the source does not say is kept apart as 「AI 제안」, not a reason for review.
+        assert_eq!(t.suggested_subtasks, vec!["명단 출력"]);
+        assert!(!t.review_reasons.iter().any(|r| r.contains("하위 할 일")));
         assert!(t.review_reasons.iter().any(|r| r.contains("알림 때를 해석하지 못함")));
         assert_eq!(t.reminders, vec!["2026-10-22T14:30:00+09:00"], "falls back to the default reminder");
     }

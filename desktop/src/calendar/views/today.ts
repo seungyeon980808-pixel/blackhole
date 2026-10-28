@@ -36,7 +36,7 @@ export function bucketOf(t: Task, now: Date, offWork?: string): Bucket {
  * The to-do list in order, with its numbers: 오늘 (due today or passed) by 급함 → ★ → deadline,
  * then 나중 by date. The number is the same in the list and on the day table.
  */
-export function orderedTasks(s: CalendarState, today: string, now: Date): { today: Task[]; later: Task[]; done: Task[]; num: Map<string, number> } {
+export function orderedTasks(s: CalendarState, today: string, now: Date): { today: Task[]; later: Task[]; undated: Task[]; done: Task[]; num: Map<string, number> } {
   const off = s.settings.offWork;
   const live = liveTasks(s);
   const open = live.filter((t) => !t.done);
@@ -44,11 +44,13 @@ export function orderedTasks(s: CalendarState, today: string, now: Date): { toda
   const byUrgency = (a: Task, b: Task) =>
     Number(isUrgent(b, now, off)) - Number(isUrgent(a, now, off)) || (b.star ?? 0) - (a.star ?? 0) || minsLeft(a, now, off) - minsLeft(b, now, off);
   const t = open.filter(isToday).sort(byUrgency);
-  const later = open.filter((x) => !isToday(x)).sort((a, b) => (a.noDue ? "9" : a.due + (a.dueTime ?? "99")).localeCompare(b.noDue ? "9" : b.due + (b.dueTime ?? "99")) || (b.star ?? 0) - (a.star ?? 0));
+  const later = open.filter((x) => !x.noDue && !isToday(x)).sort((a, b) => (a.due + (a.dueTime ?? "99")).localeCompare(b.due + (b.dueTime ?? "99")) || (b.star ?? 0) - (a.star ?? 0));
+  // 「날짜 없음」: no deadline was given — never today, never urgent, off the day table.
+  const undated = open.filter((x) => x.noDue).sort((a, b) => (b.star ?? 0) - (a.star ?? 0) || a.createdAt.localeCompare(b.createdAt));
   const num = new Map<string, number>();
-  [...t, ...later].forEach((x, i) => num.set(x.id, i + 1));
+  [...t, ...later, ...undated].forEach((x, i) => num.set(x.id, i + 1));
   const done = live.filter((x) => x.done && x.due === today);
-  return { today: t, later, done, num };
+  return { today: t, later, undated, done, num };
 }
 
 /** 「2시간 33분」 */
@@ -58,7 +60,7 @@ export function dur(n: number): string {
 }
 
 export function dueText(t: Task, now: Date, today: string, fd: (k: string) => string, offWork?: string): string {
-  if (t.noDue) return "마감 없음";
+  if (t.noDue) return "날짜 없음";
   if (t.due === today || t.due < today) {
     if (t.dueTime) {
       const d = minsLeft(t, now, offWork);
@@ -222,7 +224,7 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
 function stepRows(t: Task, n: number, open: boolean): string {
   if (!t.subs.length || !open) return "";
   const next = t.subs.findIndex((x) => !x.done);
-  return `<div class="steps">${t.subs.map((x, j) => `<div class="step ${x.done ? "done" : ""} ${j === next ? "next" : ""}"><span class="n">${n}-${j + 1}</span><span class="ck ${x.done ? "on" : ""}" data-sub="${t.id}:${j}" role="checkbox" aria-checked="${x.done}" tabindex="0"></span><span class="s">${esc(x.title)}</span>${j === next ? '<span class="tag">다음</span>' : "<span></span>"}</div>`).join("")}<input class="subadd on" data-subadd="${t.id}" placeholder="+ 단계 추가" aria-label="${esc(t.title)} 단계 추가"></div>`;
+  return `<div class="steps">${t.subs.map((x, j) => `<div class="step ${x.done ? "done" : ""} ${j === next ? "next" : ""}"><span class="n">${n}-${j + 1}</span><span class="ck ${x.done ? "on" : ""}" data-sub="${t.id}:${j}" role="checkbox" aria-checked="${x.done}" tabindex="0"></span><span class="s">${esc(x.title)}${x.ai ? '<span class="aisug" title="원문에 없던 단계 · AI가 제안">AI 제안</span>' : ""}</span>${j === next ? '<span class="tag">다음</span>' : "<span></span>"}</div>`).join("")}<input class="subadd on" data-subadd="${t.id}" placeholder="+ 단계 추가" aria-label="${esc(t.title)} 단계 추가"></div>`;
 }
 
 export function starBtn(x: Entry): string {
@@ -233,8 +235,8 @@ export function starBtn(x: Entry): string {
 
 export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => string): string {
   const off = ctx.s.settings.offWork;
-  const { today, later, done, num } = orderedTasks(ctx.s, k === ctx.today ? ctx.today : k, ctx.now);
-  const all = [...today, ...later];
+  const { today, later, undated, done, num } = orderedTasks(ctx.s, k === ctx.today ? ctx.today : k, ctx.now);
+  const all = [...today, ...later, ...undated];
   const count = (b: Bucket) => all.filter((t) => bucketOf(t, ctx.now, off) === b).length;
   const pass = (t: Task) => o.filter === "all" || bucketOf(t, ctx.now, off) === o.filter;
   const row = (t: Task) => {
@@ -250,6 +252,7 @@ export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => s
   const chip = (key: TodayOpts["filter"], name: string, c: number) => `<button class="${o.filter === key ? "on" : ""}" data-tf="${key}">${name}<b>${c}</b></button>`;
   const t1 = today.filter(pass);
   const t2 = later.filter(pass);
+  const t3 = undated.filter(pass);
   const d = parseDay(k);
   return `<div class="tl panel g">
     <div class="ph"><b>할 일</b><span>번호 = 하루표의 번호${done.length ? ` · 완료 ${done.length}` : ""}</span></div>
@@ -257,6 +260,7 @@ export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => s
     ${all.length === 0 ? '<div class="none">없음 · 「금요일까지 보고서」처럼 쓰면 들어갑니다</div>' : ""}
     ${t1.length ? `<div class="grp">오늘 ${d.getMonth() + 1}/${d.getDate()}(${DOW[d.getDay()]})<span>${t1.length}</span></div>${t1.map(row).join("")}` : ""}
     ${t2.length ? `<div class="grp later">나중<span>${t2.length}</span></div><div class="laterl">${t2.map(row).join("")}</div>` : ""}
+    ${t3.length ? `<div class="grp later">날짜 없음<span>${t3.length}</span></div><div class="laterl">${t3.map(row).join("")}</div>` : ""}
     ${done.length ? `<details class="fold" data-fold="done" ${ctx.open?.has("done") ? "open" : ""}><summary>완료 ${done.length}</summary>${ctx.open?.has("done") ? done.map((t) => `<div class="task done" data-ev="${t.id}"><span></span><span class="ck on" data-tdone="${t.id}" role="checkbox" aria-checked="true" tabindex="0"></span><span></span><span class="tn">${esc(t.title)}</span><span class="due"></span></div>`).join("") : ""}</details>` : ""}
   </div>`;
 }
@@ -285,8 +289,8 @@ export function todayView(ctx: Ctx, o: TodayOpts, fd: (k: string) => string, che
 /** 우선순위 (2×2): ① 지금 할 것 ② 계획할 것 ③ 빨리 처리할 것 ④ 나중에; drag between them. */
 export function priorityView(ctx: Ctx, fd: (k: string) => string): string {
   const off = ctx.s.settings.offWork;
-  const { today, later } = orderedTasks(ctx.s, ctx.today, ctx.now);
-  const open = [...today, ...later];
+  const { today, later, undated } = orderedTasks(ctx.s, ctx.today, ctx.now);
+  const open = [...today, ...later, ...undated];
   const q: [Bucket, string, string][] = [["now", "① 지금 할 것", "중요 · 급함"], ["imp", "② 계획할 것", "중요 · 여유"], ["urgent", "③ 빨리 처리할 것", "보통 · 급함"], ["rest", "④ 나중에", "보통 · 여유"]];
   const item = (t: Task) => `<div class="mq" draggable="true" data-task="${t.id}" data-ev="${t.id}">${starBtn(t)}<span class="tn ${t.star === 2 ? "s2b" : ""}">${esc(t.title)}</span><span class="due ${isUrgent(t, ctx.now, off) ? "urg" : ""}">${dueText(t, ctx.now, ctx.today, fd, off)}</span></div>`;
   const quad = ([k, n, d]: [Bucket, string, string]) => {
@@ -326,13 +330,15 @@ export function phoneToday(ctx: Ctx, o: TodayOpts, fd: (k: string) => string): s
   const off = ctx.s.settings.offWork;
   const p2 = (n: number) => String(n).padStart(2, "0");
   const nx = isToday ? nextUp(ctx.s, ctx.now) : null;
-  const ord = orderedTasks(ctx.s, k, ctx.now);
+  const ord0 = orderedTasks(ctx.s, k, ctx.now);
+  // Phone: 날짜 없음 sits at the end of the folded 「나중」 list.
+  const ord = { ...ord0, later: [...ord0.later, ...ord0.undated] };
   const open = (key: string) => !!ctx.open?.has(key);
   const trow = (t: Task) => {
     const n = ord.num.get(t.id);
     const urg = isUrgent(t, ctx.now, off);
     const due = dueText(t, ctx.now, ctx.today, fd, off);
-    const [left, right] = t.dueTime && t.due <= k ? [t.dueTime, due.split(" · ")[1] ?? ""] : [t.noDue ? "—" : t.due === k ? "오늘" : `${parseDay(t.due).getMonth() + 1}/${parseDay(t.due).getDate()}`, t.noDue ? "마감 없음" : ""];
+    const [left, right] = t.dueTime && t.due <= k ? [t.dueTime, due.split(" · ")[1] ?? ""] : [t.noDue ? "—" : t.due === k ? "오늘" : `${parseDay(t.due).getMonth() + 1}/${parseDay(t.due).getDate()}`, t.noDue ? "날짜 없음" : ""];
     return `<div class="prow" data-ev="${t.id}"><span class="tm ${urg ? "b" : ""}">${left}</span><span class="tn"><span class="ck" data-tdone="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="${esc(t.title)} 완료"></span><span class="no">${n ?? ""}</span>${t.star ? `<span class="star s${t.star}">★</span> ` : ""}${esc(t.title)}${t.subs.length ? ` <i class="x">${t.subs.filter((x) => x.done).length}/${t.subs.length}</i>` : ""}</span><span class="x ${urg ? "b" : ""}">${right}</span></div>`;
   };
   // Today's appointments and 루틴 in time order (routines tap to check).

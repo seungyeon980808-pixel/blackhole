@@ -13,7 +13,7 @@ import { startRecording, type Recording } from "./recorder";
 import { clockText, isSimpleCertain, memoDraft, parseDraft, parseRule, singleTime, timeRange, timeWords } from "./rules";
 import { seedState } from "./samples";
 import {
-  applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
+  anchorRelativeDates, applyAction, describe, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
 } from "./store";
 import { phoneToday, priorityView, todayView, type TodayOpts } from "./views/today";
 import { checksBar, dictationFixes, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
@@ -79,7 +79,10 @@ const RETIME_RE = /^(.+?)\s*(?:을|를|은|는|도)?\s*(?:((?:다음\s*주\s*)?[
 export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapter, options: MountOptions = {}): Promise<BlackholeApp> {
   const clock = options.now ?? (() => new Date());
   const stored = normalizeState(await adapter.load().catch(() => null));
-  const s: CalendarState = stored ?? (options.seed === false ? normalizeState({ schemaVersion: 1 })! : seedState(clock()));
+  // Sample data only for a browser preview that asks for it (seed: true); the app starts empty.
+  const s: CalendarState = stored ?? (options.seed === true ? seedState(clock()) : normalizeState({ schemaVersion: 1 })!);
+  // 「대의원회 일주일 전」 to-dos that came in before their appointment did: count them now.
+  anchorRelativeDates(s, clock());
 
   let view: ViewName = "day";
   try {
@@ -761,8 +764,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       ${st.theme === "glass" ? `<label class="set-row">밝기 <select data-set="mode"><option value="dark" ${st.mode === "dark" ? "selected" : ""}>어둡게</option><option value="light" ${st.mode === "light" ? "selected" : ""}>밝게</option></select></label>
       <label class="set-row">흐림 <input type="range" min="0" max="40" step="1" value="${st.glassBlur}" data-set="glassBlur" aria-label="유리 흐림 정도"><span class="set-v">${st.glassBlur}</span></label>
       <label class="set-row">배경 밝기 <input type="range" min="-50" max="50" step="5" value="${st.glassBright}" data-set="glassBright" aria-label="배경·카드 밝기"><span class="set-v">${st.glassBright > 0 ? "+" : ""}${st.glassBright}</span></label>
-      ${st.glassBlur !== 26 || st.glassBright !== 0 ? '<div class="set-row"><button class="mini" data-lookreset>처음 모습으로</button></div>' : ""}` : ""}
-      ${adapter.recordAction ? "" : `<label class="set-row"><input type="checkbox" data-set="samples" ${st.showSamples ? "checked" : ""}> 가짜 자료 보이기</label>`}`;
+      ${st.glassBlur !== 26 || st.glassBright !== 0 ? '<div class="set-row"><button class="mini" data-lookreset>처음 모습으로</button></div>' : ""}` : ""}`;
     const inboxPart = `${inbox.available ? `<label class="set-row"><input type="checkbox" data-set="inbox" ${inbox.enabled ? "checked" : ""}> 인박스 처리(휴대폰·드라이브에서 온 것 정리)</label>` : ""}
       ${inbox.available ? `<label class="set-row">폴더 <select data-set="inboxRoot"><option value="" ${st.inboxRoot ? "" : "selected"}>시험 폴더</option>${inbox.driveRoot ? `<option value="drive" ${st.inboxRoot ? "selected" : ""}>드라이브 「블랙홀」</option>` : ""}</select></label>` : ""}
       ${inbox.available ? `<div class="set-note">${st.inboxRoot ? "드라이브 「블랙홀」 폴더 · 넣은 원본은 지우지 않음" : "시험 폴더(이 Mac 안)"} · ${escapeHtml(inbox.root)}</div>${inbox.lastError ? `<div class="set-note"><span class="warn">${escapeHtml(inbox.lastError)}</span></div>` : ""}` : ""}
@@ -2317,6 +2319,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         if (y.kind === "task" && i > 0) [y.subs[i - 1], y.subs[i]] = [y.subs[i], y.subs[i - 1]];
       });
       if (q("[data-dsubdel]")) return editEntry(id, "하위 지움", (y) => void (y.kind === "task" && y.subs.splice(Number(q("[data-dsubdel]")!.dataset.dsubdel), 1)));
+      if (q("[data-dsubai]")) return editEntry(id, "AI 제안 단계 지움", (y) => void (y.kind === "task" && (y.subs = y.subs.filter((t) => !t.ai))));
       if (q("[data-ddup]")) return duplicateEntry(id);
       if (q("[data-dtagdel]")) return editEntry(id, "태그 지움", (y) => {
         if (y.kind === "note") y.tags = tagsOf(y).filter((t) => t !== q("[data-dtagdel]")!.dataset.dtagdel);

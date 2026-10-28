@@ -9,6 +9,8 @@ export type Area = "school" | "personal";
 
 /** Review note on a to-do without a deadline (its `due` is the day it came in). */
 export const NO_DUE_NOTE = "마감 날짜가 없어 오늘로 둠";
+/** The old worker's note for a proposed step it threw away (restored as an 「AI 제안」 step). */
+export const DROPPED_STEP = "원문에 없는 하위 할 일을 버림: ";
 
 interface Base {
   id: string;
@@ -78,6 +80,8 @@ export interface Routine {
 export interface SubTask {
   title: string;
   done: boolean;
+  /** Proposed by the AI, not said in the source (「AI 제안」). */
+  ai?: boolean;
 }
 
 /** To-do with optional deadline, reminders and a sub-checklist. */
@@ -201,7 +205,7 @@ export interface CalendarState {
 export const DEFAULT_SETTINGS: Settings = {
   theme: "glass",
   mode: "dark",
-  showSamples: true,
+  showSamples: false,
   inboxEnabled: false,
   inboxRoot: null,
   sharePhone: false,
@@ -278,7 +282,7 @@ export function cleanTasks(x: unknown): Task[] {
   return kept(x, (Array.isArray(x) ? x : []).flatMap((r) => {
     const t = base<Task>(r, "task");
     if (!t || !isDay(t.due)) return [];
-    const subs = (Array.isArray(t.subs) ? t.subs : []).filter((y) => y && typeof y === "object").map((y) => Object.assign(y, { title: String(y.title ?? ""), done: y.done === true }));
+    const subs = (Array.isArray(t.subs) ? t.subs : []).filter((y) => y && typeof y === "object").map((y) => Object.assign(y, { title: String(y.title ?? ""), done: y.done === true, ai: y.ai === true ? true : undefined }));
     return [Object.assign(t, { dueTime: typeof t.dueTime === "string" && /^\d\d:\d\d$/.test(t.dueTime) ? t.dueTime : null, done: t.done === true, reminders: strs(t.reminders), subs })];
   }));
 }
@@ -301,13 +305,25 @@ export function normalizeState(value: unknown): CalendarState | null {
   if (!v || typeof v !== "object" || v.schemaVersion !== 1) return null;
   const base = emptyState();
   const list = <T>(x: unknown): T[] => (Array.isArray(x) ? (x as T[]) : []);
+  // A preview seeded with fake data keeps it (showSamples on); real data drops it for good.
+  const real = (x: { sample?: boolean }) => v.settings?.showSamples === true || !x.sample;
+  // Same list back when nothing is dropped (callers may hold on to it).
+  const dropFake = <T extends { sample?: boolean }>(xs: T[]): T[] => (xs.every(real) ? xs : xs.filter(real));
   return {
     ...base,
-    events: cleanEvents(v.events),
-    // Tasks stored before `noDue` existed: the worker's 「오늘로 둠」 note marks a missing deadline.
-    tasks: cleanTasks(v.tasks).map((t) => (t.noDue === undefined && t.review?.includes(NO_DUE_NOTE) ? { ...t, noDue: true } : t)),
-    periods: cleanPeriods(v.periods),
-    notes: cleanNotes(v.notes),
+    // Fake sample data (가짜 자료) is gone for good: dropped on load, never seeded on the Mac.
+    events: dropFake(cleanEvents(v.events)),
+    // The old 「오늘로 둠」 note: it marks a missing deadline (→ 날짜 없음) and is no longer a question.
+    tasks: dropFake(cleanTasks(v.tasks)).map((t) => {
+      if (!t.review?.some((r) => r === NO_DUE_NOTE || r.startsWith(DROPPED_STEP))) return t;
+      // Steps the AI proposed but the old worker dropped come back as 「AI 제안」 steps.
+      const back = t.review.filter((r) => r.startsWith(DROPPED_STEP)).map((r) => r.slice(DROPPED_STEP.length).replace(/^「|」$/g, "").trim()).filter((x) => x && !t.subs.some((y) => y.title === x));
+      const review = t.review.filter((r) => r !== NO_DUE_NOTE && !r.startsWith(DROPPED_STEP));
+      const noDue = t.review.includes(NO_DUE_NOTE) ? t.noDue ?? true : t.noDue;
+      return { ...t, noDue, subs: [...t.subs, ...back.slice(0, 5).map((title) => ({ title, done: false, ai: true as const }))], review: review.length ? review : undefined };
+    }),
+    periods: dropFake(cleanPeriods(v.periods)),
+    notes: dropFake(cleanNotes(v.notes)),
     chat: list<ChatMessage>(v.chat),
     log: list<LogEntry>(v.log),
     inbox: list<InboxEntry>(v.inbox),

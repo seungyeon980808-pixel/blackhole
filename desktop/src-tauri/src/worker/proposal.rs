@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const PROPOSAL_SCHEMA_VERSION: u32 = 2;
-pub const PROMPT_VERSION: &str = "extract-ko-v3-subtasks";
+pub const PROMPT_VERSION: &str = "extract-ko-v4-suggested-steps";
 pub const WORKER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,6 +92,10 @@ pub struct ProposalItem {
     /// Sub-checklist under a TODO, in the source's words and order.
     #[serde(default)]
     pub subtasks: Vec<String>,
+    /// Steps the model proposed that the source did not say (at most 5, in order).
+    /// Kept as 「AI 제안」 steps the user can drop; never a reason for review.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub suggested_subtasks: Vec<String>,
     pub evidence: Evidence,
     /// Model self-reported confidence, 0.0..=1.0; capped at 0.5 when review is needed.
     pub confidence: f64,

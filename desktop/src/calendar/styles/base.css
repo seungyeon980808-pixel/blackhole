@@ -620,3 +620,10 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .mgrp .msumrow small { color: var(--ink3, #888); }
 .bh .mgrp .mrow { padding-left: 26px; }
 .bh .memol .mai { padding: 7px 10px; font-size: 12px; color: var(--ink2); border-bottom: 1px solid var(--hair, #ddd); }
+
+/* 「AI 제안」 step: the source did not say it; quiet label, no colour. */
+.bh .aisug { margin-left: 6px; padding: 0 5px; border: 1px solid rgba(255,255,255,.28); border-radius: 4px; font-size: 10.5px; font-weight: 500; color: var(--faint, rgba(255,255,255,.5)); white-space: nowrap; vertical-align: 1px; }
+/* 확인할 것 · 날짜가 지난 가승인: two plain word buttons (있었음 / 없던 일). */
+.bh .chkbtn { height: 24px; padding: 0 10px; margin-left: 6px; border-radius: 7px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.1); color: inherit; font-size: 12px; cursor: pointer; }
+.bh .chkbtn:hover { background: rgba(255,255,255,.2); }
+.bh.doc .chkbtn { border-color: var(--rule, #333); background: transparent; }

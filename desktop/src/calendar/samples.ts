@@ -8,6 +8,8 @@ import { emptyState, type CalendarState, type Area } from "./model";
 
 export function seedState(today: Date): CalendarState {
   const s = emptyState();
+  // A seeded preview shows its fake data (the app itself never seeds).
+  s.settings.showSamples = true;
   const day = (n: number) => ymd(addDays(today, n));
   const createdAt = stamp(today);
   let id = 1;

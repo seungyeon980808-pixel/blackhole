@@ -3,7 +3,7 @@
  */
 import type { Proposal, ProposalItem } from "../worker/proposal";
 import { addDays, diffDays, fdShort, fromStamp, isoToStamp, mins, nowHM, parseDay, stamp, ymd } from "./dates";
-import { NO_DUE_NOTE, type Area, type CalEvent, type CalendarState, type Entry, type LogEntry, type Memo, type Period, type Suggestion, type Task, type UserAction } from "./model";
+import { type Area, type CalEvent, type CalendarState, type Entry, type LogEntry, type Memo, type Period, type Suggestion, type Task, type UserAction } from "./model";
 import { memoDraft, parseDraft, singleTime, timeRange, timeWords } from "./rules";
 
 export const newId = (s: CalendarState, prefix: string): string => `${prefix}-${s.nextId++}`;
@@ -127,12 +127,10 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
         dueTime: item.startAt && timed ? nowHM(start) : null,
         done: false,
         reminders,
-        subs: item.subtasks.map((title) => ({ title, done: false }))
+        subs: [...item.subtasks.map((title) => ({ title, done: false })), ...(item.suggestedSubtasks ?? []).slice(0, 5).map((title) => ({ title, done: false, ai: true as const }))]
       };
-      if (!item.startAt) {
-        task.review = [...(task.review ?? []), NO_DUE_NOTE];
-        task.noDue = true;
-      }
+      // No deadline: 「날짜 없음」, not today (and nothing to ask about).
+      if (!item.startAt) task.noDue = true;
       s.tasks.push(task);
       out.refs.push(task.id);
       continue;
@@ -158,7 +156,63 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
     s.events.push(ev);
     out.refs.push(ev.id);
   }
+  anchorRelativeDates(s, now);
   return out;
+}
+
+/* ---------- 「대의원회 일주일 전」: a date counted from another appointment ---------- */
+
+const RELATIVE = /^(?:(일주일|한\s*주|(\d+)\s*주)|(하루|이틀|사흘|나흘|(\d+)\s*일))\s*전$|^(전날|당일|다음\s*날|다음날|그날)$/;
+const KO_DAYS: Record<string, number> = { 하루: 1, 이틀: 2, 사흘: 3, 나흘: 4 };
+
+/** Days from the anchor appointment for 「일주일 전」 「3일 전」 「전날」 「당일」 「다음 날」; null if not such a phrase. */
+export function relativeOffset(phrase: string): number | null {
+  const m = RELATIVE.exec(phrase.replace(/까지$/, "").trim());
+  if (!m) return null;
+  if (m[1]) return -7 * (m[2] ? Number(m[2]) : 1);
+  if (m[3]) return -(m[4] ? Number(m[4]) : KO_DAYS[m[3]]);
+  return m[5] === "전날" ? -1 : /다음/.test(m[5]) ? 1 : 0;
+}
+
+const UNREAD = "날짜 표현을 해석하지 못함: ";
+const NO_ANCHOR = "기준 일정을 찾지 못함: ";
+const MANY_ANCHORS = "기준 일정이 여럿이라 날짜를 정하지 못함: ";
+
+/**
+ * A to-do 「대의원회 일주일 전까지 준비」 has no date of its own: count it from the one
+ * appointment (or period) whose title it names. None or several: it stays 날짜 없음 and
+ * 확인할 것 says why. Returns the to-dos that got a date.
+ */
+export function anchorRelativeDates(s: CalendarState, now: Date): string[] {
+  const done: string[] = [];
+  const today = ymd(now);
+  const squash = (x: string) => x.replace(/\s+/g, "");
+  for (const t of liveTasks(s)) {
+    if (t.done || !t.noDue || !t.review?.length) continue;
+    const note = t.review.find((r) => r.startsWith(UNREAD) || r.startsWith(NO_ANCHOR) || r.startsWith(MANY_ANCHORS));
+    if (!note) continue;
+    const phrase = note.slice(note.indexOf("「") + 1, note.lastIndexOf("」"));
+    const offset = relativeOffset(phrase);
+    if (offset === null) continue;
+    const text = squash(`${t.title} ${t.details ?? ""}`);
+    const anchors = [
+      ...liveEvents(s).filter((e) => !e.workFor).map((e) => ({ title: e.title, date: e.date })),
+      ...livePeriods(s).map((p) => ({ title: p.title, date: p.from }))
+    ].filter((a) => a.date >= today && squash(a.title).length >= 2 && text.includes(squash(a.title)));
+    const days = [...new Set(anchors.map((a) => a.date))];
+    let next: string;
+    if (days.length === 1) {
+      const d = new Date(`${days[0]}T00:00`);
+      d.setDate(d.getDate() + offset);
+      t.due = ymd(d);
+      delete t.noDue;
+      next = "";
+      done.push(t.id);
+    } else next = `${days.length ? MANY_ANCHORS : NO_ANCHOR}「${phrase}」`;
+    t.review = t.review.map((r) => (r === note ? next : r)).filter(Boolean);
+    if (!t.review.length) delete t.review;
+  }
+  return done;
 }
 
 /* ---------- draft first, AI later ---------- */
@@ -313,6 +367,7 @@ export function refineDrafts(s: CalendarState, key: string, p: Proposal, source:
     out.updated.push(d.id);
   }
   for (const d of left) removeEntry(s, d);
+  anchorRelativeDates(s, now);
   return out;
 }
 
@@ -407,6 +462,8 @@ export function toggleSub(s: CalendarState, id: string, index: number): void {
   const t = s.tasks.find((x) => x.id === id);
   if (!t || !t.subs[index]) return;
   t.subs[index].done = !t.subs[index].done;
+  // Checking an 「AI 제안」 step accepts it: the label goes.
+  if (t.subs[index].done) delete t.subs[index].ai;
   t.done = t.subs.length > 0 && t.subs.every((x) => x.done);
 }
 

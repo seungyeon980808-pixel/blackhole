@@ -31,6 +31,8 @@ export interface ProposalItem {
   reminders: string[];
   /** Sub-checklist under a TODO, in the source's words. */
   subtasks: string[];
+  /** Steps the model proposed that the source did not say (「AI 제안」, at most 5). */
+  suggestedSubtasks?: string[];
   evidence: ProposalEvidence;
   confidence: number;
   needsReview: boolean;

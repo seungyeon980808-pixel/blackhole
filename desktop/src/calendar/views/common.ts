@@ -337,6 +337,8 @@ export function memoRows(ctx: Ctx, fd: (k: string) => string, query = ""): strin
  * has passed. The AI's small notes stay inside the cards.
  */
 const TIME_UNSURE = /날짜만|시각|시간|임시|정해/;
+/** A provisional appointment whose day has passed: 「있었음(확정)」 or 「없던 일(지우기)」. */
+export const PAST_PROVISIONAL = "날짜가 지난 가승인 · 있었나요?";
 export function checksOf(ctx: Ctx): { x: Entry; why: string }[] {
   const out: { x: Entry; why: string }[] = [];
   const seen = new Set<string>();
@@ -346,9 +348,14 @@ export function checksOf(ctx: Ctx): { x: Entry; why: string }[] {
       out.push({ x, why });
     }
   };
-  for (const x of needsReview(ctx)) if (x.review!.some((r) => TIME_UNSURE.test(r))) add(x, "시각을 정해 주세요");
   const live = ctx.s.events.filter((e) => !e.gone && !e.sample);
-  for (const e of live) if (e.provisional && e.date < ctx.today) add(e, "날짜가 지난 가승인");
+  // First: provisional appointments whose day has passed — did it happen or not?
+  for (const e of live.filter((e) => e.provisional && e.date < ctx.today).sort((a, b) => a.date.localeCompare(b.date))) add(e, PAST_PROVISIONAL);
+  for (const x of needsReview(ctx)) if (x.review!.some((r) => TIME_UNSURE.test(r))) add(x, "시각을 정해 주세요");
+  for (const x of needsReview(ctx)) {
+    const r = x.review!.find((r) => r.startsWith("기준 일정"));
+    if (r) add(x, r.startsWith("기준 일정이 여럿") ? "기준 일정이 여럿 · 날짜를 정해 주세요" : "기준 일정을 못 찾음 · 날짜를 정해 주세요");
+  }
   for (const d of duplicates(ctx.s)) add(d.x, `같은 ${KIND_WORD[d.x.kind]}이 두 번 · 합치면 하나만 남김`);
   const timed = live.filter((e) => e.start && e.end && e.date >= ctx.today);
   for (const a of timed) {
@@ -377,7 +384,9 @@ export function checksBar(ctx: Ctx, fd: (k: string) => string): string {
     resultCard(ctx, x.id, fd, false, "chk")
       .replace(/<button class="ib" data-(?:ok|tdone)="[^"]*"[^>]*>.*?<\/button>/, "")
       .replace(/<div class="rm2 warn">[\s\S]*?<\/div>/, "")
-      .replace('<div class="ra">', `<div class="rm2 warn">${esc(why)}</div><div class="ra">${why.startsWith("같은") ? `<button class="ib" data-merge="${x.id}" title="합치기(이것을 지우고 하나만 남김)" aria-label="합치기">${ICON.merge}</button>` : `<button class="ib" data-accept="${x.id}" title="맞아요" aria-label="맞아요">${ICON.ok}</button>`}`);
+      .replace('<div class="ra">', `<div class="rm2 warn">${esc(why)}</div><div class="ra">${why === PAST_PROVISIONAL
+        ? `<button class="chkbtn" data-accept="${x.id}" title="있었던 일로 확정" aria-label="있었음, 확정">있었음</button><button class="chkbtn" data-no="${x.id}" title="없던 일로 지우기 (되돌리기 가능)" aria-label="없던 일, 지우기">없던 일</button>`
+        : why.startsWith("같은") ? `<button class="ib" data-merge="${x.id}" title="합치기(이것을 지우고 하나만 남김)" aria-label="합치기">${ICON.merge}</button>` : `<button class="ib" data-accept="${x.id}" title="맞아요" aria-label="맞아요">${ICON.ok}</button>`}`);
   const fixCard = fixes.length
     ? `<div class="rc chk fixq"><div class="rt">받아쓰기 교정을 이미 있는 기록에도 할까요?</div>${fixes.slice(0, 3).map((f) => `<div class="rm2">「${esc(f.x.title)}」 → 「${esc(f.to)}」</div>`).join("")}${fixes.length > 3 ? `<div class="rm2">외 ${fixes.length - 3}건</div>` : ""}<div class="ra on"><button class="ib" data-fixall title="모두 고치기 (⌘Z로 되돌림)" aria-label="모두 고치기">${ICON.ok}</button><button class="ib" data-fixskip title="그대로 두기 (다시 묻지 않음)" aria-label="그대로 두기">${ICON.x}</button></div></div>`
     : "";
