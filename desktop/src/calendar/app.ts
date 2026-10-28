@@ -18,7 +18,7 @@ import {
 import { phoneToday, priorityView, todayView, type TodayOpts } from "./views/today";
 import { checksBar, dictationFixes, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
 import { detailHTML } from "./views/detail";
-import { cleanTag, ruleTags, tagsOf } from "./tags";
+import { cleanTag, isClassTag, liveNotes, ruleTags, tagsOf, untaggedLines } from "./tags";
 import { doc, printSheet } from "./views/doc";
 import { glass } from "./views/glass";
 
@@ -175,7 +175,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   /** The 「기억」 find box. */
   let memoQuery = "";
   /** 기억 보기: 날짜별/주제별 (remembered), the tags chosen to filter, the tag being renamed. */
-  const memo: { mode: "date" | "topic"; tags: string[]; edit: string | null } = { mode: "date", tags: [], edit: null };
+  const memo: { mode: "date" | "topic"; tags: string[]; edit: string | null; ai: boolean; busy: boolean } = { mode: "date", tags: [], edit: null, ai: !!adapter.tagMemos, busy: false };
   try {
     if (localStorage.getItem("bh-memomode") === "topic") memo.mode = "topic";
   } catch {
@@ -1700,6 +1700,38 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     return made.id;
   }
 
+  /** 기억 일괄 태그: the ones the rules left without a topic, one AI call; the 학반 rule tags stay. One ⌘Z. */
+  async function tagByAi(): Promise<void> {
+    if (!adapter.tagMemos || memo.busy) return;
+    const { lines } = untaggedLines(s);
+    if (!lines.length) return;
+    const existing = [...new Set(liveNotes(s).flatMap((n) => tagsOf(n)).filter((t) => !isClassTag(t)))];
+    memo.busy = true;
+    render();
+    try {
+      const got = await adapter.tagMemos(lines, existing);
+      const was = s.notes.map((n) => [n, n.tags] as const);
+      let n = 0;
+      for (const { id, tags } of got) {
+        const x = s.notes.find((y) => y.id === id);
+        const add = tags.map(cleanTag).filter((t) => t && !isClassTag(t));
+        if (!x || x.tags !== undefined || !add.length) continue;
+        x.tags = [...new Set([...add, ...tagsOf(x).filter(isClassTag)])].slice(0, 3);
+        n++;
+      }
+      undoStack.push({ label: `AI 태그 ${n}개`, run: () => {
+        for (const [x, t] of was) x.tags = t;
+        void act(() => undefined);
+      } });
+      toast(n ? `AI가 ${n}개에 태그를 달았어요 · ⌘Z 되돌리기` : "AI가 더 달 태그를 찾지 못했어요", undefined, !!n);
+    } catch (e) {
+      toast(friendlyError(e));
+    } finally {
+      memo.busy = false;
+      void act(() => undefined);
+    }
+  }
+
   /**
    * 태그 관리: rename a tag on every 기억 (to a name already used = 합치기), or take it off (to null).
    * Rule tags become the 기억's own then. One ⌘Z.
@@ -2193,6 +2225,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       inp?.select();
       return;
     }
+    if (q("[data-memoai]")) return void tagByAi();
     if (q("[data-tagdel]")) {
       ev.preventDefault();
       return retag(q("[data-tagdel]")!.dataset.tagdel!, null);

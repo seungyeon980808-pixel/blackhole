@@ -115,6 +115,7 @@ export function tauriAdapter(): BlackholeAdapter {
     secretCopy: (name) => invoke("secret_copy", { name }),
     openNote: (path) => invoke("note_open", { path }),
     writeMemo: (text, via, tags) => invoke("memo_note", { text, via, tags: tags ?? [] }),
+    tagMemos: (lines, existing) => invoke("memo_tags", { lines, existing }),
     claude: () => invoke<ClaudeStatus>("claude_status"),
     setClaudeKey: (key) => invoke<ClaudeStatus>("claude_set_key", { key }),
     clearClaudeKey: () => invoke<ClaudeStatus>("claude_clear_key"),

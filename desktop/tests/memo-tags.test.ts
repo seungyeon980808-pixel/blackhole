@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mountBlackhole, type BlackholeApp } from "../src/calendar/app";
 import { memoryAdapter } from "../src/calendar/memory-adapter";
 import { emptyState, sharedFrom, type Memo } from "../src/calendar/model";
-import { classTags, dateGroup, ruleTags, summaries } from "../src/calendar/tags";
+import { classTags, dateGroup, ruleTags, summaries, tagCostWon } from "../src/calendar/tags";
 
 const note = (id: string, title: string, at: string, details?: string): Memo => ({ id, kind: "note", title, details, area: "school", source: "t", createdAt: at });
 
@@ -47,7 +47,7 @@ afterEach(() => {
 });
 
 describe("기억 보기", () => {
-  async function mount() {
+  async function mount(tagMemos?: (lines: string[], existing: string[]) => Promise<{ id: string; tags: string[] }[]>) {
     const s = emptyState();
     s.settings.theme = "glass";
     s.notes.push(
@@ -56,7 +56,7 @@ describe("기억 보기", () => {
       note("n3", "교원학습공동체 신청자 13명", "2026-10-20T09:00", "김OO, 이OO, 박OO …"),
       note("n4", "주차 위치 B2 기둥 14", "2026-09-30T09:00")
     );
-    const adapter = memoryAdapter();
+    const adapter = { ...memoryAdapter(), ...(tagMemos ? { tagMemos } : {}) };
     await adapter.save(s);
     localStorage.removeItem("bh-memomode");
     document.body.innerHTML = '<div id="app" style="width:1200px;height:800px"></div>';
@@ -118,5 +118,26 @@ describe("기억 보기", () => {
     await tick();
     root.querySelector<HTMLElement>('#bhDetail [data-dtagdel="주차"]')!.click();
     expect(app!.state.notes.find((n) => n.id === "n4")!.tags).toEqual([]);
+  });
+
+  it("일괄 태그: only the ones the rules left without a topic go to the AI (cost shown first), existing tags passed; ⌘Z", async () => {
+    const seen: { lines: string[]; existing: string[] }[] = [];
+    const root = await mount(async (lines, existing) => {
+      seen.push({ lines, existing });
+      return [{ id: "n4", tags: ["#생활", "2-3"] }];
+    });
+    root.querySelector<HTMLElement>('[data-memomode="topic"]')!.click();
+    const btn = root.querySelector<HTMLElement>("[data-memoai]")!;
+    expect(btn.textContent).toMatch(/규칙으로 못 단 1개 · AI로 태그 달기 \(약 [\d.]+원\)/);
+    btn.click();
+    await tick();
+    await tick();
+    expect(seen).toEqual([{ lines: ["[n4] 주차 위치 B2 기둥 14"], existing: ["진도", "명단", "전학공"] }]);
+    expect(app!.state.notes.find((n) => n.id === "n4")!.tags).toEqual(["생활"]);
+    expect(root.querySelector("[data-memoai]")).toBeNull();
+    document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyZ", key: "z", metaKey: true, bubbles: true }));
+    expect(app!.state.notes.find((n) => n.id === "n4")!.tags).toBeUndefined();
+    // About 0.1원 for 60 short 기억.
+    expect(tagCostWon(Array.from({ length: 60 }, (_, i) => `[n${i}] 교무실 와이파이 비밀번호 바뀜`), ["진도"])).toBeLessThan(2);
   });
 });

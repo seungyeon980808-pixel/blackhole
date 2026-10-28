@@ -126,6 +126,35 @@ pub fn ask_lines(question: &str, lines: &[String]) -> Result<(String, Vec<String
     Ok((v["answer"].as_str().unwrap_or("").to_string(), ids))
 }
 
+const TAG_SYSTEM: &str = "너는 교사의 짧은 기억 메모에 주제 태그를 다는 정리 도우미다. 메모마다 1~3개의 짧은 한국어 태그를 단다(띄어쓰기 없이, # 없이). 이미 쓰는 태그 목록에 맞는 주제가 있으면 반드시 그 태그를 그대로 쓰고, 새 태그는 꼭 필요할 때만 만든다. 학년·반(2-3, 5반)은 태그로 달지 않는다. 메모마다 [id]와 tags를 돌려준다.";
+
+/// 기억 일괄 태그: the 기억 the local rules left without a topic, in one small Claude call (same
+/// budget and usage log). `existing` keeps one topic under one tag.
+pub fn tag_lines(lines: &[String], existing: &[String]) -> Result<Vec<(String, Vec<String>)>, String> {
+    use crate::worker::runners::ChatModel;
+    let config = crate::worker::config::WorkerConfig::from_env().map_err(|e| e.message)?;
+    let chat = crate::worker::claude::ClaudeChat::new(&config.claude_model, "low");
+    let body = format!("이미 쓰는 태그: {}\n메모:\n{}", if existing.is_empty() { "없음".into() } else { existing.join(", ") }, lines.join("\n"));
+    let schema = json!({"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"tags":{"type":"array","items":{"type":"string"}}},"required":["id","tags"]}}},"required":["items"]});
+    let raw = chat.chat_json(vec![json!({"role":"system","content":TAG_SYSTEM}), json!({"role":"user","content":body})], &schema).map_err(|e| e.message)?;
+    Ok(read_tags(&raw))
+}
+
+/// The AI's `{items:[{id, tags}]}`: tags trimmed of 「#」 and spaces, three at most.
+pub fn read_tags(raw: &str) -> Vec<(String, Vec<String>)> {
+    let v: Value = serde_json::from_str(raw).unwrap_or(Value::Null);
+    v["items"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|x| {
+            let id = x["id"].as_str()?.trim_matches(|c| c == '[' || c == ']').to_string();
+            let tags: Vec<String> = x["tags"].as_array()?.iter().filter_map(|t| t.as_str()).map(|t| t.trim().trim_start_matches('#').split_whitespace().collect::<Vec<_>>().join("_")).filter(|t| !t.is_empty()).take(3).collect();
+            Some((id, tags))
+        })
+        .collect()
+}
+
 /// 「내 기록에 묻기」: one Claude call over the user's own lines (same budget and usage log).
 pub fn ask(dir: &Path, question: &str) -> Result<Answer, String> {
     let state = calendar::load_state(dir).map_err(|e| e.to_string())?.unwrap_or(Value::Null);
@@ -257,6 +286,12 @@ pub fn write_memo_note_tagged(root: &Path, text: &str, via: &str, tags: &[String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ai_tags_are_cleaned() {
+        let got = read_tags(r##"{"items":[{"id":"[n1]","tags":["#진도"," 학급 운영 ","a","b"]},{"id":"n2","tags":[]},{"tags":["x"]}]}"##);
+        assert_eq!(got, vec![("n1".to_string(), vec!["진도".to_string(), "학급_운영".into(), "a".into()]), ("n2".to_string(), vec![])]);
+    }
 
     #[test]
     fn memo_note_front_matter_has_its_tags() {

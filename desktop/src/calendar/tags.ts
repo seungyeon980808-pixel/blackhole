@@ -105,6 +105,19 @@ export function summaries(notes: Memo[]): { key: string; classes: string[]; ids:
   return [...by].filter(([, g]) => g.ids.length > 1).map(([key, g]) => ({ key, classes: [...new Set(g.classes)].sort(), ids: g.ids }));
 }
 
+/** 기억 the rules gave no topic (and the user tagged nobody): what the AI may tag, as `[id] …` lines. */
+export function untaggedLines(s: CalendarState): { ids: string[]; lines: string[] } {
+  const list = liveNotes(s).filter((n) => n.tags === undefined && !tagsOf(n).some((t) => !isClassTag(t))).slice(0, 60);
+  return { ids: list.map((n) => n.id), lines: list.map((n) => `[${n.id}] ${n.title}${n.details ? ` — ${n.details.replace(/\s+/g, " ").slice(0, 120)}` : ""}`) };
+}
+
+/** About what one tagging call costs (원): Haiku 5.5, about a token a letter, ~15 tokens out per 기억. */
+export function tagCostWon(lines: string[], existing: string[]): number {
+  const input = 400 + lines.join("\n").length + existing.join(", ").length;
+  const output = 30 + lines.length * 15;
+  return ((input * 0.1 + output * 0.5) / 1e6) * 1400;
+}
+
 /** 「#진도 #2-3 사진」 → tags [진도, 2-3] and the words left. */
 export function splitTagQuery(q: string): { tags: string[]; words: string } {
   const tags = [...q.matchAll(/#([^\s#]+)/g)].map((m) => m[1]);

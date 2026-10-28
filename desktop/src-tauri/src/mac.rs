@@ -1358,6 +1358,26 @@ pub async fn ask_records(question: String, lines: Vec<String>) -> Result<AskRepl
         .map_err(|e| e.to_string())?
 }
 
+#[derive(serde::Serialize)]
+pub struct TagReply {
+    id: String,
+    tags: Vec<String>,
+}
+
+/// 기억 일괄 태그 (the ones the rules left without a topic): `[id] 제목 — 내용` lines, at most 60,
+/// secret-looking lines dropped, one call.
+#[tauri::command]
+pub async fn memo_tags(lines: Vec<String>, existing: Vec<String>) -> Result<Vec<TagReply>, String> {
+    let lines: Vec<String> = lines.into_iter().filter(|l| matches!(crate::secret::guess(l), crate::secret::Guess::None)).take(60).map(|l| l.chars().take(200).collect()).collect();
+    if lines.is_empty() {
+        return Ok(Vec::new());
+    }
+    let existing: Vec<String> = existing.into_iter().take(80).collect();
+    tauri::async_runtime::spawn_blocking(move || crate::find::tag_lines(&lines, &existing).map(|v| v.into_iter().map(|(id, tags)| TagReply { id, tags }).collect()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// Every 기억 made in the main window (a sentence with no day or time, 「메모 …」, the AI's NOTE,
 /// a phone note) is also an Obsidian note under Drive 「블랙홀/노트/기억/」. No Drive → nothing.
 #[tauri::command]

@@ -125,6 +125,8 @@ export interface BlackholeAdapter {
   secretCopy?(name: string): Promise<void>;
   /** Keep a 기억 also as an Obsidian note (Drive 「블랙홀/노트/기억/」). */
   writeMemo?(text: string, via: string, tags?: string[]): Promise<void>;
+  /** 기억 일괄 태그: `[id] 제목 — 내용` lines → the AI's topic tags (one call, same budget). Mac only. */
+  tagMemos?(lines: string[], existing: string[]): Promise<{ id: string; tags: string[] }[]>;
   /** Open an Obsidian note under Drive 「블랙홀/노트/」. */
   openNote?(path: string): Promise<void>;
 

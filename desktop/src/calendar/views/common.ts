@@ -1,6 +1,6 @@
 import { diffDays, hm, mins } from "../dates";
 import type { CalendarState, ChatMessage, Entry, Memo, Task } from "../model";
-import { DATE_GROUPS, dateGroup, isClassTag, liveNotes, splitTagQuery, summaries, tagCounts, tagsOf } from "../tags";
+import { DATE_GROUPS, dateGroup, isClassTag, liveNotes, tagCostWon, untaggedLines, splitTagQuery, summaries, tagCounts, tagsOf } from "../tags";
 import { findEntry, type Alarm } from "../store";
 import { KIND_LABEL, type AskHit } from "../ask";
 import { fixNumbers } from "../rules";
@@ -32,7 +32,7 @@ export interface Ctx {
   /** The chat panel is on the right (확인할 것 lives there; otherwise on top of the day). */
   side?: boolean;
   /** 기억 보기: 날짜별/주제별, the tags chosen to filter, the tag being renamed. */
-  memo?: { mode: "date" | "topic"; tags: string[]; edit?: string | null };
+  memo?: { mode: "date" | "topic"; tags: string[]; edit?: string | null; ai?: boolean; busy?: boolean };
 }
 
 /** A fold whose rows are drawn only while open (data-fold: the app re-renders on toggle). */
@@ -323,7 +323,12 @@ export function memoRows(ctx: Ctx, fd: (k: string) => string, query = ""): strin
     return `<details class="mgrp" data-fold="mtag:${esc(t)}" ${open ? "open" : ""}><summary><b>${label}</b> <small>${list.length}</small><span class="msum" title="${esc(sumLine)}">${open ? "" : esc(sumLine)}</span>${tools}</summary>${open ? `${sums.map((x) => `<div class="msumrow">${esc(x.key)}: ${esc(x.classes.join(", "))} <small>${x.ids.length}건</small></div>`).join("")}${list.map(row).join("")}` : ""}</details>`;
   };
   const tools = (t: string) => ctx.canEdit ? `<span class="mtools">${ctx.memo?.edit === t ? `<input class="mtren" data-tagrename="${esc(t)}" value="${esc(t)}" aria-label="태그 이름 (있는 이름이면 합침)" spellcheck="false">` : `<button class="ib" data-tagren="${esc(t)}" title="이름 바꾸기 · 있는 이름으로 바꾸면 합침" aria-label="태그 이름 바꾸기">${ICON.edit}</button><button class="ib" data-tagdel="${esc(t)}" title="이 태그 지우기 (기억은 그대로)" aria-label="태그 지우기">${ICON.x}</button>`}</span>` : "";
-  return counts.map(([t]) => fold(t, notes.filter((n) => tagsOf(n).includes(t)), `#${esc(t)}`, tools(t))).join("") + (untagged.length ? fold("", untagged, "기타", "") : "");
+  // 규칙으로 주제를 못 단 기억: 한 번에 AI로(예상 비용을 먼저 보여 줌).
+  const left = m.ai ? untaggedLines(ctx.s) : null;
+  const aiRow = left && left.lines.length
+    ? `<div class="mai">${m.busy ? "태그 다는 중…" : `<button class="mtag" data-memoai>규칙으로 못 단 ${left.lines.length}개 · AI로 태그 달기 (약 ${(() => { const w = tagCostWon(left.lines, counts.map(([t]) => t)); return w < 1 ? w.toFixed(1) : Math.round(w); })()}원)</button>`}</div>`
+    : "";
+  return aiRow + counts.map(([t]) => fold(t, notes.filter((n) => tagsOf(n).includes(t)), `#${esc(t)}`, tools(t))).join("") + (untagged.length ? fold("", untagged, "기타", "") : "");
 }
 
 /**
