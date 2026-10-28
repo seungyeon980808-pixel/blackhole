@@ -351,6 +351,7 @@ export function checksOf(ctx: Ctx): { x: Entry; why: string }[] {
   const live = ctx.s.events.filter((e) => !e.gone && !e.sample);
   // First: provisional appointments whose day has passed — did it happen or not?
   for (const e of live.filter((e) => e.provisional && e.date < ctx.today).sort((a, b) => a.date.localeCompare(b.date))) add(e, PAST_PROVISIONAL);
+  for (const x of needsReview(ctx)) if (x.review!.some((r) => r.startsWith("바뀐 날짜·시각이 없어"))) add(x, "바뀐 날짜·시각을 못 들음 · 일정에서 고쳐 주세요");
   for (const x of needsReview(ctx)) if (x.review!.some((r) => TIME_UNSURE.test(r))) add(x, "시각을 정해 주세요");
   for (const x of needsReview(ctx)) {
     const r = x.review!.find((r) => r.startsWith("기준 일정"));

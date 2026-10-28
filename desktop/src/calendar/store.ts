@@ -75,6 +75,7 @@ export interface Applied {
 }
 
 export const MANY_TARGETS = "바꿀 일정이 여럿이라 확인 필요: ";
+export const NEW_TIME_UNSAID = "바뀐 날짜·시각이 없어 일정은 그대로 둠";
 const CANCEL_SAID = /취소|안\s*하|안\s*함|없어|없던|무산|안\s*열|빠지|빠짐|빠졌/;
 const MOVE_SAID = /바뀌|바뀜|바꿈|변경|미뤄|미룸|미뤘|연기|앞당|연장|늘어|늘렸|늘림|옮|(?:으로|로)(?:\s|$|까지)/;
 
@@ -104,15 +105,16 @@ export function changeTargets(s: CalendarState, item: ProposalItem, now: Date): 
   return list;
 }
 
-/** The change itself (one target): gone, or moved to the day/time said (the rest kept, reminders moved along). */
-function applyChange(x: CalEvent | Task, item: ProposalItem): string {
+/** The change itself (one target): gone, or moved to the day/time said (the rest kept, reminders moved along). Null: a move that says no new day or time (nothing changed). */
+function applyChange(x: CalEvent | Task, item: ProposalItem): string | null {
   if (item.change === "CANCEL") {
     x.gone = true;
     return `취소: 「${x.title}」`;
   }
-  const at = item.startAt ? new Date(item.startAt) : null;
+  const at = item.startAt && !Number.isNaN(new Date(item.startAt).getTime()) ? new Date(item.startAt) : null;
   const newDay = at && item.evidence.dateText ? ymd(at) : null;
   const newTime = at && item.evidence.timeText ? nowHM(at) : null;
+  if (!newDay && !newTime) return null;
   const dayOf = (k: string) => fromStamp(`${k}T00:00`).getTime();
   if (x.kind === "event") {
     const was = `${fdShort(x.date)}${x.start ? ` ${x.start}` : ""}`;
@@ -213,7 +215,15 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       if (targets.length === 1) {
         const x = targets[0];
         const before = JSON.parse(JSON.stringify(x)) as Entry;
-        out.changed!.push({ id: x.id, before, what: applyChange(x, item) });
+        const what = applyChange(x, item);
+        if (what) {
+          out.changed!.push({ id: x.id, before, what });
+          continue;
+        }
+        // 「치과 시간 바뀜」 without the new time: kept as 기억, asked in 확인할 것; the 치과 stays as it was.
+        const note: Memo = { id: newId(s, "n"), kind: "note", title: `${item.title} 변경`, details: item.evidence.sentence || undefined, area: areaOf(item.area), source, createdAt, review: [NEW_TIME_UNSAID], ...(srcKey ? { srcKey } : {}) };
+        s.notes.push(note);
+        out.refs.push(note.id);
         continue;
       }
       if (targets.length > 1) {

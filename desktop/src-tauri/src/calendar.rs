@@ -153,12 +153,30 @@ pub fn write_shared(root: &Path, shared: &serde_json::Value) -> Result<bool, Str
     Ok(true)
 }
 
-/// Phone actions: every `인박스/*.bhact` file (one JSON action or a list). Read only.
+/// Days a phone action file is still read. Files are never deleted and the app remembers only
+/// the last 2,000 applied action ids, so an old 「체크」 read again after it was forgotten would
+/// flip the to-do back; 60 days stays far inside those 2,000.
+pub const PHONE_ACTION_DAYS: i64 = 60;
+
+/// Phone actions: every `인박스/*.bhact` file (one JSON action or a list) from the last
+/// `PHONE_ACTION_DAYS` days. Read only.
 pub fn read_phone_actions(root: &Path) -> Vec<serde_json::Value> {
+    let since = (chrono::Local::now() - chrono::Duration::days(PHONE_ACTION_DAYS)).format("%Y%m%d").to_string();
+    read_phone_actions_since(root, &since)
+}
+
+/// `since` is a `yyyymmdd` day: files named from an earlier day (the phone names them
+/// `yyyymmdd-hhmmss-…`) are skipped; a name without a day is still read.
+pub fn read_phone_actions_since(root: &Path, since: &str) -> Vec<serde_json::Value> {
     let Ok(entries) = fs::read_dir(root.join("인박스")) else { return Vec::new() };
+    let old = |p: &Path| {
+        let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let day: String = name.chars().take(8).collect();
+        day.len() == 8 && day.chars().all(|c| c.is_ascii_digit()) && day.as_str() < since
+    };
     let mut paths: Vec<PathBuf> = entries
         .filter_map(|e| e.ok().map(|e| e.path()))
-        .filter(|p| p.extension().is_some_and(|e| e == crate::worker::inbox::PHONE_ACTION_EXT))
+        .filter(|p| p.extension().is_some_and(|e| e == crate::worker::inbox::PHONE_ACTION_EXT) && !old(p))
         .collect();
     paths.sort();
     let mut out = Vec::new();
@@ -283,8 +301,17 @@ struct QueueFileView {
 
 /// Finished inbox jobs, read straight from the queue file. Read-only on purpose: opening
 /// the queue with `Queue::open` would mark a job the scanner is analyzing as interrupted.
-/// Failed jobs are reported only after the scanner gave up (MAX_ATTEMPTS).
+/// Failed jobs are reported only after the scanner gave up (MAX_ATTEMPTS). Jobs last changed
+/// more than `RESULT_DAYS` ago are left out: the page took them long ago (the scanner runs only
+/// while the app does), and the list is polled every 5 s while the queue file only grows.
 pub fn inbox_results(state_dir: &Path) -> io::Result<Vec<InboxResult>> {
+    inbox_results_since(state_dir, chrono::Local::now().fixed_offset() - chrono::Duration::days(RESULT_DAYS))
+}
+
+pub const RESULT_DAYS: i64 = 14;
+
+/// `inbox_results` for jobs changed after `since` (a job without a readable time is kept).
+pub fn inbox_results_since(state_dir: &Path, since: chrono::DateTime<chrono::FixedOffset>) -> io::Result<Vec<InboxResult>> {
     let path = state_dir.join("jobs-v1.json");
     if !path.exists() {
         return Ok(Vec::new());
@@ -293,6 +320,7 @@ pub fn inbox_results(state_dir: &Path) -> io::Result<Vec<InboxResult>> {
     Ok(file
         .jobs
         .into_iter()
+        .filter(|job| chrono::DateTime::parse_from_rfc3339(&job.updated_at).map_or(true, |t| t >= since))
         .filter_map(|job| {
             let file_name = Path::new(&job.source_path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "입력".into());
             // 원본 copies are named <sha8>-<name>; show the original name.
@@ -428,8 +456,9 @@ mod tests {
         fs::write(inbox.join("20261025-1-폰-a-동작.bhact"), br#"{"id":"a1","type":"confirm","ref":"e-1","at":"x"}"#).unwrap();
         fs::write(inbox.join("20261025-2-폰-b-동작.bhact"), br#"[{"id":"a2","type":"toggleTask","ref":"t-1","at":"x"},{"bad":1}]"#).unwrap();
         fs::write(inbox.join("메모.txt"), b"x").unwrap();
-        let actions = read_phone_actions(root.path());
-        assert_eq!(actions.iter().map(|a| a["id"].as_str().unwrap()).collect::<Vec<_>>(), ["a1", "a2"]);
+        fs::write(inbox.join("20260801-1-폰-c-동작.bhact"), br#"{"id":"a0","type":"toggleTask","ref":"t-1","at":"x"}"#).unwrap();
+        let actions = read_phone_actions_since(root.path(), "20260901");
+        assert_eq!(actions.iter().map(|a| a["id"].as_str().unwrap()).collect::<Vec<_>>(), ["a1", "a2"], "an action file older than the window is not read again");
         assert!(inbox.join("20261025-1-폰-a-동작.bhact").exists(), "action files stay");
     }
 
@@ -507,5 +536,13 @@ mod tests {
         assert_eq!(results[1].job_id, "job-4");
         assert_eq!(results[1].error.as_deref(), Some("꺼짐"));
         assert_eq!(fs::read(&path).unwrap(), before, "queue file must stay untouched");
+
+        let mut queue = queue;
+        queue["jobs"][0]["updatedAt"] = json!("2026-09-01T10:00:00+09:00");
+        queue["jobs"][4]["updatedAt"] = json!("2026-10-27T10:00:00+09:00");
+        fs::write(&path, serde_json::to_vec(&queue).unwrap()).unwrap();
+        let since = chrono::DateTime::parse_from_rfc3339("2026-10-14T00:00:00+09:00").unwrap();
+        let ids: Vec<String> = inbox_results_since(dir.path(), since).unwrap().into_iter().map(|r| r.job_id).collect();
+        assert_eq!(ids, ["job-4"], "a job finished weeks ago is not handed out again");
     }
 }

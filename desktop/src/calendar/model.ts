@@ -326,9 +326,11 @@ export function normalizeState(value: unknown): CalendarState | null {
     }),
     periods: dropFake(cleanPeriods(v.periods)),
     notes: dropFake(cleanNotes(v.notes)),
-    chat: list<ChatMessage>(v.chat),
+    // The whole state is written on every change: old chat and inbox lines go (only the last
+    // CHAT_SHOWN are ever drawn), so a year of use stays a small file.
+    chat: list<ChatMessage>(v.chat).slice(-KEEP_CHAT),
     log: list<LogEntry>(v.log),
-    inbox: list<InboxEntry>(v.inbox),
+    inbox: list<InboxEntry>(v.inbox).slice(-KEEP_INBOX),
     firedAlarms: list<string>(v.firedAlarms),
     ingestedJobs: list<string>(v.ingestedJobs),
     draftedJobs: list<string>(v.draftedJobs),
@@ -338,6 +340,9 @@ export function normalizeState(value: unknown): CalendarState | null {
     routines: list<Routine>(v.routines)
   };
 }
+
+export const KEEP_CHAT = 2000;
+export const KEEP_INBOX = 500;
 
 /**
  * A change made by hand on one device, replayed on the other (phone → Mac). `src` is the
