@@ -460,9 +460,22 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
             time_text.clear();
         }
     }
+    // 「교과서 선정 협의회 1030 1530」: a second four-digit run right after a 「1030」 day is its time (it was dropped).
+    if time_text.is_empty() && month_day(&date_text).is_some() && date_text.trim().chars().all(|c| c.is_ascii_digit()) {
+        let context = if single_item { source_text } else { sentence.as_str() };
+        if let Some(rest) = context.split_once(date_text.trim()).map(|(_, r)| r) {
+            let run: String = rest.trim_start().chars().take_while(|c| c.is_ascii_digit()).collect();
+            let after = rest.trim_start().chars().nth(run.chars().count());
+            let hm = (run.len() == 4).then(|| (run[..2].parse::<u32>().unwrap_or(99), run[2..].parse::<u32>().unwrap_or(99)));
+            if rest.starts_with(char::is_whitespace) && hm.is_some_and(|(h, m)| h < 24 && m < 60) && after.is_none_or(|c| c.is_whitespace() || "에부까~-".contains(c)) {
+                time_text = run;
+            }
+        }
+    }
     // 「금요일 퇴근하고 7시 영화」: a bare morning hour after 퇴근 is the evening (it came out 07:00).
-    let bare_hour = time_text.trim_end_matches(['에', ' ']).strip_suffix('시').and_then(|h| h.trim().parse::<u32>().ok());
-    if bare_hour.is_some_and(|h| (5..12).contains(&h)) && ["퇴근하고", "퇴근 후", "퇴근후", "퇴근해서", "퇴근하면"].iter().any(|w| sentence.contains(w) || (single_item && source_text.contains(w))) {
+    // 「7시 반」 「7시 30분」 too (2026-10-28 밤: only a bare 「7시」 was turned).
+    let bare_hour = time_text.trim().split_once('시').and_then(|(h, _)| h.trim().parse::<u32>().ok());
+    if bare_hour.is_some_and(|h| (5..12).contains(&h)) && ["퇴근하고", "퇴근 후", "퇴근후", "퇴근 뒤", "퇴근해서", "퇴근하면", "퇴근길"].iter().any(|w| sentence.contains(w) || (single_item && source_text.contains(w))) {
         time_text = format!("저녁 {time_text}");
     }
     // An end phrase not in the source loses to a length said in the sentence (it wrote 「일주일 뒤」 for
@@ -1056,6 +1069,17 @@ mod tests {
         assert_eq!(e.items[1].end_at, "2026-12-11T00:00:00+09:00");
         assert_eq!(e.items[2].start_at, "2026-10-21T16:20:00+09:00");
         assert_eq!(e.items[2].end_at, "2026-10-21T21:20:00+09:00");
+    }
+
+    #[test]
+    fn a_glued_time_after_a_glued_day_is_the_time() {
+        for (text, time) in [("교과서 선정 협의회 1030 1530", "15:30"), ("1030 1530까지 서류 제출", "15:30")] {
+            let e = validate(&answer(vec![said("SCHEDULE", "교과서 선정 협의회", "1030", "", text)]).to_string(), Some(text), reference()).unwrap();
+            assert!(e.items[0].start_at.starts_with(&format!("2026-10-30T{time}")), "{text}: {}", e.items[0].start_at);
+        }
+        let text = "1030 2026학년도 계획";
+        let e = validate(&answer(vec![said("SCHEDULE", "계획", "1030", "", text)]).to_string(), Some(text), reference()).unwrap();
+        assert!(!e.items[0].start_at.contains("20:26"), "{}", e.items[0].start_at);
     }
 
     #[test]

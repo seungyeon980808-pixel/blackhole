@@ -386,7 +386,7 @@ export function checksBar(ctx: Ctx, fd: (k: string) => string): string {
     resultCard(ctx, x.id, fd, false, "chk")
       .replace(/<button class="ib" data-(?:ok|tdone)="[^"]*"[^>]*>.*?<\/button>/, "")
       .replace(/<div class="rm2 warn">[\s\S]*?<\/div>/, "")
-      .replace('<div class="ra">', `<div class="rm2 warn">${esc(why)}</div><div class="ra">${why === PAST_PROVISIONAL
+      .replace('<div class="ra">', () => `<div class="rm2 warn">${esc(why)}</div><div class="ra">${why === PAST_PROVISIONAL
         ? `<button class="chkbtn" data-accept="${x.id}" title="있었던 일로 확정" aria-label="있었음, 확정">있었음</button><button class="chkbtn" data-no="${x.id}" title="없던 일로 지우기 (되돌리기 가능)" aria-label="없던 일, 지우기">없던 일</button>`
         : why.startsWith("같은") ? `<button class="ib" data-merge="${x.id}" title="합치기(이것을 지우고 하나만 남김)" aria-label="합치기">${ICON.merge}</button>` : `<button class="ib" data-accept="${x.id}" title="맞아요" aria-label="맞아요">${ICON.ok}</button>`}`);
   const fixCard = fixes.length

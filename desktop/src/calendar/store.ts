@@ -76,8 +76,10 @@ export interface Applied {
 
 export const MANY_TARGETS = "바꿀 일정이 여럿이라 확인 필요: ";
 export const NEW_TIME_UNSAID = "바뀐 날짜·시각이 없어 일정은 그대로 둠";
+/** 「취소됨」 「취소했음」 「없어졌대」 at the end: news that something is off (「취소 신청서 내기」 is not). */
+const CANCEL_DONE = /(?:취소\s*(?:됨|됐|되었|했|함|래|라고|요|임)|없어졌|없어짐|무산)[가-힣]*[.!~\s]*$/;
 const CANCEL_SAID = /취소|안\s*하|안\s*함|없어|없던|무산|안\s*열|빠지|빠짐|빠졌/;
-const MOVE_SAID = /바뀌|바뀜|바꿈|변경|미뤄|미룸|미뤘|연기|앞당|연장|늘어|늘렸|늘림|옮|(?:으로|로)(?:\s|$|까지)/;
+const MOVE_SAID = /바뀌|바뀜|바꿈|변경|미뤄|미룸|미뤘|연기|앞당|당겨|당김|당겼|연장|늘어|늘렸|늘림|옮|아니고|아니라|말고|(?:으로|로)(?:\s|$|까지)/;
 
 /**
  * 「치과 금요일 3시에서 4시로 바뀜」 「학년 협의회 취소됨」: the one live appointment or open to-do
@@ -92,6 +94,18 @@ export function changeTargets(s: CalendarState, item: ProposalItem, now: Date): 
   let list: (CalEvent | Task)[] = [...liveEvents(s).filter((e) => e.date >= today && !e.workFor && named(e)), ...liveTasks(s).filter((t) => !t.done && named(t))];
   // 「교과협의회 다음주 금요일 걸로 취소」: a cancel's day says which one.
   const from = (item.changeFrom || (item.change === "CANCEL" ? `${item.evidence.dateText} ${item.evidence.timeText}` : "")).trim();
+  // 「다음주 교과협의회 취소」: only a week said.
+  const week = /다다음\s*주/.test(from) ? 2 : /다음\s*주|담주/.test(from) ? 1 : /이번\s*주/.test(from) ? 0 : null;
+  if (list.length > 1 && week !== null) {
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) + 7 * week);
+    const a = ymd(monday);
+    const b = ymd(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6));
+    const inWeek = list.filter((x) => {
+      const day = x.kind === "event" ? x.date : x.due;
+      return day >= a && day <= b;
+    });
+    if (inWeek.length) list = inWeek;
+  }
   if (list.length > 1 && from) {
     const r = parseRule(`${from} 일정`, now);
     const dated = /\d+\s*월|\d+\s*일|[월화수목금토일]요일|오늘|내일|모레|\d+\/\d+/.test(from);
@@ -209,6 +223,19 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
     const words = item.evidence.sentence || p.sourceText || "";
     if (item.change === "CANCEL" && !CANCEL_SAID.test(words)) item = { ...item, change: undefined };
     if (item.change === "MOVE" && !MOVE_SAID.test(words)) item = { ...item, change: undefined };
+    // 「가정통신문 발송은 다음주 월요일에 하기로」 「3반 수행평가 점수 확인은 내일 할게」: a new day for the one open
+    // to-do (or appointment) of exactly that name, said as its topic — a move, not a second copy.
+    if (!item.change && (item.kind === "TODO" || item.kind === "SCHEDULE") && item.startAt && item.evidence.dateText) {
+      const name = item.title.replace(/\s+/g, "");
+      const spoken = words.replace(/\s+/g, "");
+      const same = [...liveTasks(s).filter((t) => !t.done), ...liveEvents(s).filter((e) => e.date >= today && !e.workFor)].filter((x) => x.title.replace(/\s+/g, "") === name);
+      if (name.length >= 2 && same.length === 1 && (spoken.includes(`${name}은`) || spoken.includes(`${name}는`))) item = { ...item, change: "MOVE" };
+    }
+    // 「치과 예약 취소했음」 put down as a record: it is the 치과 in the calendar that is off.
+    if (!item.change && (item.kind === "NOTE" || (item.kind === "SCHEDULE" && !item.startAt)) && CANCEL_DONE.test(words)) {
+      const off = { ...item, change: "CANCEL" as const, title: item.title.replace(/\s*(?:예약\s*)?취소.*$/, "").trim() || item.title };
+      if (changeTargets(s, off, now).length === 1) item = off;
+    }
     // 「취소됨」 「4시로 바뀜」: the entry already in the calendar, not a new one.
     if (item.change) {
       const targets = changeTargets(s, item, now);
@@ -253,20 +280,32 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
     // 「오늘 3반 수행평가 점수 확인함」 → 「3반 …」: the class the sentence names stays in the title.
     const classes = sentence.length <= 160 ? classesIn(sentence) : [];
     // 「금요일까지 2반 6반 수행평가 채점」 made one to-do: one per class, as the owner checks them.
-    if (classes.length > 1 && (item.kind === "TODO" || item.kind === "SCHEDULE") && !classesIn(item.title).length && !p.items.some((y) => classesIn(y.title).length)) {
+    // The title naming them all (「2반 6반 수행평가 채점」) is split the same way.
+    const titled = classesIn(item.title);
+    if (classes.length > 1 && (item.kind === "TODO" || item.kind === "SCHEDULE") && (titled.length > 1 ? titled.length === classes.length : !titled.length && !p.items.some((y) => classesIn(y.title).length))) {
       const [first, ...rest] = classes;
-      const base = item;
+      const base = titled.length > 1 ? { ...item, title: item.title.replace(/\d{1,2}\s*반(?:\s*(?:이랑|랑|과|와|하고|및|,|·))?\s*/g, "").trim() } : item;
       queue.splice(i + 1, 0, ...rest.map((c) => ({ ...base, title: `${c} ${base.title}` })));
-      item = { ...item, title: `${first} ${item.title}` };
+      item = { ...item, title: `${first} ${base.title}` };
     }
     if (classes.length === 1 && !classesIn(item.title).length) item = { ...item, title: `${classes[0]} ${item.title}` };
     if (item.area !== "SCHOOL" && SCHOOL_WORDS.test(`${item.title} ${sentence}`)) item = { ...item, area: "SCHOOL" };
+    // 「다음주 수욜 6교시 공개수업 참관하고 협의록 쓰기」 split in two: the to-do after 「…하고」 is that day's.
+    const prev = i > 0 ? queue[i - 1] : undefined;
+    if (!item.startAt && item.kind === "TODO" && prev?.kind === "SCHEDULE" && prev.startAt && /(?:하고|한\s*뒤|한\s*후|끝나고|마치고)$/.test(prev.evidence.sentence.trim()) && (p.sourceText ?? "").replace(/\s+/g, "").includes(`${prev.evidence.sentence}${item.evidence.sentence}`.replace(/\s+/g, ""))) {
+      const d = new Date(prev.startAt);
+      d.setHours(9, 0, 0, 0);
+      item = { ...item, startAt: d.toISOString(), evidence: { ...item.evidence, dateText: prev.evidence.dateText } };
+    }
     // 「퇴근 전에 공문 회신」 with the time words left out by the model: today, at this school's time.
     if (!item.startAt && (item.kind === "TODO" || item.kind === "SCHEDULE") && !item.change && /\d\s*교시|점심|출근|퇴근/.test(sentence)) {
       const d = new Date(now);
       d.setHours(9, 0, 0, 0);
       item = { ...item, startAt: d.toISOString(), endAt: "", evidence: { ...item.evidence, timeText: sentence } };
     }
+    // 「내일 1교시 3반 수업」 with the day kept but the 교시 left out of the time: the 교시 is the time.
+    const lesson = !item.evidence.timeText.trim() && item.startAt && (item.kind === "TODO" || item.kind === "SCHEDULE") ? sentence.match(/\d\s*교시(?:\s*(?:끝나고|끝나면|후|전|부터|까지))?|점심\s*시간|퇴근\s*(?:전|후|하기\s*전)/) : null;
+    if (lesson) item = { ...item, evidence: { ...item.evidence, timeText: lesson[0] } };
     // 「3교시」 「점심시간」 「퇴근 전」: school words the worker does not know — this school's own times.
     const school = item.startAt && /교시|점심|출근|퇴근/.test(item.evidence.timeText) ? timeWords(item.evidence.timeText, s.settings) : "";
     const span = school ? timeRange(school) : null;

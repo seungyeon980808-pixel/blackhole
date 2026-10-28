@@ -137,7 +137,29 @@ pub fn normalize(text: &str) -> String {
     for (from, to) in HOURS {
         value = value.replace(from, to);
     }
-    spoken_days(&english_words(&hour_ranges(&value)))
+    spoken_days(&spoken_minutes(&english_words(&hour_ranges(&value))))
+}
+
+/// 「10시 삼 십 분」 「3시 사십 분」 「11시 십오분」 → 「10시 30분」 (dictation keeps the minutes in words, spaced;
+/// they were dropped and the hour stood alone, 2026-10-28 밤).
+fn spoken_minutes(text: &str) -> String {
+    static R: OnceLock<Regex> = OnceLock::new();
+    re(&R, r"(\d{1,2})시\s*([일이삼사오육칠팔구십](?:\s?[일이삼사오육칠팔구십]){0,3})\s*분")
+        .replace_all(text, |c: &regex::Captures| {
+            let w: String = c[2].chars().filter(|c| !c.is_whitespace()).collect();
+            let (mut n, mut cur) = (0u32, 0u32);
+            for ch in w.chars() {
+                if ch == '십' {
+                    n += if cur == 0 { 10 } else { cur * 10 };
+                    cur = 0;
+                } else {
+                    cur = "일이삼사오육칠팔구".chars().position(|x| x == ch).map(|i| i as u32 + 1).unwrap_or(0);
+                }
+            }
+            let m = n + cur;
+            if (1..=59).contains(&m) { format!("{}시 {m}분", &c[1]) } else { c[0].to_string() }
+        })
+        .into_owned()
 }
 
 /// 「오후 3~5시」: both ends are hours (it read only 「5시」: 17:00~18:00). → 「오후 3시~5시」.
@@ -185,6 +207,9 @@ fn spoken_days(text: &str) -> String {
     let mut v = re(&NAEL, r"(^|\s)낼(\s|$|부터|까지)").replace_all(text, "${1}내일${2}").into_owned();
     v = v.replace("담주", "다음 주");
     v = re(&YOL, r"([월화수목금토일])욜").replace_all(&v, "${1}요일").into_owned();
+    // 「담주 월 오전 11시」 「이번 주 금까지」: a weekday's first letter right after 주 (not 일: 「다음 주 일 많음」).
+    static LONE: OnceLock<Regex> = OnceLock::new();
+    v = re(&LONE, r"((?:이번|다음|다다음|지난)\s*주(?:에)?)\s*([월화수목금토])(\s|$|에|까지|부터|,)").replace_all(&v, "${1} ${2}요일${3}").into_owned();
     let sino = |w: &str| -> u32 {
         let (mut n, mut cur) = (0u32, 0u32);
         for c in w.chars() {
@@ -1150,6 +1175,17 @@ mod tests {
         assert_eq!(find_time_phrase("오후 세 시 ~ 5시 상담").as_deref(), Some("오후 3시 ~ 5시"));
         assert_eq!(find_time_phrase("15:00~17:00 연수").as_deref(), Some("15:00~17:00"));
         assert_eq!(find_time_phrase("보고서 내기"), None);
+    }
+
+    #[test]
+    fn spoken_minutes_and_a_lone_weekday_letter() {
+        assert_eq!(normalize("내일 열 시 삼 십 분 교감 면담"), "내일 10시 30분 교감 면담");
+        assert_eq!(normalize("오후 세 시 사십 분"), "오후 3시 40분");
+        assert_eq!(normalize("11시 십오분"), "11시 15분");
+        assert_eq!(start("담주 월", "오전 11시 반", "SCHEDULE"), start("다음 주 월요일", "오전 11시 반", "SCHEDULE"));
+        assert_eq!(normalize("이번 주 수업 정리"), "이번 주 수업 정리");
+        assert_eq!(normalize("다음 주 일 많음"), "다음 주 일 많음");
+        assert_eq!(normalize("학생들 주목 시키기"), "학생들 주목 시키기");
     }
 
     #[test]

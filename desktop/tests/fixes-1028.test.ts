@@ -163,3 +163,63 @@ describe("취소·변경", () => {
     expect([s.events[0].start, s.events[0].end]).toEqual(["23:00", "23:59"]);
   });
 });
+
+describe("새 문장 54개에서 나온 고침", () => {
+  const ev = (x: Partial<Record<string, string>>) => ({ sentence: "", dateText: "", timeText: "", endDateText: "", reminderText: "", ...x });
+  const it_ = (x: Record<string, unknown>) => ({ kind: "TODO", area: "SCHOOL", title: "", details: "", startAt: "", endAt: "", reminderAt: "", reminders: [], subtasks: [], suggestedSubtasks: [], evidence: ev({}), confidence: 0.9, needsReview: false, reviewReasons: [], ...x });
+  const run = (s: ReturnType<typeof emptyState>, items: unknown[], sourceText = "") => applyProposal(s, { items, sourceText } as unknown as Proposal, "데스크톱", NOW);
+
+  it("「다음주 교과협의회 취소」 picks next week's of two", () => {
+    const s = emptyState();
+    s.events.push(event("a", "교과협의회", "2026-10-30"), event("b", "교과협의회", "2026-11-06"));
+    run(s, [it_({ kind: "SCHEDULE", title: "교과협의회", change: "CANCEL", changeFrom: "다음주", evidence: ev({ sentence: "다음주 교과협의회 취소" }) })]);
+    expect(s.events.map((e) => !!e.gone)).toEqual([false, true]);
+  });
+
+  it("「가정통신문 발송은 다음주 월요일에 하기로」 moves the one open to-do, no second copy", () => {
+    const s = emptyState();
+    s.tasks.push(task("t", "가정통신문 발송", { due: "2026-10-29" }));
+    const a = run(s, [it_({ title: "가정통신문 발송", startAt: "2026-11-02T09:00:00+09:00", evidence: ev({ sentence: "가정통신문 발송은 다음주 월요일에 하기로", dateText: "다음주 월요일" }) })]);
+    expect(s.tasks).toHaveLength(1);
+    expect(s.tasks[0].due).toBe("2026-11-02");
+    expect(a.changed).toHaveLength(1);
+  });
+
+  it("「치과 예약 취소했음」 written down as a record cancels the 치과", () => {
+    const s = emptyState();
+    s.events.push(event("d", "치과", "2026-10-30", { area: "personal" }));
+    run(s, [it_({ kind: "NOTE", area: "PERSONAL", title: "치과 예약 취소", evidence: ev({ sentence: "치과 예약 취소했음" }) })]);
+    expect(s.events[0].gone).toBe(true);
+    expect(s.notes).toHaveLength(0);
+  });
+
+  it("「출장 취소 신청서 내기」 is a to-do, nothing is cancelled", () => {
+    const s = emptyState();
+    s.tasks.push(task("t", "출장 신청", { due: "2026-10-30" }));
+    run(s, [it_({ title: "출장 취소 신청서 내기", startAt: "2026-10-29T09:00:00+09:00", evidence: ev({ sentence: "내일까지 출장 취소 신청서 내기", dateText: "내일까지" }) })]);
+    expect(s.tasks[0].gone).toBeFalsy();
+    expect(s.tasks).toHaveLength(2);
+  });
+
+  it("「2반 6반 수행평가 채점」 in the title: one to-do per class", () => {
+    const s = emptyState();
+    run(s, [it_({ title: "2반 6반 수행평가 채점", startAt: "2026-10-30T09:00:00+09:00", evidence: ev({ sentence: "금요일까지 2반 6반 수행평가 채점", dateText: "금요일까지" }) })]);
+    expect(s.tasks.map((t) => t.title)).toEqual(["2반 수행평가 채점", "6반 수행평가 채점"]);
+  });
+
+  it("「내일 1교시 3반 수업」 with the 교시 left out of the time gets the 교시's time", () => {
+    const s = emptyState();
+    run(s, [it_({ kind: "SCHEDULE", title: "3반 수업", startAt: "2026-10-29T09:00:00+09:00", reminders: ["2026-10-29T08:50:00+09:00"], reviewReasons: ["날짜만 있어 오전 9시로 임시 지정"], needsReview: true, evidence: ev({ sentence: "내일 1교시 3반 수업", dateText: "내일" }) })]);
+    expect([s.events[0].start, s.events[0].end, s.events[0].reminders[0]]).toEqual(["08:50", "09:35", "2026-10-29T08:40"]);
+  });
+
+  it("「…참관하고 협의록 쓰기」: the to-do split off after 「하고」 is that day's", () => {
+    const s = emptyState();
+    run(s, [
+      it_({ kind: "SCHEDULE", title: "공개수업 참관", startAt: "2026-11-04T09:00:00+09:00", evidence: ev({ sentence: "다음주 수욜 6교시 공개수업 참관하고", dateText: "다음주 수요일", timeText: "6교시" }) }),
+      it_({ title: "협의록 쓰기", evidence: ev({ sentence: "협의록 쓰기" }) })
+    ], "다음주 수욜 6교시 공개수업 참관하고 협의록 쓰기");
+    expect(s.tasks[0].due).toBe("2026-11-04");
+    expect(s.tasks[0].noDue).toBeUndefined();
+  });
+});

@@ -242,7 +242,7 @@ impl ChatModel for ClaudeChat {
                     after.unwrap_or(1 << attempt).min(30)
                 }
                 Err(ureq::Error::Transport(t)) => {
-                    last = WorkerError::new(ErrorCode::RunnerUnavailable, format!("Claude API에 연결할 수 없습니다(인터넷 확인): {t}"));
+                    last = WorkerError::new(ErrorCode::RunnerUnavailable, { eprintln!("claude transport: {t}"); "인터넷에 연결되지 않아 AI에 묻지 못했습니다 · 연결되면 다시 해 주세요".to_string() });
                     1 << attempt
                 }
             };
@@ -328,7 +328,7 @@ pub fn check_key(base_url: &str, key: &str, model: &str) -> Result<(), WorkerErr
     match ureq::get(&url).timeout(Duration::from_secs(20)).set("x-api-key", key).set("anthropic-version", API_VERSION).call() {
         Ok(_) => Ok(()),
         Err(ureq::Error::Status(code, resp)) => Err(status_error(code, &resp.into_string().unwrap_or_default())),
-        Err(ureq::Error::Transport(t)) => Err(WorkerError::new(ErrorCode::RunnerUnavailable, format!("Claude API에 연결할 수 없습니다: {t}"))),
+        Err(ureq::Error::Transport(t)) => Err(WorkerError::new(ErrorCode::RunnerUnavailable, { eprintln!("claude transport: {t}"); "인터넷에 연결되지 않아 키를 확인하지 못했습니다 · 연결되면 다시 해 주세요".to_string() })),
     }
 }
 

@@ -263,7 +263,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.8,
-     "details": "",
+     "details": "초과근무",
      "endAt": "2026-10-28T21:20:00+09:00",
      "evidence": {
       "dateText": "오늘",
@@ -312,7 +312,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.5,
-     "details": "강당, 7교시",
+     "details": "강당",
      "endAt": "2026-11-16T10:00:00+09:00",
      "evidence": {
       "dateText": "11월 16일",
@@ -346,7 +346,7 @@
     "type": "text"
    },
    "sourceText": "11월 16일 강당에서 7교시 대의원회",
-   "summary": "11월 16일 7교시 강당 대의원회"
+   "summary": "11월 16일 7교시 대의원회"
   }
  },
  "d6": {
@@ -385,7 +385,7 @@
     },
     {
      "area": "SCHOOL",
-     "confidence": 0.8,
+     "confidence": 0.75,
      "details": "감독비 9만원",
      "endAt": "",
      "evidence": {
@@ -1041,7 +1041,7 @@
     "type": "text"
    },
    "sourceText": "급식지도 일정\n1221 복도\n1222 남학생줄",
-   "summary": "12월 21일·22일 급식지도 일정"
+   "summary": "12월 21일과 22일 급식지도 일정"
   }
  },
  "t1": {
@@ -1076,7 +1076,7 @@
      "reviewReasons": [],
      "startAt": "2026-10-28T13:20:00+09:00",
      "subtasks": [],
-     "title": "학교폭력유공교원가산점대상자 안내 메시지 보내기"
+     "title": "학교폭력유공교원가산점대상자 안내 메세지 보내기"
     }
    ],
    "needsReview": false,
@@ -1090,7 +1090,7 @@
     "type": "text"
    },
    "sourceText": "오늘 1320까지 학교폭력유공교원가산점대상자 안내 메세지 보내기",
-   "summary": "오늘 1320까지 가산점 대상자 안내 메시지 발송"
+   "summary": "학교폭력유공교원가산점대상자 안내 메시지 발송"
   }
  },
  "d20": {
@@ -1112,7 +1112,7 @@
      "evidence": {
       "dateText": "내일",
       "endDateText": "",
-      "reminderText": "수업 시작 10분 전",
+      "reminderText": "수업시작 10분 전",
       "sentence": "내일 1교시 3반 수업 수업시작 10분전에 알림",
       "timeText": "1교시"
      },
@@ -1157,7 +1157,7 @@
    "items": [
     {
      "area": "PERSONAL",
-     "confidence": 0.85,
+     "confidence": 0.8,
      "details": "",
      "endAt": "2026-10-28T18:00:00+09:00",
      "evidence": {
@@ -1206,15 +1206,15 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
-     "details": "정민호선생님께 제출",
+     "confidence": 0.85,
+     "details": "과학과 협의록, 정민호선생님께 제출",
      "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
       "dateText": "오늘",
       "endDateText": "",
       "reminderText": "",
       "sentence": "오늘 퇴근 전까지 과학과 협의록 작성해서 정민호선생님께 제출",
-      "timeText": "퇴근 전"
+      "timeText": "퇴근 전까지"
      },
      "kind": "TODO",
      "needsReview": false,
@@ -1242,7 +1242,7 @@
     "type": "text"
    },
    "sourceText": "오늘 퇴근 전까지 과학과 협의록 작성해서 정민호선생님께 제출",
-   "summary": "과학과 협의록 작성 후 정민호선생님께 제출"
+   "summary": "과학과 협의록 작성 후 정민호 선생님께 제출"
   }
  },
  "t3": {
@@ -1259,7 +1259,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.85,
-     "details": "학교폭력유공교원가산점 안내",
+     "details": "학교폭력유공교원가산점 안내 메시지",
      "endAt": "2026-10-29T10:00:00+09:00",
      "evidence": {
       "dateText": "내일",
@@ -1277,7 +1277,7 @@
      "reviewReasons": [],
      "startAt": "2026-10-29T09:00:00+09:00",
      "subtasks": [],
-     "title": "학교폭력유공교원가산점 안내 메세지 보내기"
+     "title": "학교폭력유공교원가산점 안내 메시지 발송"
     }
    ],
    "needsReview": false,
@@ -1329,7 +1329,7 @@
      "suggestedSubtasks": [
       "제개정위원회 내용 다시 작성"
      ],
-     "title": "제개정위원회 문서 작성 및 기안"
+     "title": "제개정위원회 문서 기안"
     }
    ],
    "needsReview": false,
@@ -1343,7 +1343,7 @@
     "type": "text"
    },
    "sourceText": "제개정위원회 다시 작성해서 기안",
-   "summary": "제개정위원회 문서 다시 작성 후 기안"
+   "summary": "제개정위원회 문서를 다시 작성해 기안"
   }
  },
  "t6": {
@@ -1376,7 +1376,7 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "쿨메신저 전체 교원 탭 요청"
+     "title": "쿨메신저 전체 교원 탭 생성 요청"
     }
    ],
    "needsReview": false,
@@ -1439,7 +1439,7 @@
     "type": "text"
    },
    "sourceText": "9반 다음 시간에 성운부터 설명해야함",
-   "summary": "9반 다음 수업에서 성운부터 설명"
+   "summary": "9반 다음 시간 설명 준비"
   }
  },
  "t9": {
@@ -1455,7 +1455,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.8,
+     "confidence": 0.85,
      "details": "신구대조표와 함께 작성",
      "endAt": "",
      "evidence": {
@@ -1510,7 +1510,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.8,
-     "details": "2학년 교실에 게시",
+     "details": "2학년 교실",
      "endAt": "2026-10-29T10:00:00+09:00",
      "evidence": {
       "dateText": "내일",
@@ -1531,8 +1531,8 @@
       "시간표 반영"
      ],
      "suggestedSubtasks": [
-      "한지수선생님 연락 확인",
-      "수행평가 안내문 작성"
+      "수행평가 안내문 작성",
+      "2학년 교실 게시"
      ],
      "title": "수행평가 안내문 게시",
      "waitFor": "한지수선생님 연락"
@@ -1582,9 +1582,11 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [
-      "시간표 변경 가능한지 확인",
       "시간표 변경 요청",
       "출장 신청"
+     ],
+     "suggestedSubtasks": [
+      "시간표 변경 가능 여부 확인"
      ],
      "title": "출장 준비 시간표 변경 및 출장 신청"
     }
@@ -1648,7 +1650,7 @@
     "type": "text"
    },
    "sourceText": "인사자문위원회 안내 메세지 일정 확정되면 보내기(지금은 수요일일지 목요일일지 알지 못함)",
-   "summary": "인사자문위원회 안내 메시지 발송 대기"
+   "summary": "인사자문위원회 안내 메세지 발송 대기"
   }
  },
  "t12": {
@@ -1664,7 +1666,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.8,
      "details": "",
      "endAt": "2026-10-29T10:00:00+09:00",
      "evidence": {
@@ -1685,9 +1687,9 @@
      "subtasks": [],
      "suggestedSubtasks": [
       "명단 확인",
-      "처리 방법 결정"
+      "처리 방향 결정"
      ],
-     "title": "방과후 명단 확인 후 처리 결정",
+     "title": "방과후 명단 확인과 결정",
      "waitFor": "오세라선생님 명단 안내"
     }
    ],
@@ -1702,7 +1704,7 @@
     "type": "text"
    },
    "sourceText": "방과후 명단 내일 오세라선생님이 알려주시면 명단 보고 어떻게 할지 결정하기",
-   "summary": "방과후 명단 확인과 처리 방법 결정"
+   "summary": "방과후 명단 확인 후 처리 방향 결정"
   }
  },
  "t14": {
@@ -1718,7 +1720,7 @@
    "items": [
     {
      "area": "PERSONAL",
-     "confidence": 0.6,
+     "confidence": 0.8,
      "details": "행정실",
      "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
@@ -1768,7 +1770,7 @@
     {
      "area": "PERSONAL",
      "confidence": 0.8,
-     "details": "현금 20만원 계좌 입금",
+     "details": "현금 20만원 계좌에 입금",
      "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
       "dateText": "오늘",
@@ -1824,7 +1826,7 @@
     "type": "text"
    },
    "sourceText": "오늘 현금 20만원 계좌 안에 집어넣고 동생한테 10만원 송금해얗마",
-   "summary": "현금 계좌 입금 후 동생에게 송금"
+   "summary": "현금 20만원 입금 후 동생에게 10만원 송금"
   }
  },
  "t13": {
@@ -1841,7 +1843,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.6,
-     "details": "교학공 물품",
+     "details": "",
      "endAt": "2026-10-30T10:00:00+09:00",
      "evidence": {
       "dateText": "이번 주 금요일",
@@ -1910,12 +1912,12 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "김하늘 과학방과후 신청 확인"
+     "title": "김하늘 과학방과후 신청"
     },
     {
      "area": "SCHOOL",
      "confidence": 0.85,
-     "details": "방과후 코디 선생님께 전달",
+     "details": "방과후 코디 선생님께 전달할 명단",
      "endAt": "",
      "evidence": {
       "dateText": "",
@@ -1931,7 +1933,11 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "과학방과후 명단에 김하늘 추가"
+     "suggestedSubtasks": [
+      "명단에 김하늘 추가",
+      "방과후 코디 선생님께 명단 전달"
+     ],
+     "title": "방과후 명단에 김하늘 추가"
     }
    ],
    "needsReview": false,
@@ -1945,7 +1951,7 @@
     "type": "text"
    },
    "sourceText": "2학년 4반 과학방과후 김하늘 신청함 이따가 방과후 코디 선생님께 전달할때 명단에 추가를 해야함.",
-   "summary": "2학년 4반 과학방과후에 김하늘 신청, 명단 추가 필요"
+   "summary": "김하늘 과학방과후 신청 및 명단 추가"
   }
  },
  "t18": {
@@ -1978,12 +1984,37 @@
       "2026-11-06T09:00:00+09:00"
      ],
      "reviewReasons": [
-      "원문에 없는 날짜 표현을 버림: 「11월 13일 일주일 전」",
+      "원문에 없는 날짜 표현을 버림: 「11월 6일」",
       "모델이 빠뜨린 날짜를 원문에서 채움: 「11월 13일」"
      ],
      "startAt": "2026-11-06T09:00:00+09:00",
      "subtasks": [],
-     "title": "축제 부스 신청 받기"
+     "title": "부스 신청 받기"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-11-13T10:00:00+09:00",
+     "evidence": {
+      "dateText": "11월 13일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "11월 13일 축제",
+      "timeText": ""
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-11-13T09:00:00+09:00",
+     "reminders": [
+      "2026-11-13T09:00:00+09:00"
+     ],
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-11-13T09:00:00+09:00",
+     "subtasks": [],
+     "title": "축제"
     }
    ],
    "needsReview": true,
@@ -1997,7 +2028,7 @@
     "type": "text"
    },
    "sourceText": "11월 13일 축제 일주일 전에 부스 신청 받기",
-   "summary": "축제 부스 신청 받기"
+   "summary": "11월 13일 축제와 일주일 전 부스 신청 받기"
   }
  },
  "t19": {
@@ -2013,29 +2044,27 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.5,
-     "details": "",
+     "confidence": 0.6,
+     "details": "대의원회 전날",
      "endAt": "",
      "evidence": {
-      "dateText": "대의원회 전날",
+      "dateText": "",
       "endDateText": "",
       "reminderText": "",
       "sentence": "대의원회 전날 회의 자료 출력",
       "timeText": ""
      },
      "kind": "TODO",
-     "needsReview": true,
+     "needsReview": false,
      "reminderAt": "",
      "reminders": [],
-     "reviewReasons": [
-      "날짜 표현을 해석하지 못함: 「대의원회 전날」"
-     ],
+     "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "회의 자료 출력"
+     "title": "대의원회 회의 자료 출력"
     }
    ],
-   "needsReview": true,
+   "needsReview": false,
    "referenceTime": "2026-10-28T09:00:00+09:00",
    "reviewReasons": [],
    "schemaVersion": 2,
@@ -2046,7 +2075,7 @@
     "type": "text"
    },
    "sourceText": "대의원회 전날 회의 자료 출력",
-   "summary": "대의원회 전날 회의 자료 출력"
+   "summary": "대의원회 회의 자료 출력"
   }
  },
  "t17": {
@@ -2081,6 +2110,10 @@
      "reviewReasons": [],
      "startAt": "2026-11-04T09:00:00+09:00",
      "subtasks": [],
+     "suggestedSubtasks": [
+      "세특 내용 작성",
+      "생기부 입력"
+     ],
      "title": "생기부 세특 입력"
     }
    ],
@@ -2183,27 +2216,31 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.5,
      "details": "",
-     "endAt": "",
+     "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
       "dateText": "",
       "endDateText": "",
       "reminderText": "",
       "sentence": "퇴근 전에 공문 회신",
-      "timeText": ""
+      "timeText": "퇴근 전"
      },
      "kind": "TODO",
-     "needsReview": false,
-     "reminderAt": "",
-     "reminders": [],
-     "reviewReasons": [],
-     "startAt": "",
+     "needsReview": true,
+     "reminderAt": "2026-10-28T08:30:00+09:00",
+     "reminders": [
+      "2026-10-28T08:30:00+09:00"
+     ],
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-10-28T09:00:00+09:00",
      "subtasks": [],
      "title": "공문 회신"
     }
    ],
-   "needsReview": false,
+   "needsReview": true,
    "referenceTime": "2026-10-28T09:00:00+09:00",
    "reviewReasons": [],
    "schemaVersion": 2,
@@ -2281,8 +2318,8 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.8,
-     "details": "2학년 3반 이도윤, 최지우",
+     "confidence": 0.7,
+     "details": "",
      "endAt": "",
      "evidence": {
       "dateText": "",
@@ -2298,12 +2335,12 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "2학년 3반 방과후 신청 대상"
+     "title": "2학년 3반 이도윤, 최지우"
     },
     {
      "area": "SCHOOL",
-     "confidence": 0.8,
-     "details": "2학년 6반 박서준",
+     "confidence": 0.7,
+     "details": "",
      "endAt": "",
      "evidence": {
       "dateText": "",
@@ -2319,7 +2356,7 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "2학년 6반 방과후 신청 대상"
+     "title": "2학년 6반 박서준"
     },
     {
      "area": "SCHOOL",
@@ -2333,14 +2370,14 @@
       "sentence": "방과후 추가로 신청할 예정",
       "timeText": ""
      },
-     "kind": "NOTE",
+     "kind": "TODO",
      "needsReview": false,
      "reminderAt": "",
      "reminders": [],
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "방과후 추가 신청 예정"
+     "title": "방과후 추가 신청"
     },
     {
      "area": "SCHOOL",
@@ -2377,7 +2414,7 @@
     "type": "text"
    },
    "sourceText": "2학년 3반 이도윤, 최지우 / 2학년 6반 박서준 / 방과후 추가로 신청할 예정 / / 오늘 16시 전에 방과후 코디 선생님께 메세지 보내기",
-   "summary": "방과후 추가 신청 대상 학생 정리와 코디 선생님께 메시지 보내기"
+   "summary": "2학년 학생 명단과 방과후 신청 및 코디 선생님 메시지"
   }
  },
  "t25": {
@@ -2393,8 +2430,8 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
-     "details": "5교시",
+     "confidence": 0.9,
+     "details": "",
      "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
       "dateText": "오늘",
@@ -2416,8 +2453,8 @@
     },
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
-     "details": "7교시",
+     "confidence": 0.9,
+     "details": "",
      "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
       "dateText": "오늘",
@@ -2449,7 +2486,7 @@
     "type": "text"
    },
    "sourceText": "오늘 5교시 6반 수행평가 점수 확인 / 7교시 5반 수행평가 점수 확인",
-   "summary": "오늘 6반·5반 수행평가 점수 확인"
+   "summary": "오늘 5교시 6반, 7교시 5반 수행평가 점수 확인"
   }
  },
  "t26": {
@@ -2514,7 +2551,7 @@
    "items": [
     {
      "area": "PERSONAL",
-     "confidence": 0.7,
+     "confidence": 0.8,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -2562,7 +2599,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.5,
-     "details": "학생회 학생 회장 3명 참석",
+     "details": "학생회 학생은 회장 3명만 참석",
      "endAt": "2026-11-06T10:00:00+09:00",
      "evidence": {
       "dateText": "11. 6.",
@@ -2587,13 +2624,13 @@
     {
      "area": "SCHOOL",
      "confidence": 0.8,
-     "details": "",
+     "details": "각 학급 회장만 올지 부회장까지 같이 부를지 논의",
      "endAt": "",
      "evidence": {
       "dateText": "",
       "endDateText": "",
       "reminderText": "",
-      "sentence": "각 학급에서 회장만 올지 부회장까지 같이 부를지는 논의해야함",
+      "sentence": "사전안내도 해야하고 / 각 학급에서 회장만 올지 부회장까지 같이 부를지는 논의해야함",
       "timeText": ""
      },
      "kind": "TODO",
@@ -2602,31 +2639,12 @@
      "reminders": [],
      "reviewReasons": [],
      "startAt": "",
-     "subtasks": [],
-     "suggestedSubtasks": [
-      "회장만 참석할지 부회장까지 부를지 논의"
+     "subtasks": [
+      "사전 안내"
      ],
-     "title": "대의원회 참석 대상 논의"
-    },
-    {
-     "area": "SCHOOL",
-     "confidence": 0.8,
-     "details": "",
-     "endAt": "",
-     "evidence": {
-      "dateText": "",
-      "endDateText": "",
-      "reminderText": "",
-      "sentence": "사전안내도 해야하고",
-      "timeText": ""
-     },
-     "kind": "TODO",
-     "needsReview": false,
-     "reminderAt": "",
-     "reminders": [],
-     "reviewReasons": [],
-     "startAt": "",
-     "subtasks": [],
+     "suggestedSubtasks": [
+      "참석 범위 논의"
+     ],
      "title": "대의원회 사전 안내"
     },
     {
@@ -2638,7 +2656,7 @@
       "dateText": "일주일 전",
       "endDateText": "",
       "reminderText": "",
-      "sentence": "그리고 일주일 전부터 어떻게 해야할지 정하고 기안 올리고 학급에 안내를 해야합니다",
+      "sentence": "그리고 일주일 전부터 어떻게 해야할지 정하고 기안 올리고 학급에 안내를 해야합니다.",
       "timeText": ""
      },
      "kind": "TODO",
@@ -2649,11 +2667,12 @@
       "날짜 표현을 해석하지 못함: 「일주일 전」"
      ],
      "startAt": "",
-     "subtasks": [],
+     "subtasks": [
+      "학급에 안내"
+     ],
      "suggestedSubtasks": [
       "진행 방법 정하기",
-      "기안 올리기",
-      "학급에 안내하기"
+      "기안 올리기"
      ],
      "title": "대의원회 준비 및 학급 안내"
     }
@@ -2706,7 +2725,7 @@
      "subtasks": [],
      "suggestedSubtasks": [
       "자료 정리",
-      "초안",
+      "초안 작성",
       "결재"
      ],
      "title": "출장 결과보고서 제출"
@@ -2723,7 +2742,7 @@
     "type": "text"
    },
    "sourceText": "담주 금욜까지 출장 결과보고서 제출",
-   "summary": "출장 결과보고서 제출 마감"
+   "summary": "출장 결과보고서를 다음 주 금요일까지 제출"
   }
  },
  "t30": {
@@ -2790,7 +2809,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
+     "confidence": 0.85,
      "details": "",
      "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
@@ -2875,7 +2894,7 @@
     "type": "text"
    },
    "sourceText": "오늘까지 수행평가 안내문 및 수행평가 시험문항 제작",
-   "summary": "수행평가 안내문과 시험문항 제작 마감은 오늘"
+   "summary": "오늘까지 수행평가 안내문과 시험문항 제작"
   }
  },
  "n2": {
@@ -2938,7 +2957,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
+     "confidence": 0.85,
      "details": "",
      "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
@@ -2990,7 +3009,7 @@
     "type": "text"
    },
    "sourceText": "오늘 6반 진도종료, 수행평가 점수도 확인함",
-   "summary": "오늘 6반 진도 종료와 수행평가 점수 확인"
+   "summary": "6반 진도 종료와 수행평가 점수 확인 완료"
   }
  },
  "n5": {
@@ -3006,8 +3025,8 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.8,
-     "details": "https://stars.chromeexperiments.com/ (별과 우주 시뮬레이션)",
+     "confidence": 0.7,
+     "details": "https://stars.chromeexperiments.com/ (별과 우주 시뮬레이션, 수업용)",
      "endAt": "",
      "evidence": {
       "dateText": "",
@@ -3023,7 +3042,7 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "별과 우주 시뮬레이션 사이트"
+     "title": "별과 우주 시뮬레이션 자료"
     }
    ],
    "needsReview": false,
@@ -3037,7 +3056,7 @@
     "type": "text"
    },
    "sourceText": "https://stars.chromeexperiments.com/\n\n이거 별과 우주 시뮬레이션인데 나중에 수업할때 쓸거임",
-   "summary": "수업용 별과 우주 시뮬레이션 사이트 링크 기억"
+   "summary": "별과 우주 시뮬레이션 링크를 수업용으로 저장"
   }
  },
  "n7": {
@@ -3131,7 +3150,7 @@
     "type": "text"
    },
    "sourceText": "오반도 지금 오늘부로 진도 끝났어",
-   "summary": "5반 진도 종료 기록"
+   "summary": "5반 진도 종료"
   }
  },
  "n6": {
@@ -3225,7 +3244,7 @@
     "type": "text"
    },
    "sourceText": "협의록 제출했음",
-   "summary": "협의록 제출 완료 기록"
+   "summary": "협의록 제출 완료"
   }
  },
  "n10": {
@@ -3290,7 +3309,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
+     "confidence": 0.85,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -3337,7 +3356,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.9,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -3354,7 +3373,7 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "5반 수행평가 점수 확인 완료"
+     "title": "5반 수행평가 점수 확인"
     }
    ],
    "needsReview": false,

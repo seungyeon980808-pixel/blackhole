@@ -8,7 +8,7 @@ use super::{
     runners::split_words,
     source::{inspect_wav, read_original, sha256_hex, WavInfo},
 };
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, FixedOffset, TimeZone};
 use std::{path::Path, time::Instant};
 
 /// Document chunks sent to the LLM per call.
@@ -197,11 +197,37 @@ pub fn before_the_event(mut items: Vec<ProposalItem>) -> Vec<ProposalItem> {
         }
         // The appointment named in its sentence, else the first one.
         let (title, start, _) = events.iter().find(|(t, _, _)| !t.is_empty() && said.contains(t.split_whitespace().last().unwrap_or(t))).cloned().unwrap_or(first.clone());
+        // 「그 전날까지」 「이틀 전까지」: that many days before, the day only (it came out the appointment's own hour).
+        if let Some(n) = days_before(&said) {
+            if let Some(day) = DateTime::parse_from_rfc3339(&start).ok().map(|at| at - chrono::Duration::days(n)) {
+                let nine = day.date_naive().and_hms_opt(9, 0, 0).and_then(|t| day.offset().from_local_datetime(&t).single()).unwrap_or(day);
+                item.start_at = nine.to_rfc3339();
+                item.review_reasons.push(format!("「{title}」 {}로 둠", if n == 1 { "전날".to_string() } else { format!("{n}일 전") }));
+                continue;
+            }
+        }
         item.start_at = start;
         item.needs_review = true;
         item.review_reasons.push(format!("「{title}」 전까지로 둠"));
     }
     items
+}
+
+/// 「전날」 「이틀 전」 「3일 전」 「일주일 전」 in a to-do's words: how many days.
+fn days_before(said: &str) -> Option<i64> {
+    let s: String = said.split_whitespace().collect();
+    if s.contains("전날") {
+        return Some(1);
+    }
+    for (w, n) in [("하루전", 1), ("이틀전", 2), ("사흘전", 3), ("나흘전", 4), ("일주일전", 7), ("한주전", 7)] {
+        if s.contains(w) {
+            return Some(n);
+        }
+    }
+    static N: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let caps = N.get_or_init(|| regex::Regex::new(r"(\d{1,2})(일|주)전").unwrap()).captures(&s)?;
+    let n: i64 = caps[1].parse().ok()?;
+    Some(if &caps[2] == "주" { n * 7 } else { n })
 }
 
 /// The first bytes say what a file really is: a broken or renamed file is caught here, in Korean,
@@ -697,6 +723,15 @@ mod tests {
         assert_eq!(out[1].start_at, "2026-10-28T16:00:00+09:00");
         assert!(out[1].review_reasons[0].contains("학부모 상담"));
         assert_eq!(out[2].start_at, "");
+
+        // 「그 전날까지」 「이틀 전까지」: the day(s) before, the day only.
+        let out = before_the_event(vec![
+            mk("SCHEDULE", "학부모 상담", "2026-11-06T10:30:00+09:00", "다음 주 금요일 오전 열시 반에 학부모 상담 있고"),
+            mk("TODO", "상담 자료 준비", "", "그 전날까지 상담 자료 준비"),
+            mk("TODO", "명단 확인", "", "상담 이틀 전까지 명단 확인"),
+        ]);
+        assert_eq!(out[1].start_at, "2026-11-05T09:00:00+09:00");
+        assert_eq!(out[2].start_at, "2026-11-04T09:00:00+09:00");
     }
 
     #[test]
