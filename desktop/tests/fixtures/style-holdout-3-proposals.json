@@ -134,7 +134,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.85,
-     "details": "나이스",
+     "details": "",
      "endAt": "2026-11-02T10:00:00+09:00",
      "evidence": {
       "dateText": "월요일",
@@ -152,7 +152,7 @@
      "reviewReasons": [],
      "startAt": "2026-11-02T09:00:00+09:00",
      "subtasks": [],
-     "title": "수행평가 점수 나이스 입력"
+     "title": "나이스 입력"
     }
    ],
    "needsReview": false,
@@ -166,7 +166,7 @@
     "type": "text"
    },
    "sourceText": "음 그러니까 금요일까지 수행평가 채점 다 하고 월요일에 나이스 입력",
-   "summary": "금요일 수행평가 채점, 월요일 나이스 입력"
+   "summary": "수행평가 채점과 나이스 입력"
   }
  },
  "v1": {
@@ -208,29 +208,25 @@
     },
     {
      "area": "SCHOOL",
-     "confidence": 0.5,
+     "confidence": 0.8,
      "details": "",
-     "endAt": "2026-10-29T16:00:00+09:00",
+     "endAt": "",
      "evidence": {
-      "dateText": "내일 오후",
+      "dateText": "",
       "endDateText": "",
       "reminderText": "",
       "sentence": "끝나면 바로 회의록 정리해야 돼",
       "timeText": ""
      },
      "kind": "TODO",
-     "needsReview": true,
-     "reminderAt": "2026-10-29T15:00:00+09:00",
-     "reminders": [
-      "2026-10-29T15:00:00+09:00"
-     ],
-     "reviewReasons": [
-      "대략 시각: 「오후」을 15:00로 둠"
-     ],
-     "startAt": "2026-10-29T15:00:00+09:00",
+     "needsReview": false,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [],
+     "startAt": "",
      "subtasks": [],
-     "title": "회의록 정리",
-     "waitFor": "교감선생님 면담 끝"
+     "title": "면담 회의록 정리",
+     "waitFor": "교감선생님 면담 종료"
     }
    ],
    "needsReview": true,
@@ -342,7 +338,7 @@
     "type": "text"
    },
    "sourceText": "이번 주 토요일에 엄마 생신이라 저녁 여섯 시 반에 가족 외식",
-   "summary": "이번 주 토요일 엄마 생신 가족 외식"
+   "summary": "엄마 생신 가족 외식 일정"
   }
  },
  "v8": {
@@ -411,8 +407,8 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
-     "details": "부장님께 보냄",
+     "confidence": 0.9,
+     "details": "부장님께 보내기",
      "endAt": "2026-10-30T10:00:00+09:00",
      "evidence": {
       "dateText": "모레",
@@ -431,7 +427,7 @@
      "startAt": "2026-10-30T09:00:00+09:00",
      "subtasks": [],
      "suggestedSubtasks": [
-      "자료 만들기",
+      "학년 협의회 자료 만들기",
       "부장님께 보내기"
      ],
      "title": "학년 협의회 자료 제출"
@@ -448,7 +444,7 @@
     "type": "text"
    },
    "sourceText": "모레까지 학년 협의회 자료 만들어서 부장님한테 보내드려야 함",
-   "summary": "학년 협의회 자료 만들어 부장님께 제출"
+   "summary": "학년 협의회 자료를 모레까지 만들어 부장님께 보냄"
   }
  },
  "v10": {
@@ -464,7 +460,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.8,
+     "confidence": 0.85,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -613,7 +609,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.9,
      "details": "",
      "endAt": "2026-10-29T10:00:00+09:00",
      "evidence": {
@@ -632,10 +628,7 @@
      "reviewReasons": [],
      "startAt": "2026-10-29T09:00:00+09:00",
      "subtasks": [],
-     "suggestedSubtasks": [
-      "가정통신문 발송"
-     ],
-     "title": "가정통신문 보내기"
+     "title": "가정통신문 발송"
     }
    ],
    "needsReview": false,
@@ -649,7 +642,7 @@
     "type": "text"
    },
    "sourceText": "가정통신문 아직 못 보냄 내일 보내기",
-   "summary": "가정통신문 발송 예정"
+   "summary": "가정통신문 발송 할 일"
   }
  },
  "v15": {
@@ -675,7 +668,7 @@
       "sentence": "오늘 저녁에 장보기",
       "timeText": "저녁"
      },
-     "kind": "TODO",
+     "kind": "SCHEDULE",
      "needsReview": true,
      "reminderAt": "2026-10-28T17:30:00+09:00",
      "reminders": [
@@ -867,7 +860,7 @@
      "details": "",
      "endAt": "2026-11-02T10:00:00+09:00",
      "evidence": {
-      "dateText": "다음달 이일",
+      "dateText": "다음달 2일",
       "endDateText": "",
       "reminderText": "",
       "sentence": "다음달 이일 학교 축제",
@@ -966,7 +959,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.85,
-     "details": "6교시 끝나고",
+     "details": "6교시 끝나고, 과학실",
      "endAt": "2026-10-29T10:00:00+09:00",
      "evidence": {
       "dateText": "목요일",
@@ -1041,7 +1034,7 @@
    "items": [
     {
      "area": "PERSONAL",
-     "confidence": 0.8,
+     "confidence": 0.85,
      "details": "크리스마스 이브 파티",
      "endAt": "2026-12-24T20:00:00+09:00",
      "evidence": {
@@ -1101,7 +1094,7 @@
     "type": "text"
    },
    "sourceText": "아 그 뭐더라 잠깐만요",
-   "summary": "말을 잠시 멈춤, 정리할 내용 없음"
+   "summary": "사용자가 말을 잠시 멈추고 생각 중이라 정리할 내용이 없음"
   }
  },
  "v25": {
@@ -1187,7 +1180,7 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "교무실 정수기 필터 교체 업체 번호"
+     "title": "정수기 필터 교체 업체 번호 010-1234-5678"
     }
    ],
    "needsReview": false,
@@ -1201,7 +1194,7 @@
     "type": "text"
    },
    "sourceText": "교무실 정수기 필터 교체 업체 번호 공일공 일이삼사 오육칠팔",
-   "summary": "교무실 정수기 필터 교체 업체 연락처 기록"
+   "summary": "교무실 정수기 필터 교체 업체 번호 기록"
   }
  },
  "v22": {
@@ -1236,7 +1229,6 @@
      "subtasks": [],
      "suggestedSubtasks": [
       "계획서 작성",
-      "결재 요청",
       "계획서 업로드"
      ],
      "title": "현장체험학습 계획서 올리기",
@@ -1254,7 +1246,7 @@
     "type": "text"
    },
    "sourceText": "교감 선생님이 승인해 주시면 현장체험학습 계획서 올리기",
-   "summary": "현장체험학습 계획서 업로드, 교감 승인 후"
+   "summary": "교감 승인 후 현장체험학습 계획서 업로드"
   }
  },
  "v26": {
@@ -1303,7 +1295,7 @@
     "type": "text"
    },
    "sourceText": "다다음 주 월요일까지 생기부 세특 입력 마감",
-   "summary": "생기부 세특 입력 마감 기한"
+   "summary": "생기부 세특 입력 마감"
   }
  },
  "v27": {
@@ -1522,7 +1514,7 @@
       "endDateText": "",
       "reminderText": "",
       "sentence": "내일 1교시 2교시 연달아 공개수업 2학년 3반",
-      "timeText": "1교시"
+      "timeText": "1교시 2교시"
      },
      "kind": "SCHEDULE",
      "needsReview": true,
@@ -1549,7 +1541,7 @@
     "type": "text"
    },
    "sourceText": "내일 1교시 2교시 연달아 공개수업 2학년 3반",
-   "summary": "내일 2학년 3반 1·2교시 공개수업"
+   "summary": "내일 2학년 3반 공개수업 1·2교시"
   }
  },
  "v33": {
@@ -1647,7 +1639,7 @@
     "type": "text"
    },
    "sourceText": "오늘 퇴근 전까지 학급 일지 쓰기",
-   "summary": "오늘 퇴근 전 학급 일지 작성"
+   "summary": "오늘 퇴근 전까지 학급 일지 쓰기"
   }
  },
  "v34": {
@@ -1694,7 +1686,7 @@
     "type": "text"
    },
    "sourceText": "다음 주 내내 교생 실습 지도",
-   "summary": "다음 주 교생 실습 지도 기간"
+   "summary": "다음 주 교생 실습 지도"
   }
  },
  "v35": {
@@ -1745,7 +1737,7 @@
     "type": "text"
    },
    "sourceText": "1113 학교폭력 예방교육 강당 6교시",
-   "summary": "11월 13일 학교폭력 예방교육 (강당, 6교시)"
+   "summary": "11월 13일 학교폭력 예방교육 강당 6교시"
   }
  },
  "v37": {
@@ -1794,7 +1786,7 @@
     "type": "text"
    },
    "sourceText": "차 엔진오일 교체 다음 주 토요일 오전 열한 시",
-   "summary": "다음 주 토요일 오전 11시 엔진오일 교체"
+   "summary": "다음 주 토요일 차 엔진오일 교체 예약"
   }
  },
  "v36": {
@@ -1843,7 +1835,7 @@
     "type": "text"
    },
    "sourceText": "김선생님한테 시험지 인쇄 부탁하기 월요일까지",
-   "summary": "김선생님에게 시험지 인쇄 부탁, 월요일까지"
+   "summary": "김선생님께 시험지 인쇄 부탁, 월요일까지"
   }
  },
  "v38": {
@@ -1876,7 +1868,7 @@
      "reviewReasons": [],
      "startAt": "2026-10-28T09:00:00+09:00",
      "subtasks": [],
-     "title": "2반 진도 종료"
+     "title": "2반 진도 완료"
     }
    ],
    "needsReview": false,
@@ -1890,7 +1882,7 @@
     "type": "text"
    },
    "sourceText": "오늘 2반 진도 다 나갔어",
-   "summary": "오늘 2반 진도 종료"
+   "summary": "오늘 2반 진도 완료"
   }
  },
  "v40": {
@@ -1907,6 +1899,7 @@
     {
      "area": "SCHOOL",
      "change": "CANCEL",
+     "changeFrom": "이번 주",
      "confidence": 0.85,
      "details": "",
      "endAt": "",
@@ -1955,7 +1948,7 @@
     {
      "area": "SCHOOL",
      "change": "MOVE",
-     "confidence": 0.85,
+     "confidence": 0.8,
      "details": "",
      "endAt": "2026-10-29T18:30:00+09:00",
      "evidence": {
@@ -1988,7 +1981,7 @@
     "type": "text"
    },
    "sourceText": "학부모 상담 내일 다섯 시 반으로 바뀌었어요",
-   "summary": "학부모 상담 시간이 내일 다섯 시 반으로 변경됨"
+   "summary": "학부모 상담 시간이 내일 5시 반으로 변경"
   }
  }
 }

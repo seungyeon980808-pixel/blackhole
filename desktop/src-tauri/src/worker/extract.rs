@@ -436,6 +436,16 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         if digits_only && !compact_dates(&time_text).is_empty() && line_head(source_text, &time_text) {
             date_text = std::mem::take(&mut time_text);
         }
+        // 「협의회 1030 1530」 given whole as the time (it came out 10:30~15:30 today): a day, then its time.
+        let runs: Vec<&str> = time_text.split_whitespace().collect();
+        if let [day, hm] = runs[..] {
+            let four = |x: &str| x.len() == 4 && x.chars().all(|c| c.is_ascii_digit());
+            let (h, m) = (hm.get(..2).and_then(|x| x.parse::<u32>().ok()).unwrap_or(99), hm.get(2..).and_then(|x| x.parse::<u32>().ok()).unwrap_or(99));
+            if four(day) && four(hm) && month_day(day).is_some() && h < 24 && m < 60 {
+                date_text = day.to_string();
+                time_text = hm.to_string();
+            }
+        }
     }
     // 「다음주 내내」 quoted as both start and end: the week itself (week_span), not an end day.
     if kind == "PERIOD" && end_date_text == date_text {
@@ -1091,6 +1101,9 @@ mod tests {
             let e = validate(&answer(vec![said("SCHEDULE", "교과서 선정 협의회", "1030", "", text)]).to_string(), Some(text), reference()).unwrap();
             assert!(e.items[0].start_at.starts_with(&format!("2026-10-30T{time}")), "{text}: {}", e.items[0].start_at);
         }
+        let text = "교과서 선정 협의회 1030 1530";
+        let e = validate(&answer(vec![said("SCHEDULE", "교과서 선정 협의회", "", "1030 1530", text)]).to_string(), Some(text), reference()).unwrap();
+        assert!(e.items[0].start_at.starts_with("2026-10-30T15:30"), "given whole as the time: {}", e.items[0].start_at);
         let text = "1030 2026학년도 계획";
         let e = validate(&answer(vec![said("SCHEDULE", "계획", "1030", "", text)]).to_string(), Some(text), reference()).unwrap();
         assert!(!e.items[0].start_at.contains("20:26"), "{}", e.items[0].start_at);

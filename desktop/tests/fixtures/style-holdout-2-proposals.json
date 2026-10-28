@@ -196,7 +196,7 @@
     "type": "text"
    },
    "sourceText": "담주 목욜 오후 2시 교육청 장학사 방문",
-   "summary": "담주 목요일 오후 2시 교육청 장학사 방문"
+   "summary": "다음 주 목요일 오후 2시 교육청 장학사 방문"
   }
  },
  "n8": {
@@ -359,7 +359,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
+     "confidence": 0.85,
      "details": "제주",
      "endAt": "2026-11-05T00:00:00+09:00",
      "evidence": {
@@ -390,7 +390,7 @@
     "type": "text"
    },
    "sourceText": "1102부터 1104까지 제주 수학여행 인솔",
-   "summary": "1102~1104 제주 수학여행 인솔"
+   "summary": "제주 수학여행 인솔 기간"
   }
  },
  "n11": {
@@ -406,7 +406,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.8,
      "details": "교무실 복사기 비밀번호 2580",
      "endAt": "",
      "evidence": {
@@ -453,7 +453,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
+     "confidence": 0.85,
      "details": "교무실",
      "endAt": "2026-10-29T09:30:00+09:00",
      "evidence": {
@@ -461,7 +461,7 @@
       "endDateText": "",
       "reminderText": "",
       "sentence": "내일 아침에 8시 반까지 교무실 가서 출장 서류 내기",
-      "timeText": "8시 반"
+      "timeText": "8시 반까지"
      },
      "kind": "TODO",
      "needsReview": false,
@@ -486,7 +486,7 @@
     "type": "text"
    },
    "sourceText": "아 그리고 내일 아침에 8시 반까지 교무실 가서 출장 서류 내기",
-   "summary": "내일 아침 8시 반까지 교무실에 출장 서류 제출"
+   "summary": "내일 아침 교무실에 출장 서류 제출"
   }
  },
  "n12": {
@@ -502,7 +502,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.8,
      "details": "3학년 2반 담임 박정민 선생님, 내선 2214",
      "endAt": "",
      "evidence": {
@@ -533,7 +533,7 @@
     "type": "text"
    },
    "sourceText": "3학년 2반 담임 박정민 선생님 내선 2214",
-   "summary": "3학년 2반 담임 박정민 선생님 내선 번호 기록"
+   "summary": "3학년 2반 담임 박정민 선생님 내선 연락처"
   }
  },
  "n9": {
@@ -573,7 +573,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.5,
-     "details": "",
+     "details": "학부모 상담 전날까지",
      "endAt": "",
      "evidence": {
       "dateText": "",
@@ -591,9 +591,7 @@
       "「학부모 상담」 전날로 둠"
      ],
      "startAt": "2026-11-05T09:00:00+09:00",
-     "subtasks": [
-      "자료 준비"
-     ],
+     "subtasks": [],
      "title": "상담 자료 준비"
     }
    ],
@@ -608,7 +606,7 @@
     "type": "text"
    },
    "sourceText": "다음 주 금요일 오전 열시 반에 학부모 상담 있고 그 전날까지 상담 자료 준비",
-   "summary": "다음 주 금요일 학부모 상담과 전날까지 상담 자료 준비"
+   "summary": "다음 주 금요일 학부모 상담과 상담 자료 준비"
   }
  },
  "n13": {
@@ -635,7 +633,7 @@
     "type": "text"
    },
    "sourceText": "ㅎㅎ 그냥 해본 말",
-   "summary": "정리할 일정이나 할 일 없음, 가벼운 대화"
+   "summary": "의미 있는 일정이나 할 일 없음, 가벼운 말"
   }
  },
  "n14": {
@@ -711,7 +709,7 @@
     "type": "text"
    },
    "sourceText": "이번주 토요일 오전 10시 아들 축구 시합",
-   "summary": "토요일 오전 10시 아들 축구 시합"
+   "summary": "이번주 토요일 아들 축구 시합"
   }
  },
  "n16": {
@@ -780,22 +778,22 @@
      "area": "SCHOOL",
      "confidence": 0.9,
      "details": "",
-     "endAt": "2026-10-30T16:30:00+09:00",
+     "endAt": "2026-10-28T15:30:00+09:00",
      "evidence": {
-      "dateText": "1030",
+      "dateText": "",
       "endDateText": "",
       "reminderText": "",
       "sentence": "교과서 선정 협의회 1030 1530",
-      "timeText": "1530"
+      "timeText": "1030 1530"
      },
      "kind": "SCHEDULE",
      "needsReview": false,
-     "reminderAt": "2026-10-30T15:00:00+09:00",
+     "reminderAt": "2026-10-28T10:00:00+09:00",
      "reminders": [
-      "2026-10-30T15:00:00+09:00"
+      "2026-10-28T10:00:00+09:00"
      ],
      "reviewReasons": [],
-     "startAt": "2026-10-30T15:30:00+09:00",
+     "startAt": "2026-10-28T10:30:00+09:00",
      "subtasks": [],
      "title": "교과서 선정 협의회"
     }
@@ -858,7 +856,7 @@
     "type": "text"
    },
    "sourceText": "1/15 ~ 1/16 신규교사 연수",
-   "summary": "1월 15일~16일 신규교사 연수"
+   "summary": "1월 15일부터 16일까지 신규교사 연수"
   }
  },
  "n20": {
@@ -923,7 +921,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.9,
-     "details": "",
+     "details": "3반 수행평가 결과",
      "endAt": "2026-11-03T10:00:00+09:00",
      "evidence": {
       "dateText": "다음주 화요일",
@@ -946,7 +944,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.9,
-     "details": "",
+     "details": "5반 수행평가 결과",
      "endAt": "2026-11-03T10:00:00+09:00",
      "evidence": {
       "dateText": "다음주 화요일",
@@ -1358,7 +1356,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.9,
-     "details": "교무기획 안내",
+     "details": "교무기획 안내, 1교시 전",
      "endAt": "2026-10-29T09:40:00+09:00",
      "evidence": {
       "dateText": "내일",
@@ -1390,7 +1388,7 @@
     "type": "text"
    },
    "sourceText": "[오후 4:02] 교무기획: 내일 1교시 전 8시 40분 교무회의 있습니다 꼭 참석 부탁드려요",
-   "summary": "내일 8시 40분 교무회의 참석 안내"
+   "summary": "내일 8시 40분 교무회의 참석"
   }
  },
  "n32": {
@@ -1488,7 +1486,7 @@
     "type": "text"
    },
    "sourceText": "11.6.(금) 14:00 학교폭력대책심의위원회 출석",
-   "summary": "11월 6일 금요일 14시 학교폭력대책심의위원회 출석"
+   "summary": "11월 6일 학교폭력대책심의위원회 출석"
   }
  },
  "n30": {
@@ -1655,7 +1653,7 @@
     "type": "text"
    },
    "sourceText": "오늘 할일 1.교실 환경정리 2.출석부 확인 3.가정통신문 회수",
-   "summary": "오늘 할 일 3가지: 교실 환경정리, 출석부 확인, 가정통신문 회수"
+   "summary": "오늘 할 일 세 가지: 교실 환경정리, 출석부 확인, 가정통신문 회수"
   }
  },
  "n33": {
@@ -1848,7 +1846,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.85,
-     "details": "교장샘 요청",
+     "details": "교장선생님 요청",
      "endAt": "2026-10-29T10:00:00+09:00",
      "evidence": {
       "dateText": "내일",
@@ -1866,6 +1864,11 @@
      "reviewReasons": [],
      "startAt": "2026-10-29T09:00:00+09:00",
      "subtasks": [],
+     "suggestedSubtasks": [
+      "자료 정리",
+      "초안 작성",
+      "결재"
+     ],
      "title": "학교평가 보고서 제출"
     }
    ],
@@ -1880,7 +1883,7 @@
     "type": "text"
    },
    "sourceText": "교장샘이 내일까지 학교평가 보고서 달래요",
-   "summary": "교장 요청으로 내일까지 학교평가 보고서 제출"
+   "summary": "교장선생님 요청으로 학교평가 보고서 내일까지 제출"
   }
  },
  "n38": {
@@ -1930,7 +1933,7 @@
     "type": "text"
    },
    "sourceText": "2시에 회의 아 그거 내일임",
-   "summary": "회의 날짜를 내일로 변경"
+   "summary": "회의 날짜를 내일로 바꿈"
   }
  },
  "n39": {
@@ -1946,7 +1949,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
+     "confidence": 0.85,
      "details": "체험학습 버스 출발",
      "endAt": "2026-11-05T09:00:00+09:00",
      "evidence": {
@@ -2030,7 +2033,7 @@
     "type": "text"
    },
    "sourceText": "12월 18일 금요일 2학기 종업식",
-   "summary": "12월 18일 금요일 2학기 종업식"
+   "summary": "12월 18일 2학기 종업식"
   }
  },
  "n37": {
@@ -2047,7 +2050,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.85,
-     "details": "학생 최민준",
+     "details": "학생 이름 최민준",
      "endAt": "2026-10-28T16:30:00+09:00",
      "evidence": {
       "dateText": "오늘",
@@ -2128,7 +2131,7 @@
     "type": "text"
    },
    "sourceText": "엄마 병원 예약 담주 월 오전 11시 반",
-   "summary": "다음 주 월요일 엄마 병원 예약"
+   "summary": "다음 주 월요일 오전 11시 반 엄마 병원 예약"
   }
  },
  "n41": {
@@ -2265,7 +2268,7 @@
      ],
      "startAt": "2026-10-29T09:00:00+09:00",
      "subtasks": [],
-     "title": "5반 수업"
+     "title": "5반 연강 수업"
     }
    ],
    "needsReview": true,
@@ -2331,7 +2334,7 @@
     "type": "text"
    },
    "sourceText": "대의원회 17일로 하루 미룸",
-   "summary": "대의원회를 17일로 하루 미룸"
+   "summary": "대의원회 일정을 17일로 미룸"
   }
  },
  "n45": {
@@ -2347,7 +2350,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.9,
      "details": "",
      "endAt": "2026-12-04T10:00:00+09:00",
      "evidence": {
@@ -2397,7 +2400,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.8,
-     "details": "운동장 사용",
+     "details": "운동장 사용 관련",
      "endAt": "",
      "evidence": {
       "dateText": "",
@@ -2442,17 +2445,17 @@
    },
    "items": [
     {
-     "area": "PERSONAL",
+     "area": "SCHOOL",
      "change": "MOVE",
      "changeFrom": "4시 반",
-     "confidence": 0.5,
+     "confidence": 0.6,
      "details": "",
      "endAt": "2026-10-29T18:00:00+09:00",
      "evidence": {
       "dateText": "내일",
       "endDateText": "",
       "reminderText": "",
-      "sentence": "내일 상담 4시 반 아니고 5시래",
+      "sentence": "아 내일 상담 4시 반 아니고 5시래",
       "timeText": "5시"
      },
      "kind": "SCHEDULE",
@@ -2576,7 +2579,7 @@
     "type": "text"
    },
    "sourceText": "가정통신문 발송은 다음주 월요일에 하기로",
-   "summary": "가정통신문 발송 일정"
+   "summary": "가정통신문 발송을 다음 주 월요일로 정함"
   }
  },
  "n49": {
@@ -2593,7 +2596,7 @@
     {
      "area": "SCHOOL",
      "change": "MOVE",
-     "confidence": 0.8,
+     "confidence": 0.7,
      "details": "",
      "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
@@ -2691,7 +2694,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.8,
      "details": "",
      "endAt": "2026-10-29T16:00:00+09:00",
      "evidence": {

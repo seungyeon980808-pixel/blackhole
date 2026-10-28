@@ -256,7 +256,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.5,
-     "details": "",
+     "details": "2반",
      "endAt": "2026-10-29T10:00:00+09:00",
      "evidence": {
       "dateText": "내일",
@@ -314,7 +314,7 @@
       "endDateText": "",
       "reminderText": "",
       "sentence": "내일오후3시치과예약",
-      "timeText": "오후 3시"
+      "timeText": "오후3시"
      },
      "kind": "SCHEDULE",
      "needsReview": false,
@@ -407,7 +407,8 @@
     {
      "area": "SCHOOL",
      "change": "MOVE",
-     "confidence": 0.6,
+     "changeFrom": "내일 3시",
+     "confidence": 0.8,
      "details": "",
      "endAt": "2026-10-29T17:00:00+09:00",
      "evidence": {
@@ -440,7 +441,7 @@
     "type": "text"
    },
    "sourceText": "내일 3시 아니 4시에 진로 상담",
-   "summary": "진로 상담 시간을 3시에서 4시로 변경"
+   "summary": "내일 진로 상담 시간을 3시에서 4시로 변경"
   }
  },
  "s11": {
@@ -510,7 +511,7 @@
      "change": "MOVE",
      "changeFrom": "목요일",
      "confidence": 0.5,
-     "details": "부서",
+     "details": "부서 회식",
      "endAt": "2026-10-30T10:00:00+09:00",
      "evidence": {
       "dateText": "금요일",
@@ -530,7 +531,7 @@
      ],
      "startAt": "2026-10-30T09:00:00+09:00",
      "subtasks": [],
-     "title": "회식"
+     "title": "부서 회식"
     }
    ],
    "needsReview": true,
@@ -544,7 +545,7 @@
     "type": "text"
    },
    "sourceText": "목요일 아니고 금요일에 부서 회식",
-   "summary": "부서 회식 날짜를 금요일로 변경"
+   "summary": "부서 회식을 목요일에서 금요일로 변경"
   }
  },
  "s12": {
@@ -762,7 +763,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.8,
+     "confidence": 0.6,
      "details": "",
      "endAt": "2026-10-28T12:30:00+09:00",
      "evidence": {
@@ -811,7 +812,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.6,
+     "confidence": 0.7,
      "details": "",
      "endAt": "2026-10-31T10:00:00+09:00",
      "evidence": {
@@ -959,7 +960,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.8,
-     "details": "",
+     "details": "학부모",
      "endAt": "2026-11-06T10:00:00+09:00",
      "evidence": {
       "dateText": "다음주 중",
@@ -977,7 +978,7 @@
      "reviewReasons": [],
      "startAt": "2026-11-06T09:00:00+09:00",
      "subtasks": [],
-     "title": "학부모 연락 돌리기"
+     "title": "학부모 연락"
     }
    ],
    "needsReview": false,
@@ -1059,7 +1060,7 @@
      "endAt": "2026-11-07T00:00:00+09:00",
      "evidence": {
       "dateText": "11월 2일",
-      "endDateText": "11월 6일",
+      "endDateText": "6일",
       "reminderText": "",
       "sentence": "11월 2일부터 6일까지 학부모 상담 주간",
       "timeText": ""
@@ -1085,7 +1086,7 @@
     "type": "text"
    },
    "sourceText": "11월 2일부터 6일까지 학부모 상담 주간",
-   "summary": "11월 2일부터 6일까지 학부모 상담 주간"
+   "summary": "11월 2일~6일 학부모 상담 주간"
   }
  },
  "s23": {
@@ -1101,7 +1102,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.9,
      "details": "",
      "endAt": "2026-11-07T00:00:00+09:00",
      "evidence": {
@@ -1250,7 +1251,7 @@
    "items": [
     {
      "area": "PERSONAL",
-     "confidence": 0.85,
+     "confidence": 0.9,
      "details": "",
      "endAt": "2026-10-29T08:30:00+09:00",
      "evidence": {
@@ -1324,7 +1325,7 @@
     },
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.9,
      "details": "",
      "endAt": "2026-11-05T10:00:00+09:00",
      "evidence": {
@@ -1343,7 +1344,7 @@
      "reviewReasons": [],
      "startAt": "2026-11-05T09:00:00+09:00",
      "subtasks": [],
-     "title": "성적 입력"
+     "title": "성적 입력 마감"
     }
    ],
    "needsReview": true,
@@ -1357,7 +1358,7 @@
     "type": "text"
    },
    "sourceText": "[오후 3:13] 교무부장: 내일 7교시 교직원 회의 있습니다\n[오후 3:15] 교무부장: 11월 5일까지 성적 입력 마감입니다",
-   "summary": "내일 7교시 교직원 회의와 11월 5일 성적 입력 마감"
+   "summary": "내일 교직원 회의와 11월 5일 성적 입력 마감"
   }
  },
  "s27": {
@@ -1406,7 +1407,7 @@
     "type": "text"
    },
    "sourceText": "금요일 저녁 7시 영화",
-   "summary": "금요일 저녁 7시 영화 약속"
+   "summary": "금요일 저녁 7시 영화 일정"
   }
  },
  "k3": {
@@ -1529,7 +1530,7 @@
     "type": "text"
    },
    "sourceText": "1. 행사명: 2026 과학의 날 행사\n2. 일시: 2026. 11. 18.(수) 14:00~16:00\n3. 장소: 시청각실\n4. 참가 신청서 제출: 11. 10.(화)까지",
-   "summary": "과학의 날 행사 일시·장소와 참가 신청서 제출 마감"
+   "summary": "과학의 날 행사 일정과 참가 신청서 제출 마감"
   }
  },
  "k4": {
@@ -1643,7 +1644,7 @@
    },
    "items": [
     {
-     "area": "PERSONAL",
+     "area": "SCHOOL",
      "confidence": 0.6,
      "details": "",
      "endAt": "",
@@ -1679,7 +1680,7 @@
     "type": "text"
    },
    "sourceText": "견적서 받으면 품의 올리기",
-   "summary": "견적서를 받은 뒤 품의 올리기"
+   "summary": "견적서 받은 후 품의 올리기"
   }
  },
  "c1": {
@@ -1712,9 +1713,6 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "suggestedSubtasks": [
-      "결재 받기"
-     ],
      "title": "체험학습 안내문 발송",
      "waitFor": "교장선생님 결재"
     }
@@ -1730,7 +1728,7 @@
     "type": "text"
    },
    "sourceText": "교장선생님 결재 나면 체험학습 안내문 발송",
-   "summary": "교장선생님 결재 후 체험학습 안내문 발송"
+   "summary": "교장 결재 후 체험학습 안내문 발송"
   }
  },
  "k5": {
@@ -1840,7 +1838,7 @@
     },
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.8,
      "details": "",
      "endAt": "2026-10-30T10:00:00+09:00",
      "evidence": {
@@ -1873,7 +1871,7 @@
     "type": "text"
    },
    "sourceText": "오늘 할 거: 출석부 정리, 가정통신문 회수, 수행평가 채점 / 내일: 1교시 공개수업 / 금요일까지 생기부 입력",
-   "summary": "오늘 출석부 정리·가정통신문 회수·수행평가 채점, 내일 공개수업, 금요일까지 생기부 입력"
+   "summary": "오늘 업무 셋, 내일 공개수업, 금요일까지 생기부 입력"
   }
  },
  "c3": {
@@ -1909,8 +1907,7 @@
      "startAt": "",
      "subtasks": [],
      "suggestedSubtasks": [
-      "시간표 확인",
-      "보강 계획 작성"
+      "시간표 확인"
      ],
      "title": "보강 계획 짜기",
      "waitFor": "시간표 나옴"
@@ -1927,7 +1924,7 @@
     "type": "text"
    },
    "sourceText": "다음주에 시간표 나오면 보강 계획 짜기",
-   "summary": "시간표 확인 후 보강 계획 작성"
+   "summary": "시간표 확인 후 보강 계획 짜기"
   }
  },
  "c4": {
@@ -1996,7 +1993,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.9,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -2043,8 +2040,8 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.8,
-     "details": "",
+     "confidence": 0.7,
+     "details": "부장님 검토",
      "endAt": "2026-10-30T10:00:00+09:00",
      "evidence": {
       "dateText": "금요일",
@@ -2065,7 +2062,7 @@
       "최종 제출"
      ],
      "suggestedSubtasks": [
-      "보고서 초안 작성",
+      "초안 작성",
       "부장님 검토"
      ],
      "title": "보고서 최종 제출"
@@ -2082,7 +2079,7 @@
     "type": "text"
    },
    "sourceText": "보고서 초안 쓰고 부장님께 검토받고 금요일까지 최종 제출",
-   "summary": "보고서 초안 작성 후 검토받아 금요일까지 제출"
+   "summary": "보고서 초안 작성 후 부장님 검토를 거쳐 금요일까지 최종 제출"
   }
  },
  "f2": {
@@ -2145,7 +2142,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
+     "confidence": 0.8,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -2192,7 +2189,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.8,
+     "confidence": 0.85,
      "details": "",
      "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
@@ -2377,7 +2374,7 @@
     "type": "text"
    },
    "sourceText": "치과 금요일 3시에서 4시로 바뀜",
-   "summary": "치과 일정이 금요일 3시에서 4시로 변경"
+   "summary": "치과 일정이 금요일 3시에서 4시로 바뀜"
   }
  },
  "x3": {
@@ -2394,7 +2391,7 @@
     {
      "area": "SCHOOL",
      "change": "MOVE",
-     "confidence": 0.6,
+     "confidence": 0.5,
      "details": "",
      "endAt": "2026-10-28T18:00:00+09:00",
      "evidence": {
@@ -2444,7 +2441,7 @@
     {
      "area": "SCHOOL",
      "change": "MOVE",
-     "confidence": 0.7,
+     "confidence": 0.8,
      "details": "",
      "endAt": "2026-11-04T10:00:00+09:00",
      "evidence": {
@@ -2529,7 +2526,7 @@
     "type": "text"
    },
    "sourceText": "대의원회 11월 20일로 미뤄짐",
-   "summary": "대의원회 일정을 11월 20일로 미룸"
+   "summary": "대의원회 일정을 11월 20일로 변경"
   }
  },
  "x7": {
@@ -2563,6 +2560,7 @@
       "2026-10-29T09:00:00+09:00"
      ],
      "reviewReasons": [
+      "모델이 빠뜨린 날짜를 원문에서 채움: 「내일」",
       "날짜만 있어 오전 9시로 임시 지정"
      ],
      "startAt": "2026-10-29T09:00:00+09:00",
@@ -2682,7 +2680,7 @@
     "type": "text"
    },
    "sourceText": "3반 반장 김도현 부반장 이서윤",
-   "summary": "3반 반장 김도현, 부반장 이서윤 정보 기억"
+   "summary": "3반 반장 김도현, 부반장 이서윤 기록"
   }
  },
  "i2": {
@@ -2729,7 +2727,7 @@
     "type": "text"
    },
    "sourceText": "교무실 프린터 토너는 캐비닛 두번째 칸",
-   "summary": "교무실 프린터 토너 보관 위치 기록"
+   "summary": "교무실 프린터 토너 위치 메모"
   }
  },
  "g1": {
@@ -2836,7 +2834,7 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "주차 등록 차량번호 34나 5678"
+     "title": "주차 등록 차량번호"
     }
    ],
    "needsReview": false,
@@ -2850,7 +2848,7 @@
     "type": "text"
    },
    "sourceText": "주차 등록 차량번호 34나 5678",
-   "summary": "주차 등록 차량번호 저장"
+   "summary": "주차 등록 차량번호 기억"
   }
  },
  "i5": {
@@ -2928,7 +2926,7 @@
     "type": "text"
    },
    "sourceText": "ㅋㅋㅋ",
-   "summary": "의미 있는 내용 없는 입력(웃음 표현)"
+   "summary": "의미 있는 일정이나 할 일 없음"
   }
  },
  "g3": {
@@ -2955,7 +2953,7 @@
     "type": "text"
    },
    "sourceText": "아 맞다",
-   "summary": "아무 일정이나 할 일이 없는 짧은 대답"
+   "summary": "아무 일정이나 할 일 지시가 없는 짧은 응답"
   }
  },
  "a2": {
@@ -3102,7 +3100,7 @@
     "type": "text"
    },
    "sourceText": "다음주 화요일 건강검진 오전 8시",
-   "summary": "다음주 화요일 오전 8시 건강검진"
+   "summary": "다음 주 화요일 오전 8시 건강검진"
   }
  },
  "m2": {
@@ -3189,8 +3187,9 @@
      "startAt": "2026-10-30T09:00:00+09:00",
      "subtasks": [],
      "suggestedSubtasks": [
-      "기안 작성",
-      "결재 상신"
+      "초안 작성",
+      "결재 요청",
+      "기안 상신"
      ],
      "title": "기안 올리기"
     }
