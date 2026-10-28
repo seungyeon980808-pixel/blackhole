@@ -25,7 +25,7 @@ const SETS: Record<string, [string, string]> = {
   "2": ["style-cases-2.json", "style-proposals-2.json"],
   files: ["style-files.json", "style-files-proposals.json"],
   // Scored only at the end: STYLE_HOLDOUT=1.
-  ...(process.env.STYLE_HOLDOUT ? { holdout: ["style-holdout.json", "style-holdout-proposals.json"] as [string, string], holdout2: ["style-holdout-2.json", "style-holdout-2-proposals.json"] as [string, string] } : {})
+  ...(process.env.STYLE_HOLDOUT ? { holdout: ["style-holdout.json", "style-holdout-proposals.json"] as [string, string], holdout2: ["style-holdout-2.json", "style-holdout-2-proposals.json"] as [string, string], holdout3: ["style-holdout-3.json", "style-holdout-3-proposals.json"] as [string, string] } : {})
 };
 const dir = join(__dirname, "fixtures");
 const read = (f: string) => JSON.parse(readFileSync(join(dir, f), "utf8"));

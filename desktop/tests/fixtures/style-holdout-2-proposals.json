@@ -182,7 +182,7 @@
      "reviewReasons": [],
      "startAt": "2026-11-05T14:00:00+09:00",
      "subtasks": [],
-     "title": "교육청 장학사 방문"
+     "title": "장학사 방문"
     }
    ],
    "needsReview": false,
@@ -196,7 +196,7 @@
     "type": "text"
    },
    "sourceText": "담주 목욜 오후 2시 교육청 장학사 방문",
-   "summary": "담주 목요일 오후 2시 교육청 장학사 방문"
+   "summary": "다음 주 목요일 오후 2시 교육청 장학사 방문"
   }
  },
  "n8": {
@@ -294,7 +294,7 @@
     "type": "text"
    },
    "sourceText": "금욜까지 학급 문집 원고 걷기",
-   "summary": "학급 문집 원고 걷기 마감 금요일"
+   "summary": "학급 문집 원고 걷기 마감은 금요일"
   }
  },
  "n5": {
@@ -437,7 +437,7 @@
     "type": "text"
    },
    "sourceText": "교무실 복사기 비번 2580",
-   "summary": "교무실 복사기 비밀번호 기억"
+   "summary": "교무실 복사기 비밀번호 기록"
   }
  },
  "n10": {
@@ -486,7 +486,7 @@
     "type": "text"
    },
    "sourceText": "아 그리고 내일 아침에 8시 반까지 교무실 가서 출장 서류 내기",
-   "summary": "내일 아침 교무실에 출장 서류 제출"
+   "summary": "내일 아침 출장 서류 제출"
   }
  },
  "n12": {
@@ -533,7 +533,7 @@
     "type": "text"
    },
    "sourceText": "3학년 2반 담임 박정민 선생님 내선 2214",
-   "summary": "3학년 2반 담임 박정민 선생님 내선 번호"
+   "summary": "3학년 2반 담임 박정민 선생님 내선 번호 기록"
   }
  },
  "n9": {
@@ -592,7 +592,7 @@
      ],
      "startAt": "2026-11-05T09:00:00+09:00",
      "subtasks": [
-      "자료 준비"
+      "상담 자료 준비"
      ],
      "title": "학부모 상담 자료 준비"
     }
@@ -635,7 +635,7 @@
     "type": "text"
    },
    "sourceText": "ㅎㅎ 그냥 해본 말",
-   "summary": "가벼운 잡담으로 정리할 일 없음"
+   "summary": "가벼운 말, 정리할 일 없음"
   }
  },
  "n14": {
@@ -662,7 +662,7 @@
     "type": "text"
    },
    "sourceText": "어 잠깐만",
-   "summary": "사용자가 잠깐 멈춤을 요청함, 정리할 일 없음"
+   "summary": "사용자가 잠깐 멈추라고 말함, 정리할 일 없음"
   }
  },
  "n15": {
@@ -711,7 +711,7 @@
     "type": "text"
    },
    "sourceText": "이번주 토요일 오전 10시 아들 축구 시합",
-   "summary": "이번 주 토요일 아들 축구 시합"
+   "summary": "이번주 토요일 아들 축구 시합"
   }
  },
  "n16": {
@@ -762,7 +762,7 @@
     "type": "text"
    },
    "sourceText": "다음달 첫째주 수요일 교직원 체육대회",
-   "summary": "다음달 첫째 주 수요일 교직원 체육대회"
+   "summary": "다음 달 첫째 주 수요일 교직원 체육대회"
   }
  },
  "n18": {
@@ -827,7 +827,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
+     "confidence": 0.85,
      "details": "",
      "endAt": "2027-01-17T00:00:00+09:00",
      "evidence": {
@@ -923,7 +923,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.9,
-     "details": "3반",
+     "details": "",
      "endAt": "2026-11-03T10:00:00+09:00",
      "evidence": {
       "dateText": "다음주 화요일",
@@ -946,7 +946,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.9,
-     "details": "5반",
+     "details": "",
      "endAt": "2026-11-03T10:00:00+09:00",
      "evidence": {
       "dateText": "다음주 화요일",
@@ -978,7 +978,7 @@
     "type": "text"
    },
    "sourceText": "3반이랑 5반 수행평가 결과 다음주 화요일까지 나이스 입력",
-   "summary": "3반·5반 수행평가 결과 나이스 입력"
+   "summary": "3반과 5반 수행평가 결과 나이스 입력"
   }
  },
  "n23": {
@@ -994,7 +994,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.8,
+     "confidence": 0.9,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -1243,7 +1243,7 @@
     "type": "text"
    },
    "sourceText": "3반 수행평가 점수 확인은 내일 할게",
-   "summary": "3반 수행평가 점수 확인 예정"
+   "summary": "내일 3반 수행평가 점수 확인"
   }
  },
  "n28": {
@@ -1259,7 +1259,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.8,
      "details": "2026학년도 학생 건강검사 결과 입력",
      "endAt": "2026-11-20T10:00:00+09:00",
      "evidence": {
@@ -1292,7 +1292,7 @@
     "type": "text"
    },
    "sourceText": "공문) 2026학년도 학생 건강검사 결과 입력 기한: 11월 20일(금)",
-   "summary": "건강검사 결과 입력 기한 11월 20일"
+   "summary": "학생 건강검사 결과 입력 기한 11월 20일"
   }
  },
  "n26": {
@@ -1439,7 +1439,7 @@
     "type": "text"
    },
    "sourceText": "내일 오후 일곱시 반 학부모 간담회",
-   "summary": "내일 학부모 간담회"
+   "summary": "내일 저녁 학부모 간담회"
   }
  },
  "n31": {
@@ -1488,7 +1488,7 @@
     "type": "text"
    },
    "sourceText": "11.6.(금) 14:00 학교폭력대책심의위원회 출석",
-   "summary": "11월 6일 금요일 14시 학교폭력대책심의위원회 출석"
+   "summary": "11월 6일 금요일 학교폭력대책심의위원회 출석"
   }
  },
  "n30": {
@@ -1536,7 +1536,7 @@
       "dateText": "",
       "endDateText": "",
       "reminderText": "",
-      "sentence": "협의록 쓰기",
+      "sentence": "참관하고 협의록 쓰기",
       "timeText": ""
      },
      "kind": "TODO",
@@ -1546,6 +1546,9 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
+     "suggestedSubtasks": [
+      "협의록 작성"
+     ],
      "title": "협의록 쓰기"
     }
    ],
@@ -1560,7 +1563,7 @@
     "type": "text"
    },
    "sourceText": "다음주 수욜 6교시 공개수업 참관하고 협의록 쓰기",
-   "summary": "다음주 수요일 공개수업 참관과 협의록 작성"
+   "summary": "다음주 수요일 6교시 공개수업 참관과 협의록 작성"
   }
  },
  "n29": {
@@ -1740,9 +1743,7 @@
       "대략 시각: 「오전」을 09:00로 둠"
      ],
      "startAt": "2026-10-30T09:00:00+09:00",
-     "subtasks": [
-      "신청서 수합"
-     ],
+     "subtasks": [],
      "title": "보충수업 신청서 수합"
     }
    ],
@@ -1930,7 +1931,7 @@
     "type": "text"
    },
    "sourceText": "2시에 회의 아 그거 내일임",
-   "summary": "회의 날짜를 내일로 정정"
+   "summary": "회의 날짜를 내일로 정함"
   }
  },
  "n39": {
@@ -2245,7 +2246,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.5,
-     "details": "3교시 4교시 연강",
+     "details": "3교시, 4교시 연강",
      "endAt": "2026-10-29T10:00:00+09:00",
      "evidence": {
       "dateText": "내일",
@@ -2397,7 +2398,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.8,
-     "details": "운동장 사용",
+     "details": "운동장 사용 관련",
      "endAt": "",
      "evidence": {
       "dateText": "",
@@ -2442,7 +2443,7 @@
    },
    "items": [
     {
-     "area": "PERSONAL",
+     "area": "SCHOOL",
      "change": "MOVE",
      "changeFrom": "4시 반",
      "confidence": 0.6,
@@ -2576,7 +2577,7 @@
     "type": "text"
    },
    "sourceText": "가정통신문 발송은 다음주 월요일에 하기로",
-   "summary": "가정통신문 발송 일정 정함"
+   "summary": "가정통신문 발송 일정"
   }
  },
  "n49": {
@@ -2593,7 +2594,7 @@
     {
      "area": "SCHOOL",
      "change": "MOVE",
-     "confidence": 0.7,
+     "confidence": 0.8,
      "details": "",
      "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
@@ -2612,7 +2613,7 @@
      "reviewReasons": [],
      "startAt": "2026-10-28T09:00:00+09:00",
      "subtasks": [],
-     "title": "출장 신청"
+     "title": "출장 신청 마감"
     }
    ],
    "needsReview": false,
@@ -2698,7 +2699,7 @@
       "dateText": "내일",
       "endDateText": "",
       "reminderText": "",
-      "sentence": "내일 오후 3시 학년회",
+      "sentence": "내일 오후 3시 학년회으ㅣ",
       "timeText": "오후 3시"
      },
      "kind": "SCHEDULE",

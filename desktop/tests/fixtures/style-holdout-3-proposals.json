@@ -1,0 +1,1995 @@
+{
+ "v3": {
+  "text": "아 맞다 다음 주 화요일에 치과 예약 있었지 오후 다섯 시",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "PERSONAL",
+     "confidence": 0.9,
+     "details": "",
+     "endAt": "2026-11-03T18:00:00+09:00",
+     "evidence": {
+      "dateText": "다음 주 화요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "다음 주 화요일에 치과 예약 있었지 오후 다섯 시",
+      "timeText": "오후 다섯 시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-11-03T16:30:00+09:00",
+     "reminders": [
+      "2026-11-03T16:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-03T17:00:00+09:00",
+     "subtasks": [],
+     "title": "치과 예약"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 76,
+    "format": "txt",
+    "sha256": "b2d2474df30dfdd2cb086b8be656baeae1d07c15580258458fd5ac76521e761f",
+    "type": "text"
+   },
+   "sourceText": "아 맞다 다음 주 화요일에 치과 예약 있었지 오후 다섯 시",
+   "summary": "다음 주 화요일 오후 5시 치과 예약"
+  }
+ },
+ "v4": {
+  "text": "오늘 점심 먹고 1시에 학생 상담 두 명",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "점심 먹고",
+     "endAt": "2026-10-28T14:00:00+09:00",
+     "evidence": {
+      "dateText": "오늘",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "오늘 점심 먹고 1시에 학생 상담 두 명",
+      "timeText": "1시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-10-28T12:30:00+09:00",
+     "reminders": [
+      "2026-10-28T12:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-28T13:00:00+09:00",
+     "subtasks": [],
+     "title": "학생 상담 (2명)"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 50,
+    "format": "txt",
+    "sha256": "5dbf1f9bec9163472b07aca35f94a4a087327091ff94cd7becb11c1d31de817f",
+    "type": "text"
+   },
+   "sourceText": "오늘 점심 먹고 1시에 학생 상담 두 명",
+   "summary": "오늘 1시 학생 상담 두 명"
+  }
+ },
+ "v2": {
+  "text": "음 그러니까 금요일까지 수행평가 채점 다 하고 월요일에 나이스 입력",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "",
+     "endAt": "2026-10-30T10:00:00+09:00",
+     "evidence": {
+      "dateText": "금요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "금요일까지 수행평가 채점 다 하고",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-10-30T09:00:00+09:00",
+     "reminders": [
+      "2026-10-30T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-30T09:00:00+09:00",
+     "subtasks": [],
+     "title": "수행평가 채점"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "나이스",
+     "endAt": "2026-11-02T10:00:00+09:00",
+     "evidence": {
+      "dateText": "월요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "월요일에 나이스 입력",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-11-02T09:00:00+09:00",
+     "reminders": [
+      "2026-11-02T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-02T09:00:00+09:00",
+     "subtasks": [],
+     "title": "나이스 입력"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 93,
+    "format": "txt",
+    "sha256": "d52f2907eb7c0314f6b7338a1538f656b6f411f80f58b123254d5aceddad32fa",
+    "type": "text"
+   },
+   "sourceText": "음 그러니까 금요일까지 수행평가 채점 다 하고 월요일에 나이스 입력",
+   "summary": "수행평가 채점과 나이스 입력"
+  }
+ },
+ "v1": {
+  "text": "어 그 내일 오후에 세 시에 교감선생님이랑 면담 있고 끝나면 바로 회의록 정리해야 돼",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "교감선생님과 면담",
+     "endAt": "2026-10-29T16:00:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "내일 오후에 세 시에 교감선생님이랑 면담 있고",
+      "timeText": "3시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-10-29T14:30:00+09:00",
+     "reminders": [
+      "2026-10-29T14:30:00+09:00"
+     ],
+     "reviewReasons": [
+      "원문에 없는 시간 표현을 버림: 「오후 3시」",
+      "모델이 빠뜨린 시간을 원문에서 채움: 「3시」"
+     ],
+     "startAt": "2026-10-29T15:00:00+09:00",
+     "subtasks": [],
+     "title": "교감선생님 면담"
+    },
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "",
+     "endAt": "",
+     "evidence": {
+      "dateText": "",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "끝나면 바로 회의록 정리해야 돼",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [],
+     "startAt": "",
+     "subtasks": [],
+     "title": "면담 회의록 정리",
+     "waitFor": "교감선생님 면담 끝"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 115,
+    "format": "txt",
+    "sha256": "4522cf94aed5d28ec3385d29585041941a7c2c63f4bfa99c26c2d77d62439c16",
+    "type": "text"
+   },
+   "sourceText": "어 그 내일 오후에 세 시에 교감선생님이랑 면담 있고 끝나면 바로 회의록 정리해야 돼",
+   "summary": "내일 교감선생님 면담과 회의록 정리"
+  }
+ },
+ "v5": {
+  "text": "내일 아침 일찍 여덟 시에 교문 지도",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-10-29T09:00:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "내일 아침 일찍 여덟 시에 교문 지도",
+      "timeText": "8시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-10-29T07:30:00+09:00",
+     "reminders": [
+      "2026-10-29T07:30:00+09:00"
+     ],
+     "reviewReasons": [
+      "원문에 없는 시간 표현을 버림: 「아침 여덟 시」",
+      "모델이 빠뜨린 시간을 원문에서 채움: 「8시」"
+     ],
+     "startAt": "2026-10-29T08:00:00+09:00",
+     "subtasks": [],
+     "title": "교문 지도"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 48,
+    "format": "txt",
+    "sha256": "98b464d7656d97e65d68e55a7261808a927406d8326e5b115d144014689c78bf",
+    "type": "text"
+   },
+   "sourceText": "내일 아침 일찍 여덟 시에 교문 지도",
+   "summary": "내일 아침 8시 교문 지도"
+  }
+ },
+ "v6": {
+  "text": "이번 주 토요일에 엄마 생신이라 저녁 여섯 시 반에 가족 외식",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "PERSONAL",
+     "confidence": 0.9,
+     "details": "가족 외식",
+     "endAt": "2026-10-31T19:30:00+09:00",
+     "evidence": {
+      "dateText": "이번 주 토요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "이번 주 토요일에 엄마 생신이라 저녁 여섯 시 반에 가족 외식",
+      "timeText": "저녁 여섯 시 반"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-10-31T18:00:00+09:00",
+     "reminders": [
+      "2026-10-31T18:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-31T18:30:00+09:00",
+     "subtasks": [],
+     "title": "엄마 생신 가족 외식"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 82,
+    "format": "txt",
+    "sha256": "8aa5ce318656d268898f4e0bd7acecd24ed1273458a9abfc1509b41b77f48b88",
+    "type": "text"
+   },
+   "sourceText": "이번 주 토요일에 엄마 생신이라 저녁 여섯 시 반에 가족 외식",
+   "summary": "엄마 생신 가족 외식 일정"
+  }
+ },
+ "v8": {
+  "text": "그 학부모 상담 내일 거 취소됐대",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "change": "CANCEL",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-10-29T10:00:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "그 학부모 상담 내일 거 취소됐대",
+      "timeText": ""
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-10-29T09:00:00+09:00",
+     "reminders": [
+      "2026-10-29T09:00:00+09:00"
+     ],
+     "reviewReasons": [
+      "모델이 빠뜨린 날짜를 원문에서 채움: 「내일」",
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-10-29T09:00:00+09:00",
+     "subtasks": [],
+     "title": "학부모 상담"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 44,
+    "format": "txt",
+    "sha256": "8018873c8bc8c6330bcf3228f1742b4223c512e58486022587a18cca432ac383",
+    "type": "text"
+   },
+   "sourceText": "그 학부모 상담 내일 거 취소됐대",
+   "summary": "내일 학부모 상담 취소"
+  }
+ },
+ "v7": {
+  "text": "모레까지 학년 협의회 자료 만들어서 부장님한테 보내드려야 함",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "부장님께 보내기",
+     "endAt": "2026-10-30T10:00:00+09:00",
+     "evidence": {
+      "dateText": "모레",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "모레까지 학년 협의회 자료 만들어서 부장님한테 보내드려야 함",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-10-30T09:00:00+09:00",
+     "reminders": [
+      "2026-10-30T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-30T09:00:00+09:00",
+     "subtasks": [],
+     "suggestedSubtasks": [
+      "자료 만들기",
+      "부장님께 보내기"
+     ],
+     "title": "학년 협의회 자료 제출"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 85,
+    "format": "txt",
+    "sha256": "62f953639adf5bbe6b0da930c05355bbf07cbaa83772facc64c2b8fc00c9aa85",
+    "type": "text"
+   },
+   "sourceText": "모레까지 학년 협의회 자료 만들어서 부장님한테 보내드려야 함",
+   "summary": "학년 협의회 자료를 모레까지 만들어 부장님께 제출"
+  }
+ },
+ "v10": {
+  "text": "성적 입력 다 했어",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.8,
+     "details": "",
+     "endAt": "",
+     "evidence": {
+      "dateText": "",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "성적 입력 다 했어",
+      "timeText": ""
+     },
+     "kind": "NOTE",
+     "needsReview": false,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [],
+     "startAt": "",
+     "subtasks": [],
+     "title": "성적 입력 완료"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 24,
+    "format": "txt",
+    "sha256": "55c973ddf32f053df3a2708e3615d84c900bec65f7a9746ee20878b74756ddad",
+    "type": "text"
+   },
+   "sourceText": "성적 입력 다 했어",
+   "summary": "성적 입력 완료"
+  }
+ },
+ "v12": {
+  "text": "다음 주 수요일 오후 두 시부터 네 시까지 교원 연수",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.9,
+     "details": "",
+     "endAt": "2026-11-04T16:00:00+09:00",
+     "evidence": {
+      "dateText": "다음 주 수요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "다음 주 수요일 오후 두 시부터 네 시까지 교원 연수",
+      "timeText": "오후 두 시부터 네 시까지"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-11-04T13:30:00+09:00",
+     "reminders": [
+      "2026-11-04T13:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-04T14:00:00+09:00",
+     "subtasks": [],
+     "title": "교원 연수"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 69,
+    "format": "txt",
+    "sha256": "aa076d172482a6c24550db9c9db2f7ee7f787490a876f6155d5e899938346a01",
+    "type": "text"
+   },
+   "sourceText": "다음 주 수요일 오후 두 시부터 네 시까지 교원 연수",
+   "summary": "다음 주 수요일 교원 연수"
+  }
+ },
+ "v9": {
+  "text": "치과 금요일 거 다음 주 금요일로 미뤄졌어",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "PERSONAL",
+     "change": "MOVE",
+     "changeFrom": "금요일",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-11-06T10:00:00+09:00",
+     "evidence": {
+      "dateText": "다음 주 금요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "치과 금요일 거 다음 주 금요일로 미뤄졌어",
+      "timeText": ""
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-11-06T09:00:00+09:00",
+     "reminders": [
+      "2026-11-06T09:00:00+09:00"
+     ],
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-11-06T09:00:00+09:00",
+     "subtasks": [],
+     "title": "치과"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 57,
+    "format": "txt",
+    "sha256": "86ca162c4beda3e1536ee0dad6279a668ad52105adc8a3535404d28ddbb7dbb1",
+    "type": "text"
+   },
+   "sourceText": "치과 금요일 거 다음 주 금요일로 미뤄졌어",
+   "summary": "치과 일정이 다음 주 금요일로 미뤄짐"
+  }
+ },
+ "v11": {
+  "text": "가정통신문 아직 못 보냄 내일 보내기",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "",
+     "endAt": "2026-10-29T10:00:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "가정통신문 아직 못 보냄 내일 보내기",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-10-29T09:00:00+09:00",
+     "reminders": [
+      "2026-10-29T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-29T09:00:00+09:00",
+     "subtasks": [],
+     "suggestedSubtasks": [
+      "가정통신문 발송"
+     ],
+     "title": "가정통신문 보내기"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 50,
+    "format": "txt",
+    "sha256": "b6ab07547aa96a5bbb5b02db0f144025b14ed68774247650c1a594b2f5d029be",
+    "type": "text"
+   },
+   "sourceText": "가정통신문 아직 못 보냄 내일 보내기",
+   "summary": "가정통신문을 내일 보내기"
+  }
+ },
+ "v15": {
+  "text": "오늘 저녁에 장보기",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "PERSONAL",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-10-28T19:00:00+09:00",
+     "evidence": {
+      "dateText": "오늘",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "오늘 저녁에 장보기",
+      "timeText": "저녁"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-10-28T17:30:00+09:00",
+     "reminders": [
+      "2026-10-28T17:30:00+09:00"
+     ],
+     "reviewReasons": [
+      "대략 시각: 「저녁」을 18:00로 둠"
+     ],
+     "startAt": "2026-10-28T18:00:00+09:00",
+     "subtasks": [],
+     "title": "장보기"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 26,
+    "format": "txt",
+    "sha256": "7f8384897f5a9cc2d72c1bc62d9c0783caf03cd9ba8aff392c8e4129658e79e5",
+    "type": "text"
+   },
+   "sourceText": "오늘 저녁에 장보기",
+   "summary": "오늘 저녁 장보기"
+  }
+ },
+ "v16": {
+  "text": "내일 모레 이틀 동안 수학여행 사전답사",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "",
+     "endAt": "2026-10-31T00:00:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "내일 모레 이틀 동안 수학여행 사전답사",
+      "timeText": ""
+     },
+     "kind": "PERIOD",
+     "needsReview": false,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [],
+     "startAt": "2026-10-29T00:00:00+09:00",
+     "subtasks": [],
+     "title": "수학여행 사전답사"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 53,
+    "format": "txt",
+    "sha256": "dafc5416347bfb38d5e9520c061307ab6d10aaafea73657052942fe756f620a2",
+    "type": "text"
+   },
+   "sourceText": "내일 모레 이틀 동안 수학여행 사전답사",
+   "summary": "내일 모레 이틀간 수학여행 사전답사"
+  }
+ },
+ "v14": {
+  "text": "이따 네 시에 행정실 가서 출장비 서류 내기",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "행정실",
+     "endAt": "2026-10-28T17:00:00+09:00",
+     "evidence": {
+      "dateText": "",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "이따 네 시에 행정실 가서 출장비 서류 내기",
+      "timeText": "네 시"
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-10-28T15:30:00+09:00",
+     "reminders": [
+      "2026-10-28T15:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-28T16:00:00+09:00",
+     "subtasks": [],
+     "title": "출장비 서류 제출"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 58,
+    "format": "txt",
+    "sha256": "a34d84d6b21d770091859a1ea690663bc82e1112f521a05c2f8febd58be7eb2e",
+    "type": "text"
+   },
+   "sourceText": "이따 네 시에 행정실 가서 출장비 서류 내기",
+   "summary": "행정실에 출장비 서류 제출"
+  }
+ },
+ "v13": {
+  "text": "11월 둘째 주 목요일 학부모 공개수업",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-11-12T10:00:00+09:00",
+     "evidence": {
+      "dateText": "11월 둘째 주 목요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "11월 둘째 주 목요일 학부모 공개수업",
+      "timeText": ""
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-11-12T09:00:00+09:00",
+     "reminders": [
+      "2026-11-12T09:00:00+09:00"
+     ],
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-11-12T09:00:00+09:00",
+     "subtasks": [],
+     "title": "학부모 공개수업"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 49,
+    "format": "txt",
+    "sha256": "afbd6b58556e83ab8fe4cc70c4f9b8b0e7f5b2c5368e1c7edab2387e15d168e5",
+    "type": "text"
+   },
+   "sourceText": "11월 둘째 주 목요일 학부모 공개수업",
+   "summary": "11월 둘째 주 목요일 학부모 공개수업"
+  }
+ },
+ "v19": {
+  "text": "다음달 이일 학교 축제",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-11-02T10:00:00+09:00",
+     "evidence": {
+      "dateText": "다음달 이일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "다음달 이일 학교 축제",
+      "timeText": ""
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-11-02T09:00:00+09:00",
+     "reminders": [
+      "2026-11-02T09:00:00+09:00"
+     ],
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-11-02T09:00:00+09:00",
+     "subtasks": [],
+     "title": "학교 축제"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 30,
+    "format": "txt",
+    "sha256": "cc3e3c712eb2bb46f4d9363cab05542da46b973f0848f0328d1c57c991d09649",
+    "type": "text"
+   },
+   "sourceText": "다음달 이일 학교 축제",
+   "summary": "다음 달 2일 학교 축제"
+  }
+ },
+ "v17": {
+  "text": "오반 칠교시 보강 들어가야 함 내일",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "7교시",
+     "endAt": "2026-10-29T10:00:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "5반 7교시 보강 들어가야 함 내일",
+      "timeText": ""
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-10-29T09:00:00+09:00",
+     "reminders": [
+      "2026-10-29T09:00:00+09:00"
+     ],
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-10-29T09:00:00+09:00",
+     "subtasks": [],
+     "title": "5반 보강"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 47,
+    "format": "txt",
+    "sha256": "da22c3eb2b6409e7d3befd8e013ce0b0f6ac75f11fe0a06414d65044430e375e",
+    "type": "text"
+   },
+   "sourceText": "오반 칠교시 보강 들어가야 함 내일",
+   "summary": "내일 5반 7교시 보강"
+  }
+ },
+ "v18": {
+  "text": "목요일 육교시 끝나고 과학실 정리",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "6교시 끝나고",
+     "endAt": "2026-10-29T10:00:00+09:00",
+     "evidence": {
+      "dateText": "목요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "목요일 6교시 끝나고 과학실 정리",
+      "timeText": "6교시 끝나고"
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-10-29T08:30:00+09:00",
+     "reminders": [
+      "2026-10-29T08:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-29T09:00:00+09:00",
+     "subtasks": [],
+     "title": "과학실 정리"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 46,
+    "format": "txt",
+    "sha256": "92c09073b58402528716f0dcdb9fe82851432bf805b0932544ce547c0b5a65ff",
+    "type": "text"
+   },
+   "sourceText": "목요일 육교시 끝나고 과학실 정리",
+   "summary": "목요일 6교시 후 과학실 정리"
+  }
+ },
+ "v23": {
+  "text": "음",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [
+    "내용이 너무 짧아 AI를 부르지 않음"
+   ],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 3,
+    "format": "txt",
+    "sha256": "95e3c75cd502220bd32f8b38b28bfae1f3f6090a48b1b66481c1f211cf248a3c",
+    "type": "text"
+   },
+   "sourceText": "음",
+   "summary": ""
+  }
+ },
+ "v20": {
+  "text": "십이월 이십사일 크리스마스 이브 파티 일곱 시",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "PERSONAL",
+     "confidence": 0.8,
+     "details": "크리스마스 이브 파티",
+     "endAt": "2026-12-24T20:00:00+09:00",
+     "evidence": {
+      "dateText": "십이월 이십사일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "십이월 이십사일 크리스마스 이브 파티 일곱 시",
+      "timeText": "저녁 일곱 시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-12-24T18:30:00+09:00",
+     "reminders": [
+      "2026-12-24T18:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-12-24T19:00:00+09:00",
+     "subtasks": [],
+     "title": "크리스마스 이브 파티"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 63,
+    "format": "txt",
+    "sha256": "64dc7e7141f95036f54c35d1c89d565bc951b9d356fee425194099508751c1c1",
+    "type": "text"
+   },
+   "sourceText": "십이월 이십사일 크리스마스 이브 파티 일곱 시",
+   "summary": "12월 24일 크리스마스 이브 파티 일정"
+  }
+ },
+ "v24": {
+  "text": "아 그 뭐더라 잠깐만요",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [
+    "정리할 일정·할 일·기억할 내용을 찾지 못함"
+   ],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 30,
+    "format": "txt",
+    "sha256": "09a237e2c70deda8c48905e73e9e0f77a6750cf95659eb65ea03e8f9782998ff",
+    "type": "text"
+   },
+   "sourceText": "아 그 뭐더라 잠깐만요",
+   "summary": "말이 중간에 멈춤, 정리할 내용 없음"
+  }
+ },
+ "v25": {
+  "text": "내일 3시에 회의 아 아니다 3시 반",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "PERSONAL",
+     "change": "MOVE",
+     "changeFrom": "3시",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-10-29T16:30:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "내일 3시에 회의 아 아니다 3시 반",
+      "timeText": "3시 반"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-10-29T15:00:00+09:00",
+     "reminders": [
+      "2026-10-29T15:00:00+09:00"
+     ],
+     "reviewReasons": [
+      "모델이 빠뜨린 날짜를 원문에서 채움: 「내일」"
+     ],
+     "startAt": "2026-10-29T15:30:00+09:00",
+     "subtasks": [],
+     "title": "회의"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 44,
+    "format": "txt",
+    "sha256": "b95069e79cd57bc0a73bcd5ce7021f02288503f1a6ed9ced6a3bc3ce9d2804c7",
+    "type": "text"
+   },
+   "sourceText": "내일 3시에 회의 아 아니다 3시 반",
+   "summary": "회의 시간을 3시에서 3시 반으로 바꿈"
+  }
+ },
+ "v21": {
+  "text": "교무실 정수기 필터 교체 업체 번호 공일공 일이삼사 오육칠팔",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.8,
+     "details": "교무실 정수기 필터 교체 업체",
+     "endAt": "",
+     "evidence": {
+      "dateText": "",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "교무실 정수기 필터 교체 업체 번호 공일공 일이삼사 오육칠팔",
+      "timeText": ""
+     },
+     "kind": "NOTE",
+     "needsReview": false,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [],
+     "startAt": "",
+     "subtasks": [],
+     "title": "정수기 필터 교체 업체 번호 010-1234-5678"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 83,
+    "format": "txt",
+    "sha256": "86572d47f7436c60f95f33fb656ed1d4354ba89b373e36a3cb5584dbf6f05636",
+    "type": "text"
+   },
+   "sourceText": "교무실 정수기 필터 교체 업체 번호 공일공 일이삼사 오육칠팔",
+   "summary": "교무실 정수기 필터 교체 업체 번호 기록"
+  }
+ },
+ "v22": {
+  "text": "교감 선생님이 승인해 주시면 현장체험학습 계획서 올리기",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "",
+     "endAt": "",
+     "evidence": {
+      "dateText": "",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "교감 선생님이 승인해 주시면 현장체험학습 계획서 올리기",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [],
+     "startAt": "",
+     "subtasks": [
+      "계획서 올리기"
+     ],
+     "suggestedSubtasks": [
+      "계획서 작성",
+      "결재 요청"
+     ],
+     "title": "현장체험학습 계획서 올리기",
+     "waitFor": "교감 선생님 승인"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 78,
+    "format": "txt",
+    "sha256": "c6d48ff70a97d4bc46de3a7c6a641d3776a2b0e254ad1819460890e63bc6be60",
+    "type": "text"
+   },
+   "sourceText": "교감 선생님이 승인해 주시면 현장체험학습 계획서 올리기",
+   "summary": "현장체험학습 계획서 승인 후 올리기"
+  }
+ },
+ "v26": {
+  "text": "다다음 주 월요일까지 생기부 세특 입력 마감",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.9,
+     "details": "",
+     "endAt": "2026-11-09T10:00:00+09:00",
+     "evidence": {
+      "dateText": "다다음 주 월요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "다다음 주 월요일까지 생기부 세특 입력 마감",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-11-09T09:00:00+09:00",
+     "reminders": [
+      "2026-11-09T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-09T09:00:00+09:00",
+     "subtasks": [],
+     "title": "생기부 세특 입력 마감"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 60,
+    "format": "txt",
+    "sha256": "445b9590a1643f92e0ce04caf7a80541f25e6f850d0774714acd56d04f155610",
+    "type": "text"
+   },
+   "sourceText": "다다음 주 월요일까지 생기부 세특 입력 마감",
+   "summary": "생기부 세특 입력 마감"
+  }
+ },
+ "v27": {
+  "text": "이번 주 금요일 오전 열 시 반 교과협의회 장소는 과학실",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.9,
+     "details": "과학실",
+     "endAt": "2026-10-30T11:30:00+09:00",
+     "evidence": {
+      "dateText": "이번 주 금요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "이번 주 금요일 오전 열 시 반 교과협의회 장소는 과학실",
+      "timeText": "오전 열 시 반"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-10-30T10:00:00+09:00",
+     "reminders": [
+      "2026-10-30T10:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-30T10:30:00+09:00",
+     "subtasks": [],
+     "title": "교과협의회"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 75,
+    "format": "txt",
+    "sha256": "6461bf224fdcbb12199fd83f7d76bcea623cbc3d94eb45432f8ed57d837f960f",
+    "type": "text"
+   },
+   "sourceText": "이번 주 금요일 오전 열 시 반 교과협의회 장소는 과학실",
+   "summary": "이번 주 금요일 교과협의회 일정과 장소"
+  }
+ },
+ "v28": {
+  "text": "출장 신청 마감이 금요일에서 다음 주 월요일로 연장됐대",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "change": "MOVE",
+     "changeFrom": "금요일",
+     "confidence": 0.8,
+     "details": "",
+     "endAt": "2026-11-02T10:00:00+09:00",
+     "evidence": {
+      "dateText": "다음 주 월요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "출장 신청 마감이 금요일에서 다음 주 월요일로 연장됐대",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-11-02T09:00:00+09:00",
+     "reminders": [
+      "2026-11-02T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-02T09:00:00+09:00",
+     "subtasks": [],
+     "title": "출장 신청"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 76,
+    "format": "txt",
+    "sha256": "fd9a5213b39fe582a3ad1d1922a496fff1fd62c212f15a6a1c7e2f56582015c4",
+    "type": "text"
+   },
+   "sourceText": "출장 신청 마감이 금요일에서 다음 주 월요일로 연장됐대",
+   "summary": "출장 신청 마감이 다음 주 월요일로 연장됨"
+  }
+ },
+ "v29": {
+  "text": "대의원회 그거 결국 안 하기로 했대",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "change": "CANCEL",
+     "confidence": 0.8,
+     "details": "",
+     "endAt": "",
+     "evidence": {
+      "dateText": "",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "대의원회 그거 결국 안 하기로 했대",
+      "timeText": ""
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [],
+     "startAt": "",
+     "subtasks": [],
+     "title": "대의원회"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 47,
+    "format": "txt",
+    "sha256": "0730362d1a5174c83de915bc3655c4cce6cfc1cb27a2564e3b3f1083e02f4c4c",
+    "type": "text"
+   },
+   "sourceText": "대의원회 그거 결국 안 하기로 했대",
+   "summary": "대의원회 취소"
+  }
+ },
+ "v30": {
+  "text": "3반 수행평가 점수 확인 아까 끝냈어",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "",
+     "endAt": "",
+     "evidence": {
+      "dateText": "",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "3반 수행평가 점수 확인 아까 끝냈어",
+      "timeText": ""
+     },
+     "kind": "NOTE",
+     "needsReview": false,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [],
+     "startAt": "",
+     "subtasks": [],
+     "title": "3반 수행평가 점수 확인 완료"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 48,
+    "format": "txt",
+    "sha256": "dfd4be9785e83b63a44b1a10ca4fe69b6d4aeb96a1042f742f8d2020096ef1c1",
+    "type": "text"
+   },
+   "sourceText": "3반 수행평가 점수 확인 아까 끝냈어",
+   "summary": "3반 수행평가 점수 확인 완료"
+  }
+ },
+ "v31": {
+  "text": "내일 1교시 2교시 연달아 공개수업 2학년 3반",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "1교시, 2교시 연달아",
+     "endAt": "2026-10-29T10:00:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "내일 1교시 2교시 연달아 공개수업 2학년 3반",
+      "timeText": "1교시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-10-29T08:30:00+09:00",
+     "reminders": [
+      "2026-10-29T08:30:00+09:00"
+     ],
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-10-29T09:00:00+09:00",
+     "subtasks": [],
+     "title": "2학년 3반 공개수업"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 58,
+    "format": "txt",
+    "sha256": "d4a3492035cb1ac6e3f6a0f3418928c4774fd48e71924329ac0149b35a77bae3",
+    "type": "text"
+   },
+   "sourceText": "내일 1교시 2교시 연달아 공개수업 2학년 3반",
+   "summary": "내일 2학년 3반 공개수업 1·2교시"
+  }
+ },
+ "v33": {
+  "text": "목욜 저녁 일곱 시 반 헬스",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "PERSONAL",
+     "confidence": 0.9,
+     "details": "",
+     "endAt": "2026-10-29T20:30:00+09:00",
+     "evidence": {
+      "dateText": "목욜",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "목욜 저녁 일곱 시 반 헬스",
+      "timeText": "저녁 일곱 시 반"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-10-29T19:00:00+09:00",
+     "reminders": [
+      "2026-10-29T19:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-29T19:30:00+09:00",
+     "subtasks": [],
+     "title": "헬스"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 35,
+    "format": "txt",
+    "sha256": "92bf517f4241b24e75670e71d331e61c9269a73aa594b68041ac2ac4564fc5d0",
+    "type": "text"
+   },
+   "sourceText": "목욜 저녁 일곱 시 반 헬스",
+   "summary": "목요일 저녁 헬스 일정"
+  }
+ },
+ "v32": {
+  "text": "오늘 퇴근 전까지 학급 일지 쓰기",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.9,
+     "details": "퇴근 전까지",
+     "endAt": "2026-10-28T10:00:00+09:00",
+     "evidence": {
+      "dateText": "오늘",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "오늘 퇴근 전까지 학급 일지 쓰기",
+      "timeText": "퇴근 전"
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-10-28T08:30:00+09:00",
+     "reminders": [
+      "2026-10-28T08:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-28T09:00:00+09:00",
+     "subtasks": [],
+     "title": "학급 일지 쓰기"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 44,
+    "format": "txt",
+    "sha256": "d5103ea172bb333de882f9d0286143abb42266e13539e7a0ac8893ade4e14b4f",
+    "type": "text"
+   },
+   "sourceText": "오늘 퇴근 전까지 학급 일지 쓰기",
+   "summary": "오늘 퇴근 전 학급 일지 작성"
+  }
+ },
+ "v34": {
+  "text": "다음 주 내내 교생 실습 지도",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "",
+     "endAt": "2026-11-07T00:00:00+09:00",
+     "evidence": {
+      "dateText": "다음 주",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "다음 주 내내 교생 실습 지도",
+      "timeText": ""
+     },
+     "kind": "PERIOD",
+     "needsReview": false,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [],
+     "startAt": "2026-11-02T00:00:00+09:00",
+     "subtasks": [],
+     "title": "교생 실습 지도"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 38,
+    "format": "txt",
+    "sha256": "c6448f6e3d573fa29f320241bc865dc1eaa96569f985c4766058592afef9a0ba",
+    "type": "text"
+   },
+   "sourceText": "다음 주 내내 교생 실습 지도",
+   "summary": "다음 주 교생 실습 지도"
+  }
+ },
+ "v35": {
+  "text": "1113 학교폭력 예방교육 강당 6교시",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "강당",
+     "endAt": "2026-11-13T10:00:00+09:00",
+     "evidence": {
+      "dateText": "1113",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "1113 학교폭력 예방교육 강당 6교시",
+      "timeText": "6교시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": true,
+     "reminderAt": "2026-11-13T08:30:00+09:00",
+     "reminders": [
+      "2026-11-13T08:30:00+09:00"
+     ],
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-11-13T09:00:00+09:00",
+     "subtasks": [],
+     "title": "학교폭력 예방교육"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 45,
+    "format": "txt",
+    "sha256": "4dde7f8d1104e7006265e2b036bc0fe11f0b2b351ad073506f12fa25c14681e2",
+    "type": "text"
+   },
+   "sourceText": "1113 학교폭력 예방교육 강당 6교시",
+   "summary": "11월 13일 학교폭력 예방교육 일정"
+  }
+ },
+ "v37": {
+  "text": "차 엔진오일 교체 다음 주 토요일 오전 열한 시",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "PERSONAL",
+     "confidence": 0.9,
+     "details": "",
+     "endAt": "2026-11-07T12:00:00+09:00",
+     "evidence": {
+      "dateText": "다음 주 토요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "차 엔진오일 교체 다음 주 토요일 오전 열한 시",
+      "timeText": "오전 열한 시"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-11-07T10:30:00+09:00",
+     "reminders": [
+      "2026-11-07T10:30:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-07T11:00:00+09:00",
+     "subtasks": [],
+     "title": "차 엔진오일 교체"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 62,
+    "format": "txt",
+    "sha256": "c729a3dec114b86d66ef8d911a441f0f64b79cb6a96da8541b626d8d1ec44117",
+    "type": "text"
+   },
+   "sourceText": "차 엔진오일 교체 다음 주 토요일 오전 열한 시",
+   "summary": "다음 주 토요일 오전 11시 엔진오일 교체"
+  }
+ },
+ "v36": {
+  "text": "김선생님한테 시험지 인쇄 부탁하기 월요일까지",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.85,
+     "details": "김선생님에게 요청",
+     "endAt": "2026-11-02T10:00:00+09:00",
+     "evidence": {
+      "dateText": "월요일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "김선생님한테 시험지 인쇄 부탁하기 월요일까지",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-11-02T09:00:00+09:00",
+     "reminders": [
+      "2026-11-02T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-11-02T09:00:00+09:00",
+     "subtasks": [],
+     "title": "시험지 인쇄 부탁"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 64,
+    "format": "txt",
+    "sha256": "1702561fa20bfc328fa468b9cacbf01b7c37dc99e2f25d5593dec68e11c6fbaa",
+    "type": "text"
+   },
+   "sourceText": "김선생님한테 시험지 인쇄 부탁하기 월요일까지",
+   "summary": "김선생님께 시험지 인쇄 부탁, 월요일까지"
+  }
+ },
+ "v38": {
+  "text": "오늘 2반 진도 다 나갔어",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.9,
+     "details": "2반",
+     "endAt": "2026-10-28T10:00:00+09:00",
+     "evidence": {
+      "dateText": "오늘",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "오늘 2반 진도 다 나갔어",
+      "timeText": ""
+     },
+     "kind": "NOTE",
+     "needsReview": false,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [],
+     "startAt": "2026-10-28T09:00:00+09:00",
+     "subtasks": [],
+     "title": "2반 진도 종료"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 32,
+    "format": "txt",
+    "sha256": "2b2f06febdfb0b732b161f52e707adeff21fd2043db09c463955775e76105683",
+    "type": "text"
+   },
+   "sourceText": "오늘 2반 진도 다 나갔어",
+   "summary": "오늘 2반 진도 종료"
+  }
+ },
+ "v40": {
+  "text": "교과협의회 이번 주 거 취소",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "change": "CANCEL",
+     "changeFrom": "이번 주",
+     "confidence": 0.85,
+     "details": "",
+     "endAt": "",
+     "evidence": {
+      "dateText": "",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "교과협의회 이번 주 거 취소",
+      "timeText": ""
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "",
+     "reminders": [],
+     "reviewReasons": [],
+     "startAt": "",
+     "subtasks": [],
+     "title": "교과협의회"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 37,
+    "format": "txt",
+    "sha256": "fd79356a2913ed8a658504895962522f129dd0e214c2eddbc77a563ba68a871d",
+    "type": "text"
+   },
+   "sourceText": "교과협의회 이번 주 거 취소",
+   "summary": "이번 주 교과협의회 취소"
+  }
+ },
+ "v39": {
+  "text": "학부모 상담 내일 다섯 시 반으로 바뀌었어요",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "change": "MOVE",
+     "confidence": 0.85,
+     "details": "",
+     "endAt": "2026-10-29T18:30:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "학부모 상담 내일 다섯 시 반으로 바뀌었어요",
+      "timeText": "다섯 시 반"
+     },
+     "kind": "SCHEDULE",
+     "needsReview": false,
+     "reminderAt": "2026-10-29T17:00:00+09:00",
+     "reminders": [
+      "2026-10-29T17:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-29T17:30:00+09:00",
+     "subtasks": [],
+     "title": "학부모 상담"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 60,
+    "format": "txt",
+    "sha256": "620b4bef7dc8d1f30ac64e73b800de586dd8346c024bfbef36cc0ed6d81e2f88",
+    "type": "text"
+   },
+   "sourceText": "학부모 상담 내일 다섯 시 반으로 바뀌었어요",
+   "summary": "학부모 상담 시간이 내일 5시 반으로 변경"
+  }
+ }
+}

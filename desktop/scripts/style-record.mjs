@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const worker = join(root, "src-tauri", "target", "release", "blackhole-worker");
-const SETS = { 1: ["style-cases.json", "style-proposals.json"], 2: ["style-cases-2.json", "style-proposals-2.json"], holdout: ["style-holdout.json", "style-holdout-proposals.json"], holdout2: ["style-holdout-2.json", "style-holdout-2-proposals.json"], files: ["style-files.json", "style-files-proposals.json"] };
+const SETS = { 1: ["style-cases.json", "style-proposals.json"], 2: ["style-cases-2.json", "style-proposals-2.json"], holdout: ["style-holdout.json", "style-holdout-proposals.json"], holdout2: ["style-holdout-2.json", "style-holdout-2-proposals.json"], holdout3: ["style-holdout-3.json", "style-holdout-3-proposals.json"], files: ["style-files.json", "style-files-proposals.json"] };
 const [set, ...only] = process.argv.slice(2);
 if (!SETS[set]) {
   console.error(`set: ${Object.keys(SETS).join(" | ")}`);

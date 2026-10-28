@@ -276,6 +276,8 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
         out.done!.push(t.id);
       }
     }
+    // 「오늘 저녁에 장보기」 「내일 우유 사기」 put as an appointment: a 「…기」 errand is a to-do (the owner's rule).
+    if (item.kind === "SCHEDULE" && !item.change && /[가-힣](?:보기|사기|하기|내기|쓰기|챙기기|올리기|만들기|보내기|받기|찾기|갖다\s*주기)$/.test(item.title.trim()) && !/회의|상담|면담|수업|모임|약속|진료|행사|연수|협의|출장|시험|공연|영화|여행/.test(item.title)) item = { ...item, kind: "TODO" };
     // 「11/20 재량휴업일」: a day still ahead is an appointment (all day), not a 기억.
     if (item.kind === "NOTE" && item.startAt && !finished && ymd(new Date(item.startAt)) >= today) item = { ...item, kind: "SCHEDULE" };
     // 「오늘 3반 수행평가 점수 확인함」 → 「3반 …」: the class the sentence names stays in the title.
@@ -293,7 +295,15 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
     if (item.area !== "SCHOOL" && SCHOOL_WORDS.test(`${item.title} ${sentence}`)) item = { ...item, area: "SCHOOL" };
     // 「다음주 수욜 6교시 공개수업 참관하고 협의록 쓰기」 split in two: the to-do after 「…하고」 is that day's.
     const prev = i > 0 ? queue[i - 1] : undefined;
-    if (!item.startAt && item.kind === "TODO" && prev?.kind === "SCHEDULE" && prev.startAt && /(?:하고|한\s*뒤|한\s*후|끝나고|마치고)$/.test(prev.evidence.sentence.trim()) && (p.sourceText ?? "").replace(/\s+/g, "").includes(`${prev.evidence.sentence}${item.evidence.sentence}`.replace(/\s+/g, ""))) {
+    // 「… 면담 있고 끝나면 바로 회의록 정리」: the same when the to-do starts from the end of that appointment.
+    const after = /^(?:바로\s*)?(?:끝나면|끝나고|마치면|마치고|그\s*다음|그다음|그\s*후|그\s*뒤|이후)/.test(item.evidence.sentence.trim());
+    // (Adjacent in the words said; the model may repeat the joining word: 「…참관하고」 + 「참관하고 협의록 쓰기」.)
+    const joined = (a: string, b: string) => {
+      const src = (p.sourceText ?? "").replace(/\s+/g, "");
+      const tail = /(\S+(?:하고|있고))\s*$/.exec(a)?.[1];
+      return src.includes(`${a}${b}`.replace(/\s+/g, "")) || (!!tail && b.trim().startsWith(tail) && src.includes(`${a}${b.trim().slice(tail.length)}`.replace(/\s+/g, "")));
+    };
+    if (!item.startAt && item.kind === "TODO" && prev?.kind === "SCHEDULE" && prev.startAt && (after || /(?:하고|있고|한\s*뒤|한\s*후|끝나고|마치고)$/.test(prev.evidence.sentence.trim())) && joined(prev.evidence.sentence, item.evidence.sentence)) {
       const d = new Date(prev.startAt);
       d.setHours(9, 0, 0, 0);
       item = { ...item, startAt: d.toISOString(), evidence: { ...item.evidence, dateText: prev.evidence.dateText } };

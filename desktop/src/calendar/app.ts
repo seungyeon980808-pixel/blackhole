@@ -1285,6 +1285,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     // (Checked synchronously first: the rule draft must appear before the first await.)
     if (!checked && mode !== "put" && (MOVE_RE.test(v) || RETIME_RE.test(v)) && (await moveBySentence(v, src))) return;
     if (!checked && mode !== "put" && addRoutineBySentence(v, src)) return;
+    // 「음...」 「ㅋㅋㅋ」: nothing to keep, said so in the chat (no 기억, no AI).
+    if (isFiller(v)) {
+      s.chat.push({ id: newId(s, "c"), at: stamp(clock()), who: "me", text: v, kind: "text", src }, { id: newId(s, "c"), at: stamp(clock()), who: "ai", text: "넣을 내용이 없어 그냥 두었어요" });
+      await save();
+      return render();
+    }
     // A question gets an answer from the records; 「내일 3시에 알려줘」 (both) asks once with two buttons.
     if (!checked && mode !== "put") {
       const c = classify(v, clock());
@@ -1312,12 +1318,6 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         renderLast();
         return;
       }
-    }
-    // 「음...」 「ㅋㅋㅋ」: nothing to keep, said so in the chat (no 기억, no AI).
-    if (isFiller(v)) {
-      s.chat.push({ id: newId(s, "c"), at: stamp(clock()), who: "me", text: v, kind: "text", src }, { id: newId(s, "c"), at: stamp(clock()), who: "ai", text: "넣을 내용이 없어 그냥 두었어요" });
-      await save();
-      return render();
     }
     // Nothing about a day or time (or 「메모 …」): a 기억 at once, no AI, never on the calendar.
     if (memoDraft(v, clock(), s.settings)?.final) return saveMemoText(v, src);

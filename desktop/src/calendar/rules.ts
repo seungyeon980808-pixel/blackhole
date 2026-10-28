@@ -514,7 +514,7 @@ export const isFiller = (raw: string): boolean => {
   if (!t) return true;
   if (/^[ㄱ-ㅎㅏ-ㅣ\s]+$/.test(t)) return true;
   if (/^(?:\p{Extended_Pictographic}|\s)+$/u.test(t)) return true;
-  return /^(?:(?:음|어|아|응|네|예|엉|흠|헐|오|와|그|저|뭐|아니|맞다|잠깐|잠깐만|잠시만|그냥|해본\s*말|테스트|ㅎㅎ|ㅋㅋ)\s*)+$/.test(t);
+  return /^(?:(?:음|어|아|응|네|예|엉|흠|헐|오|와|그|저|뭐|뭐더라|뭐였더라|아니|맞다|잠깐|잠깐만|잠깐만요|잠시만|잠시만요|그냥|해본\s*말|테스트|ㅎㅎ|ㅋㅋ)\s*)+$/.test(t);
 };
 
 export const notJustAMemo = (raw: string): boolean => {
@@ -683,7 +683,7 @@ function parseDraftRaw(raw0: string, now: Date, day: DayClock = {}): RuleResult 
 }
 
 /** Words that make a sentence more than 「one appointment」: lists, order, reminders, memory, school. */
-const NOT_SIMPLE = /[,，、:;·\n~]|그리고|그 ?전에|전에|후에|다음에|끝나고|하고 |랑 |이랑|및|까지|부터|알려|알림|기억|챙기|준비|하위|매주|매일|격주|반복|마다|학교|학년|학부모|학생|교무|교실|수업|담임|연수|공문|결재|출석|수행평가|방과후|교감|교장|동아리|시험|평가|회의|조회|입학|졸업|면담|운동장|급식|학급|방학|개학/;
+const NOT_SIMPLE = /[,，、:;·\n~]|파티|회식|외식|술자리|송년회|망년회|뒤풀이|그리고|그 ?전에|전에|후에|다음에|끝나고|하고 |랑 |이랑|및|까지|부터|알려|알림|기억|챙기|준비|하위|매주|매일|격주|반복|마다|학교|학년|학부모|학생|교무|교실|수업|담임|연수|공문|결재|출석|수행평가|방과후|교감|교장|동아리|시험|평가|회의|조회|입학|졸업|면담|운동장|급식|학급|방학|개학/;
 /** Conversational endings the rule title keeps (「치과 예약 있어」): the AI writes a cleaner title. */
 const TITLE_TAIL = /(?:있어|있음|있다|있고|해|해야|해줘|해 줘|줘|야|이야|거야|잡아|잡아줘|추가|넣어|넣어줘|해요|요|임|함|거든|래|대)$/;
 
@@ -695,7 +695,7 @@ const TITLE_TAIL = /(?:있어|있음|있다|있고|해|해야|해줘|해 줘|줘
  */
 /** Said in a way only the AI reads right (2026-10-28 밤: these skipped it and went in wrong): a correction or change
  * (「3시 아니 4시」 「4시로 바뀜」 → a second 치과), a to-do (「…고민할 것」), minutes in words (「세 시 사십 분」). */
-const AI_ONLY = /아니|말고|바뀌|바뀜|바꿈|바꿔|변경|미뤄|미룸|미뤘|연기|당겨|당김|앞당|옮|취소|없어|무산|할\s*것|해야|하기\s*$|할게|하자|고민|[일이삼사오육칠팔구십]\s*분/;
+const AI_ONLY = /안\s*하기로|안\s*한[대다]|안\s*해도|못\s*하게|못\s*하기로|안\s*열[려리]|아니|말고|바뀌|바뀜|바꿈|바꿔|변경|미뤄|미룸|미뤘|연기|당겨|당김|앞당|옮|취소|없어|무산|할\s*것|해야|하기\s*$|할게|하자|고민|[일이삼사오육칠팔구십]\s*분/;
 /** 「1030 1530」 「1220 송년회」: glued days and times are the AI's to read, unless a day is also said and the four
  * digits are only a 「1620~2120」 range. */
 const gluedDigits = (raw: string): boolean => {

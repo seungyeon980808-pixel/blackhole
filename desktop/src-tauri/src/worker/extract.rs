@@ -472,10 +472,21 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
             }
         }
     }
+    // 「내일 모레 이틀 동안」: two days said one after the other start on the first (it read 「내일모레」, 10-28 밤).
+    if kind == "PERIOD" {
+        let words: Vec<&str> = date_text.split_whitespace().collect();
+        let days = ["오늘", "내일", "모레", "글피"];
+        if words.len() == 2 && days.iter().position(|d| *d == words[0]).zip(days.iter().position(|d| *d == words[1])).is_some_and(|(a, b)| b == a + 1) {
+            if end_date_text.is_empty() && period_days(&sentence).is_none() {
+                end_date_text = words[1].to_string();
+            }
+            date_text = words[0].to_string();
+        }
+    }
     // 「금요일 퇴근하고 7시 영화」: a bare morning hour after 퇴근 is the evening (it came out 07:00).
     // 「7시 반」 「7시 30분」 too (2026-10-28 밤: only a bare 「7시」 was turned).
-    let bare_hour = time_text.trim().split_once('시').and_then(|(h, _)| h.trim().parse::<u32>().ok());
-    if bare_hour.is_some_and(|h| (5..12).contains(&h)) && ["퇴근하고", "퇴근 후", "퇴근후", "퇴근 뒤", "퇴근해서", "퇴근하면", "퇴근길"].iter().any(|w| sentence.contains(w) || (single_item && source_text.contains(w))) {
+    let bare_hour = super::dates::normalize(&time_text).trim().split_once('시').and_then(|(h, _)| h.trim().parse::<u32>().ok());
+    if bare_hour.is_some_and(|h| (5..12).contains(&h)) && ["퇴근하고", "퇴근 후", "퇴근후", "퇴근 뒤", "퇴근해서", "퇴근하면", "퇴근길", "파티", "회식", "외식", "술자리", "송년회", "망년회", "뒤풀이", "야식", "저녁 식사", "저녁식사"].iter().any(|w| sentence.contains(w) || (single_item && source_text.contains(w))) {
         time_text = format!("저녁 {time_text}");
     }
     // An end phrase not in the source loses to a length said in the sentence (it wrote 「일주일 뒤」 for
@@ -654,7 +665,10 @@ fn fold_waited_schedules(mut items: Vec<ProposalItem>) -> Vec<ProposalItem> {
     while i < items.len() {
         let key = items[i].wait_for.split_whitespace().next().unwrap_or("").trim_end_matches("선생님").trim_end_matches("T").to_string();
         let waits = items[i].kind == "TODO" && key.chars().count() >= 2 && !GENERIC.contains(&key.as_str());
-        let found = if waits { items.iter().position(|x| x.kind == "SCHEDULE" && x.title.contains(key.as_str())) } else { None };
+        // An appointment (「내일 세 시에 면담 있고 끝나면 회의록 정리」) is real, not a condition: kept. A call or an
+        // answer waited for (「9시에 한지수선생님께 연락오는거 보고」) is folded.
+        const MEETING: [&str; 12] = ["면담", "회의", "상담", "수업", "모임", "약속", "진료", "행사", "연수", "협의", "출장", "시험"];
+        let found = if waits { items.iter().position(|x| x.kind == "SCHEDULE" && x.title.contains(key.as_str()) && !MEETING.iter().any(|m| x.title.contains(m))) } else { None };
         if let Some(j) = found {
             let gone = items.remove(j);
             let at = if j < i { i - 1 } else { i };
@@ -1115,6 +1129,13 @@ mod tests {
         assert_eq!(e.items[0].kind, "TODO");
         assert_eq!(e.items[0].wait_for, "한지수 선생님 연락");
         assert_eq!(e.items[0].start_at, "2026-10-22T09:00:00+09:00");
+
+        let text = "내일 세 시에 교감선생님이랑 면담 있고 끝나면 회의록 정리해야 돼";
+        let meet = said("SCHEDULE", "교감 면담", "내일", "3시", "내일 세 시에 교감선생님이랑 면담 있고");
+        let mut notes = said("TODO", "회의록 정리", "", "", "끝나면 회의록 정리해야 돼");
+        notes["waitFor"] = json!("면담");
+        let e = validate(&answer(vec![meet, notes]).to_string(), Some(text), reference()).unwrap();
+        assert_eq!(e.items.iter().map(|x| x.kind.as_str()).collect::<Vec<_>>(), ["SCHEDULE", "TODO"], "the 면담 itself stays");
     }
 
     #[test]

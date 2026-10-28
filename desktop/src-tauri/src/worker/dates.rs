@@ -228,6 +228,11 @@ fn spoken_days(text: &str) -> String {
             if (1..=12).contains(&m) && (1..=31).contains(&d) { format!("{}{m}월 {d}일", &c[1]) } else { c[0].to_string() }
         })
         .into_owned();
+    // 「다음달 이일」 「11월 삼일」: a one-letter day right after 달/월 (alone, 「이일」 could be 「이 일」).
+    static D1: OnceLock<Regex> = OnceLock::new();
+    v = re(&D1, r"(달|월)\s*([일이삼사오육칠팔구])일(\s|$|까지|에|부터)")
+        .replace_all(&v, |c: &regex::Captures| format!("{} {}일{}", &c[1], sino(&c[2]), &c[3]))
+        .into_owned();
     v = re(&D, r"(^|[^가-힣\d])((?:[이삼]?십)[일이삼사오육칠팔구]?)일(\s|$|까지|에|부터)")
         .replace_all(&v, |c: &regex::Captures| {
             let d = sino(&c[2]);
@@ -1186,6 +1191,7 @@ mod tests {
         assert_eq!(normalize("이번 주 수업 정리"), "이번 주 수업 정리");
         assert_eq!(normalize("다음 주 일 많음"), "다음 주 일 많음");
         assert_eq!(normalize("학생들 주목 시키기"), "학생들 주목 시키기");
+        assert_eq!(start("다음달 이일", "", "SCHEDULE")[..10], start("다음 달 2일", "", "SCHEDULE")[..10]);
     }
 
     #[test]
