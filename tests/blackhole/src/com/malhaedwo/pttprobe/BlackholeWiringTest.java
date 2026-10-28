@@ -20,8 +20,8 @@ public final class BlackholeWiringTest {
 
         // 앱 정체성은 그대로.
         check(manifest.contains("package=\"com.malhaedwo.pttprobe\""), "패키지 이름 유지");
-        check(manifest.contains("android:versionCode=\"41\"") && manifest.contains("android:versionName=\"0.12.1\""),
-                "버전 0.12.1(41)");
+        check(manifest.contains("android:versionCode=\"42\"") && manifest.contains("android:versionName=\"0.12.2\""),
+                "버전 0.12.2(42)");
         check(manifest.contains("android.permission.USE_FULL_SCREEN_INTENT"), "전체 화면 알림 권한 선언");
         check(!manifest.contains("android.permission.CAMERA"), "CAMERA 권한 없음(카메라 앱에 맡김)");
 
