@@ -68,6 +68,8 @@ const ASK_WORDS = /왜|냐\s*$|니\s*$|잖아|이상하게|안\s?(돼|되|들어
 export function classify(raw: string, now: Date): "ask" | "put" | "both" {
   const t = raw.trim();
   if (!t) return "put";
+  // Pasted messages (several lines, a chat export 「[오전 8:02] 학년부장: … 되시나요?」) are put in, whatever they ask.
+  if (t.split("\n").filter((l) => l.trim()).length > 1 || /\[(?:오전|오후)\s*\d{1,2}:\d{2}\]|^\S{1,10}\s*:\s/.test(t) || t.length > 120) return "put";
   if (/[?？]\s*$/.test(t)) return "ask";
   if (!ASK_WORDS.test(t)) return "put";
   return parseRule(t, now).hasTime ? "both" : "ask";

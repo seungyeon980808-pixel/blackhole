@@ -223,3 +223,13 @@ describe("새 문장 54개에서 나온 고침", () => {
     expect(s.tasks[0].noDue).toBeUndefined();
   });
 });
+
+describe("붙여 넣은 메시지는 넣기", () => {
+  it("a pasted chat that ends in a question is put in, a plain question is still asked", async () => {
+    const { classify } = await import("../src/calendar/ask");
+    expect(classify("2026년 10월 28일 수요일\n[오전 8:01] 학년부장: 오늘 4교시 학년 회의\n[오전 8:02] 학년부장: 다들 시간 되시나요?", NOW)).toBe("put");
+    expect(classify("[오전 9:12] 행정실: 서류 언제까지 내시나요?", NOW)).toBe("put");
+    expect(classify("치과 언제야?", NOW)).toBe("ask");
+    expect(classify("2026년 10월 일정 뭐 있어?", NOW)).toBe("ask");
+  });
+});
