@@ -196,7 +196,7 @@
     "type": "text"
    },
    "sourceText": "다음주 수요일 열한시 교육청 회의",
-   "summary": "다음 주 수요일 열한시 교육청 회의"
+   "summary": "다음주 수요일 열한시 교육청 회의"
   }
  },
  "h7": {
@@ -292,7 +292,7 @@
     "type": "text"
    },
    "sourceText": "1116~1120 기말 대비 보충수업 주간",
-   "summary": "기말 대비 보충수업 주간 1116~1120"
+   "summary": "1116~1120 기말 대비 보충수업 주간"
   }
  },
  "h6": {
@@ -406,7 +406,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.8,
+     "confidence": 0.85,
      "details": "",
      "endAt": "2026-11-02T10:00:00+09:00",
      "evidence": {
@@ -439,7 +439,7 @@
     "type": "text"
    },
    "sourceText": "다음주 월요일까지 체험학습 보고서 받기",
-   "summary": "체험학습 보고서 수거 마감"
+   "summary": "체험학습 보고서 받기 마감"
   }
  },
  "h13": {
@@ -503,11 +503,11 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
+     "confidence": 0.85,
      "details": "2반, 6반",
      "endAt": "2026-10-30T10:00:00+09:00",
      "evidence": {
-      "dateText": "금요일까지",
+      "dateText": "금요일",
       "endDateText": "",
       "reminderText": "",
       "sentence": "금요일까지 2반 6반 수행평가 채점",
@@ -536,7 +536,7 @@
     "type": "text"
    },
    "sourceText": "금요일까지 2반 6반 수행평가 채점",
-   "summary": "금요일까지 2반, 6반 수행평가 채점"
+   "summary": "금요일까지 2반·6반 수행평가 채점"
   }
  },
  "h9": {
@@ -553,23 +553,25 @@
     {
      "area": "SCHOOL",
      "confidence": 0.5,
-     "details": "7교시 끝난 뒤",
-     "endAt": "",
+     "details": "7교시 끝난 후",
+     "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
       "dateText": "",
       "endDateText": "",
       "reminderText": "",
       "sentence": "7교시 끝나고 동아리 부원 모임",
-      "timeText": ""
+      "timeText": "7교시 끝나고"
      },
      "kind": "SCHEDULE",
      "needsReview": true,
-     "reminderAt": "",
-     "reminders": [],
-     "reviewReasons": [
-      "원문에 없는 시간 표현을 버림: 「7교시 끝난 뒤」"
+     "reminderAt": "2026-10-28T08:30:00+09:00",
+     "reminders": [
+      "2026-10-28T08:30:00+09:00"
      ],
-     "startAt": "",
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-10-28T09:00:00+09:00",
      "subtasks": [],
      "title": "동아리 부원 모임"
     }
@@ -633,7 +635,7 @@
     "type": "text"
    },
    "sourceText": "출장 신청 다 했어요",
-   "summary": "출장 신청 완료"
+   "summary": "출장 신청 완료 알림"
   }
  },
  "h16": {
@@ -649,7 +651,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
+     "confidence": 0.85,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -746,7 +748,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.8,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -783,7 +785,7 @@
     "type": "text"
    },
    "sourceText": "견학 장소 알아보고 버스 예약하고 가정통신문 만들기",
-   "summary": "견학 장소 확인, 버스 예약, 가정통신문 작성"
+   "summary": "견학 장소 확인, 버스 예약, 가정통신문 준비"
   }
  },
  "h18": {
@@ -877,7 +879,7 @@
     "type": "text"
    },
    "sourceText": "가정통신문 오늘 보냈음",
-   "summary": "가정통신문 오늘 발송 완료"
+   "summary": "가정통신문 발송 완료 기록"
   }
  },
  "h20": {
@@ -893,7 +895,7 @@
    "items": [
     {
      "area": "PERSONAL",
-     "confidence": 0.6,
+     "confidence": 0.85,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -993,7 +995,7 @@
     {
      "area": "SCHOOL",
      "change": "CANCEL",
-     "confidence": 0.8,
+     "confidence": 0.6,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -1024,7 +1026,7 @@
     "type": "text"
    },
    "sourceText": "대의원회 없어짐",
-   "summary": "대의원회 취소"
+   "summary": "대의원회 일정 취소"
   }
  },
  "h22": {
@@ -1127,7 +1129,7 @@
     "type": "text"
    },
    "sourceText": "교과협의회 이번주 금요일 거 11시로 변경",
-   "summary": "교과협의회 금요일에서 11시로 변경"
+   "summary": "교과협의회 시간 변경"
   }
  },
  "h25": {
@@ -1144,7 +1146,7 @@
     {
      "area": "SCHOOL",
      "confidence": 0.8,
-     "details": "행정실 안내, 연말정산 서류",
+     "details": "행정실 안내",
      "endAt": "2026-11-04T10:00:00+09:00",
      "evidence": {
       "dateText": "11월 4일",
@@ -1176,7 +1178,7 @@
     "type": "text"
    },
    "sourceText": "[오전 9:12] 행정실: 11월 4일까지 연말정산 서류 제출 바랍니다",
-   "summary": "행정실 안내로 11월 4일까지 연말정산 서류 제출"
+   "summary": "행정실 안내로 연말정산 서류 제출 마감 11월 4일"
   }
  },
  "h30": {
@@ -1225,7 +1227,7 @@
     "type": "text"
    },
    "sourceText": "이번 주 토요일 오후 1시 친구 결혼식",
-   "summary": "이번 주 토요일 친구 결혼식 일정"
+   "summary": "이번 주 토요일 친구 결혼식"
   }
  },
  "h29": {
@@ -1323,7 +1325,7 @@
     "type": "text"
    },
    "sourceText": "제목: 2026 교원 연수 안내\n기간: 11. 9.(월) ~ 11. 13.(금)\n장소: 교육연수원",
-   "summary": "11월 9일부터 13일까지 교육연수원에서 열리는 2026 교원 연수"
+   "summary": "2026 교원 연수 기간과 장소 정리"
   }
  },
  "h27": {
@@ -1561,9 +1563,8 @@
      "startAt": "2026-11-13T09:00:00+09:00",
      "subtasks": [],
      "suggestedSubtasks": [
-      "자료 정리",
-      "초안 작성",
-      "결재"
+      "수행평가 계획서 작성",
+      "제출"
      ],
      "title": "수행평가 계획서 제출"
     }
@@ -1606,7 +1607,7 @@
     "type": "text"
    },
    "sourceText": "ㅇㅇ",
-   "summary": "입력이 불분명하여 정리할 내용이 없음"
+   "summary": "의미 있는 내용 없음"
   }
  },
  "h35": {
@@ -1673,27 +1674,31 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.8,
-     "details": "퇴근 전",
-     "endAt": "",
+     "confidence": 0.5,
+     "details": "",
+     "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
       "dateText": "",
       "endDateText": "",
       "reminderText": "",
       "sentence": "퇴근 전에 출장 결과 보고",
-      "timeText": ""
+      "timeText": "퇴근 전"
      },
      "kind": "TODO",
-     "needsReview": false,
-     "reminderAt": "",
-     "reminders": [],
-     "reviewReasons": [],
-     "startAt": "",
+     "needsReview": true,
+     "reminderAt": "2026-10-28T08:30:00+09:00",
+     "reminders": [
+      "2026-10-28T08:30:00+09:00"
+     ],
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-10-28T09:00:00+09:00",
      "subtasks": [],
      "title": "출장 결과 보고"
     }
    ],
-   "needsReview": false,
+   "needsReview": true,
    "referenceTime": "2026-10-28T09:00:00+09:00",
    "reviewReasons": [],
    "schemaVersion": 2,
@@ -1818,7 +1823,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
+     "confidence": 0.85,
      "details": "행정실",
      "endAt": "",
      "evidence": {
@@ -1898,7 +1903,7 @@
     "type": "text"
    },
    "sourceText": "다음주 화요일 오전 8시 건강검진 금식",
-   "summary": "다음 주 화요일 건강검진, 금식 필요"
+   "summary": "다음 주 화요일 오전 8시 건강검진, 금식 필요"
   }
  },
  "h41": {
@@ -1947,7 +1952,7 @@
     "type": "text"
    },
    "sourceText": "https://www.youtube.com/watch?v=abc 지구과학 판구조 영상 다음 수업 때",
-   "summary": "지구과학 판구조 영상 링크 기억"
+   "summary": "지구과학 판구조 영상 링크 다음 수업 때 사용"
   }
  },
  "h46": {
@@ -2114,7 +2119,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.5,
+     "confidence": 0.85,
      "details": "3교시, 4교시 6반 수업 교환 가능 여부",
      "endAt": "2026-10-28T10:00:00+09:00",
      "evidence": {
@@ -2125,20 +2130,21 @@
       "timeText": ""
      },
      "kind": "TODO",
-     "needsReview": true,
+     "needsReview": false,
      "reminderAt": "2026-10-28T09:00:00+09:00",
      "reminders": [
       "2026-10-28T09:00:00+09:00"
      ],
-     "reviewReasons": [
-      "원문에 없는 시간 표현을 버림: 「3교시, 4교시」"
-     ],
+     "reviewReasons": [],
      "startAt": "2026-10-28T09:00:00+09:00",
      "subtasks": [],
-     "title": "김선생님께 6반 수업 교환 문의"
+     "suggestedSubtasks": [
+      "김선생님께 수업 교환 가능 여부 문의"
+     ],
+     "title": "6반 수업 교환 문의"
     }
    ],
-   "needsReview": true,
+   "needsReview": false,
    "referenceTime": "2026-10-28T09:00:00+09:00",
    "reviewReasons": [],
    "schemaVersion": 2,
@@ -2149,7 +2155,7 @@
     "type": "text"
    },
    "sourceText": "오늘 3교시랑 4교시 6반 수업 바꿔줄 수 있냐고 김선생님께 물어보기",
-   "summary": "김선생님께 3·4교시 6반 수업 교환 문의"
+   "summary": "김선생님께 오늘 3·4교시 6반 수업 교환 문의"
   }
  },
  "h51": {
@@ -2200,7 +2206,7 @@
     "type": "text"
    },
    "sourceText": "치과 다음주 월요일 3시로 미룸",
-   "summary": "치과 일정을 다음 주 월요일 3시로 변경"
+   "summary": "치과 일정을 다음 주 월요일 3시로 미룸"
   }
  },
  "h48": {
@@ -2249,7 +2255,7 @@
     "type": "text"
    },
    "sourceText": "목요일 1교시 2학년 1반 실험 준비물 챙기기",
-   "summary": "목요일 1교시 실험 준비물 챙기기"
+   "summary": "목요일 1교시 2학년 1반 실험 준비물 챙기기"
   }
  },
  "h49": {
@@ -2337,7 +2343,7 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.8,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -2354,11 +2360,11 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "3반 수행평가 점수 확인"
+     "title": "3반 수행평가 점수 확인 완료"
     },
     {
      "area": "SCHOOL",
-     "confidence": 0.85,
+     "confidence": 0.8,
      "details": "",
      "endAt": "",
      "evidence": {
@@ -2375,7 +2381,7 @@
      "reviewReasons": [],
      "startAt": "",
      "subtasks": [],
-     "title": "6반 수행평가 점수 확인"
+     "title": "6반 수행평가 점수 확인 완료"
     }
    ],
    "needsReview": false,
@@ -2389,7 +2395,7 @@
     "type": "text"
    },
    "sourceText": "3반 6반 수행평가 점수 확인함",
-   "summary": "3반과 6반 수행평가 점수 확인 완료"
+   "summary": "3반, 6반 수행평가 점수 확인 완료"
   }
  },
  "h56": {
@@ -2404,8 +2410,8 @@
    },
    "items": [
     {
-     "area": "PERSONAL",
-     "confidence": 0.8,
+     "area": "SCHOOL",
+     "confidence": 0.5,
      "details": "줌",
      "endAt": "2026-10-28T21:00:00+09:00",
      "evidence": {
@@ -2503,8 +2509,9 @@
     {
      "area": "SCHOOL",
      "change": "MOVE",
+     "changeFrom": "모레",
      "confidence": 0.5,
-     "details": "우천 시 연기",
+     "details": "우천 시",
      "endAt": "2026-10-30T10:00:00+09:00",
      "evidence": {
       "dateText": "모레",
@@ -2520,6 +2527,7 @@
       "2026-10-30T09:00:00+09:00"
      ],
      "reviewReasons": [
+      "모델이 빠뜨린 날짜를 원문에서 채움: 「모레」",
       "날짜만 있어 오전 9시로 임시 지정"
      ],
      "startAt": "2026-10-30T09:00:00+09:00",
@@ -2538,7 +2546,7 @@
     "type": "text"
    },
    "sourceText": "모레 체육대회 우천 시 연기",
-   "summary": "모레 체육대회 우천 연기"
+   "summary": "체육대회 우천 시 연기 안내"
   }
  },
  "h52": {
@@ -2588,7 +2596,7 @@
     "type": "text"
    },
    "sourceText": "출장 신청 다음주 화요일까지로 늘어남",
-   "summary": "출장 신청 기한을 다음 주 화요일까지로 연장"
+   "summary": "출장 신청 마감을 다음 주 화요일까지로 변경"
   }
  },
  "h57": {
@@ -2637,7 +2645,7 @@
     "type": "text"
    },
    "sourceText": "11/12(목) 13:00 진로 박람회 인솔",
-   "summary": "11/12 진로 박람회 인솔"
+   "summary": "11월 12일 진로 박람회 인솔"
   }
  },
  "h58": {
@@ -2704,12 +2712,12 @@
    "items": [
     {
      "area": "SCHOOL",
-     "confidence": 0.9,
+     "confidence": 0.85,
      "details": "",
      "endAt": "2026-11-12T00:00:00+09:00",
      "evidence": {
       "dateText": "11월 9일 월요일",
-      "endDateText": "3일간 뒤 날짜 미정",
+      "endDateText": "3일간",
       "reminderText": "",
       "sentence": "11월 9일 월요일부터 3일간 교생 실습",
       "timeText": ""
@@ -2735,7 +2743,7 @@
     "type": "text"
    },
    "sourceText": "11월 9일 월요일부터 3일간 교생 실습",
-   "summary": "11월 9일부터 3일간 교생 실습"
+   "summary": "교생 실습 기간 정리"
   }
  }
 }

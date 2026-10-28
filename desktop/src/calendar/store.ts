@@ -95,8 +95,9 @@ export function changeTargets(s: CalendarState, item: ProposalItem, now: Date): 
   let list: (CalEvent | Task)[] = [...liveEvents(s).filter((e) => e.date >= today && !e.workFor && !e.draft && named(e)), ...liveTasks(s).filter((t) => !t.done && !t.draft && named(t))];
   // 「교과협의회 다음주 금요일 걸로 취소」: a cancel's day says which one.
   const from = (item.changeFrom || (item.change === "CANCEL" ? `${item.evidence.dateText} ${item.evidence.timeText}` : "")).trim();
-  // 「다음주 교과협의회 취소」: only a week said.
-  const week = /다다음\s*주/.test(from) ? 2 : /다음\s*주|담주/.test(from) ? 1 : /이번\s*주/.test(from) ? 0 : null;
+  // 「다음주 교과협의회 취소」: only a week said (in the day given, else anywhere in the words).
+  const weekIn = (t: string) => (/다다음\s*주/.test(t) ? 2 : /다음\s*주|담주/.test(t) ? 1 : /이번\s*주|금주/.test(t) ? 0 : null);
+  const week = weekIn(from) ?? weekIn(item.evidence.sentence);
   if (list.length > 1 && week !== null) {
     const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) + 7 * week);
     const a = ymd(monday);
@@ -172,7 +173,7 @@ export function doneReport(text: string): boolean {
 }
 
 /** Words that make an item school work whatever the model said (「행정실 가서 카드 제출」 「2학년 9반 …」). */
-const SCHOOL_WORDS = /초과근무|벌점|지각|교육청|장학사|체험학습|교직원|교과|보강|시간표|나이스|학급|종례|조회|(?<!수영|피아노|요가|미술|영어|태권도|발레|필라테스|골프|테니스)\s*수업|\d+\s*반(?![가-힣])|\d+\s*반(?:도|은|는|에|의|부터|까지)|\d\s*학년|\d\s*교시|행정실|교무실|교원|교사|기안|공문|결재|수행평가|생기부|세특|방과후|학생|학부모|담임|쿨메신저|협의회|협의록|출장|급식지도|진도|교학공|대의원회|학생회/;
+const SCHOOL_WORDS = /품의|초과근무|벌점|지각|교육청|장학사|체험학습|교직원|교과|보강|시간표|나이스|학급|종례|조회|(?<!수영|피아노|요가|미술|영어|태권도|발레|필라테스|골프|테니스)\s*수업|\d+\s*반(?![가-힣])|\d+\s*반(?:도|은|는|에|의|부터|까지)|\d\s*학년|\d\s*교시|행정실|교무실|교원|교사|기안|공문|결재|수행평가|생기부|세특|방과후|학생|학부모|담임|쿨메신저|협의회|협의록|출장|급식지도|진도|교학공|대의원회|학생회/;
 
 /** The class numbers a text names: 「2학년 3반 … 6반」 → ["3반", "6반"]. */
 const classesIn = (text: string): string[] => [...new Set([...text.matchAll(/(\d{1,2})\s*반(?=$|[^가-힣]|도|은|는|에|의|부터|까지|이|가)/g)].map((m) => `${m[1]}반`))];
@@ -301,9 +302,13 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
     const joined = (a: string, b: string) => {
       const src = (p.sourceText ?? "").replace(/\s+/g, "");
       const tail = /(\S+(?:하고|있고))\s*$/.exec(a)?.[1];
-      return src.includes(`${a}${b}`.replace(/\s+/g, "")) || (!!tail && b.trim().startsWith(tail) && src.includes(`${a}${b.trim().slice(tail.length)}`.replace(/\s+/g, "")));
+      const sa = a.replace(/\s+/g, "");
+      const sb = b.replace(/\s+/g, "");
+      // Or the appointment's sentence is the whole of it, the to-do its end after 「…하고」.
+      const inside = sa.endsWith(sb) && /(?:하고|있고|끝나고|마치고)$/.test(sa.slice(0, sa.length - sb.length));
+      return inside || src.includes(`${a}${b}`.replace(/\s+/g, "")) || (!!tail && b.trim().startsWith(tail) && src.includes(`${a}${b.trim().slice(tail.length)}`.replace(/\s+/g, "")));
     };
-    if (!item.startAt && item.kind === "TODO" && prev?.kind === "SCHEDULE" && prev.startAt && (after || /(?:하고|있고|한\s*뒤|한\s*후|끝나고|마치고)$/.test(prev.evidence.sentence.trim())) && joined(prev.evidence.sentence, item.evidence.sentence)) {
+    if (!item.startAt && item.kind === "TODO" && prev?.kind === "SCHEDULE" && prev.startAt && (after || /(?:하고|있고|한\s*뒤|한\s*후|끝나고|마치고)$/.test(prev.evidence.sentence.trim()) || /(?:하고|있고|끝나고|마치고)\s*$/.test(prev.evidence.sentence.replace(item.evidence.sentence, "").trim())) && joined(prev.evidence.sentence, item.evidence.sentence)) {
       const d = new Date(prev.startAt);
       d.setHours(9, 0, 0, 0);
       item = { ...item, startAt: d.toISOString(), evidence: { ...item.evidence, dateText: prev.evidence.dateText } };

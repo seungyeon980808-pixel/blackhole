@@ -480,9 +480,11 @@ pub fn week_span(text: &str, today: NaiveDate) -> Option<(NaiveDate, NaiveDate)>
     // 「다음 주 토일」: from the first weekday to the second (2026-10-28: it came out 월~금).
     let wd = |c: char| "월화수목금토일".chars().position(|x| x == c).map(|i| i as i64);
     let chars: Vec<char> = rest.chars().collect();
+    // (Only two weekday letters: 「내내」 is two letters too, and it gave up on 「다음 주 내내」.)
     if let [a, b] = chars[..] {
-        let (a, b) = (wd(a)?, wd(b)?);
-        return (b > a).then(|| (monday + Duration::days(a), monday + Duration::days(b)));
+        if let (Some(a), Some(b)) = (wd(a), wd(b)) {
+            return (b > a).then(|| (monday + Duration::days(a), monday + Duration::days(b)));
+        }
     }
     // Only the week itself (「다음 주」 「다음 주 내내」), not 「다음 주 화요일」.
     if !["", "내내", "동안", "중", "중에", "주간", "간"].contains(&rest) {
@@ -966,6 +968,7 @@ mod tests {
         assert_eq!(week_span("다음 주 화요일", wed), None);
         assert_eq!(week_span("다음 주 토일", wed), Some((d(10, 31), d(11, 1))));
         assert_eq!(week_span("다음 주 월수금", wed), None);
+        assert_eq!(week_span("다음 주 내내", wed), Some((d(10, 26), d(10, 30))));
     }
 
     fn start(date: &str, time: &str, kind: &str) -> String {
