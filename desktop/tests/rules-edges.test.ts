@@ -36,3 +36,17 @@ describe("date edges", () => {
     }
   });
 });
+
+describe("학교식 날짜 쓰기 (2026-10-28 실제 입력)", () => {
+  it("「1209~1210」 is a period of days, 「11. 7.」 a day; real time ranges stay times", async () => {
+    const { parseDraft, schoolDays } = await import("../src/calendar/rules");
+    const now = new Date("2026-10-28T14:26:00");
+    expect(schoolDays("1209~1210 기말고사")).toBe("12월 9일~12월 10일 기말고사");
+    expect(schoolDays("11. 7.(토) 0740~1240")).toBe("11월 7일(토) 0740~1240");
+    expect(schoolDays("1620~2120 초과근무")).toBe("1620~2120 초과근무");
+    const p = parseDraft("1209~1210 기말고사", now);
+    expect([p.date, p.until, p.hasTime]).toEqual(["2026-12-09", "2026-12-10", false]);
+    const q = parseDraft("11. 7.(토) 0740~1240 시험감독", now);
+    expect([q.date, q.time, q.end, q.title]).toEqual(["2026-11-07", "07:40", "12:40", "시험감독"]);
+  });
+});

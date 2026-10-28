@@ -598,8 +598,24 @@ function daySpan(raw: string, now: Date): RuleResult | null {
   return { ...r, kind: "SCHEDULE", date: from, until: to, time: null, hasTime: false, needsReview: false, explanation: "기간을 찾음" };
 }
 
+/**
+ * Mac drafts only (the phone's Java rules stay as they are): days written the school way.
+ * 「11. 7.(토)」 → 「11월 7일(토)」; 「1209~1210」 → 「12월 9일~12월 10일」 when both ends are real days
+ * and, read as times, would be under half an hour apart (12:09~12:10 is no appointment).
+ * A lone 「1221」 stays ambiguous (09:30 or 9/30): the AI decides from the rest.
+ */
+export function schoolDays(raw: string): string {
+  const real = (m: number, d: number) => m >= 1 && m <= 12 && d >= 1 && d <= new Date(2024, m, 0).getDate();
+  return raw
+    .replace(/(?<![\d.])(\d{1,2})\.\s+(\d{1,2})\.(?!\d)/g, (m0, a: string, b: string) => (real(+a, +b) ? `${+a}월 ${+b}일` : m0))
+    .replace(/(^|\s)(\d{2})(\d{2})\s*[~\-–]\s*(\d{2})(\d{2})(?=\s|$)/g, (m0, pre: string, a: string, b: string, c: string, d: string) => {
+      const asTimes = +c * 60 + +d - (+a * 60 + +b);
+      return real(+a, +b) && real(+c, +d) && (asTimes < 30 || +a > 23 || +c > 23) ? `${pre}${+a}월 ${+b}일~${+c}월 ${+d}일` : m0;
+    });
+}
+
 function parseDraftRaw(raw0: string, now: Date, day: DayClock = {}): RuleResult {
-  const raw = timeWords(raw0, day, now);
+  const raw = timeWords(schoolDays(raw0), day, now);
   const days = daySpan(raw, now);
   if (days) return days;
   const range = timeRange(raw);

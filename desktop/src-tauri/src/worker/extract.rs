@@ -1,7 +1,7 @@
 //! Prompt, output schema and strict validation of Gemma extraction results.
 
 use super::{
-    dates::{find_date_phrase, find_time_phrase, mentions_date, mentions_time, period_days, quoted_in, resolve, resolve_period_end, week_span},
+    dates::{compact_dates, find_date_phrase, find_time_phrase, mentions_date, month_day, mentions_time, period_days, quoted_in, resolve, resolve_period_end, week_span},
     error::{ErrorCode, WorkerError},
     proposal::{Evidence, ProposalItem},
 };
@@ -323,7 +323,9 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         title = title.chars().take(80).collect::<String>().trim().to_string();
         reasons.push("제목이 길어 80자로 줄임".to_string());
     }
-    let mut date_text = if quoted_in(source_text, &date_text) {
+    // 「1029 3학년 기말고사」: the model rightly says 「10월 29일」, which the source writes as 1029.
+    let compact = compact_dates(source_text);
+    let mut date_text = if quoted_in(source_text, &date_text) || month_day(&date_text).is_some_and(|md| compact.contains(&md)) {
         date_text
     } else {
         reasons.push(format!("원문에 없는 날짜 표현을 버림: 「{date_text}」"));
@@ -335,6 +337,14 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         reasons.push(format!("원문에 없는 시간 표현을 버림: 「{time_text}」"));
         String::new()
     };
+    // The same 「1029」 (or 「1209~1210」) given as the time too: it is the day, not 10:29.
+    if let Some(md) = month_day(&date_text) {
+        let runs = compact_dates(&time_text);
+        let digits_only = time_text.chars().all(|c| c.is_ascii_digit() || c.is_whitespace() || matches!(c, '~' | '-' | '–'));
+        if digits_only && runs.first() == Some(&md) {
+            time_text.clear();
+        }
+    }
     // 「금요일 퇴근하고 7시 영화」: a bare morning hour after 퇴근 is the evening (it came out 07:00).
     let bare_hour = time_text.trim_end_matches(['에', ' ']).strip_suffix('시').and_then(|h| h.trim().parse::<u32>().ok());
     if bare_hour.is_some_and(|h| (5..12).contains(&h)) && ["퇴근하고", "퇴근 후", "퇴근후", "퇴근해서", "퇴근하면"].iter().any(|w| sentence.contains(w) || (single_item && source_text.contains(w))) {
@@ -703,6 +713,30 @@ mod tests {
             let err = validate(&raw, Some(TEXT), reference()).unwrap_err();
             assert_eq!(err.code, ErrorCode::InvalidModelOutput, "{raw}");
             assert!(err.message.contains(needle), "{raw} -> {}", err.message);
+        }
+    }
+
+    /// 2026-10-28 실제 입력: 「1029 3학년 기말고사 … 1209~1210 기말고사 … 1221 복도」. The model said
+    /// 「10월 29일」 and gave 「1029」 as the time: it went in as 10:29 tomorrow, date dropped.
+    #[test]
+    fn compact_month_day_list_is_days_not_times() {
+        let text = "1029 3학년 기말고사\n1030 3학년 기말고사\n1113 대왕제\n1209~1210 기말고사\n\n급식지도 일정\n1221 복도";
+        let it = |kind: &str, title: &str, date: &str, time: &str, ev: &str| json!({"kind":kind,"area":"SCHOOL","title":title,"details":"","dateText":date,"timeText":time,"evidence":ev,"confidence":0.9});
+        let raw = json!({"summary":"학사 일정","items":[
+            it("SCHEDULE", "3학년 기말고사", "10월 29일", "1029", "1029 3학년 기말고사"),
+            it("SCHEDULE", "대왕제", "1113", "", "1113 대왕제"),
+            it("PERIOD", "기말고사", "12월 9일", "", "1209~1210 기말고사"),
+            it("SCHEDULE", "급식지도 (복도)", "12월 21일", "1221", "1221 복도"),
+        ]}).to_string();
+        let e = validate(&raw, Some(text), reference()).unwrap();
+        let day = |i: usize| e.items[i].start_at.clone();
+        assert!(day(0).starts_with("2026-10-29"), "{}", day(0));
+        assert!(e.items[0].evidence.time_text.is_empty());
+        assert!(day(1).starts_with("2026-11-13"), "{}", day(1));
+        assert!(day(2).starts_with("2026-12-09"), "{}", day(2));
+        assert!(day(3).starts_with("2026-12-21"), "{}", day(3));
+        for x in &e.items {
+            assert!(!x.review_reasons.iter().any(|r| r.contains("원문에 없는 날짜")), "{:?}", x.review_reasons);
         }
     }
 

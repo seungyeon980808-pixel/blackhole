@@ -461,9 +461,55 @@ pub fn week_span(text: &str, today: NaiveDate) -> Option<(NaiveDate, NaiveDate)>
     Some((monday.max(today), monday + Duration::days(4)))
 }
 
+/// 「1029」 「1209~1210」 (a list of school days): month and day written together. Every run of
+/// exactly four digits, not glued to other digits or to `: . / -` 년·원·개·명·번·호, that is a real
+/// month and day.
+pub fn compact_dates(text: &str) -> Vec<(u32, u32)> {
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i].is_ascii_digit() && (i == 0 || !chars[i - 1].is_ascii_digit()) {
+            let mut j = i;
+            while j < chars.len() && chars[j].is_ascii_digit() {
+                j += 1;
+            }
+            let glued = (i > 0 && matches!(chars[i - 1], ':' | '.' | '/' | '-')) || (j < chars.len() && matches!(chars[j], ':' | '.' | '/' | '-' | '년' | '원' | '개' | '명' | '번' | '호' | '시' | '분'));
+            if j - i == 4 && !glued {
+                let n: String = chars[i..j].iter().collect();
+                let (m, d) = (n[..2].parse::<u32>().unwrap_or(0), n[2..].parse::<u32>().unwrap_or(0));
+                if NaiveDate::from_ymd_opt(2024, m, d).is_some() {
+                    out.push((m, d));
+                }
+            }
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+    out
+}
+
+/// The month and day a date phrase names: 「10월 29일」 or a compact 「1029」 (the first one).
+pub fn month_day(text: &str) -> Option<(u32, u32)> {
+    if let Some(c) = absolute_date().captures(text) {
+        return Some((c[2].parse().ok()?, c[3].parse().ok()?));
+    }
+    compact_dates(text).first().copied()
+}
+
 fn parse_date(text: &str, today: NaiveDate) -> DateOutcome {
     if text.trim().is_empty() {
         return DateOutcome::Absent;
+    }
+    // A date phrase that is only 「1029」 or 「1209~1210」: that month and day (the start of a range).
+    {
+        static COMPACT: OnceLock<Regex> = OnceLock::new();
+        if re(&COMPACT, r"^\s*\d{4}(?:\s*[~\-–]\s*\d{4})?\s*$").is_match(text) {
+            if let Some((m, d)) = compact_dates(text).first() {
+                return parse_date(&format!("{m}월 {d}일"), today);
+            }
+        }
     }
     if let Some(date) = month_week_day(text, today) {
         return DateOutcome::Valid(date);
@@ -857,6 +903,9 @@ mod tests {
 
     #[test]
     fn bare_digit_times_get_colons() {
+        assert_eq!(compact_dates("1029 3학년 기말고사\n1209~1210 기말고사 1320까지 2026-1027 3명 1330"), vec![(10, 29), (12, 9), (12, 10)]);
+        assert_eq!(month_day("11월 13일"), Some((11, 13)));
+        assert_eq!(month_day("1113"), Some((11, 13)));
         assert_eq!(colon_times("1320"), "13:20");
         assert_eq!(colon_times("16202120"), "16:20~21:20");
         assert_eq!(colon_times("1620~2120"), "16:20~21:20");
