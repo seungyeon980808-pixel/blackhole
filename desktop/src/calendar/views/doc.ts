@@ -156,7 +156,7 @@ export const doc: ThemeView = {
       // The time on the left of my words (where it came from only when not this Mac).
       return `<div class="brow"><span class="btime" title="${esc(m.src ?? "")} · ${m.at.slice(11)}">${m.src && m.src !== "데스크톱" && m.src !== "질문" ? `${esc(m.src)} ` : ""}${m.at.slice(11)}</span><div class="bub me">${body}</div></div>`;
     }
-    return `<div class="bub ai ${m.error ? "err" : ""}">${esc(m.text)}${chatCards(ctx, m, fd)}</div>`;
+    return `<div class="bub ai ${m.error ? "err" : ""}">${esc(m.text).replace(/\n/g, "<br>")}${chatCards(ctx, m, fd)}</div>`;
   },
   alarm: (a: Alarm) => `<div class="al-in" role="alertdialog" aria-labelledby="alTitle"><div class="al-head"><span>블랙홀 알람</span><span>${a.at.slice(11)}</span></div><div class="al-pad"><div class="al-kind">□ ${a.kind === "event" ? "일정" : "할 일"}</div><div class="al-title" id="alTitle">${esc(a.title)}</div><div class="al-body">- ${esc(a.body)}</div><div class="al-btns"><button class="al-b" data-alarm="snooze">10분 뒤</button><button class="al-b ok" data-alarm="done">${a.kind === "task" ? "완료" : "확인"}</button></div><div class="al-hint">※ 누를 때까지 소리가 계속됩니다</div></div></div>`,
   more: (n) => `외 ${n}건`,

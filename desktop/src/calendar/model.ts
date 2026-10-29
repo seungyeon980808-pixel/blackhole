@@ -131,6 +131,24 @@ export interface ChatMessage {
   hits?: import("./ask").AskHit[];
   /** 「찾을까요, 넣을까요?」: the sentence waiting for one click. */
   choice?: string;
+  /** A setting changed by words: its value before (「되돌리기」). */
+  undo?: { key: SpokenSetting; before: string };
+  /** The same words taken the other way (「질문이었어요」 / 「넣어 주세요」); `refs` made by them go first. */
+  redo?: { text: string; as: "ask" | "put" };
+  /** An answer: where it looked (「10/29 기준 ±3개월 기록 120개에서 찾음」). */
+  scope?: string;
+}
+
+/** Settings the words may change (넣기·질문·설정 나누기). */
+export type SpokenSetting = "remindMinutes" | "onWork" | "offWork" | "lunch" | "eventMinutes" | "mode";
+
+/** One answer for the phone: its chat line (the phone shows it under the question it sent). */
+export interface PhoneAnswer {
+  id: string;
+  at: string;
+  text: string;
+  scope?: string;
+  hits?: import("./ask").AskHit[];
 }
 
 export interface LogEntry {
@@ -178,6 +196,8 @@ export interface Settings {
   periods: string[];
   /** An appointment without an end is drawn this many minutes long (marked 「끝 미정」). */
   eventMinutes: number;
+  /** A time without its own reminder rings this many minutes before (말로 바꿈: 「알람은 2분 전에」). */
+  remindMinutes: number;
   /** Faint school-period bands on the day band and the week (weekdays). */
   showPeriods: boolean;
 }
@@ -202,6 +222,8 @@ export interface CalendarState {
   settings: Settings;
   nextId: number;
   routines: Routine[];
+  /** Answers the Mac made for questions sent from the phone (they go to the phone in the shared copy). */
+  phoneAnswers: PhoneAnswer[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -220,6 +242,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lunch: "12:20-13:20",
   periods: ["08:50-09:35", "09:45-10:30", "10:40-11:25", "11:35-12:20", "13:20-14:05", "14:15-15:00", "15:10-15:55"],
   eventMinutes: 60,
+  remindMinutes: 30,
   showPeriods: true
 };
 
@@ -247,7 +270,8 @@ export function emptyState(): CalendarState {
     appliedActions: [],
     settings: { ...DEFAULT_SETTINGS },
     nextId: 1,
-    routines: []
+    routines: [],
+    phoneAnswers: []
   };
 }
 
@@ -337,7 +361,8 @@ export function normalizeState(value: unknown): CalendarState | null {
     appliedActions: list<string>(v.appliedActions),
     settings: schoolTimes({ ...DEFAULT_SETTINGS, ...(v.settings ?? {}) }),
     nextId: typeof v.nextId === "number" && v.nextId > 0 ? v.nextId : 1,
-    routines: list<Routine>(v.routines)
+    routines: list<Routine>(v.routines),
+    phoneAnswers: list<PhoneAnswer>(v.phoneAnswers).slice(-50)
   };
 }
 
@@ -366,6 +391,8 @@ export interface SharedCalendar {
   appliedActions: string[];
   /** Inbox jobs the Mac has drafted or analyzed: the phone drops its own drafts for these. */
   sources?: string[];
+  /** The Mac's answers to the phone's questions (the last 20). */
+  answers?: PhoneAnswer[];
 }
 
 export function sharedFrom(s: CalendarState, now: string): SharedCalendar {
@@ -378,7 +405,7 @@ export function sharedFrom(s: CalendarState, now: string): SharedCalendar {
     delete rest.tags;
     return rest as T;
   };
-  return { kind: "blackhole-calendar", schemaVersion: 1, exportedAt: now, events: real(s.events).filter((e) => !e.workFor).map(plain), tasks: real(s.tasks).map(plain), periods: real(s.periods).map(plain), notes: real(s.notes).map(plain), appliedActions: s.appliedActions.slice(-500), sources: [...new Set([...s.ingestedJobs, ...s.draftedJobs])].slice(-500) };
+  return { kind: "blackhole-calendar", schemaVersion: 1, exportedAt: now, events: real(s.events).filter((e) => !e.workFor).map(plain), tasks: real(s.tasks).map(plain), periods: real(s.periods).map(plain), notes: real(s.notes).map(plain), appliedActions: s.appliedActions.slice(-500), sources: [...new Set([...s.ingestedJobs, ...s.draftedJobs])].slice(-500), answers: s.phoneAnswers.slice(-20) };
 }
 
 export function isShared(v: unknown): v is SharedCalendar {

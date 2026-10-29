@@ -234,7 +234,7 @@ export const glass: ThemeView = {
       // The time on the left of my words (where it came from only when not this Mac).
       return `<div class="brow"><span class="btime" title="${esc(m.src ?? "")} · ${m.at.slice(11)}">${m.src && m.src !== "데스크톱" && m.src !== "질문" ? `${esc(m.src)} ` : ""}${m.at.slice(11)}</span><div class="bub me">${body}</div></div>`;
     }
-    return `<div class="bub ai ${m.error ? "err" : ""}">${esc(m.text)}${chatCards(ctx, m, fd)}</div>`;
+    return `<div class="bub ai ${m.error ? "err" : ""}">${esc(m.text).replace(/\n/g, "<br>")}${chatCards(ctx, m, fd)}</div>`;
   },
   alarm: (a: Alarm) => `<div class="al-in" role="alertdialog" aria-labelledby="alTitle"><div class="al-kind">${a.kind === "event" ? "일정" : "할 일"} 알람 · ${a.at.slice(11)}</div><div class="al-ring">${ICON.logo}</div><div class="al-title" id="alTitle">${esc(a.title)}</div><div class="al-body">${esc(a.body)}</div><div class="al-btns"><div><button class="al-b" data-alarm="snooze" aria-label="10분 뒤">${ICON.snooze}</button><span>10분 뒤</span></div><div><button class="al-b ok" data-alarm="done" aria-label="${a.kind === "task" ? "완료" : "확인"}">${ICON.check}</button><span>${a.kind === "task" ? "완료" : "확인"}</span></div></div><div class="al-hint">누를 때까지 소리가 계속됩니다</div></div>`,
   more: (n) => `+${n}`,

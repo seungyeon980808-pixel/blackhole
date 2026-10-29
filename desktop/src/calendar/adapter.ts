@@ -7,6 +7,15 @@ import type { Proposal } from "../worker/proposal";
 import type { CalendarState, Entry, SharedCalendar, UserAction } from "./model";
 import type { Alarm } from "./store";
 
+export interface RoutePart {
+  kind: "put" | "ask" | "setting";
+  text: string;
+  question: string;
+  terms: string[];
+  key: string;
+  value: string;
+}
+
 export interface AnalyzeInput {
   text?: string;
   file?: { name: string; bytes: Uint8Array };
@@ -121,6 +130,10 @@ export interface BlackholeAdapter {
      questions go to the AI with only the few lines found. */
   askSources?(): Promise<import("./ask").AskSources>;
   askAi?(question: string, lines: string[]): Promise<{ answer: string; ids: string[] }>;
+  /** 넣기·질문·설정 나누기 (Mac, one small AI call): the words cut into parts as said. */
+  routeText?(text: string): Promise<{ parts: RoutePart[] }>;
+  /** 질문 답하기 over the found `[id] …` lines: answer lines with their grounds, and whether they were enough. */
+  answerAi?(question: string, lines: string[]): Promise<{ lines: import("./ask").AnswerLine[]; enough: boolean }>;
   /** Copy a secret's value (Touch ID first; the clipboard is cleared after 30 s). */
   secretCopy?(name: string): Promise<void>;
   /** Keep a 기억 also as an Obsidian note (Drive 「블랙홀/노트/기억/」). */

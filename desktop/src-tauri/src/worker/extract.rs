@@ -618,6 +618,9 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
                 let date = find_date_phrase(&reminder_text).unwrap_or_default();
                 if time.is_empty() { None } else { resolve(&date, &time, "SCHEDULE", reference).start_at }
             })
+        } else if regex::Regex::new(r"알려|알림|알람|울려|울리").unwrap().is_match(&sentence) {
+            // The model worked the time out itself (「10분 전에 알려줘」 → 「다음 주 화요일 2시 50분」): the words said win.
+            start.and_then(|at| reminder_before(&sentence, "", at, reference))
         } else {
             None
         };
@@ -799,6 +802,8 @@ mod tests {
         assert_eq!(one("금요일 3시 치과 하루 전에 알림", "금요일", "3시", "하루 전").0, vec!["2026-10-22T15:00:00+09:00"]);
         assert_eq!(one("금요일 3시 치과 전날 저녁 8시에 알려줘", "금요일", "3시", "전날 저녁 8시").0, vec!["2026-10-22T20:00:00+09:00"]);
         assert_eq!(one("금요일 3시 치과 목요일 9시에 알려줘", "금요일", "3시", "목요일 9시").0, vec!["2026-10-22T09:00:00+09:00"]);
+        // The model worked it out itself (not in the words): 「10분 전」 said wins (2026-10-29: it stayed 30 minutes before).
+        assert_eq!(one("다음 주 화요일 3시 회의 10분 전에 알려줘", "다음 주 화요일", "3시", "다음 주 화요일 2시 50분"), (vec!["2026-10-27T14:50:00+09:00".to_string()], vec![]));
     }
 
     #[test]

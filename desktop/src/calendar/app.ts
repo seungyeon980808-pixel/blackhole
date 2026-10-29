@@ -3,17 +3,17 @@
  * Platform work goes through the adapter, so this module runs unchanged in the desktop
  * window, a browser and the phone WebView.
  */
-import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type BoardOptions, type ClaudeStatus, type DeskStatus, type GoogleCalendars, type InboxStatus, type MessengerStatus, type PutItem } from "./adapter";
+import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type RoutePart, type BoardOptions, type ClaudeStatus, type DeskStatus, type GoogleCalendars, type InboxStatus, type MessengerStatus, type PutItem } from "./adapter";
 import { looksSecret } from "./secret";
-import { answer as answerQuestion, AskIndex, classify, docsOf, KIND_LABEL, lineOf, whenOf, type AskDoc, type AskHit, type AskSources } from "./ask";
+import { answer as answerQuestion, AskIndex, checkLines, classify, docsOf, gather, KIND_LABEL, lineOf, wantsRoute, whenOf, WINDOWS, type AskDoc, type AskHit, type AskSources } from "./ask";
 import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
-import { normalizeState, sharedFrom, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type Period, type Task, type SharedCalendar, type ThemeName, type UserAction } from "./model";
+import { normalizeState, sharedFrom, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type Period, type Task, type SharedCalendar, type SpokenSetting, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
 import { isFiller, isSimpleCertain, memoDraft, needsAi, parseDraft, parseRule, singleTime, timeRange, timeWords } from "./rules";
 import { seedState } from "./samples";
 import {
-  anchorRelativeDates, applyAction, describe, type Applied, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, upcomingAlarms, type Alarm
+  anchorRelativeDates, applyAction, cancelEntry, describe, type Applied, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, retimeReminders, upcomingAlarms, type Alarm
 } from "./store";
 import { phoneToday, priorityView, todayView, type TodayOpts } from "./views/today";
 import { checksBar, dictationFixes, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
@@ -804,6 +804,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         <div class="set-row">점심 <input class="tin w2" data-time="lunch" value="${st.lunch}"></div>
         <div class="pgrid">${st.periods.map((p, i) => `<label>${i + 1}교시 <input class="tin w2" data-period="${i}" value="${p}"></label>`).join("")}</div>
         <div class="set-row">끝 없는 일정 기본 길이 <input class="tin" data-time="eventMinutes" value="${st.eventMinutes}" style="width:44px">분</div>
+        <div class="set-row">알림 일정 <input class="tin" data-time="remindMinutes" value="${st.remindMinutes ?? 30}" style="width:44px">분 전</div>
         <label class="set-row"><input type="checkbox" data-set="showPeriods" ${st.showPeriods ? "checked" : ""}> 하루표에 교시 구간 옅게</label>
         <div class="set-note">「퇴근 전」 「출근 전」 「점심시간에」 「3교시 전/에/끝나고」를 이 시간으로 읽습니다. 24시간(예: 08:50-09:35).</div>` },
       { id: "routine", name: "루틴", sum: `${s.routines.filter((r) => !r.gone).length}개`, body: routineRows() },
@@ -1053,6 +1054,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const list = await adapter.inboxDrafts().catch(() => []);
     let n = 0;
     const skip: string[] = [];
+    const routed: string[] = [];
     for (const d of list) {
       if (s.draftedJobs.includes(d.jobId) || s.ingestedJobs.includes(d.jobId) || !d.text.trim()) continue;
       s.draftedJobs.push(d.jobId);
@@ -1060,6 +1062,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       // A pocket recording (「음...」): nothing goes in, and it never reaches the AI.
       if (isFiller(d.text)) {
         skip.push(d.jobId);
+        n++;
+        continue;
+      }
+      // A question or a setting order from the phone: answered here (no draft, the worker never gets the job).
+      if (routeReady() && wantsRoute(d.text)) {
+        skip.push(d.jobId);
+        void adapter.inboxDrafted?.([d.jobId]).catch(() => undefined);
+        routed.push(d.text);
         n++;
         continue;
       }
@@ -1091,6 +1101,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       syncAlarms();
       render();
     }
+    for (const v of routed) await routeWords(v, "휴대폰", true);
   }
 
   /* ---------- input ---------- */
@@ -1184,10 +1195,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
    * Draft first, AI later: a sentence goes on the calendar at once from the rule parser, then
    * the AI result replaces that same entry (same id) when it arrives.
    */
-  async function analyze(input: AnalyzeInput, me: Omit<ChatMessage, "id" | "at" | "who">, src: string, inboxTitle: string, opts: { noDraft?: boolean } = {}): Promise<void> {
+  async function analyze(input: AnalyzeInput, me: Omit<ChatMessage, "id" | "at" | "who">, src: string, inboxTitle: string, opts: { noDraft?: boolean; noMe?: boolean; question?: boolean } = {}): Promise<void> {
     const t0 = performance.now();
     const now = clock();
-    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", ...me, src });
+    if (!opts.noMe) s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", ...me, src });
     const key = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const drafted = input.text !== undefined && !opts.noDraft;
     let draftMsg: ChatMessage | null = null;
@@ -1213,7 +1224,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const at = clock();
       const applied = refineDrafts(s, key, proposal, src, at);
       afterApplied(applied.refs, applied.missing, src, at, applied.updated, applied.suggested, applied.done, applied.changed);
-      if (me.kind === "voice" && proposal.sourceText) s.chat[s.chat.length - 1].text = proposal.sourceText;
+      if (!opts.noMe && me.kind === "voice" && proposal.sourceText) s.chat[s.chat.length - 1].text = proposal.sourceText;
       const dup = dropDuplicates(applied.refs);
       const shown = [...(applied.refs.length ? applied.refs : applied.suggested).filter((r) => !dup.gone.includes(r)), ...dup.kept];
       let text = dup.gone.length ? "이미 있어서 다시 넣지 않았어요" : aiText(applied.refs.length, applied.missing.length, proposal.reviewReasons, applied);
@@ -1233,7 +1244,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
           adapter.keepDrafts?.(draftsOf(s, e.job));
         }
         if (drafted) card("초안으로 넣었어요. Mac이 정리하면 다듬어집니다.", draftsOf(s, e.job ?? key).map((x) => x.id));
-        else s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: e.message });
+        else s.chat.push({ id: newId(s, "c"), at: stamp(at), who: "ai", text: opts.question ? "Mac에 물어봤어요 · Mac이 기록을 찾아 정리하면 이 아래에 답이 붙어요" : e.message });
         s.inbox.push({ at: stamp(at), title: inboxTitle, src, state: "분석 중", out: "" });
         busy--;
         await save();
@@ -1291,7 +1302,15 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       await save();
       return render();
     }
-    // A question gets an answer from the records; 「내일 3시에 알려줘」 (both) asks once with two buttons.
+    // 「? …」: a question, whatever it says. A question or a setting order anywhere in the words (and an AI to
+    // ask): the words are cut into put-in / question / setting parts and each part is done.
+    if (!checked && mode !== "put") {
+      if (/^[?？]/.test(v)) return askQuestion(v.replace(/^[?？]\s*/, "") || v);
+      if (routeReady() && wantsRoute(v)) return routeWords(v, src);
+      // The phone has no AI of its own: a question goes to the Mac (like a put-in text), which answers in the shared copy.
+      if (!adapter.routeText && adapter.onShared && (wantsRoute(v) || classify(v, clock()) !== "put")) return analyze({ text: v, now: clock() }, { text: v, kind: "text" }, src, "질문", { noDraft: true, question: true });
+    }
+    // No AI: a question gets the local answer; 「내일 3시에 알려줘」 (both) asks once with two buttons.
     if (!checked && mode !== "put") {
       const c = classify(v, clock());
       if (c === "ask") return askQuestion(v);
@@ -1344,6 +1363,161 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     await analyze({ text: v, now: clock() }, { text: v, kind: "text" }, src, "문장");
   }
 
+  const routeReady = () => !!adapter.routeText && aiReady();
+
+  /** The last AI card from chat index `from` on: it can be taken the other way (「질문이었어요」). */
+  function markRedo(from: number, redo: ChatMessage["redo"]): void {
+    for (let i = s.chat.length - 1; i >= from; i--) {
+      if (s.chat[i].who === "ai" && s.chat[i].refs?.length) {
+        s.chat[i].redo = redo;
+        return;
+      }
+    }
+  }
+
+  /**
+   * 넣기·질문·설정 나누기: one small AI call cuts the words into parts as said. Only put-in → the usual
+   * path. Mixed → the words once in the chat, then the put-in part, the settings, the questions in turn.
+   */
+  async function routeWords(v: string, src: string, phone = false): Promise<void> {
+    let parts: RoutePart[] = [];
+    busy++;
+    renderComposer();
+    try {
+      parts = ((await adapter.routeText!(v)).parts ?? []).filter((p) => p.text?.trim() || p.question?.trim());
+    } catch {
+      parts = [];
+    } finally {
+      busy--;
+    }
+    const from = s.chat.length;
+    if (!parts.some((p) => p.kind !== "put")) {
+      await submitText(v, src, false, "put");
+      return void (markRedo(from, { text: v, as: "ask" }), await save(), render());
+    }
+    s.chat.push({ id: newId(s, "c"), at: stamp(clock()), who: "me", text: v, kind: "text", src });
+    if (!side && !phone) setChat(true);
+    const put = parts.filter((p) => p.kind === "put").map((p) => p.text.trim()).join("\n");
+    if (put) {
+      const at = s.chat.length;
+      await analyze({ text: put, now: clock() }, { text: put, kind: "text" }, src, "문장", { noMe: true });
+      markRedo(at, { text: put, as: "ask" });
+    }
+    for (const p of parts.filter((x) => x.kind === "setting")) {
+      sayAndSet(p);
+      if (phone) toPhone(s.chat[s.chat.length - 1]);
+    }
+    for (const p of parts.filter((x) => x.kind === "ask")) await askQuestion(p.question?.trim() || p.text, undefined, { terms: p.terms, noMe: true, said: p.text, phone });
+    await save();
+    syncAlarms();
+    renderComposer();
+    render();
+  }
+
+  /** An answer made here for a question sent from the phone: it goes back in the shared copy. */
+  function toPhone(m: ChatMessage): void {
+    s.phoneAnswers.push({ id: `pa-${m.id}-${Date.now().toString(36)}`, at: m.at, text: m.text, scope: m.scope, hits: m.hits });
+    if (s.phoneAnswers.length > 50) s.phoneAnswers.splice(0, s.phoneAnswers.length - 50);
+  }
+
+  const SETTING_NAME: Record<SpokenSetting, string> = { remindMinutes: "알림", onWork: "출근", offWork: "퇴근", lunch: "점심시간", eventMinutes: "끝 없는 일정 기본 길이", mode: "화면" };
+  const settingText = (k: SpokenSetting, v: string) => (k === "remindMinutes" ? `일정 ${v}분 전` : k === "eventMinutes" ? `${v}분` : k === "mode" ? (v === "light" ? "밝게" : "어둡게") : v);
+  const clockOf = (v: string): string | null => {
+    const m = /^\s*(\d{1,2})\s*[:시]?\s*(\d{2})?\s*분?\s*$/.exec(v);
+    if (!m || Number(m[1]) > 23 || Number(m[2] ?? 0) > 59) return null;
+    return `${pad(Number(m[1]))}:${m[2] ?? "00"}`;
+  };
+
+  /** One setting by words; the value before it (or why not). Never anything outside SpokenSetting. */
+  function setSpoken(key: string, value: string): { before: string; after: string; moved: number } | string {
+    const st = s.settings;
+    const num = (v: string) => Number((/\d+/.exec(v) ?? [""])[0]);
+    switch (key) {
+      case "remindMinutes": {
+        const n = num(value);
+        if (!/\d/.test(value) || n > 24 * 60) return "몇 분 전인지 알아듣지 못했어요";
+        const before = st.remindMinutes ?? 30;
+        st.remindMinutes = n;
+        return { before: String(before), after: String(n), moved: retimeReminders(s, before, n, clock()) };
+      }
+      case "eventMinutes": {
+        const n = num(value);
+        if (n < 10 || n > 600) return "일정 길이는 10~600분으로 정할 수 있어요";
+        const before = String(st.eventMinutes);
+        st.eventMinutes = n;
+        return { before, after: String(n), moved: 0 };
+      }
+      case "onWork":
+      case "offWork": {
+        const t = clockOf(value);
+        if (!t) return "시각을 알아듣지 못했어요";
+        const before = st[key];
+        st[key] = t;
+        return { before, after: t, moved: 0 };
+      }
+      case "lunch": {
+        const [a, b] = value.split(/\s*[-~–]\s*/).map((x) => clockOf(x ?? ""));
+        if (!a || !b || b <= a) return "점심시간은 「12:20-13:20」처럼 시작과 끝이 필요해요";
+        const before = st.lunch;
+        st.lunch = `${a}-${b}`;
+        return { before, after: st.lunch, moved: 0 };
+      }
+      case "mode": {
+        const v = /light|밝/.test(value) ? "light" : /dark|어둡/.test(value) ? "dark" : null;
+        if (!v) return "밝게·어둡게 중 무엇인지 알아듣지 못했어요";
+        const before = st.mode;
+        st.mode = v;
+        buildShell();
+        return { before, after: v, moved: 0 };
+      }
+    }
+    return "그 설정은 앱에 없어요 · 말로 바꿀 수 있는 것: 알림 몇 분 전, 출근·퇴근, 점심시간, 일정 기본 길이, 화면 밝게/어둡게";
+  }
+
+  /** A setting part of the words: done, said in the chat with 「되돌리기」. */
+  function sayAndSet(p: RoutePart): void {
+    const r = setSpoken(p.key, p.value);
+    const at = stamp(clock());
+    if (typeof r === "string") {
+      s.chat.push({ id: newId(s, "c"), at, who: "ai", text: r });
+      return;
+    }
+    const k = p.key as SpokenSetting;
+    const text = `${SETTING_NAME[k]} ${settingText(k, r.before)} → ${settingText(k, r.after)}${r.moved ? ` · 남은 일정 알림 ${r.moved}개도 옮김` : ""}`;
+    s.chat.push({ id: newId(s, "c"), at, who: "ai", text, undo: { key: k, before: r.before } });
+    log(s, { label: "설정", msg: text, src: adapter.origin }, clock());
+  }
+
+  /** 「되돌리기」 under a setting changed by words. */
+  async function undoSpoken(id: string): Promise<void> {
+    const m = s.chat.find((x) => x.id === id);
+    if (!m?.undo) return;
+    const r = setSpoken(m.undo.key, m.undo.before);
+    m.undo = undefined;
+    m.text += typeof r === "string" ? " · 되돌리지 못함" : " · 되돌림";
+    await save();
+    syncAlarms();
+    render();
+  }
+
+  /** 「질문이었어요」 / 「넣어 주세요」: the same words the other way; what they put in goes first. */
+  async function redoAs(id: string): Promise<void> {
+    const m = s.chat.find((x) => x.id === id);
+    if (!m?.redo) return;
+    const { text, as } = m.redo;
+    m.redo = undefined;
+    if (as === "ask") {
+      for (const r of m.refs ?? []) {
+        const x = findEntry(s, r);
+        if (x && !x.gone) cancelEntry(s, r, clock());
+      }
+      m.text = `${m.text ? m.text + " · " : ""}질문으로 다시 처리함`;
+      return askQuestion(text);
+    }
+    m.text = `${m.text}\n(넣기로 다시 처리함)`;
+    return submitText(text, adapter.origin, false, "put");
+  }
+
   /** The local index over the records (+ secret names and notes from the Mac), rebuilt when stale. */
   async function askIndex(): Promise<AskIndex> {
     if (adapter.askSources && Date.now() - sourcesAt > 60_000) {
@@ -1367,9 +1541,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
    * records as its only grounds (names of secrets, never values), and the answer links them.
    * Nothing close → a passing note, not a chat line. No key/budget → the local answer.
    */
-  async function askQuestion(q: string, picked?: AskDoc[]): Promise<void> {
+  async function askQuestion(q: string, picked?: AskDoc[], o: { terms?: string[]; noMe?: boolean; said?: string; phone?: boolean } = {}): Promise<void> {
     const now = clock();
     const idx = await askIndex();
+    if (!picked && adapter.answerAi && aiReady()) return answerFromRecords(q, idx, o);
     const a = answerQuestion(idx, q, now);
     let docs = picked ?? [];
     if (!picked) {
@@ -1401,6 +1576,64 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const text = a.mode === "local" || docs.every((d) => d.kind === "secret") ? a.text : `가까운 기록${adapter.askAi ? " · AI 키가 없거나 예산을 다 써서 AI 없이 찾은 것" : ""}`;
       s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text, hits });
     }
+    await save();
+    render();
+  }
+
+  /**
+   * 질문 답하기 (찾기 → 정리): search words from the AI (or the question's own words), the app finds the
+   * records in ±3 months, the AI puts them together with the ids each line rests on; not enough →
+   * the year. Lines with no real grounds are dropped; the answer says where it looked.
+   */
+  async function answerFromRecords(q: string, idx: AskIndex, o: { terms?: string[]; noMe?: boolean; said?: string; phone?: boolean }): Promise<void> {
+    const now = clock();
+    if (!o.noMe) s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: q, kind: "text", src: "질문" });
+    if (!side && !o.phone) setChat(true);
+    const m: ChatMessage = { id: newId(s, "c"), at: stamp(now), who: "ai", text: "기록을 찾아 정리하는 중…" };
+    s.chat.push(m);
+    busy++;
+    render();
+    try {
+      let terms = o.terms ?? [];
+      let question = q;
+      if (!terms.length && adapter.routeText) {
+        const r = await adapter.routeText(q).catch(() => null);
+        const a = r?.parts.find((x) => x.kind === "ask");
+        if (a) {
+          terms = a.terms ?? [];
+          question = a.question?.trim() || q;
+        }
+      }
+      terms = [...terms, question];
+      let shown: ReturnType<typeof checkLines> = { lines: [], dropped: 0 };
+      let sent: AskDoc[] = [];
+      let scope = "";
+      let seen = -1;
+      for (const w of WINDOWS) {
+        const g = gather(idx, terms, now, w, question);
+        // Wider but nothing more to read: the first answer stands (no second call).
+        if (!g.docs.length || g.total === seen) continue;
+        seen = g.total;
+        const r = await adapter.answerAi!(question, g.docs.map(lineOf));
+        shown = checkLines(r.lines ?? [], g.docs);
+        sent = g.docs;
+        const fd = (k: string) => `${k.slice(0, 4) === String(now.getFullYear()) ? "" : `${k.slice(0, 4)}년 `}${theme().fd(k)}`;
+        scope = `${fd(g.from)}~${fd(g.to)} 기록 ${g.total}개에서 찾음${shown.dropped ? ` · 근거 없는 줄 ${shown.dropped}개 뺌` : ""}`;
+        if (r.enough && shown.lines.some((l) => !l.missing)) break;
+      }
+      m.text = shown.lines.map((l) => l.text).join("\n") || "기록에 없어요";
+      const used = [...new Set(shown.lines.flatMap((l) => l.ids))];
+      m.hits = used.map((id) => sent.find((d) => d.id === id)).filter((d): d is AskDoc => !!d).slice(0, 12).map(hitOfDoc);
+      m.scope = scope || "찾을 기록이 아직 없어요";
+      m.redo = { text: o.said ?? q, as: "put" };
+    } catch (e) {
+      m.text = `AI로 정리하지 못했어요(${friendlyError(e)})`;
+      const a = answerQuestion(idx, q, now);
+      m.hits = a.hits.slice(0, 8);
+    } finally {
+      busy--;
+    }
+    if (o.phone) toPhone(m);
     await save();
     render();
   }
@@ -2223,6 +2456,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (sideCapable && !wideEnough()) return setChat(open);
       return setSidePref(open);
     }
+    if (q("[data-setundo]")) return void undoSpoken(q("[data-setundo]")!.dataset.setundo!);
+    if (q("[data-redo]")) return void redoAs(q("[data-redo]")!.dataset.redo!);
     if (q("[data-choose]")) {
       const b = q("[data-choose]")!;
       const i = s.chat.findIndex((m) => m.id === b.dataset.cmsg);
@@ -2831,6 +3066,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const k = el.dataset.time;
       const st = s.settings;
       if (k === "eventMinutes") st.eventMinutes = Math.max(10, Math.min(600, Math.round(Number(el.value) || 60)));
+      else if (k === "remindMinutes") {
+        const n = Math.max(0, Math.min(24 * 60, Math.round(Number(el.value))));
+        if (Number.isFinite(n) && el.value.trim() !== "" && n !== (st.remindMinutes ?? 30)) {
+          retimeReminders(s, st.remindMinutes ?? 30, n, clock());
+          st.remindMinutes = n;
+          syncAlarms();
+        }
+      }
       else if (k === "onWork" || k === "offWork") st[k] = one(el.value) ?? st[k];
       else if (k === "lunch") st.lunch = two(el.value) ?? st.lunch;
       else if (el.dataset.period) {
@@ -3539,6 +3782,8 @@ export function takeShared(s: CalendarState, shared: SharedCalendar, local: Entr
   s.appliedActions = shared.appliedActions.slice();
   const known = new Set(shared.sources ?? []);
   for (const x of [...shared.events, ...shared.tasks, ...shared.periods, ...shared.notes]) if (x.srcKey) known.add(x.srcKey);
+  // The Mac's answers to questions asked here: each once, under the question.
+  for (const a of shared.answers ?? []) if (!s.chat.some((m) => m.id === a.id)) s.chat.push({ id: a.id, at: a.at, who: "ai", text: a.text, scope: a.scope, hits: a.hits, src: "Mac" });
   const lists = { event: s.events, task: s.tasks, period: s.periods, note: s.notes } as Record<Entry["kind"], Entry[]>;
   for (const d of local) {
     if (!d.srcKey || known.has(d.srcKey) || lists[d.kind].some((x) => x.id === d.id)) continue;

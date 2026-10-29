@@ -5,6 +5,7 @@
 //! loopback) stay as an option, off by default. The desktop app and the `blackhole-worker`
 //! CLI share this module.
 
+pub mod ask;
 pub mod claude;
 pub mod config;
 pub mod dates;

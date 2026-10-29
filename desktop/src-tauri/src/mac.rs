@@ -1358,6 +1358,30 @@ pub async fn ask_records(question: String, lines: Vec<String>) -> Result<AskRepl
         .map_err(|e| e.to_string())?
 }
 
+fn today() -> String {
+    chrono::Local::now().format("%Y-%m-%d (%a)").to_string()
+}
+
+/// 넣기·질문·설정 나누기 (a sentence the rules could not settle). Secret-looking text never goes.
+#[tauri::command]
+pub async fn route_text(text: String) -> Result<serde_json::Value, String> {
+    if !matches!(crate::secret::guess(&text), crate::secret::Guess::None) {
+        return Err("비밀 정보처럼 보이는 글은 AI에 보내지 않습니다.".into());
+    }
+    let text: String = text.chars().take(4000).collect();
+    tauri::async_runtime::spawn_blocking(move || crate::worker::ask::route_text(&text, &today())).await.map_err(|e| e.to_string())?
+}
+
+/// 질문 답하기: the lines the app found (at most 200, secret-looking ones dropped) → answer lines with their grounds.
+#[tauri::command]
+pub async fn answer_records(question: String, lines: Vec<String>) -> Result<serde_json::Value, String> {
+    if !matches!(crate::secret::guess(&question), crate::secret::Guess::None) {
+        return Err("비밀 정보처럼 보이는 글은 AI에 보내지 않습니다.".into());
+    }
+    let lines: Vec<String> = lines.into_iter().filter(|l| matches!(crate::secret::guess(l), crate::secret::Guess::None)).take(200).map(|l| l.chars().take(300).collect()).collect();
+    tauri::async_runtime::spawn_blocking(move || crate::worker::ask::answer_lines(&question, &lines, &today())).await.map_err(|e| e.to_string())?
+}
+
 #[derive(serde::Serialize)]
 pub struct TagReply {
     id: String,

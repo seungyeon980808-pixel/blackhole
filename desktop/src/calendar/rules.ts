@@ -718,3 +718,13 @@ export function isSimpleCertain(raw: string, r: RuleResult): boolean {
   const title = r.title.trim();
   return title !== "음성 메모" && title.length >= 2 && title.length <= 15 && !TITLE_TAIL.test(title) && /^[가-힣A-Za-z0-9 ]+$/.test(title);
 }
+
+/**
+ * A pasted chat export without its message times (「[오전 8:02] 학년부장: …」 「오후 8:01, 교무부장 : …」) and day
+ * headers: those are when it was sent, never the time of what it says (the worker does the same).
+ */
+export function chatStampsRemoved(text: string): string {
+  return text
+    .replace(/^(\s*(?:\[[^\]\n]{1,20}\]\s*)?)(?:\[(?:오전|오후)\s*\d{1,2}:\d{2}\]|(?:오전|오후)\s*\d{1,2}:\d{2},)\s*/gm, "$1")
+    .replace(/^\s*-*\s*\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s*[월화수목금토일]요일\s*-*\s*$/gm, "");
+}

@@ -75,6 +75,23 @@ export function classify(raw: string, now: Date): "ask" | "put" | "both" {
   return parseRule(t, now).hasTime ? "both" : "ask";
 }
 
+const PASTED = /\[(?:오전|오후)\s*\d{1,2}:\d{2}\]|^\S{1,10}\s*:\s/m;
+const SETTING_WORDS = /(알람|알림|설정|글씨|글자|소리|진동|테마|기본\s*길이|다크|라이트|어둡게|밝게|화면|출근\s*시[각간]|퇴근\s*시[각간]|점심\s*시간\s*[은는을이])/;
+const ORDER_WORDS = /(해\s*줘|해\s*주|하십시오|하세요|바꿔|바꾸|으로\s*해|로\s*해|게\s*해|되게|울리게|맞춰|해\s*놔|해\s*둬)/;
+
+/**
+ * 넣기·질문·설정 나누기 (the AI) is worth one small call: a question or a setting order somewhere
+ * in the words. A pasted message (a chat export, 「이름: …」) is put in, whatever it asks; plain
+ * put-in words never go (they take the usual path at no extra cost).
+ */
+export function wantsRoute(raw: string): boolean {
+  const t = raw.trim();
+  if (!t || PASTED.test(t)) return false;
+  const lines = t.split("\n").map((l) => l.trim()).filter(Boolean);
+  const asks = lines.some((l) => /[?？]\s*$/.test(l) || ASK_WORDS.test(l));
+  return asks || (SETTING_WORDS.test(t) && ORDER_WORDS.test(t));
+}
+
 /* ---------- date words → range ---------- */
 
 export interface Range {
@@ -319,7 +336,8 @@ const LINE_TEXT = 160;
 export function lineOf(d: AskDoc): string {
   // Secrets: the name only. The value never leaves the keychain.
   const body = d.kind === "secret" ? "(값은 키체인에만)" : d.text.replace(/\s+/g, " ").slice(0, LINE_TEXT);
-  return `[${d.id}] ${KIND_LABEL[d.kind]} · ${whenOf(d)} · ${d.title}${body ? ` — ${body}` : ""}`;
+  // The year too: a question over the whole year (「작년 기말고사」) needs it.
+  return `[${d.id}] ${KIND_LABEL[d.kind]} · ${d.kind === "secret" ? "" : `${d.date.slice(0, 4)}년 `}${whenOf(d)} · ${d.title}${body ? ` — ${body}` : ""}`;
 }
 
 /** Nearest upcoming first (not done), then the most recent past. */
@@ -380,4 +398,83 @@ export function answer(index: AskIndex, question: string, now: Date): Answer {
   const loose = index.find(question, 8).filter((x) => okKind(x.doc) && (!range || inRange(x.doc, range, bySaid))).map((x) => x.doc);
   if (loose.length) return done({ mode: "ai", text: "가까운 기록", hits: loose.map(hitOf), lines: loose.map(lineOf) });
   return done({ mode: "none", text: range ? `${range.label}에는 「${terms}」 기록이 없어요` : `「${terms}」 기록을 찾지 못했어요`, hits: [], lines: [] });
+}
+
+/* ---------- 찾기 → 정리 (RAG): the app finds, the AI puts the found lines together ---------- */
+
+/** First ±3 months around today; when that is not enough, the year before (and half a year ahead). */
+export const WINDOWS = [
+  { back: 92, ahead: 92, label: "±3개월" },
+  { back: 365, ahead: 183, label: "1년" }
+] as const;
+const MAX_LINES = 150;
+
+export interface Gathered {
+  docs: AskDoc[];
+  from: string;
+  to: string;
+  /** Records in the window (searched over). */
+  total: number;
+}
+
+/**
+ * The lines for one question: every record in the window that any search word finds (by score),
+ * then — when room is left — the rest of the window nearest to today, so a record in other words
+ * (「9반 다음 시간에 성운부터」 for 「진도」) still reaches the AI. Secrets and inbox lines stay out.
+ */
+export function gather(index: AskIndex, terms: string[], now: Date, w: (typeof WINDOWS)[number], question = ""): Gathered {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const from = ymd(addDays(today, -w.back));
+  const to = ymd(addDays(today, w.ahead));
+  const inWin = (d: AskDoc) => (d.date <= to && (d.to ?? d.date) >= from) || (d.said >= from && d.said <= to);
+  const pool = index.docs.filter((d) => d.kind !== "secret" && d.kind !== "inbox" && inWin(d));
+  const ids = new Set(pool.map((d) => d.id));
+  const score = new Map<string, number>();
+  const add = (id: string, v: number) => score.set(id, (score.get(id) ?? 0) + v);
+  // A rare word weighs more (「성운」 over 「반」·「끝」, which most records have).
+  for (const t of [...new Set(terms.map((x) => x.trim()).filter((x) => x.length > 0))]) {
+    const found = index.find(t, index.docs.length).filter((x) => ids.has(x.doc.id));
+    const idf = Math.log((pool.length + 1) / (found.length + 1));
+    for (const { doc, score: v } of found) add(doc.id, v * idf);
+  }
+  // A day range said (「다음 주」 「이번 달」) or a kind (「할 일」 「일정」): those records first.
+  const range = question ? dateRange(question, now) : null;
+  const kinds = question ? kindsOf(question) : null;
+  if (range || kinds) {
+    for (const d of pool) {
+      const inR = !range || inRange(d, range, SAID.test(question));
+      const inK = !kinds || kinds.includes(d.kind);
+      if (inR && inK) add(d.id, 100);
+    }
+  }
+  const t0 = ymd(today);
+  const near = (d: AskDoc) => Math.abs(parseDay(d.date).getTime() - parseDay(t0).getTime());
+  const hit = pool.filter((d) => score.has(d.id)).sort((a, b) => score.get(b.id)! - score.get(a.id)! || near(a) - near(b));
+  const rest = pool.filter((d) => !score.has(d.id)).sort((a, b) => near(a) - near(b));
+  return { docs: [...hit, ...rest].slice(0, MAX_LINES), from, to, total: pool.length };
+}
+
+export interface AnswerLine {
+  text: string;
+  ids: string[];
+  missing: boolean;
+}
+
+/**
+ * Only what the records say: a line must rest on records that were sent (or say plainly that
+ * there is no record). Lines with no real grounds are dropped. The ids kept are the ones sent.
+ */
+export function checkLines(lines: AnswerLine[], sent: AskDoc[]): { lines: AnswerLine[]; dropped: number } {
+  const ok = new Set(sent.map((d) => d.id));
+  const out: AnswerLine[] = [];
+  let dropped = 0;
+  for (const l of lines) {
+    const text = (l.text ?? "").trim();
+    if (!text) continue;
+    const ids = (l.ids ?? []).map((x) => x.replace(/^\[|\]$/g, "").trim()).filter((x) => ok.has(x));
+    if (ids.length) out.push({ text, ids, missing: false });
+    else if (l.missing) out.push({ text, ids: [], missing: true });
+    else dropped++;
+  }
+  return { lines: out, dropped };
 }

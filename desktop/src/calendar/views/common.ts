@@ -267,7 +267,12 @@ export function chatCards(ctx: Ctx, m: ChatMessage, fd: (k: string) => string): 
     ? m.hits.map((h) => (["event", "task", "period", "note"].includes(h.kind) ? resultCard(ctx, h.id, fd, true, m.id, m.hits!.length > 3) || hitCard(h) : hitCard(h))).join("")
     : (m.refs ?? []).map((r) => resultCard(ctx, r, fd, false, m.id)).join("");
   const choice = m.choice ? `<div class="ra"><button class="mini" data-choose="ask" data-cmsg="${m.id}">찾아보기</button><button class="mini" data-choose="put" data-cmsg="${m.id}">넣기</button></div>` : "";
-  return cards + choice;
+  const scope = m.scope ? `<div class="rm2">${esc(m.scope)}</div>` : "";
+  const acts = [
+    m.undo ? `<button class="mini" data-setundo="${m.id}">되돌리기</button>` : "",
+    m.redo ? `<button class="mini" data-redo="${m.id}">${m.redo.as === "ask" ? "질문이었어요" : "넣어 주세요"}</button>` : ""
+  ].join("");
+  return cards + scope + choice + (acts ? `<div class="ra">${acts}</div>` : "");
 }
 
 /**

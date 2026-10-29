@@ -107,6 +107,17 @@ fn run() -> Result<serde_json::Value, WorkerError> {
 
     match args.command.as_str() {
         "analyze" => Ok(to_json(&analyze_one(&input(&args)?, engine(&args)?, reference(&args)?)?)),
+        // Tests (scripts/route-record.mjs): 넣기·질문·설정 나누기, and an answer over `[id] …` lines (--file, one per line).
+        "route" => {
+            let text = args.text.as_ref().ok_or_else(|| usage_error("--text가 필요합니다."))?;
+            blackhole_desktop_lib::worker::ask::route_text(text, &reference(&args)?.format("%Y-%m-%d (%a)").to_string()).map_err(|e| WorkerError::new(ErrorCode::RunnerFailed, e))
+        }
+        "answer" => {
+            let q = args.text.as_ref().ok_or_else(|| usage_error("--text 질문이 필요합니다."))?;
+            let path = args.file.as_ref().ok_or_else(|| usage_error("--file 기록 줄 파일이 필요합니다."))?;
+            let lines: Vec<String> = std::fs::read_to_string(path).map_err(|e| WorkerError::new(ErrorCode::Io, e.to_string()))?.lines().map(str::to_string).collect();
+            blackhole_desktop_lib::worker::ask::answer_lines(q, &lines, &reference(&args)?.format("%Y-%m-%d (%a)").to_string()).map_err(|e| WorkerError::new(ErrorCode::RunnerFailed, e))
+        }
         "enqueue" => {
             let mut queue = Queue::open(queue_dir(&args)?)?;
             Ok(match queue.enqueue(&input(&args)?, engine(&args)?)? {

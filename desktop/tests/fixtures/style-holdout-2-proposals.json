@@ -778,22 +778,22 @@
      "area": "SCHOOL",
      "confidence": 0.9,
      "details": "",
-     "endAt": "2026-10-28T15:30:00+09:00",
+     "endAt": "2026-10-30T16:30:00+09:00",
      "evidence": {
-      "dateText": "",
+      "dateText": "1030",
       "endDateText": "",
       "reminderText": "",
       "sentence": "교과서 선정 협의회 1030 1530",
-      "timeText": "1030 1530"
+      "timeText": "1530"
      },
      "kind": "SCHEDULE",
      "needsReview": false,
-     "reminderAt": "2026-10-28T10:00:00+09:00",
+     "reminderAt": "2026-10-30T15:00:00+09:00",
      "reminders": [
-      "2026-10-28T10:00:00+09:00"
+      "2026-10-30T15:00:00+09:00"
      ],
      "reviewReasons": [],
-     "startAt": "2026-10-28T10:30:00+09:00",
+     "startAt": "2026-10-30T15:30:00+09:00",
      "subtasks": [],
      "title": "교과서 선정 협의회"
     }
