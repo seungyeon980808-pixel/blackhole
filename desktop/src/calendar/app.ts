@@ -166,6 +166,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let popId: { id: string; x: number; y: number } | null = null;
   /** The entry open in the 상세 편집 panel (where the chat panel sits). */
   let detailId: string | null = null;
+  /** The month the 상세 편집 date picker shows (null: the entry's own month). */
+  let detailMonth: string | null = null;
   /** 오늘 화면: 업무 08–17 / 하루 전체, and the to-do filter chip (both remembered). */
   const today: TodayOpts = { range: "work", filter: "all" };
   try {
@@ -304,6 +306,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   /** Opens (id) or closes (null) the 상세 편집 panel; a folded chat panel's room opens and closes with it. */
   function setDetail(id: string | null): void {
+    if (id !== detailId) detailMonth = null;
     detailId = id;
     if (sideCapable && !sidePref) relayout();
     else renderDetail();
@@ -596,7 +599,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const typing = el.dataset.id === x.id && el.contains(document.activeElement) && document.activeElement?.matches("input, textarea");
     if (!typing) {
       const scroll = el.querySelector(".dbody")?.scrollTop ?? 0;
-      el.innerHTML = detailHTML(ctx(), x.id, theme().fd);
+      el.innerHTML = detailHTML(ctx(), x.id, theme().fd, detailMonth ?? undefined, ymd(clock()));
       el.querySelector(".dbody")!.scrollTop = el.dataset.id === x.id ? scroll : 0;
     }
     el.dataset.id = x.id;
@@ -709,6 +712,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const now = x.kind === "event" ? x.date : x.noDue ? "" : x.due;
       if (!v || v === now) return;
       return retime(id, v, false, "", "옮김");
+    }
+    if (f === "when") {
+      if (!v) return;
+      const r = parseDraft(v, clock(), s.settings);
+      el.value = "";
+      if (!r.date && !r.hasTime) return toast("날짜·시각을 알아보지 못했어요 · 예: 내일 3교시, 다음 주 화 4시, 1105 1530");
+      detailMonth = null;
+      return retime(id, r.date, r.hasTime && r.time ? { start: r.time, end: r.end } : false, "", r.date ? "옮김" : "시각");
     }
     if (f === "time") {
       const t = timeField(v);
@@ -2186,7 +2197,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     // From the 상세 편집 panel ("d"): the new entry opens there, its day ready to set.
     if (msgId === "d") {
       detailId = made.id;
-      void act(() => undefined).then(() => root.querySelector<HTMLInputElement>('#bhDetail [data-df="date"]')?.focus());
+      void act(() => undefined).then(() => root.querySelector<HTMLInputElement>('#bhDetail [data-df="when"]')?.focus());
       return;
     }
     editing = `${msgId}|${made.id}`;
@@ -2455,6 +2466,37 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       // Too narrow for the panel: the button slides the drawer in and out.
       if (sideCapable && !wideEnough()) return setChat(open);
       return setSidePref(open);
+    }
+    if (q("#bhDetail [data-dday]") && detailId) {
+      detailMonth = null;
+      return retime(detailId, q("#bhDetail [data-dday]")!.dataset.dday!, false, "", "옮김");
+    }
+    if (q("#bhDetail [data-dmon]") && detailId) {
+      const x = findEntry(s, detailId);
+      const base = detailMonth ?? (x?.kind === "event" ? x.date : x?.kind === "task" && !x.noDue ? x.due : ymd(clock())).slice(0, 7);
+      const d = new Date(+base.slice(0, 4), +base.slice(5, 7) - 1 + Number(q("#bhDetail [data-dmon]")!.dataset.dmon), 1);
+      detailMonth = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+      return renderDetail();
+    }
+    if (q("#bhDetail [data-dnodue]") && detailId) {
+      return editEntry(detailId, "날짜 없음", (y) => {
+        if (y.kind !== "task") return;
+        y.noDue = true;
+        y.dueTime = null;
+        y.reminders = [];
+      });
+    }
+    if (q("#bhDetail [data-dtime]") && detailId) {
+      const [a, b] = q("#bhDetail [data-dtime]")!.dataset.dtime!.split("-");
+      const x = findEntry(s, detailId);
+      // A 교시 for an appointment is the whole lesson; for a to-do, its start.
+      return retime(detailId, null, { start: a, end: x?.kind === "event" ? b : undefined }, "", "시각");
+    }
+    if (q("#bhDetail [data-dnotime]") && detailId) return retime(detailId, null, null, "", "시각");
+    if (q("#bhDetail [data-dlen]") && detailId) {
+      const x = findEntry(s, detailId);
+      if (x?.kind !== "event" || !x.start) return;
+      return retime(detailId, null, { start: x.start, end: hm(Math.min(mins(x.start) + Number(q("#bhDetail [data-dlen]")!.dataset.dlen), 23 * 60 + 59)) }, "", "시각");
     }
     if (q("[data-setundo]")) return void undoSpoken(q("[data-setundo]")!.dataset.setundo!);
     if (q("[data-redo]")) return void redoAs(q("[data-redo]")!.dataset.redo!);

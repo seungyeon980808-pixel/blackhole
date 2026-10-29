@@ -22,7 +22,57 @@ function remLabel(r: string, day: string): string {
   return r.slice(0, 10) === day ? r.slice(11) : `${+r.slice(5, 7)}/${+r.slice(8, 10)} ${r.slice(11)}`;
 }
 
-export function detailHTML(ctx: Ctx, id: string, fd: (k: string) => string): string {
+/**
+ * 날짜·시각 고르기 (2026-10-29 사용자: 「더 편하게」, 다른 캘린더를 보고): Todoist처럼 오늘·내일·다음 주·날짜 없음
+ * 단추와 말로 쓰기(「내일 3교시」), 작은 달력(그날 이미 있는 일의 수), 이 학교의 교시 단추, 일정은 길이 단추.
+ */
+function pickHTML(ctx: Ctx, x: Entry & { kind: "event" | "task" }, month: string, today: string, fd: (k: string) => string): string {
+  const day = x.kind === "event" ? x.date : x.noDue ? "" : x.due;
+  const time = x.kind === "event" ? x.start : x.dueTime;
+  const add = (k: string, n: number) => {
+    const d = new Date(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10) + n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const dow = new Date(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10)).getDay();
+  const quick: [string, string][] = [[today, "오늘"], [add(today, 1), "내일"], [add(today, 2), "모레"], [add(today, ((8 - dow) % 7) || 7), "다음 주 월"]];
+  const chip = (attr: string, label: string, on: boolean, title = "") => `<button type="button" class="pk ${on ? "on" : ""}" ${attr}${title ? ` title="${esc(title)}"` : ""}>${label}</button>`;
+  const quickRow = quick.map(([d, t]) => chip(`data-dday="${d}"`, t, d === day)).join("") + (x.kind === "task" ? chip("data-dnodue", "날짜 없음", !day) : "");
+  // The month: Monday first, the days of the other months faint; a dot count = entries already that day.
+  const y = +month.slice(0, 4);
+  const m = +month.slice(5, 7) - 1;
+  const first = new Date(y, m, 1);
+  const start = new Date(y, m, 1 - ((first.getDay() + 6) % 7));
+  const busy = new Map<string, number>();
+  for (const e of ctx.s.events) if (!e.gone && e.id !== x.id) busy.set(e.date, (busy.get(e.date) ?? 0) + 1);
+  for (const t of ctx.s.tasks) if (!t.gone && !t.done && !t.noDue && t.id !== x.id) busy.set(t.due, (busy.get(t.due) ?? 0) + 1);
+  const cells: string[] = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    if (i === 35 && d.getMonth() !== m) break;
+    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const n = busy.get(k) ?? 0;
+    cells.push(`<button type="button" class="pd ${d.getMonth() !== m ? "out" : ""} ${k === today ? "now" : ""} ${k === day ? "on" : ""} ${d.getDay() === 0 ? "sun" : d.getDay() === 6 ? "sat" : ""}" data-dday="${k}" title="${n ? `${n}개 있음` : "비어 있음"}">${d.getDate()}${n ? `<i>${n > 3 ? "•••" : "•".repeat(n)}</i>` : ""}</button>`);
+  }
+  const cal = `<div class="pcal"><div class="pch"><button type="button" class="ib" data-dmon="-1" aria-label="이전 달">‹</button><b>${y}년 ${m + 1}월</b><button type="button" class="ib" data-dmon="1" aria-label="다음 달">›</button></div><div class="pgw">${"월화수목금토일".split("").map((c) => `<span>${c}</span>`).join("")}</div><div class="pgd">${cells.join("")}</div></div>`;
+  // This school's periods (설정), lunch and the end of the day; 「시간 없음」 / 「종일」.
+  const st = ctx.s.settings;
+  const lessons = st.periods.map((p, i) => chip(`data-dtime="${p}"`, `${i + 1}교시`, !!time && p.startsWith(time), p.replace("-", "–"))).join("");
+  const more = [chip(`data-dtime="${st.lunch}"`, "점심", !!time && st.lunch.startsWith(time), st.lunch.replace("-", "–")), chip(`data-dtime="${st.offWork}"`, "퇴근", time === st.offWork, st.offWork), chip("data-dnotime", x.kind === "event" ? "종일" : "시각 없음", !time)].join("");
+  const span = x.kind === "event" && x.start ? `<div class="prow"><span class="pl">길이</span>${[[30, "30분"], [45, "45분"], [60, "1시간"], [90, "1시간 반"], [120, "2시간"]].map(([n, t]) => chip(`data-dlen="${n}"`, String(t), !!x.end && mins(x.end) - mins(x.start!) === n)).join("")}</div>` : "";
+  const now = !day ? "날짜 없음" : `${fd(day)}${day === today ? " · 오늘" : ""} ${x.kind === "event" ? (x.start ? `${x.start}${x.end ? "–" + x.end : ""}` : "종일") : x.dueTime ? `${x.dueTime}까지` : "까지"}`;
+  return `<div class="df col dpick">
+    <div class="pnow"><span class="dl2">${x.kind === "event" ? "날짜" : "마감"}</span><b>${esc(now)}</b></div>
+    <input class="pwhen" data-df="when" placeholder="말로 쓰기: 내일 3교시 · 다음 주 화 4시 · 1105 1530" autocomplete="off" spellcheck="false" aria-label="날짜와 시각을 말로">
+    <div class="prow">${quickRow}</div>
+    ${cal}
+    <div class="prow"><span class="pl">교시</span>${lessons}</div>
+    <div class="prow"><span class="pl"></span>${more}</div>
+    ${span}
+  </div>`;
+}
+const mins = (hm: string) => +hm.slice(0, 2) * 60 + +hm.slice(3, 5);
+
+export function detailHTML(ctx: Ctx, id: string, fd: (k: string) => string, month?: string, today?: string): string {
   const x = findEntry(ctx.s, id) as Entry | undefined;
   if (!x || x.gone) return "";
   const field = (label: string, body: string) => `<label class="df"><span class="dl2">${label}</span>${body}</label>`;
@@ -32,11 +82,13 @@ export function detailHTML(ctx: Ctx, id: string, fd: (k: string) => string): str
   if (x.review?.length) rows.push(`<div class="dwarn">※ ${esc(x.review.join(" · "))}</div>`);
   if (x.suggest?.length) rows.push(`<div class="doffer">${aiOffer(x, fd)}</div>`);
   if (x.kind === "event" || x.kind === "task") rows.push(field("종류", seg("data-dkind", [["event", "일정"], ["task", "할 일"]], x.kind)));
+  if ((x.kind === "event" || x.kind === "task") && today) {
+    const day = x.kind === "event" ? x.date : x.noDue ? today : x.due;
+    rows.push(pickHTML(ctx, x, month ?? day.slice(0, 7), today, fd));
+  }
   if (x.kind === "event") {
-    rows.push(field("날짜", `<input type="date" data-df="date" value="${x.date}">`));
     rows.push(field("시각", `<input class="ed-h" data-df="time" value="${x.start ? `${x.start}${x.end ? "~" + x.end : ""}` : ""}" placeholder="1320~1405 · 비우면 종일" title="1620, 16:20~17:30처럼 · ↑↓ 10분" autocomplete="off" spellcheck="false">`));
   } else if (x.kind === "task") {
-    rows.push(field("마감", `<input type="date" data-df="date" value="${x.noDue ? "" : x.due}">`));
     rows.push(field("시각", `<input class="ed-h" data-df="time" value="${x.dueTime ?? ""}" placeholder="1620 · 비우면 시각 없음" title="1620처럼 · ↑↓ 10분" autocomplete="off" spellcheck="false">`));
   } else if (x.kind === "period") {
     rows.push(field("기간", `<span class="drow"><input type="date" data-df="from" value="${x.from}"><span>~</span><input type="date" data-df="to" value="${x.to}"></span>`));

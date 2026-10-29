@@ -629,3 +629,27 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .chkbtn { height: 24px; padding: 0 10px; margin-left: 6px; border-radius: 7px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.1); color: inherit; font-size: 12px; cursor: pointer; }
 .bh .chkbtn:hover { background: rgba(255,255,255,.2); }
 .bh.doc .chkbtn { border-color: var(--rule, #333); background: transparent; }
+
+/* 날짜·시각 고르기 (상세 편집, 2026-10-29) */
+.bh .dpanel .dpick { gap: 6px; }
+.bh .dpanel .pnow { display: flex; align-items: baseline; gap: 8px; }
+.bh .dpanel .pnow b { font-size: 15px; color: var(--ink); }
+.bh .dpanel .prow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.bh .dpanel .prow .pl { width: 30px; font-size: 11px; color: var(--ink2); }
+.bh .dpanel .pk { font: inherit; font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line, #999); background: none; color: var(--ink2); cursor: pointer; }
+.bh .dpanel .pk:hover { color: var(--ink); background: var(--x-chip, #eee); }
+.bh .dpanel .pk.on { background: var(--x-sel, #ddd); color: var(--ink); font-weight: 700; }
+.bh .dpanel .pcal { border: 1px solid var(--line, #999); border-radius: 9px; padding: 6px; }
+.bh .dpanel .pch { display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.bh .dpanel .pch .ib { border: 0; background: none; color: var(--ink2); cursor: pointer; width: 24px; height: 22px; border-radius: 6px; font-size: 15px; }
+.bh .dpanel .pch .ib:hover { background: var(--x-chip, #eee); color: var(--ink); }
+.bh .dpanel .pgw, .bh .dpanel .pgd { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.bh .dpanel .pgw span { font-size: 10px; color: var(--ink2); }
+.bh .dpanel .pd { font: inherit; font-size: 12px; height: 30px; border: 0; border-radius: 7px; background: none; color: var(--ink); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; padding: 0; }
+.bh .dpanel .pd i { font-style: normal; font-size: 8px; letter-spacing: -1px; color: var(--ink2); height: 8px; }
+.bh .dpanel .pd:hover { background: var(--x-chip, #eee); }
+.bh .dpanel .pd.out { opacity: .38; }
+.bh .dpanel .pd.sun { color: #e26d6d; }
+.bh .dpanel .pd.sat { color: #6d9ae2; }
+.bh .dpanel .pd.now { box-shadow: inset 0 0 0 1px var(--ink2); }
+.bh .dpanel .pd.on { background: var(--x-sel, #ddd); font-weight: 700; color: var(--ink); }

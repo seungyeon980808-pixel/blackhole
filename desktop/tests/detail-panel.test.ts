@@ -109,4 +109,47 @@ describe("상세 편집 패널", () => {
       expect(root.querySelector<HTMLElement>("#bhDetail")!.hidden).toBe(true);
     }
   });
+
+  it("날짜·시각 고르기: 오늘·내일 단추, 작은 달력, 교시, 길이, 말로 쓰기, 날짜 없음 (각각 바로 저장)", async () => {
+    const root = await mount();
+    root.querySelector<HTMLElement>('.dtg [data-ev="e1"]')!.click();
+    const panel = root.querySelector<HTMLElement>("#bhDetail")!;
+    const e = app!.state.events.find((x) => x.id === "e1")!;
+    const click = (sel: string) => panel.querySelector<HTMLElement>(sel)!.click();
+    expect(panel.querySelector(".pnow b")!.textContent).toContain("13:20–14:05");
+    click('[data-dday="2026-10-29"]');
+    expect(e.date).toBe("2026-10-29");
+    // A 교시 for an appointment is the whole lesson (this school: 3교시 10:40–11:25).
+    click('[data-dtime="10:40-11:25"]');
+    expect([e.start, e.end]).toEqual(["10:40", "11:25"]);
+    click('[data-dlen="90"]');
+    expect(e.end).toBe("12:10");
+    // The next month, then a day in it.
+    click('[data-dmon="1"]');
+    expect(panel.querySelector(".pch b")!.textContent).toBe("2026년 11월");
+    click('[data-dday="2026-11-05"]');
+    expect(e.date).toBe("2026-11-05");
+    const when = panel.querySelector<HTMLInputElement>('[data-df="when"]')!;
+    when.value = "내일 4시";
+    when.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect([e.date, e.start]).toEqual(["2026-10-29", "16:00"]);
+    click("[data-dnotime]");
+    expect(e.start).toBeNull();
+  });
+
+  it("할 일: 교시는 그 시작 시각, 「날짜 없음」은 마감·알림을 비움", async () => {
+    const root = await mount();
+    root.querySelector<HTMLElement>('.dtg [data-ev="t1"]')!.click();
+    const panel = root.querySelector<HTMLElement>("#bhDetail")!;
+    const t = app!.state.tasks.find((x) => x.id === "t1")!;
+    expect(panel.querySelector(".pnow b")!.textContent).toContain("16:00까지");
+    panel.querySelector<HTMLElement>('[data-dtime="13:20-14:05"]')!.click();
+    expect(t.dueTime).toBe("13:20");
+    panel.querySelector<HTMLElement>("[data-dnodue]")!.click();
+    expect([t.noDue, t.dueTime]).toEqual([true, null]);
+    await tick();
+    expect(root.querySelector("#bhDetail .pnow b")!.textContent).toBe("날짜 없음");
+    root.querySelector<HTMLElement>('#bhDetail [data-dday="2026-10-30"]')!.click();
+    expect([t.noDue, t.due]).toEqual([false, "2026-10-30"]);
+  });
 });
