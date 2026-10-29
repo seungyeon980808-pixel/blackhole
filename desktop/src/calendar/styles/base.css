@@ -653,3 +653,13 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .dpanel .pd.sat { color: #6d9ae2; }
 .bh .dpanel .pd.now { box-shadow: inset 0 0 0 1px var(--ink2); }
 .bh .dpanel .pd.on { background: var(--x-sel, #ddd); font-weight: 700; color: var(--ink); }
+
+/* 끝냄 체크 상자는 제목 옆, 닫기는 아래 오른쪽 (2026-10-29: 「완료」를 닫기로 알고 누름) */
+.bh .dpanel .dtitle { display: flex; align-items: flex-start; gap: 8px; }
+.bh .dpanel .dtitle .d-title { flex: 1; min-width: 0; }
+.bh .dpanel .dchk { flex: none; width: 22px; height: 22px; margin-top: 4px; border-radius: 50%; border: 1.5px solid var(--ink2); background: none; color: var(--ink); cursor: pointer; display: grid; place-items: center; font-size: 13px; padding: 0; }
+.bh .dpanel .dchk:hover { border-color: var(--ink); background: var(--x-chip, #eee); }
+.bh .dpanel .dchk.on { background: var(--x-sel, #ddd); border-color: var(--ink); font-weight: 700; }
+.bh .dpanel .dacts { align-items: center; }
+.bh .dpanel .dacts .dclose2 { flex: none; margin-left: 6px; font: inherit; font-size: 13px; font-weight: 700; padding: 7px 16px; border-radius: 9px; border: 1px solid var(--ink2); background: var(--x-sel, #ddd); color: var(--ink); cursor: pointer; }
+.bh .dpanel .dacts .dclose2:hover { border-color: var(--ink); }

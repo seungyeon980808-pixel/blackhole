@@ -152,4 +152,19 @@ describe("상세 편집 패널", () => {
     root.querySelector<HTMLElement>('#bhDetail [data-dday="2026-10-30"]')!.click();
     expect([t.noDue, t.due]).toEqual([false, "2026-10-30"]);
   });
+
+  it("끝냄은 제목 옆 체크 상자(창은 그대로), 닫기는 아래 「닫기」 단추", async () => {
+    const root = await mount();
+    root.querySelector<HTMLElement>('.dtg [data-ev="t1"]')!.click();
+    const t = app!.state.tasks.find((x) => x.id === "t1")!;
+    expect(root.querySelector("#bhDetail .dacts [data-tdone]")).toBeNull();
+    root.querySelector<HTMLElement>("#bhDetail .dtitle .dchk")!.click();
+    await tick();
+    expect(t.done).toBe(true);
+    expect(root.querySelector<HTMLElement>("#bhDetail")!.hidden).toBe(false);
+    expect(root.querySelector("#bhDetail .dchk")!.getAttribute("aria-checked")).toBe("true");
+    root.querySelector<HTMLElement>("#bhDetail .dacts .dclose2")!.click();
+    await tick();
+    expect(root.querySelector<HTMLElement>("#bhDetail")!.hidden).toBe(true);
+  });
 });

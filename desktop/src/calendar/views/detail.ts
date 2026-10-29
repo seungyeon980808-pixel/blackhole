@@ -78,7 +78,9 @@ export function detailHTML(ctx: Ctx, id: string, fd: (k: string) => string, mont
   const field = (label: string, body: string) => `<label class="df"><span class="dl2">${label}</span>${body}</label>`;
   const seg = (attr: string, opts: [string, string][], on: string) => `<span class="dseg" role="group">${opts.map(([v, t]) => `<button type="button" ${attr}="${v}" class="${v === on ? "on" : ""}" aria-pressed="${v === on}">${t}</button>`).join("")}</span>`;
   const rows: string[] = [];
-  rows.push(`<textarea class="d-title" data-df="title" rows="2" aria-label="제목" spellcheck="false">${esc(x.title)}</textarea>`);
+  // 끝냄 is the box by the title (Todoist, Apple 미리 알림): never mistaken for closing the panel (2026-10-29).
+  const box = x.kind === "task" ? `<button type="button" class="dchk ${x.done ? "on" : ""}" data-tdone="${x.id}" role="checkbox" aria-checked="${x.done}" title="${x.done ? "끝냄 취소" : "끝냄으로 체크"}" aria-label="끝냄">${x.done ? "✓" : ""}</button>` : "";
+  rows.push(`<div class="dtitle">${box}<textarea class="d-title" data-df="title" rows="2" aria-label="제목" spellcheck="false">${esc(x.title)}</textarea></div>`);
   if (x.review?.length) rows.push(`<div class="dwarn">※ ${esc(x.review.join(" · "))}</div>`);
   if (x.suggest?.length) rows.push(`<div class="doffer">${aiOffer(x, fd)}</div>`);
   if (x.kind === "event" || x.kind === "task") rows.push(field("종류", seg("data-dkind", [["event", "일정"], ["task", "할 일"]], x.kind)));
@@ -113,13 +115,13 @@ export function detailHTML(ctx: Ctx, id: string, fd: (k: string) => string, mont
   rows.push(`<div class="df col"><span class="dl2">출처</span><div class="dsrc">${esc(x.source)} · ${esc(fd(x.createdAt.slice(0, 10)))} ${esc(x.createdAt.slice(11, 16))}${said && said !== x.title ? `<div class="dsaid">「${esc(said)}」</div>` : ""}</div></div>`);
   const b = (attr: string, label: string, icon: string) => `<button type="button" class="ib" ${attr} title="${label}" aria-label="${label}">${icon}<span>${label}</span></button>`;
   const acts = [
-    x.kind === "task" ? b(`data-tdone="${x.id}"`, x.done ? "완료 취소" : "완료", x.done ? ICON.undo : ICON.ok) : x.kind === "event" && x.provisional ? b(`data-ok="${x.id}"`, "확정", ICON.ok) : "",
+    x.kind === "event" && x.provisional ? b(`data-ok="${x.id}"`, "확정", ICON.ok) : "",
     x.kind !== "note" ? b(`data-moveto="${x.id}"`, "날짜 옮기기", ICON.move) : b(`data-convert="event|d|${x.id}"`, "일정으로", ICON.cal) + b(`data-convert="task|d|${x.id}"`, "할 일로", ICON.todo),
     (x.kind === "event" && x.start) || (x.kind === "task" && x.dueTime) ? b(`data-droutine="${x.id}"`, "루틴으로", ICON.swap) : "",
     b(`data-ddup="${x.id}"`, "복제", ICON.copy),
     b(`data-no="${x.id}"`, "지우기", ICON.x)
   ].filter(Boolean);
-  return `<div class="dph"><b>${KIND[x.kind]}</b>${x.draft ? '<span class="dr">초안</span>' : ""}<span class="dhint">바꾸면 바로 저장 · ⌘Z 되돌리기</span><button type="button" class="ib" data-dclose title="닫기 (Esc)" aria-label="닫기">${ICON.x}</button></div>
+  return `<div class="dph"><b>${KIND[x.kind]}</b>${x.draft ? '<span class="dr">초안</span>' : ""}<span class="dhint">✓ 자동 저장 · ⌘Z 되돌리기</span><button type="button" class="ib" data-dclose title="닫기 (Esc)" aria-label="닫기">${ICON.x}</button></div>
     <div class="dbody">${rows.join("")}</div>
-    <div class="dacts">${acts.join("")}</div>`;
+    <div class="dacts">${acts.join("")}<button type="button" class="dclose2" data-dclose title="닫기 (Esc)">닫기</button></div>`;
 }
