@@ -3256,5 +3256,156 @@
    "sourceText": "오늘 오후 4시 반 전에 공문 접수",
    "summary": "오늘 오후 4시 반 전 공문 접수"
   }
+ },
+ "y1": {
+  "text": "3교시 끝나고 어제 사용한 특근매식비 카드 행정실에 제출",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "PERSONAL",
+     "confidence": 0.5,
+     "details": "어제 사용한 특근매식비 카드",
+     "endAt": "2026-10-28T10:00:00+09:00",
+     "evidence": {
+      "dateText": "",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "3교시 끝나고 어제 사용한 특근매식비 카드 행정실에 제출",
+      "timeText": "3교시 끝나고"
+     },
+     "kind": "TODO",
+     "needsReview": true,
+     "reminderAt": "2026-10-28T08:30:00+09:00",
+     "reminders": [
+      "2026-10-28T08:30:00+09:00"
+     ],
+     "reviewReasons": [
+      "날짜만 있어 오전 9시로 임시 지정"
+     ],
+     "startAt": "2026-10-28T09:00:00+09:00",
+     "subtasks": [],
+     "title": "특근매식비 카드 행정실 제출"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 77,
+    "format": "txt",
+    "sha256": "25e34e3a041724f16d51eb4da7291f0920c624fa1471d12fa676a341d22a87e3",
+    "type": "text"
+   },
+   "sourceText": "3교시 끝나고 어제 사용한 특근매식비 카드 행정실에 제출",
+   "summary": "특근매식비 카드 행정실 제출"
+  }
+ },
+ "y2": {
+  "text": "지난주에 받은 공문 회신 내일까지",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.8,
+     "details": "지난주에 받은 공문",
+     "endAt": "2026-10-29T10:00:00+09:00",
+     "evidence": {
+      "dateText": "내일",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "지난주에 받은 공문 회신 내일까지",
+      "timeText": ""
+     },
+     "kind": "TODO",
+     "needsReview": false,
+     "reminderAt": "2026-10-29T09:00:00+09:00",
+     "reminders": [
+      "2026-10-29T09:00:00+09:00"
+     ],
+     "reviewReasons": [],
+     "startAt": "2026-10-29T09:00:00+09:00",
+     "subtasks": [],
+     "title": "공문 회신"
+    }
+   ],
+   "needsReview": false,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 46,
+    "format": "txt",
+    "sha256": "342b578e314e126189f6dc123f17025208837668e7a0019fcfb28cc0ff477d18",
+    "type": "text"
+   },
+   "sourceText": "지난주에 받은 공문 회신 내일까지",
+   "summary": "공문 회신 마감 내일"
+  }
+ },
+ "y3": {
+  "text": "점심시간에 어제 빌린 실험 기구 과학실에 반납",
+  "proposal": {
+   "engine": {
+    "id": "A",
+    "llmModel": "claude/claude-haiku-5-5",
+    "promptVersion": "extract-ko-v6-change-cancel",
+    "reader": "",
+    "workerVersion": "0.2.0"
+   },
+   "items": [
+    {
+     "area": "SCHOOL",
+     "confidence": 0.5,
+     "details": "과학실",
+     "endAt": "2026-10-28T13:00:00+09:00",
+     "evidence": {
+      "dateText": "",
+      "endDateText": "",
+      "reminderText": "",
+      "sentence": "점심시간에 어제 빌린 실험 기구 과학실에 반납",
+      "timeText": "점심시간"
+     },
+     "kind": "TODO",
+     "needsReview": true,
+     "reminderAt": "2026-10-28T11:30:00+09:00",
+     "reminders": [
+      "2026-10-28T11:30:00+09:00"
+     ],
+     "reviewReasons": [
+      "대략 시각: 「점심」을 12:00로 둠"
+     ],
+     "startAt": "2026-10-28T12:00:00+09:00",
+     "subtasks": [],
+     "title": "실험 기구 반납"
+    }
+   ],
+   "needsReview": true,
+   "referenceTime": "2026-10-28T09:00:00+09:00",
+   "reviewReasons": [],
+   "schemaVersion": 2,
+   "source": {
+    "bytes": 63,
+    "format": "txt",
+    "sha256": "12713507cf5e22b5c8f86c752140f07e1409c4294326e7b1c42aed0807ff1c8e",
+    "type": "text"
+   },
+   "sourceText": "점심시간에 어제 빌린 실험 기구 과학실에 반납",
+   "summary": "점심시간에 과학실에 실험 기구 반납"
+  }
  }
 }

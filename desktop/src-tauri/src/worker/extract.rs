@@ -21,7 +21,7 @@ const SYSTEM_PROMPT: &str = "너는 한국어 메모·지시·문서를 일정, 
   - area: 학교 일(학생, 학부모, 수업, 담임, 교무, 시험, 생활기록부, 교직원, 학년, 동아리, 공문 등)은 \"SCHOOL\", 그 밖은 \"PERSONAL\".
   - title: 날짜·시간과 \"추가해 줘\", \"기억해 줘\" 같은 부탁 말을 뺀 짧은 제목. 원문에 있는 말을 쓴다. 반·학년·사람 이름처럼 일을 구별하는 말은 제목에 남긴다(\"6반 수행평가 점수 확인\", \"9반 성운부터 설명\"). 반이나 대상이 다르면 항목을 따로 나눈다. 목록 머리말(\"급식지도 일정\") 아래 줄들은 머리말과 그 줄의 말을 합쳐 제목을 짓는다(\"급식지도 (복도)\").
   - details: 장소, 준비물, 대상 같은 덧붙일 정보. 없으면 \"\".
-  - dateText: 원문의 날짜 표현을 글자 그대로 옮긴다(예: \"내일\", \"다음 주 화요일\", \"11월 3일\"). 날짜를 계산하거나 바꾸지 않는다. 없으면 \"\".
+  - dateText: 원문의 날짜 표현을 글자 그대로 옮긴다(예: \"내일\", \"다음 주 화요일\", \"11월 3일\"). 날짜를 계산하거나 바꾸지 않는다. \"어제 사용한 카드\"·\"지난주에 받은 공문\"처럼 물건을 꾸미는 날짜는 dateText가 아니다. 없으면 \"\".
   - timeText: 원문의 시간 표현을 글자 그대로 옮긴다(예: \"오후 3시\", \"10시 반\", \"1620\", \"16:20~21:20\", \"16202120\"). 숫자만 쓴 시각도 시간 표현이다. 없으면 \"\".
   - endDateText: PERIOD일 때 끝 날짜 표현을 글자 그대로(예: \"6일\", \"11월 6일\"). dateText는 시작 날짜. PERIOD가 아니면 \"\".
   - subtasks: 할 일 아래 나열된 하위 할 일들을 원문 말 그대로 목록으로(예: \"보고서 제출: 자료 정리, 초안, 결재\" → [\"자료 정리\",\"초안\",\"결재\"]). 원문에 단계가 없어도 순서가 있는 일(기안·준비·제출처럼 여러 단계)이면 꼭 필요한 단계를 짧게 최대 5개까지 순서대로 제안해도 된다. 단순한 일이면 []. 한 목적을 위해 이어서 하는 행동들(\"가능한지 확인해보고, 요청하고, 신청해야 함\")은 TODO를 여러 개로 나누지 말고 마지막 목적을 제목으로 한 TODO 하나에 원문 순서대로 subtasks로 담는다.
@@ -244,6 +244,21 @@ fn chat_stamps_removed(text: &str) -> String {
         .into_owned()
 }
 
+/// A past day word followed by a word describing the next thing (「어제 사용한」 「지난주에 받은」 「아까 온」).
+fn describes_thing(text: &str, date_text: &str) -> bool {
+    use std::sync::OnceLock;
+    static PAST: OnceLock<regex::Regex> = OnceLock::new();
+    static NEXT: OnceLock<regex::Regex> = OnceLock::new();
+    if date_text.is_empty() || !PAST.get_or_init(|| regex::Regex::new(r"^(?:어제|그제|그저께|아까|지난\s*주.*|저번\s*주.*|지난\s*[월화수목금토일]요일)$").unwrap()).is_match(date_text) {
+        return false;
+    }
+    let Some(i) = text.find(date_text) else { return false };
+    let Some(c) = NEXT.get_or_init(|| regex::Regex::new(r"^\s*(?:에\s*)?([가-힣]+)\s+\S").unwrap()).captures(&text[i + date_text.len()..]) else { return false };
+    let w = &c[1];
+    !matches!(w, "오전" | "시간" | "동안" | "기간" | "순간" | "안" | "간" | "한" | "전" | "만" | "번" | "건" | "분")
+        && ["한", "은", "던", "온", "쓴", "낸", "산", "본", "준", "간", "된", "운", "린", "난", "친", "든", "진", "긴", "탄", "찬"].iter().any(|e| w.ends_with(e))
+}
+
 /// A reminder said against the start: 「30분 전」 「1시간 전」 「하루 전」/「전날」 (same time, or 「전날 저녁 8시」 at that
 /// time) · 「3일 전」 · 「일주일 전」. None when it is not that kind of phrase.
 fn reminder_before(text: &str, time: &str, start: DateTime<FixedOffset>, reference: DateTime<FixedOffset>) -> Option<DateTime<FixedOffset>> {
@@ -389,6 +404,8 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
     let mut end_date_text = optional_string(object, "endDateText", &at)?;
     let reminder_text = optional_string(object, "reminderText", &at)?;
     let wait_for = optional_string(object, "waitFor", &at)?;
+    // 「어제 사용한 카드 제출」: a past day that only says which thing is not the to-do's day (2026-10-29: due yesterday).
+    let date_text = if kind == "TODO" && (describes_thing(&sentence, &date_text) || describes_thing(source_text, &date_text)) { String::new() } else { date_text };
     let change = match optional_string(object, "change", &at)?.as_str() {
         c @ ("CANCEL" | "MOVE") => c.to_string(),
         _ => String::new(),
@@ -515,6 +532,8 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         let context = cleaned.as_str();
         if date_text.is_empty() && !unsure && mentions_date(context, reference.date_naive()) {
             match find_date_phrase(context).filter(|_| options.fill_missing) {
+                // 「어제 사용한 카드」: left out on purpose, not missed.
+                Some(phrase) if kind == "TODO" && describes_thing(context, &phrase) => {}
                 Some(phrase) => {
                     reasons.push(format!("모델이 빠뜨린 날짜를 원문에서 채움: 「{phrase}」"));
                     date_text = phrase;
@@ -787,6 +806,16 @@ mod tests {
         assert_eq!(chat_stamps_removed("[김선생님] [오후 3:12] 자료 출력"), "[김선생님] 자료 출력");
         // A plain line that starts with a time is not a chat stamp.
         assert_eq!(chat_stamps_removed("오후 3:30 회의"), "오후 3:30 회의");
+    }
+
+    #[test]
+    fn a_past_day_that_says_which_thing_is_not_the_due_day() {
+        assert!(describes_thing("3교시 끝나고 어제 사용한 특근매식비 카드 행정실에 제출", "어제"));
+        assert!(describes_thing("지난주에 받은 공문 회신하기", "지난주"));
+        assert!(describes_thing("아까 온 메일 답장", "아까"));
+        assert!(!describes_thing("어제 오전 회의록 정리", "어제"));
+        assert!(!describes_thing("어제까지 내야 했던 보고서 제출", "어제"));
+        assert!(!describes_thing("내일 사용할 카드 제출", "내일"));
     }
 
     #[test]

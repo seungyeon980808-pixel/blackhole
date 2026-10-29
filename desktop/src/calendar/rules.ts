@@ -286,7 +286,9 @@ export function dateWords(raw: string, now: Date): string {
   v = v.replace(/다다음\s*주\s*([월화수목금토일])요일/g, (_m, c: string) => md(addDays(nextMonday(), 7 + ((dow(c) + 6) % 7))));
   v = v.replace(/(?:지난|저번)\s*주\s*([월화수목금토일])요일/g, (_m, c: string) => past(addDays(nextMonday(), -14 + ((dow(c) + 6) % 7))));
   v = v.replace(/(?:지난|저번)\s*([월화수목금토일])요일/g, (_m, c: string) => past(addDays(today, -(((today.getDay() - dow(c) + 7) % 7) || 7))));
-  v = v.replace(/그저께|그제/g, () => past(addDays(today, -2))).replace(/어제/g, () => past(addDays(today, -1)));
+  // 「어제 사용한 카드 제출」: a past day that only says which thing (followed by 「사용한」 「받은」 「온」…) is no date.
+  const which = (rest: string) => describesThing(rest);
+  v = v.replace(/그저께|그제/g, (m, i: number, all: string) => (which(all.slice(i + m.length)) ? m : past(addDays(today, -2)))).replace(/어제/g, (m, i: number, all: string) => (which(all.slice(i + m.length)) ? m : past(addDays(today, -1))));
   // 다음 달 N일 · 이번 달 N일 · 다음 달 말 · 월말 · 이번 달 안에
   // A day the month does not have (「다음 달 31일」 in November) stays 「11월 31일」: no date, to be checked (not this month's 31st).
   v = v.replace(/다음\s*달\s*(\d{1,2})\s*일/g, (_m, n: string) => { const d = monthDay(today.getFullYear(), today.getMonth() + 1, Number(n)); return d ? md(d) : `${((today.getMonth() + 1) % 12) + 1}월 ${n}일`; });
@@ -727,4 +729,13 @@ export function chatStampsRemoved(text: string): string {
   return text
     .replace(/^(\s*(?:\[[^\]\n]{1,20}\]\s*)?)(?:\[(?:오전|오후)\s*\d{1,2}:\d{2}\]|(?:오전|오후)\s*\d{1,2}:\d{2},)\s*/gm, "$1")
     .replace(/^\s*-*\s*\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s*[월화수목금토일]요일\s*-*\s*$/gm, "");
+}
+
+/** Endings of a word that describes the next thing (「사용한」 「받은」 「온」 「했던」), not the end of what to do. */
+const DESCRIBES = /^\s*(?:에\s*)?([가-힣]+)\s+\S/;
+const NOT_DESCRIBING = /^(?:오전|시간|동안|기간|순간|안|간|한|전|만|번|건|분)$/;
+/** The words right after a past day word say which thing it was (「어제 사용한 카드」, 「지난주에 받은 공문」). */
+export function describesThing(rest: string): boolean {
+  const w = DESCRIBES.exec(rest)?.[1];
+  return !!w && !NOT_DESCRIBING.test(w) && /(?:한|은|던|온|쓴|낸|산|본|준|간|된|운|린|난|친|든|진|긴|탄|찬|갔던|왔던)$/.test(w);
 }
