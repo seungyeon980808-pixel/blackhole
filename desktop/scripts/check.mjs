@@ -22,8 +22,8 @@ const samples = await text("src/calendar/samples.ts");
 const baseCss = await text("src/calendar/styles/base.css");
 const workflow = await text("../.github/workflows/windows-desktop.yml");
 
-check(packageJson.version === "0.2.0", "package version must be 0.2.0");
-check(tauri.version === "0.2.0", "Tauri version must be 0.2.0");
+check(packageJson.version === "0.1.0", "package version must be 0.1.0");
+check(tauri.version === "0.1.0", "Tauri version must be 0.1.0");
 check(tauri.productName === "Blackhole", "Tauri productName must be Blackhole");
 check(tauri.identifier === "com.malhaedwo.blackhole.desktop", "Tauri identifier must stay unchanged (app data continuity)");
 check(tauri.app.windows[0].title === "블랙홀", "window title must be 블랙홀");
@@ -111,4 +111,4 @@ if (failures.length) {
   console.error("Acceptance check failed:\n" + failures.map((failure) => `- ${failure}`).join("\n"));
   process.exit(1);
 }
-console.log("Acceptance check passed: safe local Blackhole Desktop v0.2.0 calendar source contract verified.");
+console.log("Acceptance check passed: safe local Blackhole Desktop v0.1.0 calendar source contract verified.");

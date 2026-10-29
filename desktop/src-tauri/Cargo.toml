@@ -1,6 +1,6 @@
 [package]
 name = "blackhole-desktop"
-version = "0.2.0"
+version = "0.1.0"
 description = "Blackhole Korean voice approval desk companion"
 authors = ["Blackhole"]
 edition = "2021"
