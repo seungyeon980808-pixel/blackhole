@@ -663,3 +663,14 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .dpanel .dacts { align-items: center; }
 .bh .dpanel .dacts .dclose2 { flex: none; margin-left: 6px; font: inherit; font-size: 13px; font-weight: 700; padding: 7px 16px; border-radius: 9px; border: 1px solid var(--ink2); background: var(--x-sel, #ddd); color: var(--ink); cursor: pointer; }
 .bh .dpanel .dacts .dclose2:hover { border-color: var(--ink); }
+
+/* 질문 답의 근거: 접힌 한 줄, 펴면 작은 단추 (2026-10-30) */
+.bh .srcs { margin-top: 6px; font-size: 11px; color: var(--ink2); }
+.bh .srcs summary { cursor: pointer; list-style: none; opacity: .85; }
+.bh .srcs summary::-webkit-details-marker { display: none; }
+.bh .srcs summary::before { content: "▸ "; }
+.bh .srcs[open] summary::before { content: "▾ "; }
+.bh .srcs .srcl { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.bh .srcs .srcb { font: inherit; font-size: 11px; border: 1px solid var(--line, #999); border-radius: 999px; padding: 2px 8px; background: none; color: var(--ink); cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bh .srcs .srcb span { color: var(--ink2); margin-left: 5px; }
+.bh .srcs .srcb:hover { background: var(--x-chip, #eee); }

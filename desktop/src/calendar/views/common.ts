@@ -263,6 +263,13 @@ export function hitCard(h: AskHit): string {
 
 /** Cards under a chat message: answers (hits) or put-in results (refs), and the 「찾기/넣기」 choice. */
 export function chatCards(ctx: Ctx, m: ChatMessage, fd: (k: string) => string): string {
+  // An answer from the records (2026-10-30 사용자: 근거는 묻지 않으면 아래에 작게): one folded line, a click opens the record.
+  if (m.scope !== undefined) {
+    const srcs = (m.hits ?? []).map((h) => `<button type="button" class="srcb" data-srcopen="${esc(h.id)}" title="${esc(`${KIND_LABEL[h.kind]} · ${h.where}`)}">${esc(h.title)}<span>${esc(h.when)}</span></button>`).join("");
+    const acts = [m.undo ? `<button class="mini" data-setundo="${m.id}">되돌리기</button>` : "", m.redo ? `<button class="mini" data-redo="${m.id}">${m.redo.as === "ask" ? "질문이었어요" : "넣어 주세요"}</button>` : ""].join("");
+    const fold = srcs ? `<details class="srcs" ${m.openSrc ? "open" : ""}><summary>근거 ${m.hits!.length}개 · ${esc(m.scope)}</summary><div class="srcl">${srcs}</div></details>` : m.scope ? `<div class="srcs"><span class="srcn">${esc(m.scope)}</span></div>` : "";
+    return fold + (acts ? `<div class="ra">${acts}</div>` : "");
+  }
   const cards = m.hits?.length
     ? m.hits.map((h) => (["event", "task", "period", "note"].includes(h.kind) ? resultCard(ctx, h.id, fd, true, m.id, m.hits!.length > 3) || hitCard(h) : hitCard(h))).join("")
     : (m.refs ?? []).map((r) => resultCard(ctx, r, fd, false, m.id)).join("");

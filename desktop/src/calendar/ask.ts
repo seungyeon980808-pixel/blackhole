@@ -427,7 +427,10 @@ export function gather(index: AskIndex, terms: string[], now: Date, w: (typeof W
   const from = ymd(addDays(today, -w.back));
   const to = ymd(addDays(today, w.ahead));
   const inWin = (d: AskDoc) => (d.date <= to && (d.to ?? d.date) >= from) || (d.said >= from && d.said <= to);
-  const pool = index.docs.filter((d) => d.kind !== "secret" && d.kind !== "inbox" && inWin(d));
+  // An Obsidian note that only copies a 기억 (「노트/기억/…」, the same title) is the same record twice.
+  const memos = new Set(index.docs.filter((d) => d.kind === "note").map((d) => d.title.replace(/\s+/g, "")));
+  const copy = (d: AskDoc) => d.kind === "obsidian" && (d.where.startsWith("노트/기억/") || memos.has(d.title.replace(/\s*\([0-9a-f]{6,}\)$/, "").replace(/\s+/g, "")));
+  const pool = index.docs.filter((d) => d.kind !== "secret" && d.kind !== "inbox" && !copy(d) && inWin(d));
   const ids = new Set(pool.map((d) => d.id));
   const score = new Map<string, number>();
   const add = (id: string, v: number) => score.set(id, (score.get(id) ?? 0) + v);

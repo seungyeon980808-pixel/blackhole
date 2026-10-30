@@ -64,6 +64,7 @@ describe.skipIf(!STATE)("live 넣기·질문·설정", () => {
     const s = app.state;
     for (const k of ["events", "tasks", "periods", "notes", "routines"] as const) (s as never as Record<string, unknown>)[k] = (saved as never as Record<string, unknown>)[k];
     s.settings = saved.settings;
+    s.nextId = saved.nextId;
     s.chat = [];
     const before = new Set([...s.events, ...s.tasks, ...s.periods, ...s.notes].map((x) => `${x.id}:${x.gone ? 1 : 0}`));
     const settings = JSON.stringify(s.settings);

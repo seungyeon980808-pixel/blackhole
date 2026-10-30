@@ -1636,6 +1636,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const used = [...new Set(shown.lines.flatMap((l) => l.ids))];
       m.hits = used.map((id) => sent.find((d) => d.id === id)).filter((d): d is AskDoc => !!d).slice(0, 12).map(hitOfDoc);
       m.scope = scope || "찾을 기록이 아직 없어요";
+      if (/근거|출처|원문|어디(?:서|에)\s*(?:봤|나왔|적)/.test(o.said ?? q)) m.openSrc = true;
       m.redo = { text: o.said ?? q, as: "put" };
     } catch (e) {
       m.text = `AI로 정리하지 못했어요(${friendlyError(e)})`;
@@ -2497,6 +2498,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const x = findEntry(s, detailId);
       if (x?.kind !== "event" || !x.start) return;
       return retime(detailId, null, { start: x.start, end: hm(Math.min(mins(x.start) + Number(q("#bhDetail [data-dlen]")!.dataset.dlen), 23 * 60 + 59)) }, "", "시각");
+    }
+    if (q("[data-srcopen]")) {
+      const id = q("[data-srcopen]")!.dataset.srcopen!;
+      if (id.startsWith("obsidian:")) return void adapter.openNote?.(id.slice(9)).catch((e: unknown) => toast(friendlyError(e)));
+      if (findEntry(s, id)) return openDetail(id);
+      return;
     }
     if (q("[data-setundo]")) return void undoSpoken(q("[data-setundo]")!.dataset.setundo!);
     if (q("[data-redo]")) return void redoAs(q("[data-redo]")!.dataset.redo!);

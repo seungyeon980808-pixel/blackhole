@@ -101,6 +101,11 @@ describe("넣기·질문·설정 in the app", () => {
     render: {
       app!.render();
       expect(root.textContent).toContain("넣어 주세요");
+      // 근거 is one folded line under the answer (not a card per record), opened only when asked.
+      const fold = root.querySelector<HTMLDetailsElement>(".srcs")!;
+      expect(fold.open).toBe(false);
+      expect(fold.querySelector("summary")!.textContent).toMatch(/^근거 1개 · /);
+      expect(fold.closest(".bub")!.querySelectorAll(".rc")).toHaveLength(0);
       expect(root.textContent).toContain("질문이었어요");
     }
   });

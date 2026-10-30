@@ -137,6 +137,8 @@ export interface ChatMessage {
   redo?: { text: string; as: "ask" | "put" };
   /** An answer: where it looked (「10/29 기준 ±3개월 기록 120개에서 찾음」). */
   scope?: string;
+  /** The answer's grounds shown unfolded (the question asked for them: 「근거」 「출처」). */
+  openSrc?: boolean;
 }
 
 /** Settings the words may change (넣기·질문·설정 나누기). */
