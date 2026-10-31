@@ -12,6 +12,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { answer as answerQuestion, AskIndex, classify, docsOf, KIND_LABEL, whenOf, type AskHit, type AskSources, type DocKind } from "../calendar/ask";
+import { friendlyError } from "../calendar/app";
 import { normalizeState } from "../calendar/model";
 
 interface Hit {
@@ -145,7 +146,7 @@ export function mountQuick(root: HTMLElement): void {
       }
       reset();
     } catch (err) {
-      say(`넣지 못했어요: ${String(err)}`, true);
+      say(`넣지 못했어요: ${friendlyError(err)}`, true);
     }
   };
   /** Local answer first (0원); only a fuzzy question or a summary goes to the AI with the lines found. */
@@ -174,12 +175,12 @@ export function mountQuick(root: HTMLElement): void {
     } catch (err) {
       heading = "가까운 기록";
       draw();
-      say(`AI로 정리하지 못했어요: ${String(err)}`, true);
+      say(`AI로 정리하지 못했어요: ${friendlyError(err)}`, true);
     }
   };
   const openHit = async (h: Hit) => {
     if (h.kind === "비밀") return copyHit(h);
-    if (h.dk === "obsidian") return void invoke("note_open", { path: h.id.replace(/^obsidian:/, "") }).catch((err: unknown) => say(String(err), true));
+    if (h.dk === "obsidian") return void invoke("note_open", { path: h.id.replace(/^obsidian:/, "") }).catch((err: unknown) => say(friendlyError(err), true));
     if (h.dk === "inbox") return;
     await invoke("quick_open", { id: h.id });
   };
@@ -190,7 +191,7 @@ export function mountQuick(root: HTMLElement): void {
         await invoke("secret_copy", { name: h.id.replace(/^secret:/, "") });
         say("복사했어요 · 30초 뒤 클립보드에서 지웁니다");
       } catch (err) {
-        say(String(err), true);
+        say(friendlyError(err), true);
       }
       return;
     }
@@ -262,7 +263,7 @@ export function mountQuick(root: HTMLElement): void {
       const name = f.name && f.name !== "image.png" ? f.name : `붙여넣기.${(f.type.split("/")[1] ?? "png").replace("jpeg", "jpg")}`;
       void f.arrayBuffer().then((buf) =>
         invoke("quick_put_bytes", new Uint8Array(buf), { headers: { "x-file-name": encodeURIComponent(name), "x-via": encodeURIComponent("빠른 입력") } })
-      ).then(reset, (err: unknown) => say(`넣지 못했어요: ${String(err)}`, true));
+      ).then(reset, (err: unknown) => say(`넣지 못했어요: ${friendlyError(err)}`, true));
     }
   });
   void getCurrentWebviewWindow().onDragDropEvent((e) => {

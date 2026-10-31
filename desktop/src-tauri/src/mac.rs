@@ -939,6 +939,8 @@ pub fn build_app_menu(app: &AppHandle) -> tauri::Result<()> {
                 &item("m-month", "월", Some("CmdOrCtrl+1"))?,
                 &item("m-week", "주", Some("CmdOrCtrl+2"))?,
                 &item("m-day", "일", Some("CmdOrCtrl+3"))?,
+                &item("m-memo", "기억", Some("CmdOrCtrl+4"))?,
+                &item("m-pri", "우선순위", Some("CmdOrCtrl+5"))?,
                 &PredefinedMenuItem::separator(app)?,
                 &item("m-today", "오늘로 가기", Some("CmdOrCtrl+T"))?,
                 &item("m-chat", "대화 기록", Some("CmdOrCtrl+L"))?,

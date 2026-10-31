@@ -356,6 +356,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const keep = (id: string) => root.querySelector<HTMLInputElement>(`#${id}`)?.value ?? "";
     const v1 = keep("bhIn");
     const v2 = keep("bhChatIn");
+    // Typing goes on where it was: redrawing the box (busy, a voice button) must not drop the cursor.
+    const was = document.activeElement instanceof HTMLTextAreaElement && root.contains(document.activeElement) ? document.activeElement : null;
+    const focused = was && (was.id === "bhIn" || was.id === "bhChatIn") ? { id: was.id, at: was.selectionStart, to: was.selectionEnd } : null;
     if (side) {
       // The panel holds the one input; the bottom bar is empty (and hidden).
       if (comp) comp.innerHTML = "";
@@ -370,6 +373,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (i2) i2.value = v2;
     if (i1) growBox(i1);
     if (i2) growBox(i2);
+    const back = focused && root.querySelector<HTMLTextAreaElement>(`#${focused.id}`);
+    if (back) {
+      back.focus();
+      back.setSelectionRange(focused.at, focused.to);
+    }
     renderLast();
   }
 
@@ -3169,7 +3177,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const budget = el.dataset.claudeOpt === "budget" ? Math.max(0, Number(el.value) || 0) : claude.budgetUsd ?? 3;
       const skip = el.dataset.claudeOpt === "skip" ? (el as HTMLInputElement).checked : claude.skipSimple !== false;
       claude = await adapter.setClaudeOptions(budget, skip).catch((err: unknown) => {
-        claudeLine = String(err);
+        claudeLine = friendlyError(err);
         return claude;
       });
       renderSettings();
@@ -3228,8 +3236,21 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         const v = two(el.value);
         if (v) st.periods[Number(el.dataset.period)] = v;
       }
+      // What was not taken goes back to the kept value, with one line on how to write it.
+      const kept = k === "eventMinutes" || k === "remindMinutes" ? String(st[k] ?? 30) : k === "onWork" || k === "offWork" || k === "lunch" ? st[k] : st.periods[Number(el.dataset.period)];
+      if (el.value.trim() !== kept) {
+        const ok = k === "eventMinutes" || k === "remindMinutes" ? /^\s*\d+\s*$/.test(el.value) : (k === "onWork" || k === "offWork" ? one : two)(el.value) !== null;
+        if (!ok) toast(k === "eventMinutes" || k === "remindMinutes" ? "숫자만 적어 주세요 · 예: 30" : k === "onWork" || k === "offWork" ? "시각을 읽지 못했어요 · 예: 08:20" : "시간을 읽지 못했어요 · 예: 08:50-09:35");
+      }
+      // Tab moved on to the next box while this one was taken: the cursor stays there.
+      const next = document.activeElement instanceof HTMLInputElement ? document.activeElement : null;
+      const at = next?.dataset.time ? `[data-time="${next.dataset.time}"]` : next?.dataset.period ? `[data-period="${next.dataset.period}"]` : "";
       await save();
       render();
+      if (settingsOpen) {
+        renderSettings();
+        if (at) root.querySelector<HTMLInputElement>(`#bhSettings ${at}`)?.select();
+      }
       return;
     }
     const key = el.dataset.set;
@@ -3250,11 +3271,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
     if (key === "inboxRoot") {
       s.settings.inboxRoot = el.value === "drive" ? inbox.driveRoot ?? null : null;
-      inbox = await adapter.setInbox(s.settings.inboxEnabled, s.settings.inboxRoot).catch((err: unknown) => ({ ...inbox, lastError: String(err) }));
+      inbox = await adapter.setInbox(s.settings.inboxEnabled, s.settings.inboxRoot).catch((err: unknown) => ({ ...inbox, lastError: friendlyError(err) }));
     }
     if (key === "inbox") {
       s.settings.inboxEnabled = (el as HTMLInputElement).checked;
-      inbox = await adapter.setInbox(s.settings.inboxEnabled, s.settings.inboxRoot).catch((err: unknown) => ({ ...inbox, lastError: String(err) }));
+      inbox = await adapter.setInbox(s.settings.inboxEnabled, s.settings.inboxRoot).catch((err: unknown) => ({ ...inbox, lastError: friendlyError(err) }));
     }
     await save();
     syncAlarms();
@@ -3735,7 +3756,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return adapter.openQuick ? adapter.openQuick() : root.querySelector<HTMLInputElement>("#bhIn")?.focus();
     });
     if (cmd && e.code === "KeyZ" && !e.shiftKey && !typing) return go(undo);
-    if (cmd && e.code === "Digit4") return go(() => root.querySelector<HTMLButtonElement>('[data-v="memo"]')?.click());
+    // ⌘1–5 as in the 보기 menu: 월 주 일 기억 우선순위.
+    const views: Record<string, ViewName> = { Digit1: "month", Digit2: "week", Digit3: "day", Digit4: "memo", Digit5: "pri" };
+    if (cmd && !e.shiftKey && !e.altKey && views[e.code]) return go(() => root.querySelector<HTMLButtonElement>(`[data-v="${views[e.code]}"]`)?.click());
     if (e.altKey && !typing && !cmd && picked && (e.code === "ArrowLeft" || e.code === "ArrowRight")) {
       const x = findEntry(s, picked);
       const k = x?.kind === "event" ? x.date : x?.kind === "task" ? x.due : x?.kind === "period" ? x.from : null;
@@ -3788,7 +3811,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (id === "settings") return click("[data-settings]");
     if (id === "new") return root.querySelector<HTMLInputElement>("#bhIn")?.focus();
     if (id === "print") return click("[data-print]");
-    if (id === "month" || id === "week" || id === "day") return click(`[data-v="${id}"]`);
+    if (id === "month" || id === "week" || id === "day" || id === "memo" || id === "pri") return click(`[data-v="${id}"]`);
     if (id === "today") return click('[data-nav="0"]');
     if (id === "chat") return setChat(!chatOpen);
     if (id === "guide") {
