@@ -137,12 +137,24 @@ export interface ChatMessage {
   redo?: { text: string; as: "ask" | "put" };
   /** An answer: where it looked (「10/29 기준 ±3개월 기록 120개에서 찾음」). */
   scope?: string;
+  /** 「이상해요」: the line to say what was meant is open / it was sent to the fix list. */
+  reporting?: boolean;
+  reported?: boolean;
   /** The answer's grounds shown unfolded (the question asked for them: 「근거」 「출처」). */
   openSrc?: boolean;
 }
 
 /** Settings the words may change (넣기·질문·설정 나누기). */
 export type SpokenSetting = "remindMinutes" | "onWork" | "offWork" | "lunch" | "eventMinutes" | "mode";
+
+/** One 「이상해요」: the words, what the app did, what was meant (may be empty). */
+export interface Report {
+  id: string;
+  at: string;
+  said: string;
+  got: string;
+  want: string;
+}
 
 /** One answer for the phone: its chat line (the phone shows it under the question it sent). */
 export interface PhoneAnswer {
@@ -226,6 +238,8 @@ export interface CalendarState {
   routines: Routine[];
   /** Answers the Mac made for questions sent from the phone (they go to the phone in the shared copy). */
   phoneAnswers: PhoneAnswer[];
+  /** 「이상해요」: what went wrong, for the next round of fixes (this Mac only, never shared). */
+  reports: Report[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -273,7 +287,8 @@ export function emptyState(): CalendarState {
     settings: { ...DEFAULT_SETTINGS },
     nextId: 1,
     routines: [],
-    phoneAnswers: []
+    phoneAnswers: [],
+    reports: []
   };
 }
 
@@ -364,7 +379,8 @@ export function normalizeState(value: unknown): CalendarState | null {
     settings: schoolTimes({ ...DEFAULT_SETTINGS, ...(v.settings ?? {}) }),
     nextId: typeof v.nextId === "number" && v.nextId > 0 ? v.nextId : 1,
     routines: list<Routine>(v.routines),
-    phoneAnswers: list<PhoneAnswer>(v.phoneAnswers).slice(-50)
+    phoneAnswers: list<PhoneAnswer>(v.phoneAnswers).slice(-50),
+    reports: list<Report>(v.reports).slice(-500)
   };
 }
 

@@ -51,6 +51,39 @@ pub fn save_state(dir: &Path, state: &serde_json::Value) -> io::Result<()> {
         .map_err(|e| io::Error::other(e.to_string()))
 }
 
+pub const BACKUP_DIR: &str = "백업";
+/// Daily copies kept in each backup folder (the oldest go first).
+pub const BACKUP_DAYS: usize = 30;
+
+/// 자동 백업 (2026-10-31): the first save of a day also copies the calendar file to
+/// `<folder>/달력-YYYY-MM-DD.json` in each folder (this Mac, and the Drive 「블랙홀/백업/」 when it is
+/// there), keeping the newest BACKUP_DAYS. A day already copied is not written again. Returns the
+/// folders written to.
+pub fn daily_backup(state_dir: &Path, folders: &[PathBuf], day: &str) -> Vec<PathBuf> {
+    let src = state_dir.join(STATE_FILE);
+    let name = format!("달력-{day}.json");
+    let mut done = Vec::new();
+    for folder in folders {
+        let path = folder.join(&name);
+        if path.exists() || fs::create_dir_all(folder).is_err() || fs::copy(&src, &path).is_err() {
+            continue;
+        }
+        let mut old: Vec<PathBuf> = fs::read_dir(folder)
+            .into_iter()
+            .flatten()
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.file_name().is_some_and(|n| { let n = n.to_string_lossy(); n.starts_with("달력-") && n.ends_with(".json") }))
+            .collect();
+        old.sort();
+        let extra = old.len().saturating_sub(BACKUP_DAYS);
+        for p in old.into_iter().take(extra) {
+            let _ = fs::remove_file(p);
+        }
+        done.push(folder.clone());
+    }
+    done
+}
+
 /// Keep only a plain file name: no folders, no leading dots, at most 80 characters.
 pub fn safe_file_name(name: &str) -> String {
     let base = name.rsplit(['/', '\\']).next().unwrap_or("");
@@ -395,6 +428,17 @@ mod tests {
         save_state(dir.path(), &state).unwrap();
         assert_eq!(load_state(dir.path()).unwrap(), Some(state));
         assert!(save_state(dir.path(), &json!({"schemaVersion": 9})).is_err());
+        // 자동 백업: once a day, the newest 30 kept.
+        let folder = dir.path().join(BACKUP_DIR);
+        assert_eq!(daily_backup(dir.path(), std::slice::from_ref(&folder), "2026-10-31"), vec![folder.clone()]);
+        assert!(daily_backup(dir.path(), std::slice::from_ref(&folder), "2026-10-31").is_empty());
+        for d in 1..=40 {
+            daily_backup(dir.path(), std::slice::from_ref(&folder), &format!("2026-12-{d:02}"));
+        }
+        let mut kept: Vec<String> = fs::read_dir(&folder).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        kept.sort();
+        assert_eq!(kept.len(), BACKUP_DAYS);
+        assert_eq!(kept.last().unwrap(), "달력-2026-12-40.json");
 
         fs::write(dir.path().join(STATE_FILE), b"{not json").unwrap();
         assert_eq!(load_state(dir.path()).unwrap(), None);

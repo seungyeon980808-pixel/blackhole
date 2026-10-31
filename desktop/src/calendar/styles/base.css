@@ -674,3 +674,12 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .srcs .srcb { font: inherit; font-size: 11px; border: 1px solid var(--line, #999); border-radius: 999px; padding: 2px 8px; background: none; color: var(--ink); cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bh .srcs .srcb span { color: var(--ink2); margin-left: 5px; }
 .bh .srcs .srcb:hover { background: var(--x-chip, #eee); }
+
+/* 「이상해요」 (2026-10-31) */
+.bh .mini.rep { opacity: .55; }
+.bh .mini.rep:hover { opacity: 1; }
+.bh .repl { flex: 1 1 100%; }
+.bh .repin { font: inherit; font-size: 12px; width: 100%; box-sizing: border-box; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--ink2); background: var(--x-chip, transparent); color: var(--ink); outline: 0; }
+.bh .repdone { font-size: 11px; color: var(--ink2); }
+/* Only under the line the pointer is on (a mouse); always on a phone. */
+@media (hover: hover) { .bh .bub .mini.rep { visibility: hidden; } .bh .bub:hover .mini.rep { visibility: visible; } }

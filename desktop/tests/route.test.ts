@@ -249,4 +249,22 @@ describe("a question from the phone", () => {
     takeShared(phone, shared, []);
     expect(phone.chat.map((m) => [m.who, m.text])).toEqual([["ai", "9반: 다음 시간에 성운부터"]]);
   });
+
+  it("「이상해요」: one line for what was meant, then the words · what it did · what was meant go to the fix list", async () => {
+    const { s, root } = await mount({});
+    await app!.submitText("오늘 2교시 7반 3교시 1반 수업");
+    app!.render();
+    root.querySelector<HTMLElement>("[data-report]")!.click();
+    const box = root.querySelector<HTMLInputElement>("[data-repin]")!;
+    box.value = "1반은 4교시였음";
+    box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await tick();
+    expect(s.reports).toHaveLength(1);
+    expect(s.reports[0].said).toBe("오늘 2교시 7반 3교시 1반 수업");
+    expect(s.reports[0].got).toContain("7반 수업");
+    expect(s.reports[0].want).toBe("1반은 4교시였음");
+    expect(root.textContent).toContain("고칠 목록에 넣었어요");
+    // Never in the phone's copy.
+    expect(JSON.stringify(sharedFrom(s, "x"))).not.toContain("1반은 4교시였음");
+  });
 });

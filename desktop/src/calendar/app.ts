@@ -1511,6 +1511,19 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     render();
   }
 
+  /** 「이상해요」: the words before this answer, what it did, what was meant → the fix list (this Mac only). */
+  function saveReport(m: ChatMessage, want: string): void {
+    const i = s.chat.indexOf(m);
+    let said = "";
+    for (let j = i - 1; j >= 0; j--) if (s.chat[j].who === "me") { said = s.chat[j].text; break; }
+    const got = m.refs?.length
+      ? m.refs.map((r) => { const d = describe(s, r, theme().fd); return `${d.label} · ${d.msg}`; }).join(" / ")
+      : m.text;
+    s.reports.push({ id: newId(s, "r"), at: stamp(clock()), said, got: `${m.text && m.refs?.length ? m.text + " · " : ""}${got}`, want });
+    m.reported = true;
+    toast("고칠 목록에 넣었어요 · 다음에 고칠 때 이 문장으로 시험합니다");
+  }
+
   /** 「질문이었어요」 / 「넣어 주세요」: the same words the other way; what they put in goes first. */
   async function redoAs(id: string): Promise<void> {
     const m = s.chat.find((x) => x.id === id);
@@ -2499,6 +2512,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (x?.kind !== "event" || !x.start) return;
       return retime(detailId, null, { start: x.start, end: hm(Math.min(mins(x.start) + Number(q("#bhDetail [data-dlen]")!.dataset.dlen), 23 * 60 + 59)) }, "", "시각");
     }
+    if (q("[data-report]")) {
+      const m = s.chat.find((x) => x.id === q("[data-report]")!.dataset.report);
+      if (!m) return;
+      m.reporting = true;
+      render();
+      return root.querySelector<HTMLInputElement>(`[data-repin="${m.id}"]`)?.focus();
+    }
     if (q("[data-srcopen]")) {
       const id = q("[data-srcopen]")!.dataset.srcopen!;
       if (id.startsWith("obsidian:")) return void adapter.openNote?.(id.slice(9)).catch((e: unknown) => toast(friendlyError(e)));
@@ -2901,6 +2921,15 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   const onKey = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement;
+    if (el.matches("[data-repin]") && !e.isComposing && (e.key === "Enter" || e.key === "Escape")) {
+      e.preventDefault();
+      e.stopPropagation();
+      const m = s.chat.find((x) => x.id === el.dataset.repin);
+      if (!m) return;
+      m.reporting = false;
+      if (e.key === "Enter") saveReport(m, (el as HTMLInputElement).value.trim());
+      return void save().then(render);
+    }
     if (el.matches("[data-desk-sc]")) return recordShortcut(e, el as HTMLInputElement);
     if (el.matches("[data-resize]") && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
       e.preventDefault();
