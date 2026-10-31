@@ -120,6 +120,7 @@ pub fn run() {
             desk::alarm_current,
             desk::alarm_answer,
             desk::print_page,
+            desk::set_zoom,
             desk::set_window_look,
             desk::share_calendar,
             desk::phone_actions,

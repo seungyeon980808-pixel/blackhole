@@ -112,6 +112,8 @@ export interface BlackholeAdapter {
   /** Mac: count a call that was not made (simple sentence, rule draft final). */
   aiSkipped?(reason: string): void;
   setClaudeOptions?(budgetUsd: number, skipSimple: boolean): Promise<ClaudeStatus>;
+  /** Mac: zoom the window's page (1 = 100 %), like ⌘+ in a browser. */
+  setZoom?(scale: number): Promise<void>;
 
   /* Mac: the full-screen alarm window rings by itself (the page only keeps the calendar). */
   readonly nativeAlarms?: boolean;

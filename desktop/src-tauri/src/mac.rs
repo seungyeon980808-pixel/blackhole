@@ -945,6 +945,10 @@ pub fn build_app_menu(app: &AppHandle) -> tauri::Result<()> {
                 &item("m-today", "오늘로 가기", Some("CmdOrCtrl+T"))?,
                 &item("m-chat", "대화 기록", Some("CmdOrCtrl+L"))?,
                 &PredefinedMenuItem::separator(app)?,
+                &item("m-bigger", "글자 크게", Some("CmdOrCtrl+="))?,
+                &item("m-smaller", "글자 작게", Some("CmdOrCtrl+-"))?,
+                &item("m-textreset", "글자 보통 크기", None)?,
+                &PredefinedMenuItem::separator(app)?,
                 &PredefinedMenuItem::fullscreen(app, Some("전체 화면"))?,
             ])?,
             &Submenu::with_items(app, "윈도우", true, &[
@@ -1585,8 +1589,8 @@ mod tests {
 
     #[test]
     fn login_item_points_at_the_app() {
-        let p = agent_plist(Path::new("/Applications/Blackhole.app/Contents/MacOS/blackhole-desktop"));
-        assert!(p.contains("<string>/Applications/Blackhole.app/Contents/MacOS/blackhole-desktop</string><string>--login</string>"));
+        let p = agent_plist(Path::new("/Applications/Blackhole.app/Contents/MacOS/Blackhole"));
+        assert!(p.contains("<string>/Applications/Blackhole.app/Contents/MacOS/Blackhole</string><string>--login</string>"));
         assert!(p.contains("RunAtLoad"));
     }
 

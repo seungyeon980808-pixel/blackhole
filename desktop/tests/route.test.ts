@@ -139,9 +139,18 @@ describe("넣기·질문·설정 in the app", () => {
   });
 
   it("a setting the app does not have is said so", async () => {
-    const { s } = await mount({ routeText: async () => ({ parts: [part("setting", "글씨 크게 해줘", { key: "unknown", value: "크게" })] }) });
-    await app!.submitText("글씨 크게 해줘");
+    const { s } = await mount({ routeText: async () => ({ parts: [part("setting", "진동으로 바꿔 줘", { key: "unknown", value: "진동" })] }) });
+    await app!.submitText("진동으로 바꿔 줘");
     expect(s.chat.at(-1)!.text).toMatch(/^그 설정은 앱에 없어요/);
+  });
+
+  it("「글자 좀 줄여줘」: the AI left the key out, the words say 글자 크기 (Mac zoom, 되돌리기)", async () => {
+    const zooms: number[] = [];
+    const { s } = await mount({ setZoom: async (z) => void zooms.push(z), routeText: async () => ({ parts: [part("setting", "글자 좀 줄여줘", { value: "smaller" })] }) });
+    await app!.submitText("글자 좀 줄여줘");
+    expect(s.settings.textSize).toBe(90);
+    expect(zooms.at(-1)).toBe(0.9);
+    expect(s.chat.at(-1)!.undo).toEqual({ key: "textSize", before: "100" });
   });
 
   it("「질문이었어요」 takes back what the words put in and asks instead", async () => {

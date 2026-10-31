@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 const ROUTE_SYSTEM: &str = "너는 교사의 개인 일정 비서 앱이 받은 글을 나누는 분류기다. 글을 부분으로 나누고 부분마다 무엇을 시키는지 정한다.
 - put: 일정·할 일·기억으로 넣을 것, 이미 있는 일정을 옮기기·취소·완료하라는 말, 그냥 적어 두는 사실. 특정 일정 하나의 알림(「회의 10분 전에 알려줘」)도 put이다.
 - ask: 사용자가 자기 기록에 대해 궁금해서 묻는 말(「진도 다 끝났는지?」 「치과 언제야」).
-- setting: 앱 전체 설정을 바꾸라는 말. 바꿀 수 있는 설정(key: 값 형식): remindMinutes: 일정 알림을 시작 몇 분 전에 울릴지(숫자) · onWork: 출근 시각(HH:MM) · offWork: 퇴근 시각(HH:MM) · lunch: 점심시간(HH:MM-HH:MM) · eventMinutes: 끝 없는 일정의 기본 길이(분, 숫자) · mode: 화면 dark 또는 light. 목록에 없는 설정이면 key를 \"unknown\"으로.
+- setting: 앱 전체 설정을 바꾸라는 말. 바꿀 수 있는 설정(key: 값 형식): remindMinutes: 일정 알림을 시작 몇 분 전에 울릴지(숫자) · onWork: 출근 시각(HH:MM) · offWork: 퇴근 시각(HH:MM) · lunch: 점심시간(HH:MM-HH:MM) · eventMinutes: 끝 없는 일정의 기본 길이(분, 숫자) · mode: 화면 dark 또는 light · textSize: 글자·글씨 크기(한 단계 크게는 \"bigger\", 작게는 \"smaller\", 처음 크기는 \"100\", 퍼센트를 말하면 그 숫자). 목록에 없는 설정이면 key를 \"unknown\"으로.
 규칙:
 - 남이 보낸 메시지·공문을 붙여 넣은 것 안의 물음은 ask가 아니라 put이다.
 - 할 일을 적으면서 스스로 되묻는 말(「가정통신문도 작성해서 보내야 하는지?」 「회의 자료도 뽑아야 하나?」)은 확인할 할 일이므로 put이다. ask는 이미 적어 둔 기록·일정의 내용이나 상태를 묻는 말뿐이다.

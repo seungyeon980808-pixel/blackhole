@@ -48,3 +48,22 @@ describe("상용 수준 마감", () => {
     expect(on().value).toBe("08:10");
   });
 });
+
+describe("글자 크기 (Mac)", () => {
+  it("⌘+ 한 단계씩 크게·끝에서는 멈춤, ⌘- 작게, 설정에 남음", async () => {
+    document.body.innerHTML = '<div id="app" style="width:1300px;height:800px"></div>';
+    const root = document.querySelector<HTMLElement>("#app")!;
+    Object.defineProperty(root, "clientWidth", { configurable: true, get: () => 1300 });
+    const zooms: number[] = [];
+    app = await mountBlackhole(root, { ...memoryAdapter(), setZoom: async (z: number) => void zooms.push(z) }, { now: () => new Date("2026-10-31T10:00:00") });
+    const key = (code: string) => document.dispatchEvent(new KeyboardEvent("keydown", { code, metaKey: true, bubbles: true }));
+    for (let i = 0; i < 5; i++) key("Equal");
+    for (let i = 0; i < 5; i++) await tick();
+    expect(app.state.settings.textSize).toBe(150);
+    expect(root.querySelector("#bhToast")!.textContent).toContain("이미 가장 큰 글자");
+    key("Minus");
+    await tick();
+    expect(app.state.settings.textSize).toBe(130);
+    expect(zooms.at(-1)).toBe(1.3);
+  });
+});

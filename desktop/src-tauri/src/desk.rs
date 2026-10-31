@@ -485,6 +485,12 @@ pub fn print_page(app: AppHandle) -> Result<(), String> {
     app.get_webview_window("main").ok_or("창이 없습니다.")?.print().map_err(|e| e.to_string())
 }
 
+/// 설정 → 글자 크기 (⌘+ / ⌘-): the main window's page zoom, 50–200 %.
+#[tauri::command]
+pub fn set_zoom(app: AppHandle, scale: f64) -> Result<(), String> {
+    app.get_webview_window("main").ok_or("창이 없습니다.")?.set_zoom(scale.clamp(0.5, 2.0)).map_err(|e| e.to_string())
+}
+
 /// Background threads: alarm clock (1 s) and inbox scanner (every 15 s while enabled).
 pub fn start(app: &AppHandle) {
     let desk = app.state::<Desk>();

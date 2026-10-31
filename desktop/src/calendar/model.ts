@@ -147,7 +147,7 @@ export interface ChatMessage {
 }
 
 /** Settings the words may change (넣기·질문·설정 나누기). */
-export type SpokenSetting = "remindMinutes" | "onWork" | "offWork" | "lunch" | "eventMinutes" | "mode";
+export type SpokenSetting = "remindMinutes" | "onWork" | "offWork" | "lunch" | "eventMinutes" | "mode" | "textSize";
 
 /** One 「이상해요」: the words, what the app did, what was meant (may be empty). */
 export interface Report {
@@ -218,6 +218,8 @@ export interface Settings {
   brief: boolean;
   /** Faint school-period bands on the day band and the week (weekdays). */
   showPeriods: boolean;
+  /** Mac: the whole window's text and buttons, in percent (⌘+ / ⌘-; one of TEXT_SIZES). */
+  textSize: number;
 }
 
 export interface CalendarState {
@@ -266,8 +268,12 @@ export const DEFAULT_SETTINGS: Settings = {
   eventMinutes: 60,
   remindMinutes: 30,
   brief: true,
-  showPeriods: true
+  showPeriods: true,
+  textSize: 100
 };
+
+/** 글자 크기 steps (percent) and their names in 설정. */
+export const TEXT_SIZES: [number, string][] = [[90, "작게"], [100, "보통"], [115, "크게"], [130, "더 크게"], [150, "아주 크게"]];
 
 /** The first build's placeholder school day (never shown in 설정): replaced by the real one. */
 function schoolTimes(st: Settings): Settings {

@@ -8,7 +8,7 @@ import { looksSecret } from "./secret";
 import { answer as answerQuestion, AskIndex, checkLines, classify, docsOf, gather, KIND_LABEL, lineOf, wantsRoute, whenOf, WINDOWS, type AskDoc, type AskHit, type AskSources } from "./ask";
 import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
-import { normalizeState, sharedFrom, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type Period, type Task, type SharedCalendar, type SpokenSetting, type ThemeName, type UserAction } from "./model";
+import { normalizeState, sharedFrom, TEXT_SIZES, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type Period, type Task, type SharedCalendar, type SpokenSetting, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
 import { isFiller, isSimpleCertain, memoDraft, needsAi, parseDraft, parseRule, singleTime, timeRange, timeWords } from "./rules";
 import { seedState } from "./samples";
@@ -71,6 +71,9 @@ export function friendlyError(e: unknown): string {
   const detail = raw.length > 60 ? `${raw.slice(0, 60)}…` : raw;
   return `처리하지 못함 · 다시 해 보고, 계속되면 블랙홀을 다시 열어 주세요${detail ? ` (${detail})` : ""}`;
 }
+
+/** 「크게」 for 115 (설정 names), else 「120%」. */
+const sizeName = (n: number) => TEXT_SIZES.find(([x]) => x === n)?.[1] ?? `${n}%`;
 
 const MOVE_RE = /^(.+?)\s*(?:을|를|은|는|도)?\s*((?:다음\s*주\s*)?[월화수목금토일]요일|내일|모레|글피|다음\s*주|\d{1,2}월\s*\d{1,2}일|\d{1,2}일|\d{1,2}\/\d{1,2})\s*(?:로|으로|에)\s*(?:옮겨|옮기기|옮겨\s*줘|미뤄|미뤄\s*줘|미루기|바꿔|변경|이동)/;
 // 「학년 협의회 4시로 변경」 「치과 내일 3시 반으로 옮겨」: a time too (the AI made a second 「시간 변경」 event).
@@ -261,6 +264,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     root.className = `bh ${s.settings.theme}`;
     root.dataset.mode = s.settings.theme === "glass" ? s.settings.mode : "light";
     applyLook();
+    applyZoom();
     void adapter.setLook?.(s.settings.theme, s.settings.mode).catch(() => undefined);
     root.innerHTML = `${theme().shell(c)}
       <section class="chatsheet" id="bhChat" aria-label="대화 기록"><div class="resizer" data-resize role="separator" aria-orientation="vertical" aria-label="대화 패널 폭" tabindex="0"></div><div class="grab" data-drag="close" role="button" tabindex="0" aria-label="대화 기록 닫기"><i></i></div><div class="sheethead">대화 기록</div><div class="panelbar"><b>대화</b><span class="sp"></span><button class="ib" data-panel="close" title="대화 접기 (⌘L)" aria-label="대화 패널 접기">${ICON.fold}</button></div><div id="bhChecks"></div><div class="thread" id="bhThread" aria-live="polite"></div><div class="sheetcomp" id="bhChatComp"></div></section>
@@ -331,6 +335,28 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     chatDrawn = -1;
     renderComposer();
     render();
+  }
+
+  /** 글자 크기: the whole page zooms (Mac), so the layout reflows as at a narrower window. */
+  function applyZoom(): void {
+    if (!adapter.setZoom) return;
+    void adapter.setZoom((s.settings.textSize ?? 100) / 100).then(() => window.setTimeout(() => (sideOn() !== side ? relayout() : render()), 50), () => undefined);
+  }
+  /** The next step up (1) or down (-1) from the size now; it stays at the ends. */
+  function stepSize(dir: 1 | -1): number {
+    const now = s.settings.textSize ?? 100;
+    const sizes = TEXT_SIZES.map(([n]) => n);
+    const next = dir > 0 ? sizes.find((n) => n > now) : [...sizes].reverse().find((n) => n < now);
+    return next ?? now;
+  }
+  async function changeSize(dir: 1 | -1 | 0): Promise<void> {
+    const n = dir === 0 ? 100 : stepSize(dir);
+    if (n === (s.settings.textSize ?? 100)) return toast(dir > 0 ? "이미 가장 큰 글자예요" : dir < 0 ? "이미 가장 작은 글자예요" : "이미 보통 크기예요");
+    s.settings.textSize = n;
+    applyZoom();
+    toast(`글자 ${sizeName(n)}`);
+    await save();
+    if (settingsOpen) renderSettings();
   }
 
   /** Glass blur and brightness from 설정 (CSS variables; the 공문서 theme does not use them). */
@@ -783,7 +809,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   function renderSettings(): void {
     const el = root.querySelector<HTMLElement>("#bhSettings")!;
     const st = s.settings;
-    const look = `<label class="set-row">테마 <select data-set="theme"><option value="glass" ${st.theme === "glass" ? "selected" : ""}>유리</option><option value="doc" ${st.theme === "doc" ? "selected" : ""}>공문서</option></select></label>
+    const look = `${adapter.setZoom ? `<label class="set-row">글자 크기 <select data-set="textSize">${TEXT_SIZES.map(([n, name]) => `<option value="${n}" ${(st.textSize ?? 100) === n ? "selected" : ""}>${name}</option>`).join("")}</select></label><div class="set-note">⌘+ 크게 · ⌘- 작게 · 「글씨 크게 해 줘」라고 말해도 됩니다.</div>` : ""}<label class="set-row">테마 <select data-set="theme"><option value="glass" ${st.theme === "glass" ? "selected" : ""}>유리</option><option value="doc" ${st.theme === "doc" ? "selected" : ""}>공문서</option></select></label>
       ${st.theme === "glass" ? `<label class="set-row">밝기 <select data-set="mode"><option value="dark" ${st.mode === "dark" ? "selected" : ""}>어둡게</option><option value="light" ${st.mode === "light" ? "selected" : ""}>밝게</option></select></label>
       <label class="set-row">흐림 <input type="range" min="0" max="40" step="1" value="${st.glassBlur}" data-set="glassBlur" aria-label="유리 흐림 정도"><span class="set-v">${st.glassBlur}</span></label>
       <label class="set-row">배경 밝기 <input type="range" min="-50" max="50" step="5" value="${st.glassBright}" data-set="glassBright" aria-label="배경·카드 밝기"><span class="set-v">${st.glassBright > 0 ? "+" : ""}${st.glassBright}</span></label>
@@ -810,7 +836,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     // The alarm sound row moves to 「알람」.
     const soundRow = /<label class="set-row">알람 소리[\s\S]*?<\/label>/.exec(desk2)?.[0] ?? "";
     const groups = [
-      { id: "look", name: "화면", sum: st.theme === "glass" ? `유리 · ${st.mode === "dark" ? "어둡게" : "밝게"}` : "공문서", body: look },
+      { id: "look", name: "화면", sum: `${st.theme === "glass" ? `유리 · ${st.mode === "dark" ? "어둡게" : "밝게"}` : "공문서"}${(st.textSize ?? 100) !== 100 ? ` · 글자 ${sizeName(st.textSize)}` : ""}`, body: look },
       ...(adapter.claude ? [{ id: "ai", name: "AI", sum: claude ? (claude.analyzer === "local" ? "로컬 모델" : `${modelName(claude.model)} · ${claude.hasKey ? `이번 달 ${Math.round(claude.monthUsd * 1400).toLocaleString("ko-KR")}원` : "키 없음"}`) : "", body: strip(claudeBlock()) }] : []),
       ...(inbox.available || adapter.publishShared || adapter.board || adapter.googleCalendars ? [{ id: "inbox", name: adapter.board ? "휴대폰" : "인박스 · 휴대폰", sum: inbox.available ? `${inbox.enabled ? "켜짐" : "꺼짐"}${inbox.lastScanAt ? ` · ${inbox.lastScanAt.slice(11, 16)} 확인` : ""}${st.sharePhone ? " · 공유" : ""}` : "", body: inboxPart }] : []),
       ...(adapter.desk ? [{ id: "mac", name: "단축키 · 시작", sum: desk ? (desk.settings.shortcuts.quick ? desk.pretty.quick : "단축키 끔") : "", body: desk2.replace(soundRow, "") }] : []),
@@ -960,7 +986,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const keyOk = claude ? (claude.hasKey ? "Claude 키 있음" : "Claude 키 없음 — 설정에서 넣으면 AI 다듬기가 켜집니다(없어도 초안은 들어감)") : "";
     el.innerHTML = `<div class="set-h">처음 쓰기 <button class="mini" data-guide-close>다 봤어요</button></div>
       <div class="set-row"><b>넣는 법</b></div>
-      <div class="set-note">입력칸에 쓰고 Enter · 파일을 창이나 Dock 아이콘에 끌어 놓기 · 사진은 입력칸에 ⌘V${p ? `<br>어디서든 오른쪽 ⌘ 두 번(또는 ${escapeHtml(p.quick)}) 빠른 입력·찾기 · ${escapeHtml(p.clipboard)} 클립보드 보내기 · ${escapeHtml(p.capture)} 화면 일부 캡처` : ""}<br>빠른 입력창: Enter 넣기 · ⌘Enter 기억으로 저장 · ⇧Enter 내 기록에 묻기 · 비밀번호는 키체인에만 저장됩니다.<br>메뉴 막대의 블랙홀 아이콘을 눌러도 열립니다.</div>
+      <div class="set-note">입력칸에 쓰고 Enter · 파일을 창이나 Dock 아이콘에 끌어 놓기 · 사진은 입력칸에 ⌘V${p ? `<br>어디서든 오른쪽 ⌘ 두 번(또는 ${escapeHtml(p.quick)}) 빠른 입력·찾기 · ${escapeHtml(p.clipboard)} 클립보드 보내기 · ${escapeHtml(p.capture)} 화면 일부 캡처` : ""}<br>빠른 입력창: Enter 넣기 · ⌘Enter 기억으로 저장 · ⇧Enter 내 기록에 묻기 · 비밀번호는 키체인에만 저장됩니다.<br>메뉴 막대의 블랙홀 아이콘을 눌러도 열립니다.<br>글자가 작거나 크면 ⌘+ · ⌘- (설정 → 화면에서도).</div>
       <div class="set-sep"></div>
       <div class="set-row"><b>허용할 것</b></div>
       <div class="set-row">알림 <button class="mini" data-perm="notify">시험 알림 보내기</button><button class="mini" data-perm="notifications">설정 열기</button>${line("notify")}</div>
@@ -1440,8 +1466,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (s.phoneAnswers.length > 50) s.phoneAnswers.splice(0, s.phoneAnswers.length - 50);
   }
 
-  const SETTING_NAME: Record<SpokenSetting, string> = { remindMinutes: "알림", onWork: "출근", offWork: "퇴근", lunch: "점심시간", eventMinutes: "끝 없는 일정 기본 길이", mode: "화면" };
-  const settingText = (k: SpokenSetting, v: string) => (k === "remindMinutes" ? `일정 ${v}분 전` : k === "eventMinutes" ? `${v}분` : k === "mode" ? (v === "light" ? "밝게" : "어둡게") : v);
+  const SETTING_NAME: Record<SpokenSetting, string> = { remindMinutes: "알림", onWork: "출근", offWork: "퇴근", lunch: "점심시간", eventMinutes: "끝 없는 일정 기본 길이", mode: "화면", textSize: "글자 크기" };
+  const settingText = (k: SpokenSetting, v: string) => (k === "remindMinutes" ? `일정 ${v}분 전` : k === "eventMinutes" ? `${v}분` : k === "mode" ? (v === "light" ? "밝게" : "어둡게") : k === "textSize" ? sizeName(Number(v)) : v);
   const clockOf = (v: string): string | null => {
     const m = /^\s*(\d{1,2})\s*[:시]?\s*(\d{2})?\s*분?\s*$/.exec(v);
     if (!m || Number(m[1]) > 23 || Number(m[2] ?? 0) > 59) return null;
@@ -1490,12 +1516,24 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         buildShell();
         return { before, after: v, moved: 0 };
       }
+      case "textSize": {
+        if (!adapter.setZoom) return "글자 크기는 Mac 앱에서만 바꿀 수 있어요";
+        const before = String(st.textSize ?? 100);
+        const n = /bigger|크게|키워/.test(value) && !/\d/.test(value) ? stepSize(1) : /smaller|작게|줄여/.test(value) && !/\d/.test(value) ? stepSize(-1) : /보통|처음|원래/.test(value) ? 100 : Number((/\d+/.exec(value) ?? [""])[0]);
+        if (!(n >= 50 && n <= 200)) return "글자 크기를 알아듣지 못했어요 · 「글씨 크게」 「글씨 작게」처럼 말해 주세요";
+        if (String(n) === before) return n === TEXT_SIZES.at(-1)![0] ? "이미 가장 큰 글자예요" : n === TEXT_SIZES[0][0] ? "이미 가장 작은 글자예요" : "이미 그 크기예요";
+        st.textSize = n;
+        applyZoom();
+        return { before, after: String(n), moved: 0 };
+      }
     }
-    return "그 설정은 앱에 없어요 · 말로 바꿀 수 있는 것: 알림 몇 분 전, 출근·퇴근, 점심시간, 일정 기본 길이, 화면 밝게/어둡게";
+    return "그 설정은 앱에 없어요 · 말로 바꿀 수 있는 것: 알림 몇 분 전, 출근·퇴근, 점심시간, 일정 기본 길이, 화면 밝게/어둡게, 글자 크기";
   }
 
   /** A setting part of the words: done, said in the chat with 「되돌리기」. */
   function sayAndSet(p: RoutePart): void {
+    // The AI sometimes leaves the key out of 「글자 좀 줄여줘」: the words say which setting.
+    if ((!p.key || p.key === "unknown") && /글씨|글자/.test(p.text)) p = { ...p, key: "textSize", value: p.value || p.text };
     const r = setSpoken(p.key, p.value);
     const at = stamp(clock());
     if (typeof r === "string") {
@@ -3257,6 +3295,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (!key) return;
     if (key === "theme") s.settings.theme = el.value as ThemeName;
     if (key === "mode") s.settings.mode = el.value as "dark" | "light";
+    if (key === "textSize") {
+      s.settings.textSize = Number(el.value) || 100;
+      applyZoom();
+    }
     if (key === "samples") s.settings.showSamples = (el as HTMLInputElement).checked;
     if (key === "showPeriods") s.settings.showPeriods = (el as HTMLInputElement).checked;
     if (key === "brief") s.settings.brief = (el as HTMLInputElement).checked;
@@ -3756,6 +3798,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return adapter.openQuick ? adapter.openQuick() : root.querySelector<HTMLInputElement>("#bhIn")?.focus();
     });
     if (cmd && e.code === "KeyZ" && !e.shiftKey && !typing) return go(undo);
+    if (cmd && adapter.setZoom && (e.code === "Equal" || e.code === "Minus" || e.code === "NumpadAdd" || e.code === "NumpadSubtract")) return go(() => void changeSize(e.code === "Equal" || e.code === "NumpadAdd" ? 1 : -1));
     // ⌘1–5 as in the 보기 menu: 월 주 일 기억 우선순위.
     const views: Record<string, ViewName> = { Digit1: "month", Digit2: "week", Digit3: "day", Digit4: "memo", Digit5: "pri" };
     if (cmd && !e.shiftKey && !e.altKey && views[e.code]) return go(() => root.querySelector<HTMLButtonElement>(`[data-v="${views[e.code]}"]`)?.click());
@@ -3813,6 +3856,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (id === "print") return click("[data-print]");
     if (id === "month" || id === "week" || id === "day" || id === "memo" || id === "pri") return click(`[data-v="${id}"]`);
     if (id === "today") return click('[data-nav="0"]');
+    if (id === "bigger" || id === "smaller" || id === "textreset") return void changeSize(id === "bigger" ? 1 : id === "smaller" ? -1 : 0);
     if (id === "chat") return setChat(!chatOpen);
     if (id === "guide") {
       guideOpen = true;

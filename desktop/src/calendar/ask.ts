@@ -77,7 +77,7 @@ export function classify(raw: string, now: Date): "ask" | "put" | "both" {
 
 const PASTED = /\[(?:오전|오후)\s*\d{1,2}:\d{2}\]|^\S{1,10}\s*:\s/m;
 const SETTING_WORDS = /(알람|알림|설정|글씨|글자|소리|진동|테마|기본\s*길이|다크|라이트|어둡게|밝게|화면|출근\s*시[각간]|퇴근\s*시[각간]|점심\s*시간\s*[은는을이])/;
-const ORDER_WORDS = /(해\s*줘|해\s*주|하십시오|하세요|바꿔|바꾸|으로\s*해|로\s*해|게\s*해|되게|울리게|맞춰|해\s*놔|해\s*둬)/;
+const ORDER_WORDS = /(키워|줄여|크게|작게|해\s*줘|해\s*주|하십시오|하세요|바꿔|바꾸|으로\s*해|로\s*해|게\s*해|되게|울리게|맞춰|해\s*놔|해\s*둬)/;
 
 /**
  * 넣기·질문·설정 나누기 (the AI) is worth one small call: a question or a setting order somewhere

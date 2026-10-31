@@ -93,6 +93,7 @@ export function tauriAdapter(): BlackholeAdapter {
     secretIntake: (text, secret) => invoke<"put" | "secret" | "ask">("secret_intake", { text, secret }),
     raycastInstall: () => invoke<string>("raycast_install"),
     openQuick: () => void invoke("quick_action", { action: "quick" }),
+    setZoom: (scale) => invoke("set_zoom", { scale }),
     onMenu(h) {
       void listen<string>("bh-menu", (e) => h(e.payload));
     },
