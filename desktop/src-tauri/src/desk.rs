@@ -137,20 +137,30 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, WorkerError> 
 
 #[tauri::command]
 pub fn load_calendar_state(app: AppHandle) -> Result<Option<serde_json::Value>, String> {
-    calendar::load_state(&data_dir(&app)?).map_err(|e| format!("달력 자료를 불러올 수 없습니다: {e}"))
+    let dir = data_dir(&app)?;
+    let state = calendar::load_state(&dir).map_err(|e| format!("달력 자료를 불러올 수 없습니다: {e}"))?;
+    // The day's copy also when the app only starts (a day with no change still has one).
+    if state.is_some() {
+        backup_today(&dir);
+    }
+    Ok(state)
+}
+
+/// 자동 백업: this Mac and the Drive 「블랙홀/백업/」 (a disk lost, a file broken, a wrong delete), once a day.
+fn backup_today(dir: &Path) {
+    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    let mut folders = vec![dir.join(calendar::BACKUP_DIR)];
+    if let Some(root) = calendar::find_drive_blackhole(&home) {
+        folders.push(root.join(calendar::BACKUP_DIR));
+    }
+    calendar::daily_backup(dir, &folders, &chrono::Local::now().format("%Y-%m-%d").to_string());
 }
 
 #[tauri::command]
 pub fn save_calendar_state(app: AppHandle, state: serde_json::Value) -> Result<(), String> {
     let dir = data_dir(&app)?;
     calendar::save_state(&dir, &state).map_err(|e| format!("달력 자료를 저장할 수 없습니다: {e}"))?;
-    // 자동 백업: this Mac and the Drive 「블랙홀/백업/」 (a disk lost, a file broken, a wrong delete).
-    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
-    let mut folders = vec![dir.join(calendar::BACKUP_DIR)];
-    if let Some(root) = calendar::find_drive_blackhole(&home) {
-        folders.push(root.join(calendar::BACKUP_DIR));
-    }
-    calendar::daily_backup(&dir, &folders, &chrono::Local::now().format("%Y-%m-%d").to_string());
+    backup_today(&dir);
     Ok(())
 }
 
