@@ -817,6 +817,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         <div class="set-row">끝 없는 일정 기본 길이 <input class="tin" data-time="eventMinutes" value="${st.eventMinutes}" style="width:44px">분</div>
         <div class="set-row">알림 일정 <input class="tin" data-time="remindMinutes" value="${st.remindMinutes ?? 30}" style="width:44px">분 전</div>
         <label class="set-row"><input type="checkbox" data-set="showPeriods" ${st.showPeriods ? "checked" : ""}> 하루표에 교시 구간 옅게</label>
+        <label class="set-row"><input type="checkbox" data-set="brief" ${st.brief !== false ? "checked" : ""}> 출근 때 오늘 할 일 한눈에 · 퇴근 전 못 끝낸 할 일 알려 주기</label>
         <div class="set-note">「퇴근 전」 「출근 전」 「점심시간에」 「3교시 전/에/끝나고」를 이 시간으로 읽습니다. 24시간(예: 08:50-09:35).</div>` },
       { id: "routine", name: "루틴", sum: `${s.routines.filter((r) => !r.gone).length}개`, body: routineRows() },
       { id: "alarm", name: "알람", sum: desk?.settings.alarmSound ?? "", body: `${soundRow}<div class="set-row"><button class="mini" data-testalarm>알람 시험 (1분 뒤)</button>${adapter.desk ? '<button class="mini" data-guide>처음 쓰기 안내</button>' : ""}</div>` }
@@ -1509,6 +1510,74 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     await save();
     syncAlarms();
     render();
+  }
+
+  /**
+   * 먼저 알려 주는 비서 (2026-10-31, AI 없음): on a school day, from 출근 until noon, one line of today
+   * (일정 · 마감 · 밀린 할 일 → 「오늘로」); from 20 minutes before 퇴근, today's unfinished to-dos (→ 「내일로」,
+   * Friday → Monday). Each once a day.
+   */
+  function briefing(): void {
+    if (!s.settings.brief) return;
+    const now = clock();
+    const day = now.getDay();
+    if (day === 0 || day === 6) return;
+    const today = ymd(now);
+    const m = now.getHours() * 60 + now.getMinutes();
+    const fd = theme().fd;
+    const list = (xs: string[]) => (xs.length > 5 ? `${xs.slice(0, 5).join(" · ")} 외 ${xs.length - 5}` : xs.join(" · "));
+    const open = s.tasks.filter((t) => !t.gone && !t.done && !t.noDue && !t.sample);
+    if (m >= mins(s.settings.onWork) && m < 12 * 60 && !s.briefs.includes(`${today}:am`)) {
+      s.briefs.push(`${today}:am`);
+      const evs = s.events.filter((e) => !e.gone && !e.sample && e.date === today).sort((a, b) => (a.start ?? "").localeCompare(b.start ?? ""));
+      const due = open.filter((t) => t.due === today).sort((a, b) => (a.dueTime ?? "99").localeCompare(b.dueTime ?? "99"));
+      const late = open.filter((t) => t.due < today).sort((a, b) => a.due.localeCompare(b.due));
+      // Nothing today and nothing behind: no line (an empty day needs no message).
+      if (!evs.length && !due.length && !late.length) return void save();
+      const lines = [`오늘 ${fd(today)}`];
+      lines.push(evs.length ? `일정 ${evs.length} — ${list(evs.map((e) => `${e.start ?? "종일"} ${e.title}`))}` : "일정 없음");
+      lines.push(due.length ? `마감 ${due.length} — ${list(due.map((t) => `${t.dueTime ? t.dueTime + " " : ""}${t.title}`))}` : "오늘 마감 없음");
+      if (late.length) lines.push(`밀린 할 일 ${late.length} — ${list(late.map((t) => `${t.title}(${fd(t.due)})`))}`);
+      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: lines.join("\n"), brief: { kind: "am", ids: late.map((t) => t.id), to: "오늘", day: today } });
+      void save().then(render);
+      return;
+    }
+    if (m >= mins(s.settings.offWork) - 20 && !s.briefs.includes(`${today}:pm`)) {
+      const left = open.filter((t) => t.due <= today).sort((a, b) => a.due.localeCompare(b.due) || (a.dueTime ?? "99").localeCompare(b.dueTime ?? "99"));
+      s.briefs.push(`${today}:pm`);
+      if (!left.length) return void save();
+      const next = ymd(addDays(now, day === 5 ? 3 : 1));
+      s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: `퇴근 전 · 오늘까지인데 안 끝난 할 일 ${left.length}\n${list(left.map((t) => `${t.title}${t.due < today ? `(${fd(t.due)})` : ""}`))}`, brief: { kind: "pm", ids: left.map((t) => t.id), to: day === 5 ? "월요일" : "내일", day: next } });
+      void save().then(render);
+    }
+  }
+
+  /** 「밀린 n개 오늘로」 / 「모두 내일로」: the to-dos still open move there, time kept, one ⌘Z. */
+  function moveBrief(id: string): void {
+    const m = s.chat.find((x) => x.id === id);
+    const b = m?.brief;
+    if (!m || !b || b.done) return;
+    const to = b.day;
+    const moved = b.ids.map((i) => s.tasks.find((t) => t.id === i)).filter((t): t is Task => !!t && !t.gone && !t.done);
+    const before = moved.map((t) => structuredClone(t));
+    for (const t of moved) {
+      const delta = parseDay(to).getTime() - parseDay(t.due).getTime();
+      t.due = to;
+      t.reminders = t.reminders.map((r) => stamp(new Date(fromStamp(r).getTime() + delta))).filter((r) => fromStamp(r).getTime() > clock().getTime());
+      t.touched = true;
+    }
+    b.done = true;
+    log(s, { label: "옮김", msg: `${moved.length}개 → ${theme().fd(to)}`, src: adapter.origin }, clock());
+    undoStack.push({ label: `할 일 ${moved.length}개 옮김`, run: () => {
+      for (const old of before) {
+        const t = s.tasks.find((x) => x.id === old.id);
+        if (t) Object.assign(t, old);
+      }
+      b.done = false;
+      void act(() => undefined);
+    } });
+    toast(`할 일 ${moved.length}개를 ${theme().fd(to)}로 옮겼어요`, undefined, true);
+    void act(() => undefined);
   }
 
   /** 「이상해요」: the words before this answer, what it did, what was meant → the fix list (this Mac only). */
@@ -2512,6 +2581,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (x?.kind !== "event" || !x.start) return;
       return retime(detailId, null, { start: x.start, end: hm(Math.min(mins(x.start) + Number(q("#bhDetail [data-dlen]")!.dataset.dlen), 23 * 60 + 59)) }, "", "시각");
     }
+    if (q("[data-brief]")) return moveBrief(q("[data-brief]")!.dataset.brief!);
     if (q("[data-report]")) {
       const m = s.chat.find((x) => x.id === q("[data-report]")!.dataset.report);
       if (!m) return;
@@ -3168,6 +3238,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (key === "mode") s.settings.mode = el.value as "dark" | "light";
     if (key === "samples") s.settings.showSamples = (el as HTMLInputElement).checked;
     if (key === "showPeriods") s.settings.showPeriods = (el as HTMLInputElement).checked;
+    if (key === "brief") s.settings.brief = (el as HTMLInputElement).checked;
     if (key === "glassBlur" || key === "glassBright") {
       s.settings[key] = Number(el.value);
       applyLook();
@@ -3780,8 +3851,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       lastNowMinute = m;
       if (!alarmOn && !document.querySelector(".subadd:focus") && view === "day") render();
       if (m % 30 === 0) syncAlarms();
+      briefing();
     }
   }, 15_000));
+  briefing();
   timers.push(window.setInterval(() => {
     void pullInbox();
     void pullPhoneActions();

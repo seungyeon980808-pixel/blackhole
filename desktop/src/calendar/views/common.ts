@@ -269,8 +269,18 @@ function reportHTML(m: ChatMessage): string {
   return `<button type="button" class="mini rep" data-report="${m.id}" title="이 결과가 이상하면 눌러 고칠 목록에 넣기">이상해요</button>`;
 }
 
+/** 출근·퇴근 전 한눈에: the one click under it. */
+function briefHTML(m: ChatMessage): string {
+  const b = m.brief;
+  if (!b || !b.ids.length) return "";
+  if (b.done) return `<div class="repdone">옮겼어요 · ⌘Z 되돌리기</div>`;
+  const label = b.kind === "am" ? `밀린 ${b.ids.length}개 오늘로` : `${b.ids.length}개 모두 ${b.to}로 옮기기`;
+  return `<div class="ra"><button type="button" class="mini" data-brief="${m.id}">${esc(label)}</button></div>`;
+}
+
 /** Cards under a chat message: answers (hits) or put-in results (refs), and the 「찾기/넣기」 choice. */
 export function chatCards(ctx: Ctx, m: ChatMessage, fd: (k: string) => string): string {
+  if (m.brief) return briefHTML(m);
   // An answer from the records (2026-10-30 사용자: 근거는 묻지 않으면 아래에 작게): one folded line, a click opens the record.
   if (m.scope !== undefined) {
     const srcs = (m.hits ?? []).map((h) => `<button type="button" class="srcb" data-srcopen="${esc(h.id)}" title="${esc(`${KIND_LABEL[h.kind]} · ${h.where}`)}">${esc(h.title)}<span>${esc(h.when)}</span></button>`).join("");

@@ -140,6 +140,8 @@ export interface ChatMessage {
   /** 「이상해요」: the line to say what was meant is open / it was sent to the fix list. */
   reporting?: boolean;
   reported?: boolean;
+  /** 출근·퇴근 전 한눈에: its to-dos, for the one-click move (오늘로 / 내일로). */
+  brief?: { kind: "am" | "pm"; ids: string[]; /** 오늘 / 내일 / 월요일 */ to: string; /** YYYY-MM-DD */ day: string; done?: boolean };
   /** The answer's grounds shown unfolded (the question asked for them: 「근거」 「출처」). */
   openSrc?: boolean;
 }
@@ -212,6 +214,8 @@ export interface Settings {
   eventMinutes: number;
   /** A time without its own reminder rings this many minutes before (말로 바꿈: 「알람은 2분 전에」). */
   remindMinutes: number;
+  /** 출근 때 오늘 할 일 한눈에 · 퇴근 전 못 끝낸 할 일 내일로 (대화 패널, AI 없음). */
+  brief: boolean;
   /** Faint school-period bands on the day band and the week (weekdays). */
   showPeriods: boolean;
 }
@@ -240,6 +244,8 @@ export interface CalendarState {
   phoneAnswers: PhoneAnswer[];
   /** 「이상해요」: what went wrong, for the next round of fixes (this Mac only, never shared). */
   reports: Report[];
+  /** Briefs already shown (`YYYY-MM-DD:am` / `:pm`). */
+  briefs: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -259,6 +265,7 @@ export const DEFAULT_SETTINGS: Settings = {
   periods: ["08:50-09:35", "09:45-10:30", "10:40-11:25", "11:35-12:20", "13:20-14:05", "14:15-15:00", "15:10-15:55"],
   eventMinutes: 60,
   remindMinutes: 30,
+  brief: true,
   showPeriods: true
 };
 
@@ -288,7 +295,8 @@ export function emptyState(): CalendarState {
     nextId: 1,
     routines: [],
     phoneAnswers: [],
-    reports: []
+    reports: [],
+    briefs: []
   };
 }
 
@@ -380,7 +388,8 @@ export function normalizeState(value: unknown): CalendarState | null {
     nextId: typeof v.nextId === "number" && v.nextId > 0 ? v.nextId : 1,
     routines: list<Routine>(v.routines),
     phoneAnswers: list<PhoneAnswer>(v.phoneAnswers).slice(-50),
-    reports: list<Report>(v.reports).slice(-500)
+    reports: list<Report>(v.reports).slice(-500),
+    briefs: list<string>(v.briefs).slice(-60)
   };
 }
 
