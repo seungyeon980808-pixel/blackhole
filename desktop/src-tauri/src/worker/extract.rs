@@ -623,6 +623,16 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
                 resolved.end_at = resolved.end_at.map(|e| e - Duration::days(n));
             }
         }
+        // 「금 7시 반 공연」 「8시 회식」: a bare 7–11시 is morning, except for what people do in the evening.
+        if let Some(at) = resolved.start_at {
+            let h = chrono::Timelike::hour(&at);
+            let bare = !time_text.is_empty() && !regex::Regex::new(r"오전|아침|새벽|낮|오후|저녁|밤|:|\d{3,4}").unwrap().is_match(&time_text);
+            let evening = regex::Regex::new(r"공연|영화|회식|저녁|술|동창|모임|운동|헬스|필라테스|요가|콘서트|뮤지컬|연극|파티|외식|축하").unwrap().is_match(&format!("{title} {sentence}"));
+            if bare && (7..=11).contains(&h) && evening && !regex::Regex::new(r"오전|아침|새벽|조찬|출근").unwrap().is_match(&sentence) {
+                resolved.start_at = Some(at + Duration::hours(12));
+                resolved.end_at = resolved.end_at.map(|e| e + Duration::hours(12));
+            }
+        }
         // 「10시 40분에 조퇴라서 11시까지 일원역으로 가야 함」: the trip ends at the 「…까지」 time (not an hour from 11).
         if kind == "SCHEDULE" && title.ends_with("이동") {
             if let (Some(at), Some(c)) = (resolved.start_at, regex::Regex::new(r"(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분|\s*(반))?\s*까지").unwrap().captures(&sentence)) {
@@ -793,6 +803,17 @@ mod tests {
     }
 
     const TEXT: &str = "내일 오후 3시에 학부모 상담 일정 추가해줘.";
+
+    #[test]
+    fn evening_things_at_a_bare_seven_are_in_the_evening() {
+        let at = |text: &str, title: &str, time: &str| {
+            let v = json!({"kind":"SCHEDULE","area":"PERSONAL","title":title,"details":"","dateText":"내일","timeText":time,"evidence":text,"confidence":0.9});
+            validate(&answer(vec![v]).to_string(), Some(text), reference()).unwrap().items[0].start_at.clone()
+        };
+        assert_eq!(at("내일 7시 반 공연", "공연", "7시 반"), "2026-10-22T19:30:00+09:00");
+        assert_eq!(at("내일 8시 회의", "회의", "8시"), "2026-10-22T08:00:00+09:00");
+        assert_eq!(at("내일 아침 7시 반 조찬 모임", "조찬 모임", "7시 반"), "2026-10-22T07:30:00+09:00");
+    }
 
     #[test]
     fn a_trip_ends_at_the_time_it_must_arrive() {
