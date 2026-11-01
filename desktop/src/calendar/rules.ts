@@ -525,6 +525,8 @@ export const notJustAMemo = (raw: string): boolean => {
   const lines = raw.split("\n").map((l) => l.trim().replace(/[,，]\s*$/, "")).filter(Boolean);
   if (lines.length > 1 && lines.some((l) => notJustAMemo(l))) return true;
   const t = raw.trim().replace(/[,，]\s*$/, "");
+  // 「풍선 사서 은하 팽창 보여주기 서유경 티」: a 「…하기」 to-do with a name after it.
+  if (/[가-힣](?:하기|보기|주기|사기|쓰기|내기|받기|올리기|챙기기|만들기|보내기|찾기|알리기)(?=[\s,.]|$)/.test(t) && !/^메모\s/.test(t)) return true;
   // 「임용2차 감독 안 하게 됐어」 「모임 불참」: a change to what is in the calendar, the AI's to match.
   return TODO_END.test(t) || DONE_END.test(t) || CONDITION.test(t) || AI_ONLY.test(t) || DATE_DIGITS(t) || /안\s*(?:하|가)(?:게|기로)|못\s*가|불참/.test(t);
 };

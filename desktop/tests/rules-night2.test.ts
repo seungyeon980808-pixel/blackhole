@@ -60,3 +60,10 @@ describe("여러 줄 중 한 줄이 할 일 (실제 10/30)", () => {
     expect(memoDraft("3반 민수 땅콩 알레르기 있음\n엄마 연락처는 기록부", NOW)?.final).toBe(true);
   });
 });
+
+describe("문장 가운데 「…하기」 (실제 10/30)", () => {
+  it("「풍선 사서 은하 팽창 보여주기 서유경 티」는 할 일 후보, 「메모 …」는 그대로 기억", () => {
+    expect(memoDraft("풍선 사서 은하 팽창 보여주기 서유경 티", NOW)?.final ?? false).toBe(false);
+    expect(memoDraft("메모 다음엔 보여주기 실험", NOW)?.final).toBe(true);
+  });
+});
