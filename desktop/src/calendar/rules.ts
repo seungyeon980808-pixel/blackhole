@@ -55,7 +55,8 @@ const WEEKDAYS = ["일요일", "월요일", "화요일", "수요일", "목요일
  * 「내알」 「tmr」 → 내일, 「모래 3시」 → 모레, 「목 6교시」 「수 12시 30분」 → 목요일·수요일, 「이달 말」 → 이번 달 말.
  */
 export function spokenDays(text: string): string {
-  const when = "(?=\\s*(?:\\d|오전|오후|아침|저녁|점심|밤|새벽|낮|퇴근|출근))";
+  // Only before a time (「월 1회 점검」 「일 3개 남음」 stay as they are).
+  const when = "(?=\\s+(?:\\d{1,2}\\s*(?:시|교시|:)|오전|오후|아침|저녁|점심|밤|새벽|낮|퇴근|출근))";
   return text
     .replace(/내알|(?<![A-Za-z])tmrw?(?![A-Za-z])/gi, "내일")
     .replace(new RegExp(`(?<![가-힣])모래${when}`, "g"), "모레")

@@ -318,6 +318,23 @@ fn optional_string(object: &Map<String, Value>, key: &str, at: &str) -> Result<S
     }
 }
 
+/// Day words typed in a hurry (the phone, a text file), made plain before the model reads them — the same as the
+/// app's `spokenDays`: 「내알」 「tmr」 → 내일, 「모래 3시」 → 모레, 「목 6교시」 「수 12:30」 → 목요일·수요일, 「이달 말」 → 이번 달 말.
+/// Only before a time: 「월 1회 점검」 「모래 놀이」 stay.
+pub fn spoken_days(text: &str) -> String {
+    use std::sync::OnceLock;
+    static TMR: OnceLock<regex::Regex> = OnceLock::new();
+    static SAND: OnceLock<regex::Regex> = OnceLock::new();
+    static DAY: OnceLock<regex::Regex> = OnceLock::new();
+    static MONTH: OnceLock<regex::Regex> = OnceLock::new();
+    const WHEN: &str = r"(\s+(?:\d{1,2}\s*(?:시|교시|:)|오전|오후|아침|저녁|점심|밤|새벽|낮|퇴근|출근))";
+    let t = text.replace("내알", "내일");
+    let t = TMR.get_or_init(|| regex::Regex::new(r"(?i)\btmrw?\b").unwrap()).replace_all(&t, "내일").into_owned();
+    let t = SAND.get_or_init(|| regex::Regex::new(&format!(r"(^|[^가-힣])모래{WHEN}")).unwrap()).replace_all(&t, "${1}모레${2}").into_owned();
+    let t = DAY.get_or_init(|| regex::Regex::new(&format!(r"(?m)(^|[\s,(])([월화수목금토일]){WHEN}")).unwrap()).replace_all(&t, "${1}${2}요일${3}").into_owned();
+    MONTH.get_or_init(|| regex::Regex::new(r"이달\s*(말|안|중|내)").unwrap()).replace_all(&t, "이번 달 $1").into_owned()
+}
+
 /// 「칠교시」 → 「7교시」, 「오반도」 → 「5반도」, 「삼학년」 → 「3학년」: one number word glued to 반·학년·교시·모둠·조
 /// at a word start (same rule as the app's fixNumbers).
 pub fn dictated_numbers(text: &str) -> String {
@@ -827,6 +844,18 @@ mod tests {
         let v = json!({"kind":"TODO","area":"PERSONAL","title":"공과금 납부","details":"","dateText":"화요일","timeText":"","evidence":text,"confidence":0.9});
         let e = validate(&answer(vec![v]).to_string(), Some(text), reference()).unwrap();
         assert_eq!(&e.items[0].start_at[..10], "2026-10-27");
+    }
+
+    #[test]
+    fn hurried_day_words_are_made_plain() {
+        assert_eq!(spoken_days("내알 저녁 7시 엄마랑 저녁"), "내일 저녁 7시 엄마랑 저녁");
+        assert_eq!(spoken_days("tmr 점심 식사"), "내일 점심 식사");
+        assert_eq!(spoken_days("모래 3시 치과"), "모레 3시 치과");
+        assert_eq!(spoken_days("목 6교시 진로 상담"), "목요일 6교시 진로 상담");
+        assert_eq!(spoken_days("이달 말까지 연말정산"), "이번 달 말까지 연말정산");
+        for t in ["월 1회 점검", "일 3개 남음", "모래 놀이 준비물", "목 아파서 병원"] {
+            assert_eq!(spoken_days(t), t);
+        }
     }
 
     #[test]

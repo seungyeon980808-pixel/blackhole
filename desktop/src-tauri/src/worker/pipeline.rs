@@ -266,7 +266,8 @@ pub fn decode_text(bytes: &[u8]) -> Result<String, WorkerError> {
     } else {
         cp949(bytes)
     };
-    text.ok_or_else(|| WorkerError::new(ErrorCode::UnsupportedInput, UNREADABLE_TEXT))
+    // 「내알」 「목 6교시」 from the phone or a file: plain day words before the model reads them.
+    text.map(|t| crate::worker::extract::spoken_days(&t)).ok_or_else(|| WorkerError::new(ErrorCode::UnsupportedInput, UNREADABLE_TEXT))
 }
 
 /// EUC-KR/CP949 through the system iconv (macOS has it; no extra crate). None when it is not that either.

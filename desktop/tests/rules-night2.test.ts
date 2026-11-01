@@ -143,3 +143,11 @@ describe("「…목요일로」는 옮기기 (5차 재검)", () => {
     expect(s.tasks.map((t) => [t.id, t.due])).toEqual([["t1", "2026-11-05"]]);
   });
 });
+
+describe("요일 줄임말은 시각 앞에서만", () => {
+  it("「월 1회 점검」 「일 3개 남음」은 그대로", async () => {
+    const { spokenDays } = await import("../src/calendar/rules");
+    for (const t of ["월 1회 점검", "일 3개 남음"]) expect(spokenDays(t)).toBe(t);
+    expect(spokenDays("수 12:30 점심")).toBe("수요일 12:30 점심");
+  });
+});
