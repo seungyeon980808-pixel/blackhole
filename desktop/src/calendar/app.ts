@@ -81,7 +81,14 @@ const RETIME_RE = /^(.+?)\s*(?:을|를|은|는|도)?\s*(?:((?:다음\s*주\s*)?[
 
 export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapter, options: MountOptions = {}): Promise<BlackholeApp> {
   const clock = options.now ?? (() => new Date());
-  const stored = normalizeState(await adapter.load().catch(() => null));
+  // Not read (a disk error) or not a calendar: start empty but never save over the file
+  // (an empty save would replace everything); the line at the top says so.
+  let unreadable: string | null = null;
+  const raw = await adapter.load().catch((e: unknown) => ((unreadable = friendlyError(e)), null));
+  const stored = normalizeState(raw);
+  if (raw !== null && raw !== undefined && !stored) unreadable = "달력 파일을 읽지 못함";
+  /** 「깨진 달력 파일을 백업(달력-2026-10-31.json)으로 되살림」 (Mac). */
+  const restoredFrom = typeof (raw as { restoredFrom?: unknown } | null)?.restoredFrom === "string" ? (raw as { restoredFrom: string }).restoredFrom : null;
   // Sample data only for a browser preview that asks for it (seed: true); the app starts empty.
   const s: CalendarState = stored ?? (options.seed === true ? seedState(clock()) : normalizeState({ schemaVersion: 1 })!);
   // 「대의원회 일주일 전」 to-dos that came in before their appointment did: count them now.
@@ -227,9 +234,21 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       lastShared = "";
     });
   };
+  let saveWarnAt = 0;
+  /** Writes the calendar; a failure is said (at most once a minute), a file that could not be read is never written over. */
+  const persist = async (): Promise<void> => {
+    if (unreadable) return toast(`저장하지 않았어요 · ${unreadable} · 블랙홀을 다시 열어 주세요`);
+    await adapter.save(s).catch((e: unknown) => {
+      console.error("저장 실패", e);
+      if (Date.now() - saveWarnAt > 60_000) {
+        saveWarnAt = Date.now();
+        toast(`저장하지 못했어요 · ${friendlyError(e)}`);
+      }
+    });
+  };
   const save = async () => {
     dataVer++;
-    await adapter.save(s).catch((e: unknown) => console.error("저장 실패", e));
+    await persist();
     if (adapter.publishShared && s.settings.sharePhone && shareTimer === undefined) {
       const wait = Math.max(1500, lastSharedAt + SHARE_GAP_MS - Date.now());
       shareTimer = window.setTimeout(publishNow, wait);
@@ -3759,7 +3778,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     takeShared(s, shared, adapter.localDrafts?.() ?? []);
     const now = clock();
     for (const a of pendingActions) applyAction(s, a, now);
-    void adapter.save(s);
+    void persist();
     syncAlarms();
     render();
   });
@@ -3921,6 +3940,16 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       briefing();
     }
   }, 15_000));
+  if (restoredFrom || unreadable) {
+    const day = restoredFrom ? /(\d{4})-(\d{2})-(\d{2})/.exec(restoredFrom) : null;
+    const text = restoredFrom
+      ? `달력 파일이 깨져 있어 ${day ? `${+day[2]}/${+day[3]}` : ""} 백업으로 되살렸어요 · 그 뒤에 넣은 것은 다시 넣어 주세요(깨진 파일은 지우지 않고 옆에 둠)`
+      : `달력 자료를 읽지 못했어요(${unreadable}) · 지금 화면은 비어 있고, 원래 파일을 지키려고 저장하지 않아요 · 블랙홀을 다시 열어 주세요`;
+    s.chat.push({ id: newId(s, "c"), at: stamp(clock()), who: "ai", text, error: !!unreadable });
+    chatOpen = true;
+    if (restoredFrom) void save();
+    render();
+  }
   briefing();
   timers.push(window.setInterval(() => {
     void pullInbox();

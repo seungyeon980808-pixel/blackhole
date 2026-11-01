@@ -67,3 +67,35 @@ describe("글자 크기 (Mac)", () => {
     expect(zooms.at(-1)).toBe(1.3);
   });
 });
+
+describe("자료 지키기", () => {
+  it("읽기 실패: 빈 화면으로 열려도 원래 파일 위에 저장하지 않고, 대화에 한 줄", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const root = document.querySelector<HTMLElement>("#app")!;
+    const saved: unknown[] = [];
+    app = await mountBlackhole(root, { ...memoryAdapter(), load: async () => { throw new Error("Operation not permitted (os error 1)"); }, save: async (x) => void saved.push(x) }, { now: () => new Date("2026-11-01T10:00:00") });
+    await app.submitText("내일 3시 치과");
+    expect(saved).toHaveLength(0);
+    expect(app.state.chat[0].text).toContain("저장하지 않아요");
+  });
+
+  it("깨진 파일을 백업으로 되살렸으면: 대화에 몇 월 며칠 백업인지, 되살린 자료는 저장", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const root = document.querySelector<HTMLElement>("#app")!;
+    const saved: { restoredFrom?: string }[] = [];
+    const raw = { schemaVersion: 1, restoredFrom: "달력-2026-10-31.json", tasks: [] };
+    app = await mountBlackhole(root, { ...memoryAdapter(), load: async () => raw, save: async (x) => void saved.push(x as never) }, { now: () => new Date("2026-11-01T10:00:00") });
+    await tick();
+    expect(app.state.chat[0].text).toContain("10/31 백업으로 되살렸어요");
+    expect(saved.length).toBeGreaterThan(0);
+    expect(saved[0].restoredFrom).toBeUndefined();
+  });
+
+  it("저장 실패는 말없이 넘어가지 않음", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const root = document.querySelector<HTMLElement>("#app")!;
+    app = await mountBlackhole(root, { ...memoryAdapter(), save: async () => { throw new Error("No space left on device (os error 28)"); } }, { now: () => new Date("2026-11-01T10:00:00") });
+    await app.submitText("내일 3시 치과");
+    expect(root.querySelector("#bhToast")!.textContent).toContain("디스크 공간이 부족함");
+  });
+});

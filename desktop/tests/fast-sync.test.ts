@@ -302,6 +302,8 @@ describe("Drive 「달력.json」 is written only when it changes, at most every
       }
     };
     await mount(adapter);
+    // What the start itself saved (the morning brief) is done before sharing is on.
+    for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
     app!.state.settings.sharePhone = true;
     vi.useFakeTimers();
     try {

@@ -22,6 +22,18 @@ pub const SHARED_FILE: &str = "달력.json";
 /// Load the calendar state. A file that is not JSON is moved aside (never deleted) and
 /// `None` is returned, so the app starts fresh instead of crashing.
 pub fn load_state(dir: &Path) -> io::Result<Option<serde_json::Value>> {
+    load_state_or_restore(dir, &[])
+}
+
+fn read_state(path: &Path) -> Option<serde_json::Value> {
+    let v = serde_json::from_slice::<serde_json::Value>(&fs::read(path).ok()?).ok()?;
+    (v.get("schemaVersion").and_then(|x| x.as_u64()) == Some(1)).then_some(v)
+}
+
+/// Like `load_state`, but a broken file comes back from the newest good daily copy in `backups`
+/// (this Mac's 백업/, then the Drive's): it is put in place and the state carries
+/// `"restoredFrom": "<file name>"` so the page can say so. Nothing good: `None` (start fresh).
+pub fn load_state_or_restore(dir: &Path, backups: &[PathBuf]) -> io::Result<Option<serde_json::Value>> {
     let path = dir.join(STATE_FILE);
     if !path.exists() {
         return Ok(None);
@@ -32,6 +44,21 @@ pub fn load_state(dir: &Path) -> io::Result<Option<serde_json::Value>> {
         _ => {
             let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
             fs::rename(&path, dir.join(format!("{STATE_FILE}.corrupt-{stamp}")))?;
+            for folder in backups {
+                let mut copies: Vec<PathBuf> = fs::read_dir(folder)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|e| e.ok().map(|e| e.path()))
+                    .filter(|p| p.file_name().is_some_and(|n| { let n = n.to_string_lossy(); n.starts_with("달력-") && n.ends_with(".json") }))
+                    .collect();
+                copies.sort();
+                for copy in copies.iter().rev() {
+                    let Some(mut v) = read_state(copy) else { continue };
+                    fs::copy(copy, &path)?;
+                    v["restoredFrom"] = serde_json::Value::String(copy.file_name().unwrap_or_default().to_string_lossy().into_owned());
+                    return Ok(Some(v));
+                }
+            }
             Ok(None)
         }
     }
@@ -413,6 +440,22 @@ pub fn now_ms() -> i64 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_broken_file_comes_back_from_the_newest_good_copy() {
+        let dir = tempfile::tempdir().unwrap();
+        let backups = dir.path().join(BACKUP_DIR);
+        fs::create_dir_all(&backups).unwrap();
+        fs::write(backups.join("달력-2026-10-30.json"), r#"{"schemaVersion":1,"tasks":[{"id":"t-1"}]}"#).unwrap();
+        fs::write(backups.join("달력-2026-10-31.json"), "{깨짐").unwrap();
+        fs::write(dir.path().join(STATE_FILE), "{\"schemaVer").unwrap();
+        let v = load_state_or_restore(dir.path(), &[backups.clone()]).unwrap().unwrap();
+        assert_eq!(v["restoredFrom"], "달력-2026-10-30.json");
+        assert_eq!(v["tasks"][0]["id"], "t-1");
+        // The broken file is kept aside, the good copy is in place.
+        assert!(fs::read_dir(dir.path()).unwrap().any(|e| e.unwrap().file_name().to_string_lossy().contains(".corrupt-")));
+        assert!(read_state(&dir.path().join(STATE_FILE)).is_some());
+    }
+
     use super::*;
 
     fn spec() -> AlarmSpec {
