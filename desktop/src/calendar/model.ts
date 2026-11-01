@@ -69,6 +69,8 @@ export interface Routine {
   title: string;
   /** HH:MM */
   at: string;
+  /** HH:MM, when said (「교문지도 08:20~08:30」). */
+  end?: string;
   /** "daily" · "weekdays" · weekday numbers (0 = 일 … 6 = 토) */
   repeat: "daily" | "weekdays" | number[];
   /** Days it was done (YYYY-MM-DD). */
@@ -208,6 +210,8 @@ export interface Settings {
   offWork: string;
   /** 「점심 전/때」: lunch (HH:MM-HH:MM). */
   lunch: string;
+  /** 「조회 때/전/후」: the morning class meeting (HH:MM-HH:MM). */
+  assembly: string;
   /** 「n교시 전/후/에」: the school periods, in order (HH:MM-HH:MM each). */
   periods: string[];
   /** An appointment without an end is drawn this many minutes long (marked 「끝 미정」). */
@@ -264,6 +268,7 @@ export const DEFAULT_SETTINGS: Settings = {
   onWork: "08:20",
   offWork: "16:20",
   lunch: "12:20-13:20",
+  assembly: "08:40-08:50",
   periods: ["08:50-09:35", "09:45-10:30", "10:40-11:25", "11:35-12:20", "13:20-14:05", "14:15-15:00", "15:10-15:55"],
   eventMinutes: 60,
   remindMinutes: 30,

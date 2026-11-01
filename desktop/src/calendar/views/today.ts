@@ -214,7 +214,7 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
     // where it neither hides the box's name nor takes its clicks.
     // (Its name sits just above its line, so a box ending right there counts too.)
     const under = timed.some((e) => mins(e.start!) - 5 <= m && m <= (e.end ? mins(e.end) : mins(e.start!) + 30) + 10);
-    h += `<div class="rt ${dn ? "dn" : ""} ${under ? "side" : ""}" style="top:${y(m)}"><button data-rt="${r.id}" role="checkbox" aria-checked="${dn}" title="루틴 ${r.at} · ${repeatLabel(r)}${streak(r, k) ? ` · ${streak(r, k)}일째` : ""} · 누르면 ${dn ? "안 함으로" : "오늘 함"}">${esc(r.title)}${dn ? " ✓" : ""}</button></div>`;
+    h += `<div class="rt ${dn ? "dn" : ""} ${under ? "side" : ""}" style="top:${y(m)}"><button data-rt="${r.id}" role="checkbox" aria-checked="${dn}" title="루틴 ${r.at}${r.end ? `–${r.end}` : ""} · ${repeatLabel(r)}${streak(r, k) ? ` · ${streak(r, k)}일째` : ""} · 누르면 ${dn ? "안 함으로" : "오늘 함"}">${esc(r.title)}${dn ? " ✓" : ""}</button></div>`;
   }
   if (nowM >= S && nowM <= E) h += `<div class="nowl" style="top:${y(nowM)}"><span>${String(Math.floor(nowM / 60)).padStart(2, "0")}:${String(nowM % 60).padStart(2, "0")}</span></div>`;
   const dups = duplicates(ctx.s).filter((d) => d.x.kind === "event" && d.x.date === k);

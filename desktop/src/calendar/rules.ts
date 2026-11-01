@@ -228,6 +228,7 @@ export interface DayClock {
   onWork?: string;
   offWork?: string;
   lunch?: string;
+  assembly?: string;
   periods?: string[];
 }
 
@@ -388,6 +389,7 @@ export function timeWords(raw: string, day: DayClock = {}, now?: Date): string {
   const on = day.onWork || "08:20";
   const off = day.offWork || "16:20";
   const [l0, l1] = (day.lunch || "12:20-13:20").split("-");
+  const [a0, a1] = (day.assembly || "08:40-08:50").split("-");
   const per = day.periods ?? [];
   let v = fixNumbers(raw);
   if (now) v = dateWords(v, now);
@@ -421,6 +423,8 @@ export function timeWords(raw: string, day: DayClock = {}, now?: Date): string {
   });
   v = v.replace(/출근\s*(?:하기\s*)?(?:전에|전까지|전)/g, `${on}까지`).replace(/출근\s*(?:하면|후에|후|하고|해서)/g, `${on}`).replace(/아침에(?!\s*\d)/g, `${on}에`);
   v = v.replace(/퇴근\s*(?:하기\s*)?(?:전에|전까지|전|까지)/g, `${off}까지`).replace(/퇴근\s*(?:후에|후|하고)/g, `${off}`);
+  // 「조회 전에」 「조회 끝나고」 「조회 때」: this school's morning meeting (설정 → 학교 시간).
+  v = v.replace(/(?<!결과\s*|성적\s*)조회\s*(?:시간\s*)?(?:전에|전까지|전)/g, `${a0}까지`).replace(/(?<!결과\s*|성적\s*)조회\s*(?:시간\s*)?(?:끝나고|끝나면|후에|후|뒤에|뒤)/g, `${a1}`).replace(/(?<!결과\s*|성적\s*)조회\s*(?:시간|때)\s*(?:에서|에)?|(?<!결과\s*|성적\s*)조회\s*(?:에서|에)(?=\s|$)/g, `${a0}~${a1} `);
   v = v.replace(/점심\s*(?:시간\s*)?(?:전에|전까지|전)/g, `${l0}까지`).replace(/점심\s*(?:시간\s*)?(?:후에|후|먹고)/g, `${l1}`).replace(/점심\s*(?:시간|때)\s*(?:에)?|점심\s*에(?=\s)/g, `${l0}~${l1} `);
   v = v.replace(/(\d{1,2})\s*교시\s*(전에|전까지|전|후에|후|끝나고|뒤|에|부터)?/g, (m, n: string, w = "") => {
     const r = per[Number(n) - 1];

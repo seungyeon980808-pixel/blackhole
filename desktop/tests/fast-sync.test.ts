@@ -44,7 +44,7 @@ describe("draft first, AI later (Mac input)", () => {
     const draft = app!.state.events.find((e) => e.draft)!;
     expect(draft).toBeDefined();
     expect(draft.title).toContain("학부모 상담");
-    expect(draft.provisional).toBe(true);
+    expect(draft.provisional).toBe(false);
     app!.setView("day", draft.date);
     expect(root.querySelector(`[data-ev="${draft.id}"]`)).not.toBeNull();
     expect(root.textContent).toContain("초안");
@@ -67,7 +67,8 @@ describe("draft first, AI later (Mac input)", () => {
   it("does not overwrite a draft changed by hand: it only offers the AI version", async () => {
     const ai = deferred<Proposal>();
     const root = await mount({ ...memoryAdapter(), origin: "데스크톱", analyze: () => ai.promise });
-    const done = app!.submitText("내일 3시 학부모 상담");
+    // From the clipboard (someone else's words): 가승인, so 확정 is a hand change.
+    const done = app!.submitText("내일 3시 학부모 상담", "클립보드");
     const draft = app!.state.events.find((e) => e.draft)!;
     app!.setView("day", draft.date);
     root.querySelector<HTMLButtonElement>(`[data-ok="${draft.id}"]`)!.click();

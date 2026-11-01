@@ -244,10 +244,10 @@ function itemReview(item: ProposalItem): string[] | undefined {
 }
 
 /**
- * Schedules go in as 가승인 (provisional). To-dos, periods and notes go in directly
- * (the UI offers 되돌리기).
+ * Schedules go in as 가승인 (provisional), except what the user wrote or said themselves (`own`, 11-02:
+ * 「직접 쓴 일정은 확정」). To-dos, periods and notes go in directly (the UI offers 되돌리기).
  */
-export function applyProposal(s: CalendarState, p: Proposal, source: string, now: Date, srcKey?: string): Applied {
+export function applyProposal(s: CalendarState, p: Proposal, source: string, now: Date, srcKey?: string, own = false): Applied {
   const out: Applied = { refs: [], missing: [], done: [], changed: [], unmatched: [] };
   const createdAt = stamp(now);
   const today = ymd(now);
@@ -356,18 +356,18 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       item = { ...item, startAt: d.toISOString(), evidence: { ...item.evidence, dateText: prev.evidence.dateText } };
     }
     // 「퇴근 전에 공문 회신」 with the time words left out by the model: today, at this school's time.
-    if (!item.startAt && (item.kind === "TODO" || item.kind === "SCHEDULE") && !item.change && /\d\s*교시|점심|출근|퇴근/.test(sentence)) {
+    if (!item.startAt && (item.kind === "TODO" || item.kind === "SCHEDULE") && !item.change && /\d\s*교시|점심|출근|퇴근|(?<!결과\s*|성적\s*)조회\s*(?:시간|때|전|후|끝나|뒤|에)/.test(sentence)) {
       const d = new Date(now);
       d.setHours(9, 0, 0, 0);
       item = { ...item, startAt: d.toISOString(), endAt: "", evidence: { ...item.evidence, timeText: sentence } };
     }
     // 「내일 1교시 3반 수업」 with the day kept but the 교시 left out of the time: the 교시 is the time.
-    const lesson = !item.evidence.timeText.trim() && item.startAt && (item.kind === "TODO" || item.kind === "SCHEDULE") ? sentence.match(/\d\s*교시(?:\s*(?:끝나고|끝나면|후|전|부터|까지))?|점심\s*시간|퇴근\s*(?:전|후|하기\s*전)/) : null;
+    const lesson = !item.evidence.timeText.trim() && item.startAt && (item.kind === "TODO" || item.kind === "SCHEDULE") ? sentence.match(/\d\s*교시(?:\s*(?:끝나고|끝나면|후|전|부터|까지))?|점심\s*시간|퇴근\s*(?:전|후|하기\s*전)|조회\s*(?:시간|때|전|후|끝나고|뒤)/) : null;
     if (lesson) item = { ...item, evidence: { ...item.evidence, timeText: lesson[0] } };
     // 「3교시」 「점심시간」 「퇴근 전」: school words the worker does not know — this school's own times.
     // The model's time for 「목 점심에」 is just 「점심」: this school's lunch (not 12:00).
     const timeSaid = /^\s*점심\s*(?:에|때)?\s*$/.test(item.evidence.timeText) ? "점심시간" : item.evidence.timeText;
-    const school = item.startAt && /교시|점심|출근|퇴근/.test(timeSaid) ? timeWords(timeSaid, s.settings) : "";
+    const school = item.startAt && /교시|점심|출근|퇴근|조회/.test(timeSaid) ? timeWords(timeSaid, s.settings) : "";
     const span = school ? timeRange(school) : null;
     const one = school && !span ? singleTime(school) : null;
     const at = (hm: string) => {
@@ -459,7 +459,7 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       date: ymd(start),
       start: timed ? nowHM(start) : null,
       end,
-      provisional: true,
+      provisional: !own,
       reminders
     };
     s.events.push(ev);
@@ -545,7 +545,7 @@ const plusMinutes = (day: string, hhmm: string, n: number): string => stamp(new 
  * The rule-parser draft for a sentence, in the calendar at once. Same defaults as the worker:
  * schedules are 가승인, reminders 30 minutes before a time (a dated to-do: that day 09:00).
  */
-export function draftFromText(s: CalendarState, said: string, source: string, now: Date, srcKey: string): Entry {
+export function draftFromText(s: CalendarState, said: string, source: string, now: Date, srcKey: string, own = false): Entry {
   const text = chatStampsRemoved(said);
   // A note to remember is never forced into an appointment (「차 번호 12가 3456」, 「메모 …」).
   const m = memoDraft(text, now, s.settings);
@@ -567,7 +567,7 @@ export function draftFromText(s: CalendarState, said: string, source: string, no
     const ev: CalEvent = {
       ...base, id: draftId("e"), kind: "event", date: r.date, start: r.time,
       end: `${String(Math.floor(endM / 60)).padStart(2, "0")}:${String(endM % 60).padStart(2, "0")}`,
-      provisional: true, reminders: [plusMinutes(r.date, r.time, -(r.remindBefore ?? s.settings.remindMinutes ?? 30))]
+      provisional: !own, reminders: [plusMinutes(r.date, r.time, -(r.remindBefore ?? s.settings.remindMinutes ?? 30))]
     };
     ev.reminders = ev.reminders.filter((r) => fromStamp(r).getTime() > now.getTime());
     s.events.push(ev);
@@ -624,16 +624,16 @@ export interface Refined extends Applied {
  * no counterpart are removed (they were machine-made). A draft changed by hand keeps the
  * user's version and only carries the AI version as a suggestion. No group: plain apply.
  */
-export function refineDrafts(s: CalendarState, key: string, p: Proposal, source: string, now: Date): Refined {
+export function refineDrafts(s: CalendarState, key: string, p: Proposal, source: string, now: Date, own = false): Refined {
   const out: Refined = { refs: [], missing: [], updated: [], suggested: [], duplicate: false };
   const group = draftsOf(s, key);
   if (!group.length) {
     if (allEntries(s).some((x) => x.srcKey === key)) return { ...out, duplicate: true };
-    return { ...out, ...applyProposal(s, p, source, now, key) };
+    return { ...out, ...applyProposal(s, p, source, now, key, own) };
   }
   if (group.some((x) => x.touched)) {
     const scratch: CalendarState = { ...s, events: [], tasks: [], periods: [], notes: [], nextId: 1 };
-    applyProposal(scratch, p, source, now, key);
+    applyProposal(scratch, p, source, now, key, own);
     const suggest = allEntries(scratch).map(stripId);
     for (const d of group) {
       d.draft = false;
@@ -664,7 +664,7 @@ export function refineDrafts(s: CalendarState, key: string, p: Proposal, source:
     }
     return out;
   }
-  const applied = applyProposal(s, p, source, now, key);
+  const applied = applyProposal(s, p, source, now, key, own);
   out.missing = applied.missing;
   out.done = applied.done;
   out.changed = applied.changed;

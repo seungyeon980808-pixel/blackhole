@@ -170,6 +170,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   let gcal: GoogleCalendars | null = null;
   let board: BoardOptions | null = null;
   let messenger: MessengerStatus | null = null;
+  /** The last words pasted into the input box (see ownWords). */
+  let pastedText = "";
   let claude: ClaudeStatus | null = null;
   let claudeLine = "";
   let desk: DeskStatus | null = null;
@@ -820,7 +822,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const row = (r: Routine) => {
       const kind = r.repeat === "daily" ? "daily" : r.repeat === "weekdays" ? "weekdays" : "days";
       const days = Array.isArray(r.repeat) ? r.repeat : [];
-      return `<div class="set-row rtset"><input class="tin w2" data-rtf="${r.id}|title" value="${escapeHtml(r.title)}" aria-label="루틴 이름"><input class="tin" data-rtf="${r.id}|at" value="${r.at}" aria-label="시간">
+      return `<div class="set-row rtset"><input class="tin w2" data-rtf="${r.id}|title" value="${escapeHtml(r.title)}" aria-label="루틴 이름"><input class="tin${r.end ? " w2" : ""}" data-rtf="${r.id}|at" value="${r.at}${r.end ? `-${r.end}` : ""}" aria-label="시간">
         <select data-rtf="${r.id}|repeat" aria-label="반복"><option value="daily" ${kind === "daily" ? "selected" : ""}>매일</option><option value="weekdays" ${kind === "weekdays" ? "selected" : ""}>평일</option><option value="days" ${kind === "days" ? "selected" : ""}>요일 고르기</option></select>
         ${kind === "days" ? `<span class="rtdays">${[1, 2, 3, 4, 5, 6, 0].map((d) => `<button class="${days.includes(d) ? "on" : ""}" data-rtday="${r.id}|${d}" aria-pressed="${days.includes(d)}">${DAYS[d]}</button>`).join("")}</span>` : ""}
         <button class="ib" data-rtdel="${r.id}" title="지우기" aria-label="${escapeHtml(r.title)} 지우기">${ICON.x}</button></div>`;
@@ -869,8 +871,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         <label class="set-row"><input type="checkbox" data-desk="mainWidget" ${desk.settings.mainWidget ? "checked" : ""}> 프로그램 큰 화면도 위젯처럼(바탕화면에 붙이기)</label>
         <label class="set-row">표시 방식 <select data-desk="boardMode"><option value="desktop" ${(desk.settings.boardMode ?? "desktop") === "desktop" ? "selected" : ""}>바탕화면에(다른 창 아래)</option><option value="top" ${desk.settings.boardMode === "top" ? "selected" : ""}>항상 위</option><option value="peek" ${desk.settings.boardMode === "peek" ? "selected" : ""}>단축키로 잠깐 앞으로</option></select></label>
         <div class="set-note">모든 데스크톱에 보입니다. 위치·크기는 기억합니다. ${escapeHtml(desk.pretty.widget || "⌃⌥⌘W")}를 누르면 위젯이 잠깐 맨 앞으로 옵니다(단축키는 「단축키 · 시작」에서 바꿈).</div>` : "" }] : []),
-      { id: "school", name: "학교 시간", sum: `${st.onWork}–${st.offWork} · 점심 ${st.lunch.replace("-", "–")}`, body: `<div class="set-row">출근 <input class="tin" data-time="onWork" value="${st.onWork}"> 퇴근 <input class="tin" data-time="offWork" value="${st.offWork}"></div>
-        <div class="set-row">점심 <input class="tin w2" data-time="lunch" value="${st.lunch}"></div>
+      { id: "school", name: "학교 시간", sum: `${st.onWork}–${st.offWork} · 점심 ${st.lunch.replace("-", "–")} · 조회 ${st.assembly.replace("-", "–")}`, body: `<div class="set-row">출근 <input class="tin" data-time="onWork" value="${st.onWork}"> 퇴근 <input class="tin" data-time="offWork" value="${st.offWork}"></div>
+        <div class="set-row">점심 <input class="tin w2" data-time="lunch" value="${st.lunch}"> 조회 <input class="tin w2" data-time="assembly" value="${st.assembly}"></div>
         <div class="pgrid">${st.periods.map((p, i) => `<label>${i + 1}교시 <input class="tin w2" data-period="${i}" value="${p}"></label>`).join("")}</div>
         <div class="set-row">끝 없는 일정 기본 길이 <input class="tin" data-time="eventMinutes" value="${st.eventMinutes}" style="width:44px">분</div>
         <div class="set-row">알림 일정 <input class="tin" data-time="remindMinutes" value="${st.remindMinutes ?? 30}" style="width:44px">분 전</div>
@@ -1097,7 +1099,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const now = clock();
       if (r.proposal) {
         const drafted = s.draftedJobs.includes(r.jobId);
-        const applied = refineDrafts(s, r.jobId, r.proposal, "인박스", now);
+        // Phone text or speech (drafted from its words) is the user's own: its appointments are 확정.
+        const applied = refineDrafts(s, r.jobId, r.proposal, "인박스", now, drafted);
         if (applied.duplicate) {
           changed = true;
           continue;
@@ -1146,7 +1149,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const now = clock();
       const src = "휴대폰";
       const at = d.at ? new Date(d.at) : now;
-      const x = draftFromText(s, d.text, src, at, d.jobId);
+      const x = draftFromText(s, d.text, src, at, d.jobId, true);
       const memo = x.kind === "note" && !x.draft;
       const simple = memo || skipsAi(d.text, at);
       s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: d.text, kind: d.kind === "voice" ? "voice" : "text", src });
@@ -1262,6 +1265,16 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
 
   /**
+   * Words the user wrote or said themselves (11-02: their appointments go in 확정, not 가승인). A notice
+   * pasted into the box, the clipboard, a link, a photo or a file is someone else's words: 가승인.
+   */
+  function ownWords(text: string, src: string): boolean {
+    if (/클립보드|링크|사진|넣기|끌어\s*놓기|붙여넣기|바탕화면|인박스/.test(src)) return false;
+    const p = pastedText.replace(/\s+/g, "");
+    return !(p.length >= 20 && text.replace(/\s+/g, "").includes(p.slice(0, 200)));
+  }
+
+  /**
    * Draft first, AI later: a sentence goes on the calendar at once from the rule parser, then
    * the AI result replaces that same entry (same id) when it arrives.
    */
@@ -1271,11 +1284,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (!opts.noMe) s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", ...me, src });
     const key = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const drafted = input.text !== undefined && !opts.noDraft;
+    const own = input.text !== undefined ? ownWords(input.text, src) : me.kind === "voice";
     let draftMsg: ChatMessage | null = null;
     let draftWas = "";
     let draftId = "";
     if (drafted) {
-      const x = draftFromText(s, input.text!, src, now, key);
+      const x = draftFromText(s, input.text!, src, now, key, own);
       log(s, { label: "초안", msg: describe(s, x.id, theme().fd).msg, src, ref: x.id }, now);
       draftMsg = card("다듬는 중…", [x.id]);
       draftWas = JSON.stringify([x.kind, x.title, (x as { date?: string }).date, (x as { start?: string }).start, (x as { end?: string }).end, (x as { due?: string }).due, (x as { dueTime?: string }).dueTime]);
@@ -1293,7 +1307,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       // 「내알」 「모래 3시」 「목 6교시」: plain day words for the AI too (the chat keeps what was typed).
       const proposal = await adapter.analyze(input.text !== undefined ? { ...input, text: spokenDays(input.text) } : input);
       const at = clock();
-      const applied = refineDrafts(s, key, proposal, src, at);
+      const applied = refineDrafts(s, key, proposal, src, at, own);
       afterApplied(applied.refs, applied.missing, src, at, applied.updated, applied.suggested, applied.done, applied.changed);
       if (!opts.noMe && me.kind === "voice" && proposal.sourceText) s.chat[s.chat.length - 1].text = proposal.sourceText;
       const dup = dropDuplicates(applied.refs);
@@ -1416,7 +1430,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (skipsAi(v, clock())) {
       const now = clock();
       s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: v, kind: "text", src });
-      const x = draftFromText(s, v, src, now, `local-${Date.now().toString(36)}`);
+      const x = draftFromText(s, v, src, now, `local-${Date.now().toString(36)}`, ownWords(v, src));
       x.draft = false;
       const line = describe(s, x.id, theme().fd);
       log(s, { label: line.label, msg: line.msg, src, ref: x.id }, now);
@@ -2351,24 +2365,27 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     return true;
   }
 
-  /** 「매일 8시 20분 메일 확인 루틴」 「평일 15:55 종례」 「화·목 12시 20분 급식 지도 루틴」 → 루틴. */
+  /** 「매일 8시 20분 메일 확인 루틴」 「평일 15:55 종례 반복」 「화·목 12시 20분 급식 지도 루틴」 → 루틴. */
   function addRoutineBySentence(v: string, src: string): boolean {
     const rep = /(매일|평일|주중|(?:매주\s*)?([월화수목금토일](?:\s*[·,]?\s*[월화수목금토일])*)\s*(?:요일)?(?:마다)?)/.exec(v);
-    if (!rep || !/루틴|마다|매일|평일/.test(v)) return false;
+    // Only when 「루틴」 「반복」 is said (11-02: 「반복은 내가 명시적으로 말할게, 함부로 넣지 마」).
+    if (!rep || !/루틴|반복/.test(v)) return false;
     const w = timeWords(v.replace(rep[0], " "), s.settings);
-    const one = singleTime(w);
+    // 「0820~0830」: a start and an end.
+    const span = timeRange(w);
+    const one = span ? { time: span.start, rest: span.rest } : singleTime(w);
     const r0 = parseRule(w, clock());
     const at = one?.time ?? (r0.hasTime ? r0.time : null);
     if (!at) return false;
     const days = rep[2] ? [...new Set(rep[2].replace(/[\s·,]/g, "").split("").map((c) => "일월화수목금토".indexOf(c)).filter((n) => n >= 0))] : null;
     const repeat = rep[1].startsWith("매일") ? "daily" as const : /평일|주중/.test(rep[1]) ? "weekdays" as const : days ?? "daily";
-    const title = (one ? one.rest : r0.title).replace(/루틴|마다|에\s|하기\s*$/g, " ").replace(/\d{1,2}시(\s*\d{1,2}분)?/g, " ").replace(/\s+/g, " ").trim() || "루틴";
+    const title = (one ? one.rest : r0.title).replace(/루틴|반복|마다|에\s|하기\s*$/g, " ").replace(/\d{1,2}시(\s*\d{1,2}분)?/g, " ").replace(/\s+/g, " ").trim() || "루틴";
     const now = clock();
-    const r: Routine = { id: newId(s, "r"), title: title.slice(0, 60), at, repeat, done: [], createdAt: stamp(now) };
+    const r: Routine = { id: newId(s, "r"), title: title.slice(0, 60), at, ...(span ? { end: span.end } : {}), repeat, done: [], createdAt: stamp(now) };
     s.routines.push(r);
     s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: v, kind: "text", src });
     const label = repeat === "daily" ? "매일" : repeat === "weekdays" ? "평일" : (repeat as number[]).map((d) => "일월화수목금토"[d]).join("·");
-    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: `루틴 · ${label} ${at} ${r.title}` });
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: `루틴 · ${label} ${at}${r.end ? `–${r.end}` : ""} ${r.title}` });
     undoStack.push({ label: `루틴 「${r.title}」`, run: () => {
       r.gone = true;
       void act(() => undefined);
@@ -3353,8 +3370,14 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (!r) return;
       if (f === "title") r.title = el.value.trim().slice(0, 60) || r.title;
       if (f === "at") {
-        const m = /^(\d{1,2}):?(\d{2})$/.exec(el.value.trim());
-        if (m && +m[1] < 24 && +m[2] < 60) r.at = `${pad(+m[1])}:${m[2]}`;
+        // 「08:20」 or 「08:20-08:30」 (an end is optional).
+        const m = /^(\d{1,2}):?(\d{2})(?:\s*[-~–]\s*(\d{1,2}):?(\d{2}))?$/.exec(el.value.trim());
+        if (m && +m[1] < 24 && +m[2] < 60) {
+          r.at = `${pad(+m[1])}:${m[2]}`;
+          const end = m[3] && +m[3] < 24 && +m[4] < 60 ? `${pad(+m[3])}:${m[4]}` : "";
+          if (end > r.at) r.end = end;
+          else delete r.end;
+        }
       }
       if (f === "repeat") r.repeat = el.value === "daily" ? "daily" : el.value === "weekdays" ? "weekdays" : Array.isArray(r.repeat) ? r.repeat : [new Date().getDay()];
       await save();
@@ -3385,13 +3408,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         }
       }
       else if (k === "onWork" || k === "offWork") st[k] = one(el.value) ?? st[k];
-      else if (k === "lunch") st.lunch = two(el.value) ?? st.lunch;
+      else if (k === "lunch" || k === "assembly") st[k] = two(el.value) ?? st[k];
       else if (el.dataset.period) {
         const v = two(el.value);
         if (v) st.periods[Number(el.dataset.period)] = v;
       }
       // What was not taken goes back to the kept value, with one line on how to write it.
-      const kept = k === "eventMinutes" || k === "remindMinutes" ? String(st[k] ?? 30) : k === "onWork" || k === "offWork" || k === "lunch" ? st[k] : st.periods[Number(el.dataset.period)];
+      const kept = k === "eventMinutes" || k === "remindMinutes" ? String(st[k] ?? 30) : k === "onWork" || k === "offWork" || k === "lunch" || k === "assembly" ? st[k] : st.periods[Number(el.dataset.period)];
       if (el.value.trim() !== kept) {
         const ok = k === "eventMinutes" || k === "remindMinutes" ? /^\s*\d+\s*$/.test(el.value) : (k === "onWork" || k === "offWork" ? one : two)(el.value) !== null;
         if (!ok) toast(k === "eventMinutes" || k === "remindMinutes" ? "숫자만 적어 주세요 · 예: 30" : k === "onWork" || k === "offWork" ? "시각을 읽지 못했어요 · 예: 08:20" : "시간을 읽지 못했어요 · 예: 08:50-09:35");
@@ -3884,6 +3907,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   adapter.onAlarmAnswer?.((a, action) => void answerNative(a, action));
   // A picture pasted into the input (⌘V) goes in like a dropped file.
   const onPaste = (e: ClipboardEvent) => {
+    // Pasted words (a school notice): not the user's own, so its appointments stay 가승인.
+    if ((e.target as HTMLElement).closest?.("#bhIn, #bhChatIn")) pastedText = e.clipboardData?.getData("text/plain") ?? "";
     // The Mac may hand the same picture twice in one paste (two kinds of the same file): it went in twice.
     const seen = new Set<string>();
     const files = [...(e.clipboardData?.files ?? [])].filter((f) => !seen.has(`${f.name}|${f.size}|${f.type}`) && !!seen.add(`${f.name}|${f.size}|${f.type}`));

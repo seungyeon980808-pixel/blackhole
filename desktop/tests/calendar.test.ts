@@ -125,7 +125,8 @@ describe("calendar app", () => {
 
   it("puts a sentence through the worker into the calendar with 확정/취소", async () => {
     const root = await mount(fakeAdapter(proposal));
-    await app!.submitText("내일 오후 3시에 학부모 상담 있고 금요일 6시까지 연수 보고서 제출: 자료 정리, 소감 작성, 결재");
+    // From the clipboard (not typed by the user): 가승인 until 확정.
+    await app!.submitText("내일 오후 3시에 학부모 상담 있고 금요일 6시까지 연수 보고서 제출: 자료 정리, 소감 작성, 결재", "클립보드");
     const ev = app!.state.events.find((e) => e.title === "학부모 상담" && !e.sample)!;
     expect(ev.provisional).toBe(true);
     expect(root.querySelector("#bhLast")?.textContent).toContain("기간");
