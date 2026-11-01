@@ -550,7 +550,8 @@ export const notJustAMemo = (raw: string): boolean => {
  * appointment/to-do words (「11월 3일에 엄마가 김치 보내준대」) is a 기억 draft the AI may turn
  * into an entry; when the AI is unsure it stays a 기억 (with 「일정으로」·「할 일로」 on its card).
  */
-export function memoDraft(raw0: string, now: Date, day: DayClock = {}): { title: string; details?: string; final: boolean } | null {
+export function memoDraft(said: string, now: Date, day: DayClock = {}): { title: string; details?: string; final: boolean } | null {
+  const raw0 = spokenDays(said);
   const raw = MEMO_HEAD.test(raw0) ? raw0 : timeWords(raw0, day, now);
   const head = MEMO_HEAD.exec(raw);
   const body = head ? raw.slice(head[0].length) : raw;
@@ -572,7 +573,8 @@ export function memoDraft(raw0: string, now: Date, day: DayClock = {}): { title:
 /** 「30분 전에 알려줘」 「1시간 전 알림」 「하루 전에」 「전날」 (with an asking word after it, or at the end). */
 const REMIND_BEFORE = /(?:(\d{1,3})\s*분|(\d{1,2}|한|두|세)\s*시간|(하루|전날|\d{1,2}\s*일|일주일))\s*(?:전에?)?\s*(?:미리\s*)?(알려\s*줘|알려\s*주세요|알려|알림|알람)/;
 
-export function parseDraft(raw0: string, now: Date, day: DayClock = {}): RuleResult {
+export function parseDraft(said: string, now: Date, day: DayClock = {}): RuleResult {
+  const raw0 = spokenDays(said);
   // The reminder phrase comes off first (it left 「치과 30분 전에」 / 「치과 간 전 알림」 in titles).
   const rb = REMIND_BEFORE.exec(raw0);
   if (!rb || !/전/.test(rb[0])) return tidyDraft(parseDraftRaw(raw0, now, day));
