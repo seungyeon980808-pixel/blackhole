@@ -1789,7 +1789,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     s.chat.push(m);
     // 「오늘 할 일 뭐 남았어?」 「밀린 거 뭐야」: the open to-dos themselves, the same list as the morning brief (no AI,
     // which left one out now and then).
-    if (/(?:오늘|지금|남은|밀린|안\s*끝난|못\s*끝낸)\s*(?:할\s*일|거|것|일)|뭐\s*해야|할\s*일\s*(?:뭐|몇|남)/.test(q) && !/내일|모레|다음\s*주|이번\s*주|이번\s*달|지난|작년|\d+\s*월|\d+\s*일/.test(q)) {
+    if (/(?:오늘|지금|남은|밀린|안\s*끝난|못\s*끝낸)\s*(?:할\s*일|거|것|일(?![가-힣]))|뭐\s*해야|할\s*일\s*(?:뭐|몇|남)/.test(q) && !/내일|모레|다음\s*주|이번\s*주|이번\s*달|지난|작년|\d+\s*월|\d+\s*일/.test(q)) {
       const today = ymd(now);
       const open = s.tasks.filter((t) => !t.gone && !t.done && !t.sample);
       const fd = (k: string) => theme().fd(k);

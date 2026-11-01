@@ -367,3 +367,14 @@ describe("「오늘 할 일 뭐 남았어?」는 앱이 직접 (밤샘)", () => 
     expect(s.chat.at(-1)!.text).toBe("오늘 마감 1 — 출결 마감\n밀린 할 일 1 — 진석이에게 10만원 송금(10/27(화))\n날짜 없는 할 일 1 — 대의원회 준비");
   });
 });
+
+describe("「오늘 일정 뭐야?」는 할 일 목록이 아님 (밤샘 자체 점검)", () => {
+  it("일정 질문은 기록 찾기로", async () => {
+    const { calls } = await mount({
+      routeText: async (t) => ({ parts: [part("ask", t, { question: t, terms: ["일정"] })] }),
+      answerAi: async () => ({ enough: true, lines: [{ text: "기록 없음", ids: [], missing: true }] })
+    }, (a) => a.state.notes.push(memo("n-1", "오늘 협의회 자료", "2026-10-28T11:00")));
+    await app!.submitText("오늘 일정 뭐야?");
+    expect(calls.answer.length).toBeGreaterThan(0);
+  });
+});
