@@ -67,3 +67,14 @@ describe("문장 가운데 「…하기」 (실제 10/30)", () => {
     expect(memoDraft("메모 다음엔 보여주기 실험", NOW)?.final).toBe(true);
   });
 });
+
+describe("AI가 시각을 「점심」 한 낱말로 줄 때 (밤샘 1차 재검)", () => {
+  it("학교 점심시간(12:20–13:20)으로", async () => {
+    const { applyProposal } = await import("../src/calendar/store");
+    const { emptyState } = await import("../src/calendar/model");
+    const s = emptyState();
+    const item = { kind: "SCHEDULE", area: "SCHOOL", title: "부장 회의", details: "", startAt: "2026-11-05T12:00:00+09:00", endAt: "2026-11-05T13:00:00+09:00", reminderAt: "", reminders: [], subtasks: [], evidence: { sentence: "목 점심에 부장 회의", dateText: "목", timeText: "점심", endDateText: "", reminderText: "" }, confidence: 0.9, needsReview: false, reviewReasons: [] };
+    applyProposal(s, { sourceText: "목 점심에 부장 회의", needsReview: false, reviewReasons: [], items: [item] } as never, "t", NOW);
+    expect([s.events[0].start, s.events[0].end]).toEqual(["12:20", "13:20"]);
+  });
+});
