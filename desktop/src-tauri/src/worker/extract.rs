@@ -27,6 +27,7 @@ const SYSTEM_PROMPT: &str = "너는 한국어 메모·지시·문서를 일정, 
   - subtasks: 할 일 아래 나열된 하위 할 일들을 원문 말 그대로 목록으로(예: \"보고서 제출: 자료 정리, 초안, 결재\" → [\"자료 정리\",\"초안\",\"결재\"]). 원문에 단계가 없어도 순서가 있는 일(기안·준비·제출처럼 여러 단계)이면 꼭 필요한 단계를 짧게 최대 5개까지 순서대로 제안해도 된다. 단순한 일이면 []. 한 목적을 위해 이어서 하는 행동들(\"가능한지 확인해보고, 요청하고, 신청해야 함\")은 TODO를 여러 개로 나누지 말고 마지막 목적을 제목으로 한 TODO 하나에 원문 순서대로 subtasks로 담는다.
   - waitFor: \"~되면\", \"~보고\", \"~알려주시면\", \"~오면\", \"~받고 나서\"처럼 다른 일이 먼저 있어야 시작할 수 있으면 그 조건을 짧게(예: \"병렬협조 마무리\", \"한 선생님 연락\", \"일정 확정\"). 조건 자체를 따로 일정이나 할 일로 만들지 않는다. 조건에 날짜·시간이 붙어 있으면(\"내일 9시에 연락 오는 거 보고\") 그것을 이 할 일의 dateText·timeText로 쓴다. 조건이 없으면 \"\".
   - change: 이미 잡혀 있는 일정·할 일을 취소하는 말(\"취소됨\", \"안 함\", \"없어짐\")이면 \"CANCEL\", 날짜·시간을 바꾸는 말(\"바뀜\", \"변경\", \"미뤄짐\", \"연기\", \"앞당김\", \"연장\", \"~로\")이면 \"MOVE\", 아니면 \"\". 이때 title은 바뀌는 일정의 이름만(\"치과\"), dateText·timeText는 새 날짜·시간만(바뀌지 않은 쪽은 \"\"), changeFrom은 원래 날짜·시간 표현(\"금요일 3시\", 없으면 \"\"). 새 일정·할 일을 만드는 말이면 change는 \"\".
+  - \"11시까지 일원역으로 가야 함\" \"2시까지 공원 도착\"처럼 어디에 몇 시까지 가야 한다는 말은 그 시각에 시작하는 일정이 아니다. 같은 글에 떠나는 시각(\"10시 40분에 조퇴라서\")이 있으면 SCHEDULE 하나로 제목은 \"○○ 이동\", timeText는 \"10시 40분~11시\"처럼 떠나는 시각부터 도착 시각까지. 떠나는 시각이 없으면 TODO로 제목은 \"○○ 도착\", timeText는 도착 시각.
   - \"3교시 수업 없음 대신 회의\"처럼 없다고만 말한 것(\"수업 없음\", \"보충 안 함\")은 새 일정·할 일로 만들지 않는다. 대신 생긴 것(\"회의\")만 만들고, 이미 잡힌 것을 없애는 말이면 change를 \"CANCEL\"로 한 항목으로 만든다.
   - 날짜가 아직 정해지지 않았다고 하면(\"수요일일지 목요일일지 모름\", \"미정\") dateText는 \"\". 미정이라는 말 자체를 따로 NOTE로 만들지 않는다.
   - reminderText: \"~에 알려 줘\", \"~에 알림\"처럼 알림 때를 따로 말했으면 그 날짜·시간 표현을 글자 그대로(예: \"목요일 9시\"). 없으면 \"\".
@@ -620,6 +621,16 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
                 resolved.end_at = resolved.end_at.map(|e| e - Duration::days(n));
             }
         }
+        // 「10시 40분에 조퇴라서 11시까지 일원역으로 가야 함」: the trip ends at the 「…까지」 time (not an hour from 11).
+        if kind == "SCHEDULE" && title.ends_with("이동") {
+            if let (Some(at), Some(c)) = (resolved.start_at, regex::Regex::new(r"(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분|\s*(반))?\s*까지").unwrap().captures(&sentence)) {
+                let (h, m) = (c[1].parse::<u32>().unwrap_or(0), c.get(2).and_then(|x| x.as_str().parse::<u32>().ok()).unwrap_or(if c.get(3).is_some() { 30 } else { 0 }));
+                let h = if h < 12 && h < chrono::Timelike::hour(&at) { h + 12 } else { h };
+                if let Some(end) = at.date_naive().and_hms_opt(h, m, 0).and_then(|t| t.and_local_timezone(at.timezone()).single()).filter(|e| *e > at) {
+                    resolved.end_at = Some(end);
+                }
+            }
+        }
         // Default reminder: 30 minutes before a stated time; the day's 09:00 otherwise.
         let default = match (kind, resolved.start_at) {
             ("NOTE", _) | (_, None) => Vec::new(),
@@ -780,6 +791,15 @@ mod tests {
     }
 
     const TEXT: &str = "내일 오후 3시에 학부모 상담 일정 추가해줘.";
+
+    #[test]
+    fn a_trip_ends_at_the_time_it_must_arrive() {
+        let text = "10시 40분에 조퇴라서 11시까지 일원역으로 가야함";
+        let v = json!({"kind":"SCHEDULE","area":"PERSONAL","title":"일원역 이동","details":"","dateText":"","timeText":"10시 40분","evidence":text,"confidence":0.9});
+        let e = validate(&answer(vec![v]).to_string(), Some(text), reference()).unwrap();
+        assert_eq!(e.items[0].start_at, "2026-10-21T10:40:00+09:00");
+        assert_eq!(e.items[0].end_at, "2026-10-21T11:00:00+09:00");
+    }
 
     fn item() -> Value {
         json!({"kind":"SCHEDULE","area":"SCHOOL","title":"학부모 상담","details":"","dateText":"내일","timeText":"오후 3시","evidence":"학부모 상담","confidence":0.9})
