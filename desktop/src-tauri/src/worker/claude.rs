@@ -360,9 +360,14 @@ fn append_line(path: &PathBuf, line: Value) {
     if let Some(dir) = path.parent() {
         let _ = fs::create_dir_all(dir);
     }
-    // One write per line: several workers at once (inbox + desktop) must not interleave their lines.
+    // One write per line under the file's lock: several workers at once (inbox, the app, a test run)
+    // interleaved their bytes into broken lines that the month's spend then left out.
     if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(path) {
+        let locked = f.lock().is_ok();
         let _ = f.write_all(format!("{line}\n").as_bytes());
+        if locked {
+            let _ = f.unlock();
+        }
     }
 }
 
@@ -489,6 +494,22 @@ pub fn month_usage(path: &PathBuf, yyyy_mm: &str) -> (u64, f64) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn usage_lines_stay_whole_with_many_writers() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("usage.jsonl");
+        let hands: Vec<_> = (0..8)
+            .map(|w| {
+                let path = path.clone();
+                std::thread::spawn(move || (0..200).for_each(|i| append_line(&path, json!({"at": "2026-11-01T23:00:00", "w": w, "i": i, "pad": "x".repeat(300)}))))
+            })
+            .collect();
+        hands.into_iter().for_each(|h| h.join().unwrap());
+        let text = fs::read_to_string(&path).unwrap();
+        assert_eq!(text.lines().count(), 1600);
+        assert!(text.lines().all(|l| serde_json::from_str::<Value>(l).is_ok()));
+    }
+
     use super::*;
     use std::{io::Read, net::TcpListener, sync::mpsc, thread};
 
