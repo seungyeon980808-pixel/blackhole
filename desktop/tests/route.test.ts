@@ -392,3 +392,16 @@ describe("물은 기간 밖 줄은 빼기 (실제 자료 질문)", () => {
     expect(keepInSpan(lines, sent, "대의원회 언제야?", new Date("2026-11-02T08:30:00"))).toHaveLength(3);
   });
 });
+
+describe("「내일 할 일 있어?」도 앱이 직접", () => {
+  it("내일 마감인 할 일만, 없으면 없다고", async () => {
+    const task = (id: string, title: string, due: string) => ({ id, kind: "task" as const, title, area: "school" as const, source: "t", createdAt: "2026-10-20T09:00", due, dueTime: null, done: false, reminders: [], subs: [] });
+    const { s, calls } = await mount({
+      routeText: async (t) => ({ parts: [part("ask", t, { question: t, terms: ["할 일"] })] }),
+      answerAi: async () => ({ enough: true, lines: [] })
+    }, (a) => a.state.tasks.push(task("t1", "출결 마감", "2026-10-30"), task("t2", "보고서", "2026-11-02")));
+    await app!.submitText("내일 할 일 있어?");
+    expect(calls.answer).toHaveLength(0);
+    expect(s.chat.at(-1)!.text).toBe("내일 마감 1 — 출결 마감");
+  });
+});

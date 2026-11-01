@@ -1789,6 +1789,18 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     s.chat.push(m);
     // 「오늘 할 일 뭐 남았어?」 「밀린 거 뭐야」: the open to-dos themselves, the same list as the morning brief (no AI,
     // which left one out now and then).
+    // 「내일 할 일 있어?」: that day's deadlines the same way (the AI answered with an appointment).
+    if (/내일\s*(?:할\s*일|마감)/.test(q) && !/일정|약속|회의/.test(q)) {
+      const day = ymd(addDays(now, 1));
+      const due = s.tasks.filter((t) => !t.gone && !t.done && !t.sample && !t.noDue && t.due === day).sort((a, b) => (a.dueTime ?? "99").localeCompare(b.dueTime ?? "99"));
+      m.text = due.length ? `내일 마감 ${due.length} — ${due.map((t) => `${t.dueTime ? `${t.dueTime} ` : ""}${t.title}`).join(" · ")}` : "내일 마감인 할 일은 없어요";
+      m.hits = due.slice(0, 12).map((t) => ({ id: t.id, kind: "task" as const, title: t.title, when: `${theme().fd(t.due)}${t.dueTime ? ` ${t.dueTime}` : ""}까지`, where: t.source }));
+      m.scope = "할 일 목록에서 바로";
+      m.redo = { text: o.said ?? q, as: "put" };
+      if (o.phone) toPhone(m);
+      await save();
+      return render();
+    }
     if (/(?:오늘|지금|남은|밀린|안\s*끝난|못\s*끝낸)\s*(?:할\s*일|거|것|일(?![가-힣]))|뭐\s*해야|할\s*일\s*(?:뭐|몇|남)/.test(q) && !/내일|모레|다음\s*주|이번\s*주|이번\s*달|지난|작년|\d+\s*월|\d+\s*일/.test(q)) {
       const today = ymd(now);
       const open = s.tasks.filter((t) => !t.gone && !t.done && !t.sample);
