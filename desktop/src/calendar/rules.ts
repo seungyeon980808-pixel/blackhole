@@ -742,7 +742,7 @@ export function isSimpleCertain(raw: string, r: RuleResult): boolean {
   if (!r.end && bareHour(raw) === 6) return false;
   // 「금 7시 반 공연」: evening things at a bare 7–11시 — the worker moves them to the evening.
   const h = bareHour(raw);
-  if (!r.end && h !== null && h >= 7 && h <= 11 && /공연|영화|회식|저녁|술|동창|모임|운동|헬스|필라테스|요가|콘서트|뮤지컬|연극|파티|외식|축하/.test(raw)) return false;
+  if (!r.end && h !== null && h >= 7 && h <= 11 && /공연|영화|회식|저녁|술|동창|콘서트|뮤지컬|연극|파티|외식|축하/.test(raw)) return false;
   const title = r.title.trim();
   return title !== "음성 메모" && title.length >= 2 && title.length <= 15 && !TITLE_TAIL.test(title) && /^[가-힣A-Za-z0-9 ]+$/.test(title);
 }

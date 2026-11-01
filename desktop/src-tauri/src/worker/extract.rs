@@ -627,7 +627,7 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         if let Some(at) = resolved.start_at {
             let h = chrono::Timelike::hour(&at);
             let bare = !time_text.is_empty() && !regex::Regex::new(r"오전|아침|새벽|낮|오후|저녁|밤|:|\d{3,4}").unwrap().is_match(&time_text);
-            let evening = regex::Regex::new(r"공연|영화|회식|저녁|술|동창|모임|운동|헬스|필라테스|요가|콘서트|뮤지컬|연극|파티|외식|축하").unwrap().is_match(&format!("{title} {sentence}"));
+            let evening = regex::Regex::new(r"공연|영화|회식|저녁|술|동창|콘서트|뮤지컬|연극|파티|외식|축하").unwrap().is_match(&format!("{title} {sentence}"));
             if bare && (7..=11).contains(&h) && evening && !regex::Regex::new(r"오전|아침|새벽|조찬|출근").unwrap().is_match(&sentence) {
                 resolved.start_at = Some(at + Duration::hours(12));
                 resolved.end_at = resolved.end_at.map(|e| e + Duration::hours(12));
