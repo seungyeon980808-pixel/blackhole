@@ -383,7 +383,8 @@ export function checksOf(ctx: Ctx): { x: Entry; why: string }[] {
   // First: provisional appointments whose day has passed — did it happen or not?
   for (const e of live.filter((e) => e.provisional && e.date < ctx.today).sort((a, b) => a.date.localeCompare(b.date))) add(e, PAST_PROVISIONAL);
   for (const x of needsReview(ctx)) if (x.review!.some((r) => r.startsWith("바뀐 날짜·시각이 없어"))) add(x, "바뀐 날짜·시각을 못 들음 · 일정에서 고쳐 주세요");
-  for (const x of needsReview(ctx)) if (x.review!.some((r) => TIME_UNSURE.test(r))) add(x, "시각을 정해 주세요");
+  // A 기억 has no time to set: it was kept because the day was not read.
+  for (const x of needsReview(ctx)) if (x.review!.some((r) => TIME_UNSURE.test(r))) add(x, x.kind === "note" ? "날짜를 못 읽어 기억으로 둠 · 일정이면 눌러서 날짜를 정해 주세요" : "시각을 정해 주세요");
   for (const x of needsReview(ctx)) {
     const r = x.review!.find((r) => r.startsWith("기준 일정"));
     if (r) add(x, r.startsWith("기준 일정이 여럿") ? "기준 일정이 여럿 · 날짜를 정해 주세요" : "기준 일정을 못 찾음 · 날짜를 정해 주세요");
