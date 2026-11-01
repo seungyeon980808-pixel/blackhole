@@ -10,7 +10,7 @@ import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, TEXT_SIZES, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type Period, type Task, type SharedCalendar, type SpokenSetting, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
-import { isFiller, isSimpleCertain, memoDraft, needsAi, parseDraft, parseRule, singleTime, timeRange, timeWords } from "./rules";
+import { isFiller, isSimpleCertain, memoDraft, needsAi, parseDraft, parseRule, singleTime, spokenDays, timeRange, timeWords } from "./rules";
 import { seedState } from "./samples";
 import {
   anchorRelativeDates, applyAction, cancelEntry, describe, type Applied, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, retimeReminders, upcomingAlarms, type Alarm
@@ -1290,7 +1290,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       void save();
     }
     try {
-      const proposal = await adapter.analyze(input);
+      // 「내알」 「모래 3시」 「목 6교시」: plain day words for the AI too (the chat keeps what was typed).
+      const proposal = await adapter.analyze(input.text !== undefined ? { ...input, text: spokenDays(input.text) } : input);
       const at = clock();
       const applied = refineDrafts(s, key, proposal, src, at);
       afterApplied(applied.refs, applied.missing, src, at, applied.updated, applied.suggested, applied.done, applied.changed);

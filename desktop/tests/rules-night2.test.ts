@@ -102,3 +102,16 @@ describe("예약은 했지만 쓰는 날은 앞으로", () => {
     expect(s.events.map((e) => [e.date, e.start, e.end])).toEqual([["2026-11-04", "13:20", "15:00"]]);
   });
 });
+
+describe("오타·줄임말 날짜 (4차 시험)", () => {
+  it("「내알」 「tmr」 「모래 3시」 「목 6교시」 「이달 말」은 읽고, 「모래 놀이」 「목 아파서」 「1일」은 그대로", async () => {
+    const { spokenDays } = await import("../src/calendar/rules");
+    expect(spokenDays("내알 저녁 7시 엄마랑 저녁")).toBe("내일 저녁 7시 엄마랑 저녁");
+    expect(spokenDays("tmr 점심 식사")).toBe("내일 점심 식사");
+    expect(spokenDays("모래 3시 치과")).toBe("모레 3시 치과");
+    expect(spokenDays("목 6교시 진로 상담")).toBe("목요일 6교시 진로 상담");
+    expect(spokenDays("이달 말까지 연말정산")).toBe("이번 달 말까지 연말정산");
+    for (const t of ["모래 놀이 준비물", "목 아파서 병원", "1일 10시 회의"]) expect(spokenDays(t)).toBe(t);
+    expect(parseDraft("수 12시 30분 점심 약속", NOW).date).toBe("2026-11-04");
+  });
+});

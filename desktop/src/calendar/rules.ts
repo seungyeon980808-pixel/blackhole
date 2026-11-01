@@ -50,8 +50,21 @@ const HANGUL_HOURS: [string, string][] = [
 
 const WEEKDAYS = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
 
+/**
+ * Day words typed in a hurry, made plain before the rules and the AI read them (the chat keeps what was typed):
+ * 「내알」 「tmr」 → 내일, 「모래 3시」 → 모레, 「목 6교시」 「수 12시 30분」 → 목요일·수요일, 「이달 말」 → 이번 달 말.
+ */
+export function spokenDays(text: string): string {
+  const when = "(?=\\s*(?:\\d|오전|오후|아침|저녁|점심|밤|새벽|낮|퇴근|출근))";
+  return text
+    .replace(/내알|(?<![A-Za-z])tmrw?(?![A-Za-z])/gi, "내일")
+    .replace(new RegExp(`(?<![가-힣])모래${when}`, "g"), "모레")
+    .replace(new RegExp(`(^|[\\s,(])([월화수목금토일])${when}`, "gm"), "$1$2요일")
+    .replace(/이달\s*(말|안|중|내)/g, "이번 달 $1");
+}
+
 export function normalize(text: string): string {
-  let v = (text ?? "").trim().replace(/\s+/g, " ");
+  let v = spokenDays((text ?? "").trim().replace(/\s+/g, " "));
   for (const [a, b] of HANGUL_HOURS) v = v.split(a).join(b);
   return v;
 }
@@ -548,7 +561,7 @@ export function memoDraft(raw0: string, now: Date, day: DayClock = {}): { title:
   const r = parseRule(raw, now);
   // Something about a day the rules could not read: not a sure 기억 — let the AI decide.
   // 「목 점심에 부장 회의」 「지금 바로 결재」 「퇴근 전에」: a day or a time the rules do not read either.
-  const dayHint = /(?<![\d-])\d{1,2}\s*일(?!\s*(?:동안|간|째))|주말|월말|말일|(?:뒤|후)(?:에)?(?:\s|$)|안에|중에|내로|자정|정오|연휴|다음\s*달|이번\s*달|오전|오후|저녁|아침|새벽|방과\s*후|점심|지금\s*바로|당장|퇴근|출근|교시|조회|종례|(?:^|\s)[월화수목금토일]욜?(?=\s|$)/.test(raw);
+  const dayHint = /(?<![\d-])\d{1,2}\s*일(?!\s*(?:동안|간|째))|주말|월말|말일|(?:뒤|후)(?:에)?(?:\s|$)|안에|중에|내로|자정|정오|연휴|다음\s*달|이번\s*달|이달|오전|오후|저녁|아침|새벽|방과\s*후|점심|지금\s*바로|당장|퇴근|출근|교시|조회|종례|(?:^|\s)[월화수목금토일]욜?(?=\s|$)/.test(raw);
   if (!r.date && !r.hasTime) return memo(!dayHint && !notJustAMemo(raw0));
   // Hearsay (「…보내준대」, 「…온다고」) is something to remember, even with a to-do word in it.
   const hearsay = /(대|래|더라|다고|라고|한다)\s*[.!]?\s*$/.test(raw.trim());
