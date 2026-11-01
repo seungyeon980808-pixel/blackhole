@@ -131,3 +131,15 @@ describe("지우라는 말 (5차 시험)", () => {
     expect(memoDraft("수능 일정 삭제", NOW)?.final ?? false).toBe(false);
   });
 });
+
+describe("「…목요일로」는 옮기기 (5차 재검)", () => {
+  it("AI가 옮기기 표시 없이 새 할 일로 줘도 있던 「시행 기안 올리기」를 옮김", async () => {
+    const { applyProposal } = await import("../src/calendar/store");
+    const { emptyState } = await import("../src/calendar/model");
+    const s = emptyState();
+    s.tasks.push({ id: "t1", kind: "task", title: "시행 기안 올리기", area: "school", source: "t", createdAt: "2026-10-20T09:00", due: "2026-10-30", dueTime: null, done: false, reminders: [], subs: [] } as never);
+    const todo = { kind: "TODO", area: "SCHOOL", title: "시행 기안", details: "", startAt: "2026-11-05T09:00:00+09:00", endAt: "", reminderAt: "", reminders: [], subtasks: [], evidence: { sentence: "시행 기안 목요일로", dateText: "목요일", timeText: "", endDateText: "", reminderText: "" }, confidence: 0.8, needsReview: false, reviewReasons: [] };
+    applyProposal(s, { sourceText: "시행 기안 목요일로", needsReview: false, reviewReasons: [], items: [todo] } as never, "t", NOW);
+    expect(s.tasks.map((t) => [t.id, t.due])).toEqual([["t1", "2026-11-05"]]);
+  });
+});

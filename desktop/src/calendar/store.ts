@@ -267,6 +267,12 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       const same = [...liveTasks(s).filter((t) => !t.done && !t.draft), ...liveEvents(s).filter((e) => e.date >= today && !e.workFor && !e.draft)].filter((x) => x.title.replace(/\s+/g, "") === name);
       if (name.length >= 2 && same.length === 1 && (spoken.includes(`${name}은`) || spoken.includes(`${name}는`))) item = { ...item, change: "MOVE" };
     }
+    // 「시행 기안 목요일로」 「포럼 25일로」: a new day said for what is already there — a move, even when the model
+    // left the change out (it made a second 「시행 기안」 now and then).
+    if (!item.change && (item.kind === "TODO" || item.kind === "SCHEDULE") && item.startAt && /(?:요일|\d\s*일|내일|모레|글피|다음\s*주|담주)\s*(?:로|으로)\s*(?:옮겨|미뤄|미룸|바꿔|변경|해\s*줘|부탁)?\s*[.!~]*$/.test(words.trim())) {
+      const moved = { ...item, change: "MOVE" as const };
+      if (changeTargets(s, moved, now).length === 1) item = moved;
+    }
     // 「치과 예약 취소했음」 put down as a record: it is the 치과 in the calendar that is off.
     // 「진석이 송금 할 일 지워줘」 「수능 일정 삭제」 too (the model made a to-do or a note of the words).
     if (!item.change && (item.kind === "NOTE" || item.kind === "TODO" || (item.kind === "SCHEDULE" && !item.startAt)) && CANCEL_DONE.test(words)) {
