@@ -357,8 +357,8 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
     if (lesson) item = { ...item, evidence: { ...item.evidence, timeText: lesson[0] } };
     // 「3교시」 「점심시간」 「퇴근 전」: school words the worker does not know — this school's own times.
     // The model's time for 「목 점심에」 is just 「점심」: this school's lunch (not 12:00).
-    const said = /^\s*점심\s*(?:에|때)?\s*$/.test(item.evidence.timeText) ? "점심시간" : item.evidence.timeText;
-    const school = item.startAt && /교시|점심|출근|퇴근/.test(said) ? timeWords(said, s.settings) : "";
+    const timeSaid = /^\s*점심\s*(?:에|때)?\s*$/.test(item.evidence.timeText) ? "점심시간" : item.evidence.timeText;
+    const school = item.startAt && /교시|점심|출근|퇴근/.test(timeSaid) ? timeWords(timeSaid, s.settings) : "";
     const span = school ? timeRange(school) : null;
     const one = school && !span ? singleTime(school) : null;
     const at = (hm: string) => {
