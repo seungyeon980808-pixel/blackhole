@@ -91,3 +91,14 @@ describe("「전날까지」의 기준 (공지 붙여넣기 시험)", () => {
     expect(s.tasks[0].noDue).toBeUndefined();
   });
 });
+
+describe("예약은 했지만 쓰는 날은 앞으로", () => {
+  it("AI가 「과학실 사용 예약」을 날짜 있는 기억으로 줘도 일정", async () => {
+    const { applyProposal } = await import("../src/calendar/store");
+    const { emptyState } = await import("../src/calendar/model");
+    const s = emptyState();
+    const note = { kind: "NOTE", area: "SCHOOL", title: "과학실 사용 예약", details: "", startAt: "2026-11-04T09:00:00+09:00", endAt: "", reminderAt: "", reminders: [], subtasks: [], evidence: { sentence: "수요일 5,6교시 과학실 사용 예약함", dateText: "수요일", timeText: "5,6교시", endDateText: "", reminderText: "" }, confidence: 0.9, needsReview: false, reviewReasons: [] };
+    applyProposal(s, { sourceText: note.evidence.sentence, needsReview: false, reviewReasons: [], items: [note] } as never, "t", NOW);
+    expect(s.events.map((e) => [e.date, e.start, e.end])).toEqual([["2026-11-04", "13:20", "15:00"]]);
+  });
+});

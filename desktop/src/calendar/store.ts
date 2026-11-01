@@ -313,7 +313,8 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
     // 「오늘 저녁에 장보기」 「내일 우유 사기」 put as an appointment: a 「…기」 errand is a to-do (the owner's rule).
     if (item.kind === "SCHEDULE" && !item.change && /[가-힣](?:보기|사기|하기|내기|쓰기|챙기기|올리기|만들기|보내기|받기|찾기|갖다\s*주기)$/.test(item.title.trim()) && !/회의|상담|면담|수업|모임|약속|진료|행사|연수|협의|출장|시험|공연|영화|여행/.test(item.title)) item = { ...item, kind: "TODO" };
     // 「11/20 재량휴업일」: a day still ahead is an appointment (all day), not a 기억.
-    if (item.kind === "NOTE" && item.startAt && !finished && ymd(new Date(item.startAt)) >= today) item = { ...item, kind: "SCHEDULE" };
+    // 「수요일 5,6교시 과학실 사용 예약함」: the booking is done, the use is still ahead — an appointment.
+    if (item.kind === "NOTE" && item.startAt && (!finished || /예약|잡았|잡음|신청/.test(sentence)) && ymd(new Date(item.startAt)) >= today) item = { ...item, kind: "SCHEDULE" };
     // 「오늘 3반 수행평가 점수 확인함」 → 「3반 …」: the class the sentence names stays in the title.
     const classes = sentence.length <= 160 ? classesIn(sentence) : [];
     // 「금요일까지 2반 6반 수행평가 채점」 made one to-do: one per class, as the owner checks them.
