@@ -78,3 +78,16 @@ describe("AI가 시각을 「점심」 한 낱말로 줄 때 (밤샘 1차 재검
     expect([s.events[0].start, s.events[0].end]).toEqual(["12:20", "13:20"]);
   });
 });
+
+describe("「전날까지」의 기준 (공지 붙여넣기 시험)", () => {
+  it("이름 없이 「전날까지」: 같은 글로 들어온 일정 하나가 기준", async () => {
+    const { applyProposal } = await import("../src/calendar/store");
+    const { emptyState } = await import("../src/calendar/model");
+    const s = emptyState();
+    const ev = { kind: "SCHEDULE", area: "SCHOOL", title: "축제", details: "", startAt: "2026-11-27T09:00:00+09:00", endAt: "", reminderAt: "", reminders: [], subtasks: [], evidence: { sentence: "27일 축제", dateText: "27일", timeText: "", endDateText: "", reminderText: "" }, confidence: 0.9, needsReview: true, reviewReasons: ["날짜만 있어 오전 9시로 임시 지정"] };
+    const todo = { kind: "TODO", area: "SCHOOL", title: "반 부스 신청서 제출", details: "", startAt: "", endAt: "", reminderAt: "", reminders: [], subtasks: [], evidence: { sentence: "전날까지 반 부스 신청서 제출", dateText: "전날", timeText: "", endDateText: "", reminderText: "" }, confidence: 0.9, needsReview: true, reviewReasons: ["날짜 표현을 해석하지 못함: 「전날」"] };
+    applyProposal(s, { sourceText: "27일 축제\n전날까지 반 부스 신청서 제출", needsReview: true, reviewReasons: [], items: [ev, todo] } as never, "t", NOW);
+    expect(s.tasks[0].due).toBe("2026-11-26");
+    expect(s.tasks[0].noDue).toBeUndefined();
+  });
+});

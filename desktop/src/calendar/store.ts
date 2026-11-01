@@ -496,10 +496,16 @@ export function anchorRelativeDates(s: CalendarState, now: Date, hint: { prefer?
     const offset = relativeOffset(phrase) ?? relativeOffset(RELATIVE_SAID.exec(phrase)?.[0] ?? "");
     if (offset === null) continue;
     const text = squash(`${t.title} ${t.details ?? ""} ${hint.said?.get(t.id) ?? ""} ${phrase}`);
-    let anchors = [
+    const all = [
       ...liveEvents(s).filter((e) => !e.workFor).map((e) => ({ id: e.id, title: e.title, date: e.date })),
       ...livePeriods(s).map((p) => ({ id: p.id, title: p.title, date: p.from }))
-    ].filter((a) => a.date >= today && squash(a.title).length >= 2 && text.includes(squash(a.title)));
+    ];
+    let anchors = all.filter((a) => a.date >= today && squash(a.title).length >= 2 && text.includes(squash(a.title)));
+    // 「27일 축제\n전날까지 부스 신청서」: no name said, but one appointment came in with it — that one.
+    if (!anchors.length && hint.prefer?.has(t.id)) {
+      const withIt = all.filter((a) => hint.prefer!.has(a.id) && a.date >= today);
+      if (withIt.length === 1) anchors = withIt;
+    }
     // 「11. 6. 대의원회 … 일주일 전부터 기안」: the appointment said in the same words comes first.
     const same = anchors.filter((a) => hint.prefer?.has(a.id));
     if (same.length) anchors = same;
