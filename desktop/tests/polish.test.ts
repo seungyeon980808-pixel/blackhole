@@ -186,3 +186,15 @@ describe("하루표 루틴 표시 (밤샘)", () => {
     expect(rt.map((x) => x.classList.contains("side"))).toEqual([true, false]);
   });
 });
+
+describe("지적이 아닌 말", () => {
+  it("넣은 바로 뒤라도 「왜 이렇게 피곤하지」는 고칠 목록이 아님", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const root = document.querySelector<HTMLElement>("#app")!;
+    Object.defineProperty(root, "clientWidth", { configurable: true, get: () => 1300 });
+    app = await mountBlackhole(root, memoryAdapter(), { now: () => new Date("2026-10-30T09:44:00") });
+    await app.submitText("내일 3시 치과");
+    await app.submitText("왜 이렇게 피곤하지");
+    expect(app.state.reports).toHaveLength(0);
+  });
+});

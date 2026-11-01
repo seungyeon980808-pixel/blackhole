@@ -1669,7 +1669,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
    * a result card): kept in 고칠 목록 like 「이상해요」, and the card it is about is shown again to fix by hand.
    */
   function complaint(v: string, src: string): boolean {
-    if (!/왜\s*(?:저렇게|이렇게|그렇게|저리|이리)|이상하게\s*(?:들어|넣|잡)|잘못\s*(?:들어|넣|잡)|엉뚱하게|틀리게\s*(?:들어|넣)/.test(v) || v.length > 80) return false;
+    // 「왜 이렇게 피곤하지」 is not about a result: the words must point at what went in (들어가·넣·잡·됐).
+    if (!/왜\s*(?:저렇게|이렇게|그렇게|저리|이리)|이상하게|잘못|엉뚱하게|틀리게/.test(v) || !/들어|넣|잡|됐|돼|되어|나와|떠|바뀌|시간으로|날짜로/.test(v) || v.length > 80) return false;
     const now = clock();
     const last = [...s.chat].reverse().find((m) => m.who === "ai" && m.refs?.length && !m.brief);
     if (!last || now.getTime() - fromStamp(last.at).getTime() > 30 * 60_000) return false;
