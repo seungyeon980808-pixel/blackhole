@@ -381,3 +381,14 @@ describe("「오늘 일정 뭐야?」는 할 일 목록이 아님 (밤샘 자체
     expect(calls.answer.length).toBeGreaterThan(0);
   });
 });
+
+describe("물은 기간 밖 줄은 빼기 (실제 자료 질문)", () => {
+  it("「다음 주에 뭐 있어?」에 이번 주 토요일·다다음 주 월요일이 섞이면 뺌", async () => {
+    const { keepInSpan } = await import("../src/calendar/ask");
+    const doc = (id: string, date: string) => ({ id, kind: "event" as const, title: id, text: "", date, said: "2026-10-20", where: "" });
+    const sent = [doc("a", "2026-11-13"), doc("b", "2026-11-07"), doc("c", "2026-11-16")];
+    const lines = [{ text: "11/13 대왕제", ids: ["a"], missing: false }, { text: "11/7 감독", ids: ["b"], missing: false }, { text: "11/16 대의원회", ids: ["c"], missing: false }];
+    expect(keepInSpan(lines, sent, "다음 주에 뭐 있어?", new Date("2026-11-02T08:30:00")).map((l) => l.text)).toEqual(["11/13 대왕제"]);
+    expect(keepInSpan(lines, sent, "대의원회 언제야?", new Date("2026-11-02T08:30:00"))).toHaveLength(3);
+  });
+});

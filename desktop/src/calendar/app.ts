@@ -5,7 +5,7 @@
  */
 import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type RoutePart, type BoardOptions, type ClaudeStatus, type DeskStatus, type GoogleCalendars, type InboxStatus, type MessengerStatus, type PutItem } from "./adapter";
 import { looksSecret } from "./secret";
-import { answer as answerQuestion, AskIndex, checkLines, classify, docsOf, gather, KIND_LABEL, lineOf, wantsAll, wantsRoute, whenOf, WINDOWS, type AskDoc, type AskHit, type AskSources } from "./ask";
+import { answer as answerQuestion, AskIndex, checkLines, classify, docsOf, gather, keepInSpan, KIND_LABEL, lineOf, wantsAll, wantsRoute, whenOf, WINDOWS, type AskDoc, type AskHit, type AskSources } from "./ask";
 import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, TEXT_SIZES, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type Period, type Task, type SharedCalendar, type SpokenSetting, type ThemeName, type UserAction } from "./model";
@@ -1835,6 +1835,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         seen = g.total;
         const r = await adapter.answerAi!(question, g.docs.map(lineOf));
         shown = checkLines(r.lines ?? [], g.docs);
+        shown = { ...shown, lines: keepInSpan(shown.lines, g.docs, o.said ?? q, now) };
         sent = g.docs;
         const fd = (k: string) => `${k.slice(0, 4) === String(now.getFullYear()) ? "" : `${k.slice(0, 4)}년 `}${theme().fd(k)}`;
         scope = `${fd(g.from)}~${fd(g.to)} 기록 ${g.total}개에서 찾음${shown.dropped ? ` · 근거 없는 줄 ${shown.dropped}개 뺌` : ""}`;

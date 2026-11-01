@@ -329,6 +329,18 @@ function kindsOf(q: string): DocKind[] | null {
 const SUMMARY = /요약|정리해|어때|왜|어떻게|비교|추천|몇\s?개|얼마나/;
 const SAID = /라고|했지|했더라|말했|적었|넣었|적어\s?둔|넣어\s?둔/;
 
+/**
+ * 「다음 주에 뭐 있어?」: answer lines about a day outside the span asked are dropped (the AI added this Saturday
+ * and the Monday after). A line on no record in the span stays only when nothing else is left.
+ */
+export function keepInSpan(lines: AnswerLine[], sent: AskDoc[], question: string, now: Date): AnswerLine[] {
+  const r = dateRange(question, now);
+  if (!r) return lines;
+  const byId = new Map(sent.map((d) => [d.id, d]));
+  const inside = lines.filter((l) => l.missing || l.ids.some((id) => byId.has(id) && inRange(byId.get(id)!, r, SAID.test(question))));
+  return inside.some((l) => !l.missing) ? inside : lines;
+}
+
 function inRange(d: AskDoc, r: Range, bySaid: boolean): boolean {
   if (bySaid) return d.said >= r.from && d.said <= r.to;
   const end = d.to ?? d.date;
