@@ -156,3 +156,16 @@ describe("확인할 것: 지난 가승인 한 번에", () => {
     expect(app.state.events.map((e) => e.provisional)).toEqual([true, true, true]);
   });
 });
+
+describe("작은 위젯 (밤샘)", () => {
+  it("날짜 없는 할 일을 「5일 지남」으로 보여 주지 않음", async () => {
+    const { boardHTML } = await import("../src/mac/board");
+    const { emptyState } = await import("../src/calendar/model");
+    const s = emptyState();
+    const task = (id: string, title: string, due: string, x = {}) => ({ id, kind: "task" as const, title, area: "school" as const, source: "t", createdAt: "2026-10-27T09:00", due, dueTime: null, done: false, reminders: [], subs: [], ...x });
+    s.tasks.push(task("t1", "진석이에게 10만원 송금", "2026-10-27"), task("t2", "대의원회 준비", "2026-10-28", { noDue: true }));
+    const html = boardHTML(s, new Date("2026-11-02T08:30:00"));
+    expect(html).toContain("진석이에게 10만원 송금");
+    expect(html).not.toContain("대의원회 준비");
+  });
+});

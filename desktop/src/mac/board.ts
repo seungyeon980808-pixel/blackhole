@@ -28,7 +28,8 @@ export function boardHTML(s: CalendarState, now: Date, size: "small" | "large" =
   const t = parseDay(k);
   const hm = nowHM(now);
   const g = taskGroups(s, k);
-  const open = g.today.filter((x) => !x.done);
+  // 「날짜 없음」 to-dos are not late (their date is only when they came in): the large widget leaves them out too.
+  const open = g.today.filter((x) => !x.done && !x.noDue);
   const done = g.today.length - open.length;
   const evs = eventsOn(s, k);
   const ev = evs.map((e) => {
@@ -36,7 +37,7 @@ export function boardHTML(s: CalendarState, now: Date, size: "small" | "large" =
     return `<div class="br ${past ? "past" : ""}" data-open="${e.id}" title="${esc(`${range(e.start, e.end)} ${e.title}`)}"><span class="bt">${range(e.start, e.end)}</span><span class="bn">${esc(e.title)}${e.provisional ? '<i class="ga">가</i>' : ""}</span></div>`;
   }).join("");
   const taskRow = (x: Task) => {
-    const late = x.due < k;
+    const late = !x.noDue && x.due < k;
     const when = late ? `<span class="bd hot">${Math.round((t.getTime() - parseDay(x.due).getTime()) / 864e5)}일 지남</span>` : x.dueTime ? `<span class="lf">${left(now, x.dueTime)}</span><span class="bd hot">${x.dueTime}</span>` : "";
     return `<div class="br"><button class="bx" data-toggle="${x.id}" role="checkbox" aria-checked="false" aria-label="${esc(x.title)} 완료"></button><span class="bn" data-open="${x.id}" title="${esc(x.title)}">${esc(x.title)}</span>${x.subs.length ? `<span class="lf">${x.subs.filter((y) => y.done).length}/${x.subs.length}</span>` : ""}${when}</div>`;
   };
