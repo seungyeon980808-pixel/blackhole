@@ -408,3 +408,13 @@ describe("「내일 할 일 있어?」도 앱이 직접", () => {
     expect(s.chat.at(-1)!.text).toBe("내일 마감 1 — 출결 마감");
   });
 });
+
+describe("AI가 빈 결과를 줘도 끝낸 말이면 체크 (최종 시험에서)", () => {
+  it("「시행 기안 다 올렸어」: 항목 없이 요약만 와도 「시행 기안 올리기」 체크", async () => {
+    const { s } = await mount({ analyze: async (input: { text?: string }) => ({ sourceText: input.text ?? "", needsReview: true, reviewReasons: [], items: [] }) as never }, (a) =>
+      a.state.tasks.push({ id: "t1", kind: "task", title: "시행 기안 올리기", area: "school", source: "t", createdAt: "2026-10-20T09:00", due: "2026-10-30", dueTime: null, done: false, reminders: [], subs: [] } as never));
+    await app!.submitText("시행 기안 다 올렸어");
+    expect(s.tasks.find((t) => t.id === "t1")!.done).toBe(true);
+    expect(s.chat.some((m) => m.text.includes("완료로 체크함"))).toBe(true);
+  });
+});

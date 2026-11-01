@@ -652,6 +652,16 @@ export function refineDrafts(s: CalendarState, key: string, p: Proposal, source:
       out.updated.push(d.id);
     }
     out.refs = out.updated.slice();
+    // 「시행 기안 다 올렸어」 with no item from the AI (only 「…완료」 in its summary): the to-do it finishes, still.
+    const said = p.sourceText ?? "";
+    if (said && doneReport(said)) {
+      out.done = [];
+      for (const t of finishedBy(s, said)) {
+        t.done = true;
+        t.subs.forEach((y) => (y.done = true));
+        out.done.push(t.id);
+      }
+    }
     return out;
   }
   const applied = applyProposal(s, p, source, now, key);
