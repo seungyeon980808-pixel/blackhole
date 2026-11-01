@@ -277,3 +277,33 @@ describe("a question from the phone", () => {
     expect(JSON.stringify(sharedFrom(s, "x"))).not.toContain("1반은 4교시였음");
   });
 });
+
+describe("설정 말 더 (밤샘 대량 시험 2026-11-01)", () => {
+  it("「알람은 10분 전에 울려줘」 「출근 시간 8시로 설정해」 「점심시간 12시…으로 바꿔」 「글씨 원래 크기로」는 나누기로", () => {
+    for (const t of ["알람은 10분 전에 울려줘", "출근 시간 8시로 설정해", "점심시간 12시 10분부터 1시 10분으로 바꿔", "글씨 원래 크기로"]) expect(wantsRoute(t), t).toBe(true);
+    for (const t of ["점심시간에 학생회 회의", "내일 3시 치과", "금요일까지 생기부 점검"]) expect(wantsRoute(t), t).toBe(false);
+  });
+
+  it("이미 그 값이면 「화면은 이미 「어둡게」예요」, 되돌리기 없음", async () => {
+    const { s } = await mount({ routeText: async () => ({ parts: [part("setting", "다크모드로 바꿔", { key: "mode", value: "dark" })] }) });
+    await app!.submitText("다크모드로 바꿔");
+    expect(s.chat.at(-1)!.text).toBe("화면은 이미 「어둡게」예요");
+    expect(s.chat.at(-1)!.undo).toBeUndefined();
+  });
+});
+
+describe("세거나 모으는 질문은 1년부터 (밤샘 2026-11-01)", () => {
+  it("「몇 번」 「~한 반 어디야」 「누구」는 넓게, 「어디까지」 「이번 주」는 가까이부터", async () => {
+    const { wantsAll } = await import("../src/calendar/ask");
+    for (const t of ["신준호 학부모 상담 몇 번 했어?", "수행평가 점수 확인한 반 어디야?", "지각 잦아서 상담한 학생 누구였지?"]) expect(wantsAll(t), t).toBe(true);
+    for (const t of ["9반 진도 어디까지 나갔어?", "이번 주 마감 뭐 있어?", "오늘 몇 교시에 수업 있어?", "체육대회 언제였지?"]) expect(wantsAll(t), t).toBe(false);
+  });
+});
+
+describe("AI가 설정 이름을 빠뜨렸을 때 (밤샘)", () => {
+  it("「점심시간 12시 10분부터 1시 10분으로 바꿔」: 말에서 점심시간을 알아듣고 바꿈", async () => {
+    const { s } = await mount({ routeText: async () => ({ parts: [part("setting", "점심시간 12시 10분부터 1시 10분으로 바꿔", { value: "12:10-13:10" })] }) });
+    await app!.submitText("점심시간 12시 10분부터 1시 10분으로 바꿔");
+    expect(s.settings.lunch).toBe("12:10-13:10");
+  });
+});

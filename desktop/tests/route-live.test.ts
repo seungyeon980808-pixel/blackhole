@@ -48,6 +48,7 @@ describe.skipIf(!STATE)("live 넣기·질문·설정", () => {
       ...memoryAdapter(),
       origin: "데스크톱",
       claude: async () => claude,
+      setZoom: async () => undefined,
       aiSkipped: () => undefined,
       writeMemo: async () => undefined,
       askAi: async () => ({ answer: "", ids: [] }),
@@ -66,15 +67,17 @@ describe.skipIf(!STATE)("live 넣기·질문·설정", () => {
     s.settings = saved.settings;
     s.nextId = saved.nextId;
     s.chat = [];
-    const before = new Set([...s.events, ...s.tasks, ...s.periods, ...s.notes].map((x) => `${x.id}:${x.gone ? 1 : 0}`));
+    const ids = new Set([...s.events, ...s.tasks, ...s.periods, ...s.notes].map((x) => x.id));
+    const before = new Set([...s.events, ...s.tasks, ...s.periods, ...s.notes].map((x) => JSON.stringify(x)));
     const settings = JSON.stringify(s.settings);
     await app.submitText(text);
-    const changed = [...s.events, ...s.tasks, ...s.periods, ...s.notes].filter((x) => !before.has(`${x.id}:${x.gone ? 1 : 0}`));
+    const changed = [...s.events, ...s.tasks, ...s.periods, ...s.notes].filter((x) => !before.has(JSON.stringify(x)));
     report.push({
       text,
       calls,
       chat: s.chat.filter((m) => m.who === "ai").map((m) => ({ text: m.text, scope: m.scope, hits: m.hits?.map((h) => `${h.title} (${h.when})`), refs: m.refs?.length, undo: !!m.undo, redo: m.redo?.as })),
-      changed: changed.map((x) => `${x.gone ? "취소 " : ""}${x.kind} ${x.title} ${"date" in x ? x.date + " " + (x.start ?? "") : "due" in x ? x.due : ""} ${"reminders" in x ? x.reminders.join(",") : ""}`),
+      changed: changed.map((x) => `${x.gone ? "취소 " : ""}${x.kind} ${x.title} ${"date" in x ? x.date + " " + (x.start ?? "") : "due" in x ? x.due + " " + (x.dueTime ?? "") : ""} ${"reminders" in x ? x.reminders.join(",") : ""}`),
+      entries: changed.map((x) => ({ id: x.id, kind: x.kind, title: x.title, gone: !!x.gone, done: "done" in x ? x.done : undefined, date: "date" in x ? x.date : "due" in x ? x.due : "from" in x ? (x as { from: string }).from : undefined, time: "start" in x ? x.start : "dueTime" in x ? x.dueTime : undefined, isNew: !ids.has(x.id) })),
       settings: JSON.stringify(s.settings) === settings ? undefined : s.settings
     });
     if (process.env.BLACKHOLE_LIVE_REPORT) writeFileSync(process.env.BLACKHOLE_LIVE_REPORT, JSON.stringify(report, null, 1));

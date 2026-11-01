@@ -23,7 +23,7 @@
     return s;
   };
   try {
-    localStorage.setItem("bh-mock-state", JSON.stringify(FIX(L.theme, L.theme === "glass" ? "dark" : null)));
+    localStorage.setItem("bh-mock-state", JSON.stringify(FIX(L.theme, L.theme === "glass" ? L.mode || "dark" : null)));
     localStorage.setItem("bh-panel", L.chat === "closed" ? "closed" : "open");
     localStorage.removeItem("bh-panel-w");
   } catch {}

@@ -77,7 +77,8 @@ function parseDate(text: string, today: Date): Date | null {
     return !abs[1] && r < today ? plusYear(r) : r;
   }
   const slash = SLASH_DATE.exec(text);
-  if (slash) {
+  // 「오늘 6교시 보강 2-3」: with a day word said, 「2-3」 is 2학년 3반, not February 3rd.
+  if (slash && !(slash[0].includes("-") && /글피|모레|내일|오늘|요일/.test(text))) {
     const r = makeDate(today.getFullYear(), Number(slash[1]), Number(slash[2]));
     if (!r) return null;
     return r < today ? plusYear(r) : r;
@@ -406,7 +407,7 @@ export function timeWords(raw: string, day: DayClock = {}, now?: Date): string {
   });
   v = v.replace(/출근\s*(?:하기\s*)?(?:전에|전까지|전)/g, `${on}까지`).replace(/출근\s*(?:하면|후에|후|하고|해서)/g, `${on}`).replace(/아침에(?!\s*\d)/g, `${on}에`);
   v = v.replace(/퇴근\s*(?:하기\s*)?(?:전에|전까지|전|까지)/g, `${off}까지`).replace(/퇴근\s*(?:후에|후|하고)/g, `${off}`);
-  v = v.replace(/점심\s*(?:시간\s*)?(?:전에|전까지|전)/g, `${l0}까지`).replace(/점심\s*(?:시간\s*)?(?:후에|후|먹고)/g, `${l1}`).replace(/점심\s*(?:시간|때)\s*(?:에)?/g, `${l0}~${l1} `);
+  v = v.replace(/점심\s*(?:시간\s*)?(?:전에|전까지|전)/g, `${l0}까지`).replace(/점심\s*(?:시간\s*)?(?:후에|후|먹고)/g, `${l1}`).replace(/점심\s*(?:시간|때)\s*(?:에)?|점심\s*에(?=\s)/g, `${l0}~${l1} `);
   v = v.replace(/(\d{1,2})\s*교시\s*(전에|전까지|전|후에|후|끝나고|뒤|에|부터)?/g, (m, n: string, w = "") => {
     const r = per[Number(n) - 1];
     if (!r) return m;
@@ -540,7 +541,8 @@ export function memoDraft(raw0: string, now: Date, day: DayClock = {}): { title:
   if (timeRange(raw) || singleTime(raw) || daySpan(raw, now)) return null;
   const r = parseRule(raw, now);
   // Something about a day the rules could not read: not a sure 기억 — let the AI decide.
-  const dayHint = /(?<![\d-])\d{1,2}\s*일(?!\s*(?:동안|간|째))|주말|월말|말일|(?:뒤|후)(?:에)?(?:\s|$)|안에|중에|내로|자정|정오|연휴|다음\s*달|이번\s*달|오전|오후|저녁|아침|새벽|방과\s*후/.test(raw);
+  // 「목 점심에 부장 회의」 「지금 바로 결재」 「퇴근 전에」: a day or a time the rules do not read either.
+  const dayHint = /(?<![\d-])\d{1,2}\s*일(?!\s*(?:동안|간|째))|주말|월말|말일|(?:뒤|후)(?:에)?(?:\s|$)|안에|중에|내로|자정|정오|연휴|다음\s*달|이번\s*달|오전|오후|저녁|아침|새벽|방과\s*후|점심|지금\s*바로|당장|퇴근|출근|교시|조회|종례|(?:^|\s)[월화수목금토일]욜?(?=\s|$)/.test(raw);
   if (!r.date && !r.hasTime) return memo(!dayHint && !notJustAMemo(raw0));
   // Hearsay (「…보내준대」, 「…온다고」) is something to remember, even with a to-do word in it.
   const hearsay = /(대|래|더라|다고|라고|한다)\s*[.!]?\s*$/.test(raw.trim());

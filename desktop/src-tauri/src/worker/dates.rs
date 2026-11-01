@@ -617,6 +617,21 @@ fn parse_date(text: &str, today: NaiveDate) -> DateOutcome {
             return DateOutcome::Valid(date);
         }
     }
+    // 「21일 토요일」 「13일 금요일」: the day number wins over the weekday (it went to this Saturday);
+    // the weekday only picks this month or the next, whichever has that day on that weekday.
+    {
+        static DAY_AND_WEEKDAY: OnceLock<Regex> = OnceLock::new();
+        if let Some(c) = re(&DAY_AND_WEEKDAY, r"(?:^|[^\d])(\d{1,2})\s*일\s*(?:\(|,)?\s*([월화수목금토일])(?:요일)?").captures(text) {
+            let d: u32 = c[1].parse().unwrap_or(0);
+            let weekday = [Weekday::Mon, Weekday::Tue, Weekday::Wed, Weekday::Thu, Weekday::Fri, Weekday::Sat, Weekday::Sun]["월화수목금토일".chars().position(|x| c[2].starts_with(x)).unwrap_or(0)];
+            let (ny, nm) = if today.month() == 12 { (today.year() + 1, 1) } else { (today.year(), today.month() + 1) };
+            let this = NaiveDate::from_ymd_opt(today.year(), today.month(), d).filter(|x| *x >= today);
+            let next = NaiveDate::from_ymd_opt(ny, nm, d);
+            if let Some(date) = [this, next].into_iter().flatten().find(|x| x.weekday() == weekday).or(this).or(next) {
+                return DateOutcome::Valid(date);
+            }
+        }
+    }
     if let Some(weekday) = weekday_in(text) {
         if text.contains("다음 주") || text.contains("다음주") {
             let days_to_next_monday = 7 - today.weekday().num_days_from_monday() as i64;
@@ -996,6 +1011,17 @@ mod tests {
         assert_eq!(start("내일", "오후 세 시", "SCHEDULE"), "2026-10-22T15:00:00+09:00");
         assert_eq!(start("모레", "10시 반", "SCHEDULE"), "2026-10-23T10:30:00+09:00");
         assert_eq!(start("글피", "아침 7시", "SCHEDULE"), "2026-10-24T07:00:00+09:00");
+    }
+
+    #[test]
+    fn a_day_number_wins_over_its_weekday() {
+        let today = NaiveDate::from_ymd_opt(2026, 11, 2).unwrap();
+        assert_eq!(parse_date("21일 토요일", today), DateOutcome::Valid(NaiveDate::from_ymd_opt(2026, 11, 21).unwrap()));
+        assert_eq!(parse_date("13일 금요일", today), DateOutcome::Valid(NaiveDate::from_ymd_opt(2026, 11, 13).unwrap()));
+        assert_eq!(parse_date("13일(금)", today), DateOutcome::Valid(NaiveDate::from_ymd_opt(2026, 11, 13).unwrap()));
+        // 1일 is past this month: the next month's 1일, a Tuesday.
+        assert_eq!(parse_date("1일 화요일", today), DateOutcome::Valid(NaiveDate::from_ymd_opt(2026, 12, 1).unwrap()));
+        assert_eq!(parse_date("금요일", today), DateOutcome::Valid(NaiveDate::from_ymd_opt(2026, 11, 6).unwrap()));
     }
 
     #[test]

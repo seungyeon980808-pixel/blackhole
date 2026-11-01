@@ -5,7 +5,7 @@
  */
 import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type RoutePart, type BoardOptions, type ClaudeStatus, type DeskStatus, type GoogleCalendars, type InboxStatus, type MessengerStatus, type PutItem } from "./adapter";
 import { looksSecret } from "./secret";
-import { answer as answerQuestion, AskIndex, checkLines, classify, docsOf, gather, KIND_LABEL, lineOf, wantsRoute, whenOf, WINDOWS, type AskDoc, type AskHit, type AskSources } from "./ask";
+import { answer as answerQuestion, AskIndex, checkLines, classify, docsOf, gather, KIND_LABEL, lineOf, wantsAll, wantsRoute, whenOf, WINDOWS, type AskDoc, type AskHit, type AskSources } from "./ask";
 import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, TEXT_SIZES, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type Period, type Task, type SharedCalendar, type SpokenSetting, type ThemeName, type UserAction } from "./model";
@@ -72,6 +72,11 @@ export function friendlyError(e: unknown): string {
   return `처리하지 못함 · 다시 해 보고, 계속되면 블랙홀을 다시 열어 주세요${detail ? ` (${detail})` : ""}`;
 }
 
+/** 은/는 after a Korean word (「화면은」 「글자 크기는」). */
+const topic = (w: string) => {
+  const c = w.charCodeAt(w.length - 1) - 0xac00;
+  return c >= 0 && c < 11172 && c % 28 !== 0 ? "은" : "는";
+};
 /** 「크게」 for 115 (설정 names), else 「120%」. */
 const sizeName = (n: number) => TEXT_SIZES.find(([x]) => x === n)?.[1] ?? `${n}%`;
 
@@ -1551,8 +1556,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   /** A setting part of the words: done, said in the chat with 「되돌리기」. */
   function sayAndSet(p: RoutePart): void {
-    // The AI sometimes leaves the key out of 「글자 좀 줄여줘」: the words say which setting.
-    if ((!p.key || p.key === "unknown") && /글씨|글자/.test(p.text)) p = { ...p, key: "textSize", value: p.value || p.text };
+    // The AI sometimes leaves the key out (「글자 좀 줄여줘」 「점심시간 12시 10분부터…」): the words say which setting.
+    if (!p.key || p.key === "unknown") {
+      const said: [RegExp, SpokenSetting][] = [[/글씨|글자/, "textSize"], [/출근/, "onWork"], [/퇴근/, "offWork"], [/점심/, "lunch"], [/기본\s*길이/, "eventMinutes"], [/알람|알림/, "remindMinutes"], [/밝게|어둡게|다크|라이트/, "mode"]];
+      const key = said.find(([re]) => re.test(p.text))?.[1];
+      if (key) p = { ...p, key, value: p.value || p.text };
+    }
     const r = setSpoken(p.key, p.value);
     const at = stamp(clock());
     if (typeof r === "string") {
@@ -1560,6 +1569,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return;
     }
     const k = p.key as SpokenSetting;
+    if (r.before === r.after) {
+      s.chat.push({ id: newId(s, "c"), at, who: "ai", text: `${SETTING_NAME[k]}${topic(SETTING_NAME[k])} 이미 「${settingText(k, r.after)}」예요` });
+      return;
+    }
     const text = `${SETTING_NAME[k]} ${settingText(k, r.before)} → ${settingText(k, r.after)}${r.moved ? ` · 남은 일정 알림 ${r.moved}개도 옮김` : ""}`;
     s.chat.push({ id: newId(s, "c"), at, who: "ai", text, undo: { key: k, before: r.before } });
     log(s, { label: "설정", msg: text, src: adapter.origin }, clock());
@@ -1767,7 +1780,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       let sent: AskDoc[] = [];
       let scope = "";
       let seen = -1;
-      for (const w of WINDOWS) {
+      for (const w of wantsAll(question) || wantsAll(q) ? WINDOWS.slice(-1) : WINDOWS) {
         const g = gather(idx, terms, now, w, question);
         // Wider but nothing more to read: the first answer stands (no second call).
         if (!g.docs.length || g.total === seen) continue;

@@ -55,7 +55,8 @@ await new Promise((resolve, reject) => {
   server.once("exit", (c) => reject(new Error(`vite 종료 ${c} (포트 ${PORT}을 다른 것이 쓰는지 확인)`)));
 });
 
-const SIZES = [[1000, 620], [1280, 800], [1440, 900], [1728, 1117]];
+// LAYOUT_SIZES="667x413,985x615" (글자 크기 150 %·130 % = the window that much smaller), LAYOUT_MODE=light.
+const SIZES = process.env.LAYOUT_SIZES ? process.env.LAYOUT_SIZES.split(",").map((x) => x.split("x").map(Number)) : [[1000, 620], [1280, 800], [1440, 900], [1728, 1117]];
 const browser = await pw.chromium.launch({ executablePath: chromiumPath() });
 const fails = [];
 let n = 0;
@@ -64,7 +65,7 @@ try {
     for (const [w, h] of SIZES) {
       for (const chat of ["open", "closed"]) {
         const ctx = await browser.newContext({ viewport: { width: w, height: h }, locale: "ko-KR", timezoneId: "Asia/Seoul" });
-        await ctx.addInitScript(`window.__BH_LAYOUT=${JSON.stringify({ theme, chat })};\n${FIXTURE}\ntry { localStorage.setItem("bh-view", ${JSON.stringify(view)}); } catch {}`);
+        await ctx.addInitScript(`window.__BH_LAYOUT=${JSON.stringify({ theme, chat, mode: process.env.LAYOUT_MODE })};\n${FIXTURE}\ntry { localStorage.setItem("bh-view", ${JSON.stringify(view)}); } catch {}`);
         await ctx.addInitScript(MOCK);
         const page = await ctx.newPage();
         const errors = [];

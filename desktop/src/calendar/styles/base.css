@@ -462,10 +462,12 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 .bh .barin .cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .bh .barin .cell.r { grid-column: 2 / -1; justify-content: flex-end; }
 .bh .barin .cell > * { flex: none; }
-.bh .barin .cell .find { flex: 1 1 auto; min-width: 110px; width: auto; max-width: none; margin: 0; }
+.bh .barin .cell .find { flex: 1 1 auto; min-width: 34px; width: auto; max-width: none; margin: 0; overflow: hidden; }
+/* A narrow window (or big text): the search box shrinks to its icon rather than run under the view buttons. */
+@container (max-width: 900px) { .bh .barin .cell .find kbd { display: none; } }
 .bh .barin .cell .nowline { flex: 1 1 auto; min-width: 0; max-width: none; margin: 0; }
 .bh .tlsp { display: none; }
-@container (max-width: 1249px) { .bh .barin { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); } .bh .barin .cell.r { grid-column: 2; } }
+@container (max-width: 1249px) { .bh .barin { grid-template-columns: minmax(0, 1.15fr) minmax(max-content, 1fr); } .bh .barin .cell.r { grid-column: 2; } }
 @container (max-width: 619px) { .bh .barin { display: flex; flex-wrap: wrap; } .bh .barin .cell.l { flex: 1 1 100%; } .bh .barin .cell.r { flex: 1 1 100%; } .bh .barin .nowline { display: none; } }
 .bh .dctl { display: inline-flex; align-items: center; height: 30px; border: 1px solid var(--x-line, var(--line)); border-radius: 9px; background: var(--glass); overflow: hidden; }
 .bh .dctl .ar { position: relative; width: 28px; height: 100%; border: 0; background: none; color: var(--ink2); font-size: 15px; cursor: pointer; padding: 0; }

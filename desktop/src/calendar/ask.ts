@@ -76,8 +76,8 @@ export function classify(raw: string, now: Date): "ask" | "put" | "both" {
 }
 
 const PASTED = /\[(?:오전|오후)\s*\d{1,2}:\d{2}\]|^\S{1,10}\s*:\s/m;
-const SETTING_WORDS = /(알람|알림|설정|글씨|글자|소리|진동|테마|기본\s*길이|다크|라이트|어둡게|밝게|화면|출근\s*시[각간]|퇴근\s*시[각간]|점심\s*시간\s*[은는을이])/;
-const ORDER_WORDS = /(키워|줄여|크게|작게|해\s*줘|해\s*주|하십시오|하세요|바꿔|바꾸|으로\s*해|로\s*해|게\s*해|되게|울리게|맞춰|해\s*놔|해\s*둬)/;
+const SETTING_WORDS = /(알람|알림|설정|글씨|글자|소리|진동|테마|기본\s*길이|다크|라이트|어둡게|밝게|화면|출근\s*시[각간]|퇴근\s*시[각간]|점심\s*시간\s*(?:[은는을이]|\d))/;
+const ORDER_WORDS = /(키워|줄여|크게|작게|울려|설정해|원래\s*(?:크기|대로)|(?:으)?로\s*$|해\s*줘|해\s*주|하십시오|하세요|바꿔|바꾸|으로\s*해|로\s*해|게\s*해|되게|울리게|맞춰|해\s*놔|해\s*둬)/;
 
 /**
  * 넣기·질문·설정 나누기 (the AI) is worth one small call: a question or a setting order somewhere
@@ -408,6 +408,13 @@ export const WINDOWS = [
   { back: 365, ahead: 183, label: "1년" }
 ] as const;
 const MAX_LINES = 150;
+/**
+ * 「몇 번 했어?」 「성운까지 한 반 어디야?」 「상담한 학생 누구」: counting or gathering over all the records.
+ * The last three months alone gave short counts (2 of 7) the AI took as enough: these start with the year,
+ * unless a near span is said (「이번 주」 「오늘」).
+ */
+export const wantsAll = (q: string): boolean =>
+  /몇\s*(?:번|회|개|명|건|차례)|모두|전부|다\s*(?:알려|정리)|총\s|한\s*반|(?:어느|어떤|무슨)\s*반|누구/.test(q) && !/오늘|내일|모레|이번\s*주|다음\s*주|지난\s*주|이번\s*달|다음\s*달/.test(q);
 
 export interface Gathered {
   docs: AskDoc[];
