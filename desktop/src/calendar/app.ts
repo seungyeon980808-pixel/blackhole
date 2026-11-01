@@ -1460,6 +1460,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     } finally {
       busy--;
     }
+    // One plain line that asks (「7반 진도 어디까지 나갔어?」) is a question even when the AI says 「put」 once in a while.
+    if (parts.length === 1 && parts[0].kind === "put" && !v.includes("\n") && /(?:\?|[지나까])\s*$/.test(v) && /어디|언제|뭐|무엇|몇|누구|어느|어떤|있었|했었|됐|맞/.test(v)) parts = [{ ...parts[0], kind: "ask", question: v }];
     const from = s.chat.length;
     if (!parts.some((p) => p.kind !== "put")) {
       await submitText(v, src, false, "put");

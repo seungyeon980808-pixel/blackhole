@@ -77,8 +77,8 @@ export interface Applied {
 export const MANY_TARGETS = "바꿀 일정이 여럿이라 확인 필요: ";
 export const NEW_TIME_UNSAID = "바뀐 날짜·시각이 없어 일정은 그대로 둠";
 /** 「취소됨」 「취소했음」 「없어졌대」 at the end: news that something is off (「취소 신청서 내기」 is not). */
-const CANCEL_DONE = /(?:취소\s*(?:됨|됐|되었|했|함|래|라고|요|임)|없어졌|없어짐|무산)[가-힣]*[.!~\s]*$/;
-const CANCEL_SAID = /취소|안\s*하|안\s*함|없어|없던|무산|안\s*열|빠지|빠짐|빠졌/;
+const CANCEL_DONE = /(?:취소\s*(?:됨|됐|되었|했|함|래|라고|요|임)|없어졌|없어짐|무산|안\s*(?:하|가)(?:게|기로)\s*(?:됐|됨|함|했)|불참)[가-힣]*[.!~\s]*$/;
+const CANCEL_SAID = /취소|안\s*하|안\s*함|없어|없던|무산|안\s*열|빠지|빠짐|빠졌|안\s*가|못\s*가|불참/;
 const MOVE_SAID = /바뀌|바뀜|바꿈|변경|미뤄|미룸|미뤘|연기|앞당|당겨|당김|당겼|연장|늘어|늘렸|늘림|옮|아니고|아니라|말고|(?:으로|로)(?:\s|$|까지)/;
 
 /**
@@ -90,7 +90,9 @@ export function changeTargets(s: CalendarState, item: ProposalItem, now: Date): 
   const name = squash(item.title);
   if (name.length < 2) return [];
   const today = ymd(now);
-  const named = (x: { title: string }) => squash(x.title).includes(name) || (squash(x.title).length >= 2 && name.includes(squash(x.title)));
+  // 「가정통신문 확인」 for 「가정통신문 작성·발송할지 확인」, 「수업 나눔 모임」 for 「… 수업 나눔 및 친목」: every word is in it.
+  const words = item.title.split(/\s+/).map((w) => w.replace(PARTICLE, "")).filter((w) => w.length >= 2);
+  const named = (x: { title: string }) => squash(x.title).includes(name) || (squash(x.title).length >= 2 && name.includes(squash(x.title))) || (words.length >= 2 && words.filter((w) => squash(x.title).includes(w)).length >= Math.max(2, words.length - 1));
   // Drafts are what is being said right now (「치과 4시로 바뀜」 is a 치과 draft too): never the target.
   let list: (CalEvent | Task)[] = [...liveEvents(s).filter((e) => e.date >= today && !e.workFor && !e.draft && named(e)), ...liveTasks(s).filter((t) => !t.done && !t.draft && named(t))];
   // 「교과협의회 다음주 금요일 걸로 취소」: a cancel's day says which one.
@@ -108,9 +110,22 @@ export function changeTargets(s: CalendarState, item: ProposalItem, now: Date): 
     });
     if (inWeek.length) list = inWeek;
   }
-  if (list.length > 1 && from) {
-    const r = parseRule(`${from} 일정`, now);
-    const dated = /\d+\s*월|\d+\s*일|[월화수목금토일]요일|오늘|내일|모레|\d+\/\d+/.test(from);
+  // 「대의원회」 said whole: that appointment, not 「대의원회 준비」 (to-dos that only name it).
+  const exact = list.filter((x) => squash(x.title) === name);
+  if (list.length > 1 && exact.length) list = exact;
+  // 「금요일 대의원회 4시로 바뀌었대」: only the time is new, so the day said is which one it was.
+  const onlyTime = item.change === "MOVE" && !from && !!item.evidence.timeText && !!item.evidence.dateText;
+  const at = (from || (onlyTime ? item.evidence.dateText : "")).trim();
+  if (list.length > 1 && at) {
+    const r = parseRule(`${at} 일정`, now);
+    // 「16일 대의원회」: a bare day number is this month's (or the next one's when it has passed).
+    const bare = /^\s*(\d{1,2})\s*일/.exec(at);
+    if (!r.date && bare) {
+      const d = new Date(now.getFullYear(), now.getMonth(), Number(bare[1]));
+      if (ymd(d) < ymd(now)) d.setMonth(d.getMonth() + 1);
+      r.date = ymd(d);
+    }
+    const dated = /\d+\s*월|\d+\s*일|[월화수목금토일]요일|오늘|내일|모레|\d+\/\d+/.test(at);
     const narrowed = list.filter((x) => {
       const day = x.kind === "event" ? x.date : x.due;
       const hm = x.kind === "event" ? x.start : x.dueTime;
@@ -169,8 +184,25 @@ const hmOf = (m: number): string => {
 export function doneReport(text: string): boolean {
   const t = text.trim().replace(/[.!~\s]+$/, "");
   if (/(?:해야|야)\s*함$|할\s*것$|하기$/.test(t)) return false;
-  return /(?:함|했음|했어요?|했다|했습니다|완료|끝|끝남|끝났(?:어|음|다|습니다)?|종료|마침|마쳤(?:음|어|다)?)$/.test(t);
+  if (/(?:함|했음|했어요?|했다|했습니다|완료|끝|끝남|끝났(?:어|음|다|습니다)?|종료|마침|마쳤(?:음|어|다)?)$/.test(t)) return true;
+  // 「기안 올림」 「10만원 보냄」 「다 올렸어」 「보냈음」: a past or ㅁ-ending of a doing word (asking 「…했었나」 is not).
+  const jong = (c: string | undefined) => (c && c >= "가" && c <= "힣" ? (c.charCodeAt(0) - 0xac00) % 28 : -1);
+  const last = t.slice(-1);
+  if (/[나까니지]$/.test(t) || /(?:있|없|같|겠)[어음다요]$/.test(t)) return false;
+  return /(?:올림|보냄|냄|넣음|씀|줌|받음|드림|돌림|붙임|걸음)$/.test(t) || (jong(t.slice(-2, -1)) === 20 && /[어음다요]/.test(last));
 }
+
+/** The same deed said another way (「송금」 = 「보냄」, 「올리기」 = 「올렸음」): what a to-do's last word may be met by. */
+const DEED_WORDS: string[][] = [
+  ["송금", "보내", "보냄", "보냈", "입금", "이체"],
+  ["올리기", "올리", "올림", "올렸", "상신"],
+  ["제출", "내기", "냄", "냈", "제출함"],
+  ["보내기", "보내", "보냄", "보냈", "발송"],
+  ["신청", "신청함", "신청했"],
+  ["확인", "확인함", "확인했", "봤"],
+  ["작성", "썼", "씀"]
+];
+const deedSaid = (word: string, said: string): boolean => said.includes(word) || DEED_WORDS.some((g) => g.some((w) => word === w || word.endsWith(w)) && g.some((w) => said.includes(w)));
 
 /** Words that make an item school work whatever the model said (「행정실 가서 카드 제출」 「2학년 9반 …」). */
 const SCHOOL_WORDS = /품의|초과근무|벌점|지각|교육청|장학사|체험학습|교직원|교과|보강|시간표|나이스|학급|종례|조회|(?<!수영|피아노|요가|미술|영어|태권도|발레|필라테스|골프|테니스)\s*수업|\d+\s*반(?![가-힣])|\d+\s*반(?:도|은|는|에|의|부터|까지)|\d\s*학년|\d\s*교시|행정실|교무실|교원|교사|기안|공문|결재|수행평가|생기부|세특|방과후|학생|학부모|담임|쿨메신저|협의회|협의록|출장|급식지도|진도|교학공|대의원회|학생회/;
@@ -193,8 +225,9 @@ export function finishedBy(s: CalendarState, sentence: string): Task[] {
     if (words.length < 2) return [];
     const own = classesIn(t.title);
     if (own.some((c) => !saidClasses.includes(c))) return [];
-    if (!said.includes(words[words.length - 1])) return [];
-    const hit = words.filter((w) => said.includes(w)).length;
+    if (!deedSaid(words[words.length - 1], said)) return [];
+    // 「진석이한테」 for 「진석이에게」: a name with another ending still counts.
+    const hit = words.filter((w, i) => (i === words.length - 1 ? deedSaid(w, said) : said.includes(w) || (w.length >= 3 && said.includes(w.slice(0, -1))))).length;
     return hit >= 2 && hit * 3 >= words.length * 2 ? [{ t, score: hit / words.length + (own.length ? 1 : 0) }] : [];
   });
   if (!scored.length) return [];

@@ -25,3 +25,31 @@ describe("학교 점심 (밤샘)", () => {
     expect(timeWords("점심 약속", {})).toBe("점심 약속");
   });
 });
+
+describe("이미 있는 기록 바꾸기 (밤샘 2차 45문장)", async () => {
+  const { finishedBy, changeTargets, doneReport } = await import("../src/calendar/store");
+  const { emptyState } = await import("../src/calendar/model");
+  const now = new Date("2026-11-02T08:30:00");
+  const s = emptyState();
+  const task = (id: string, title: string, due: string) => ({ id, kind: "task" as const, title, area: "school" as const, source: "t", createdAt: "2026-10-27T09:00", due, dueTime: null, done: false, reminders: [], subs: [] });
+  const ev = (id: string, title: string, date: string) => ({ id, kind: "event" as const, title, area: "school" as const, source: "t", createdAt: "2026-10-27T09:00", date, start: "15:10", end: null, provisional: false, reminders: [] });
+  s.tasks.push(task("t1", "진석이에게 10만원 송금", "2026-10-27"), task("t2", "대의원회 기안 올리기", "2026-10-29"), task("t3", "가정통신문 작성·발송할지 확인", "2026-10-29"), task("t4", "대의원회 준비", "2026-10-28"));
+  s.events.push(ev("e1", "대의원회", "2026-11-06") as never, ev("e2", "대의원회", "2026-11-16") as never, ev("e3", "1년 모임 돌아보며, 수업 나눔 및 친목(20명 이내)", "2026-11-06") as never);
+  const item = (title: string, change: "MOVE" | "CANCEL", changeFrom = "") => ({ kind: "SCHEDULE", title, change, changeFrom, evidence: { sentence: title, dateText: "", timeText: "" } }) as never;
+
+  it("「보냄」 「올렸음」 「올림」은 끝냄, 「있음」 「보냈었나」는 아님", () => {
+    for (const t of ["진석이한테 10만원 보냄", "대의원회 기안 올렸음", "기안 올림", "시행 기안 다 올렸어"]) expect(doneReport(t), t).toBe(true);
+    for (const t of ["3반 민수 땅콩 알레르기 있음", "진석이한테 돈 보냈었나", "금요일까지 기안 올리기"]) expect(doneReport(t), t).toBe(false);
+  });
+
+  it("같은 뜻 낱말로 할 일을 찾음: 보냄=송금, 올렸음=올리기", () => {
+    expect(finishedBy(s, "진석이한테 10만원 보냄").map((t) => t.id)).toEqual(["t1"]);
+    expect(finishedBy(s, "대의원회 기안 올렸음").map((t) => t.id)).toEqual(["t2"]);
+  });
+
+  it("제목이 조금 달라도 낱말이 다 들어 있으면, 이름이 똑같은 일정이 먼저, 「16일」로 좁힘", () => {
+    expect(changeTargets(s, item("가정통신문 확인", "MOVE"), now).map((x) => x.id)).toEqual(["t3"]);
+    expect(changeTargets(s, item("수업 나눔 모임", "CANCEL"), now).map((x) => x.id)).toEqual(["e3"]);
+    expect(changeTargets(s, item("대의원회", "MOVE", "16일"), now).map((x) => x.id)).toEqual(["e2"]);
+  });
+});

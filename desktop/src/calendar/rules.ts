@@ -503,7 +503,7 @@ const MEMO_HEAD = /^\s*(메모|기억|노트)\s*[:：,]?\s+/;
  * change (「학부모 상담 취소」), or a day the rules cannot read (「1029 3학년 기말고사」 「11. 9.(월)」): not a plain
  * 기억 — the AI reads it (2026-10-28 밤: these were kept as 기억 and the to-do, the check, the cancel never happened). */
 const TODO_END = /(?:[가-힣]기|해야\s*(?:함|됨|해|돼|된다|한다)?|야\s*함|할\s*것|하자|해\s*줘|발송|제출|기안|품의|신청|입력|회신|수합|취합|출력|인쇄|채점|연락|전달|주문|예약|구입|구매|정리|작성)\s*[.!~]*\s*$/;
-const DONE_END = /(?:[했냈갔봤왔줬끝](?:어요?|음|다|습니다)|함|했음|했어요?|했다|했습니다|완료|끝|끝남|끝났(?:어|음|다|습니다)?|종료|마침|마쳤(?:음|어|다)?|보냄|보냈(?:음|어|다)?|나감|나갔(?:음|어|다)?)\s*[.!~]*\s*$/;
+const DONE_END = /(?:[했냈갔봤왔줬끝렸됐겼셨쳤졌](?:어요?|음|다|습니다)|올림|드림|받음|넣음|냄|함|했음|했어요?|했다|했습니다|완료|끝|끝남|끝났(?:어|음|다|습니다)?|종료|마침|마쳤(?:음|어|다)?|보냄|보냈(?:음|어|다)?|나감|나갔(?:음|어|다)?)\s*[.!~]*\s*$/;
 const CONDITION = /[가-힣]면\s|[가-힣]고\s+[가-힣]+(?:기|하기)\b/;
 const DATE_DIGITS = (raw: string): boolean =>
   /\d{1,2}\s*\.\s*\d{1,2}\s*\.|\d{1,2}\/\d{1,2}/.test(raw) ||
@@ -522,7 +522,8 @@ export const isFiller = (raw: string): boolean => {
 
 export const notJustAMemo = (raw: string): boolean => {
   const t = raw.trim();
-  return TODO_END.test(t) || DONE_END.test(t) || CONDITION.test(t) || AI_ONLY.test(t) || DATE_DIGITS(t);
+  // 「임용2차 감독 안 하게 됐어」 「모임 불참」: a change to what is in the calendar, the AI's to match.
+  return TODO_END.test(t) || DONE_END.test(t) || CONDITION.test(t) || AI_ONLY.test(t) || DATE_DIGITS(t) || /안\s*(?:하|가)(?:게|기로)|못\s*가|불참/.test(t);
 };
 
 /**

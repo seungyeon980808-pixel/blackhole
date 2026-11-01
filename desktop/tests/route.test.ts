@@ -307,3 +307,35 @@ describe("AI가 설정 이름을 빠뜨렸을 때 (밤샘)", () => {
     expect(s.settings.lunch).toBe("12:10-13:10");
   });
 });
+
+describe("한 줄 물음은 질문 (밤샘)", () => {
+  it("AI가 가끔 「7반 진도 어디까지 나갔어?」를 넣기로 봐도 질문으로 답함", async () => {
+    const { s, calls } = await mount({
+      routeText: async (t) => ({ parts: [part("put", t)] }),
+      answerAi: async () => ({ enough: true, lines: [{ text: "7반: 열과 우리 생활", ids: ["n-7"], missing: false }] })
+    }, (a) => a.state.notes.push(memo("n-7", "7반 열과 우리 생활 진도 나감", "2026-10-28T11:00")));
+    await app!.submitText("7반 진도 어디까지 나갔어?");
+    expect(calls.answer).toHaveLength(1);
+    expect(s.notes).toHaveLength(1);
+    expect(s.chat.at(-1)!.text).toBe("7반: 열과 우리 생활");
+  });
+
+  it("할 일을 적으며 되묻는 말(「가정통신문 보내야 하는지?」)은 그대로 넣기", async () => {
+    const { calls } = await mount({ routeText: async (t) => ({ parts: [part("put", t)] }) });
+    await app!.submitText("금요일까지 가정통신문 보내야 하는지?");
+    expect(calls.answer).toHaveLength(0);
+    expect(calls.analyze).toHaveLength(1);
+  });
+});
+
+describe("물음표 없는 한 줄 물음 (밤샘 2차)", () => {
+  it("「내일 뭐 있지」를 AI가 넣기로 봐도 질문", async () => {
+    const { calls } = await mount({
+      routeText: async (t) => ({ parts: [part("put", t)] }),
+      answerAi: async () => ({ enough: true, lines: [{ text: "기록 없음", ids: [], missing: true }] })
+    }, (a) => a.state.notes.push(memo("n-1", "내일 협의회 자료 준비", "2026-10-28T11:00")));
+    await app!.submitText("내일 뭐 있지");
+    expect(calls.answer.length).toBeGreaterThan(0);
+    expect(calls.analyze).toHaveLength(0);
+  });
+});
