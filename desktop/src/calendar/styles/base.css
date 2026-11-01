@@ -490,6 +490,7 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 .bh .tdv .dtg .rt { position: absolute; left: 0; width: 54%; height: 0; border-top: 1px dashed var(--x-line); z-index: 3; }
 .bh .tdv .dtg .rt button { position: absolute; left: 4px; top: -9px; border: 0; font: inherit; font-size: 11px; line-height: 16px; color: var(--ink2); background: var(--x-pinbg); padding: 0 6px; border-radius: 4px; cursor: pointer; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bh .tdv .dtg .rt.dn button { color: var(--ink3); }
+.bh .tdv .dtg .rt.side { left: 54%; width: 46%; }
 /* now: the time on the left, in the hour column */
 .bh .tdv .dtg .nowl { left: 0; }
 .bh .tdv .dtg .nowl::before { display: none; }

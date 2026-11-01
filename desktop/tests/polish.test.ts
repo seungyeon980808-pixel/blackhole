@@ -169,3 +169,20 @@ describe("작은 위젯 (밤샘)", () => {
     expect(html).not.toContain("대의원회 준비");
   });
 });
+
+describe("하루표 루틴 표시 (밤샘)", () => {
+  it("일정 칸이 덮는 시각(끝 바로 뒤 포함)의 루틴은 옆에, 비어 있는 시각은 그대로", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const root = document.querySelector<HTMLElement>("#app")!;
+    Object.defineProperty(root, "clientWidth", { configurable: true, get: () => 1300 });
+    const { emptyState } = await import("../src/calendar/model");
+    const s = emptyState();
+    s.events.push({ id: "e1", kind: "event", title: "등교 지도", area: "school", source: "t", createdAt: "2026-10-27T09:00", date: "2026-11-02", start: "07:40", end: "08:20", provisional: false, reminders: [] } as never);
+    s.routines.push({ id: "r1", title: "메일 확인", at: "08:20", repeat: "weekdays", done: [], createdAt: "2026-10-01T08:00" } as never, { id: "r2", title: "업무일지", at: "16:10", repeat: "weekdays", done: [], createdAt: "2026-10-01T08:00" } as never);
+    const adapter = memoryAdapter();
+    await adapter.save(s);
+    app = await mountBlackhole(root, adapter, { now: () => new Date("2026-11-02T10:00:00") });
+    const rt = [...root.querySelectorAll<HTMLElement>(".dtg .rt")];
+    expect(rt.map((x) => x.classList.contains("side"))).toEqual([true, false]);
+  });
+});

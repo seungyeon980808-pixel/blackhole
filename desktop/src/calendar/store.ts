@@ -42,7 +42,8 @@ export interface TaskGroups {
 
 /** 오늘까지(밀린 것 포함) / 7일 안 마감 / 나중. */
 export function taskGroups(s: CalendarState, k: string): TaskGroups {
-  const live = liveTasks(s);
+  // 「날짜 없음」 to-dos have no deadline (their date is when they came in): never 「오늘까지」 or late.
+  const live = liveTasks(s).filter((t) => !t.noDue);
   const limit = ymd(addDays(parseDay(k), 7));
   const byDue = (a: Task, b: Task) => a.due.localeCompare(b.due) || (a.dueTime ?? "99").localeCompare(b.dueTime ?? "99");
   return {
