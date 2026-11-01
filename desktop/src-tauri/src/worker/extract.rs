@@ -613,7 +613,13 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
             (None, None) => (None, None, Vec::new()),
         }
     } else {
-        let mut resolved = resolve(&date_text, &time_text, kind, reference);
+        // 「화요일까지 공과금 납부 (다음 주)」: the week said apart from the weekday.
+        let said_date = if regex::Regex::new(r"^\s*[월화수목금토일]요일\s*$").unwrap().is_match(&date_text) && regex::Regex::new(r"다음\s*주|담주").unwrap().is_match(&sentence) && !regex::Regex::new(r"다음\s*주\s*[월화수목금토일]요일").unwrap().is_match(&sentence) {
+            format!("다음 주 {}", date_text.trim())
+        } else {
+            date_text.clone()
+        };
+        let mut resolved = resolve(&said_date, &time_text, kind, reference);
         reasons.extend(resolved.review_reasons.drain(..));
         // 「11월 13일 축제 일주일 전에 부스 신청」: counted back from the day said.
         if kind == "TODO" {
@@ -813,6 +819,14 @@ mod tests {
         assert_eq!(at("내일 7시 반 공연", "공연", "7시 반"), "2026-10-22T19:30:00+09:00");
         assert_eq!(at("내일 8시 회의", "회의", "8시"), "2026-10-22T08:00:00+09:00");
         assert_eq!(at("내일 아침 7시 반 조찬 모임", "조찬 모임", "7시 반"), "2026-10-22T07:30:00+09:00");
+    }
+
+    #[test]
+    fn next_week_said_apart_from_the_weekday() {
+        let text = "화요일까지 공과금 납부 (다음 주)";
+        let v = json!({"kind":"TODO","area":"PERSONAL","title":"공과금 납부","details":"","dateText":"화요일","timeText":"","evidence":text,"confidence":0.9});
+        let e = validate(&answer(vec![v]).to_string(), Some(text), reference()).unwrap();
+        assert_eq!(&e.items[0].start_at[..10], "2026-10-27");
     }
 
     #[test]
