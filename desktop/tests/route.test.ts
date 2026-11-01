@@ -339,3 +339,10 @@ describe("물음표 없는 한 줄 물음 (밤샘 2차)", () => {
     expect(calls.analyze).toHaveLength(0);
   });
 });
+
+describe("물음 말투 더 (밤샘 3차)", () => {
+  it("「몇 반 담임이었지」 「끝났지」 「보냈었나」는 나누기로, 「좋았음」은 아님", () => {
+    for (const t of ["김민지 선생님 몇 반 담임이었지", "어제 회의 끝났지", "진석이한테 돈 보냈었나"]) expect(wantsRoute(t), t).toBe(true);
+    for (const t of ["오늘 2반 수업 분위기 좋았음", "3반 지민이 상담 요청함"]) expect(wantsRoute(t), t).toBe(false);
+  });
+});
