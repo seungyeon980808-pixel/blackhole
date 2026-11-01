@@ -365,6 +365,9 @@ describe("「오늘 할 일 뭐 남았어?」는 앱이 직접 (밤샘)", () => 
     await app!.submitText("오늘 할 일 뭐 남았어?");
     expect(calls.answer).toHaveLength(0);
     expect(s.chat.at(-1)!.text).toBe("오늘 마감 1 — 출결 마감\n밀린 할 일 1 — 진석이에게 10만원 송금(10/27(화))\n날짜 없는 할 일 1 — 대의원회 준비");
+    // Grounds folded under it, no cards piled up.
+    expect(s.chat.at(-1)!.refs ?? []).toHaveLength(0);
+    expect(s.chat.at(-1)!.hits!.map((h) => h.title)).toEqual(["출결 마감", "진석이에게 10만원 송금", "대의원회 준비"]);
   });
 });
 

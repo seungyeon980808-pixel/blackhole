@@ -1802,7 +1802,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         ...(none.length ? [`날짜 없는 할 일 ${none.length} — ${none.map((t) => t.title).join(" · ")}`] : [])
       ];
       m.text = lines.join("\n");
-      m.refs = [...due, ...late].map((t) => t.id).slice(0, 12);
+      // Grounds folded under the answer like any other (no cards piled under it).
+      m.hits = [...due, ...late, ...none].slice(0, 12).map((t) => ({ id: t.id, kind: "task" as const, title: t.title, when: t.noDue ? "날짜 없음" : `${fd(t.due)}${t.dueTime ? ` ${t.dueTime}` : ""}까지`, where: t.source }));
       m.scope = `할 일 목록에서 바로(${open.length}개)`;
       m.redo = { text: o.said ?? q, as: "put" };
       if (o.phone) toPhone(m);
