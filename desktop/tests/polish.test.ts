@@ -133,3 +133,26 @@ describe("결과에 대한 지적 (실제 대화 10/30)", () => {
     expect(app.state.chat.at(-1)!.refs!.length).toBeGreaterThan(0);
   });
 });
+
+describe("확인할 것: 지난 가승인 한 번에", () => {
+  it("2개 이상이면 「모두 있었음」 한 번에 확정, ⌘Z 한 번에 되돌림", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const root = document.querySelector<HTMLElement>("#app")!;
+    Object.defineProperty(root, "clientWidth", { configurable: true, get: () => 1300 });
+    const { emptyState } = await import("../src/calendar/model");
+    const s = emptyState();
+    const ev = (id: string, date: string) => ({ id, kind: "event", title: `수업 ${id}`, area: "school", source: "t", createdAt: "2026-10-27T09:00", date, start: "09:00", end: "09:45", provisional: true, reminders: [] });
+    s.events.push(ev("e1", "2026-10-29") as never, ev("e2", "2026-10-30") as never, ev("e3", "2026-11-05") as never);
+    const adapter = memoryAdapter();
+    await adapter.save(s);
+    app = await mountBlackhole(root, adapter, { now: () => new Date("2026-11-01T10:00:00") });
+    root.querySelector<HTMLElement>("[data-checks]")!.click();
+    await tick();
+    root.querySelector<HTMLElement>("[data-acceptpast]")!.click();
+    await tick();
+    expect(app.state.events.map((e) => e.provisional)).toEqual([false, false, true]);
+    document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyZ", key: "z", metaKey: true, bubbles: true }));
+    await tick();
+    expect(app.state.events.map((e) => e.provisional)).toEqual([true, true, true]);
+  });
+});

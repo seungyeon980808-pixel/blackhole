@@ -2873,6 +2873,17 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       // 합치기: the later copy is marked gone (⌘Z brings it back); nothing is erased.
       return userAction({ type: "cancel", ref: q("[data-merge]")!.dataset.merge! });
     }
+    if (q("[data-acceptpast]")) {
+      // 「지난 가승인 n개 모두 있었음」: all at once, one ⌘Z brings them back to 가승인.
+      const past = s.events.filter((e) => !e.gone && e.provisional && e.date < ymd(clock()));
+      for (const e of past) e.provisional = false;
+      undoStack.push({ label: `지난 가승인 ${past.length}개 확정`, run: () => {
+        for (const e of past) e.provisional = true;
+        void act(() => undefined);
+      } });
+      toast(`${past.length}개를 있었던 일로 확정했어요`, undefined, true);
+      return void act(() => undefined);
+    }
     if (q("[data-accept]")) {
       // 「맞아요」: a provisional event is confirmed; a review note is cleared.
       const x = findEntry(s, q("[data-accept]")!.dataset.accept!);

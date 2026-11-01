@@ -424,7 +424,10 @@ export function checksBar(ctx: Ctx, fd: (k: string) => string): string {
     ? `<div class="rc chk fixq"><div class="rt">받아쓰기 교정을 이미 있는 기록에도 할까요?</div>${fixes.slice(0, 3).map((f) => `<div class="rm2">「${esc(f.x.title)}」 → 「${esc(f.to)}」</div>`).join("")}${fixes.length > 3 ? `<div class="rm2">외 ${fixes.length - 3}건</div>` : ""}<div class="ra on"><button class="ib" data-fixall title="모두 고치기 (⌘Z로 되돌림)" aria-label="모두 고치기">${ICON.ok}</button><button class="ib" data-fixskip title="그대로 두기 (다시 묻지 않음)" aria-label="그대로 두기">${ICON.x}</button></div></div>`
     : "";
   const n = list.length + (fixes.length ? 1 : 0);
-  return `<div class="checks"><button class="chkbar" data-checks aria-expanded="${open}"><span class="cdot"></span><span>확인할 것 ${n}</span><span class="chev">${open ? "▴" : "▾"}</span></button>${open ? fixCard + list.map(card).join("") : ""}</div>`;
+  // Many past 가승인 (each AI appointment starts as one): one button for all that did happen.
+  const past = list.filter((c) => c.why === PAST_PROVISIONAL).length;
+  const all = past >= 2 ? `<div class="chkall"><button class="chkbtn" data-acceptpast title="모두 있었던 일로 확정 (⌘Z로 되돌림)">지난 가승인 ${past}개 모두 있었음</button></div>` : "";
+  return `<div class="checks"><button class="chkbar" data-checks aria-expanded="${open}"><span class="cdot"></span><span>확인할 것 ${n}</span><span class="chev">${open ? "▴" : "▾"}</span></button>${open ? fixCard + all + list.map(card).join("") : ""}</div>`;
 }
 
 /** Same thing twice (same kind, title, day and time): the later one, to offer 「합치기」. */

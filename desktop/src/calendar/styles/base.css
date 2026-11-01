@@ -630,6 +630,8 @@ html.phone .bh .content { overflow-y: auto; }
 /* 확인할 것 · 날짜가 지난 가승인: two plain word buttons (있었음 / 없던 일). */
 .bh .chkbtn { height: 24px; padding: 0 10px; margin-left: 6px; border-radius: 7px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.1); color: inherit; font-size: 12px; cursor: pointer; }
 .bh .chkbtn:hover { background: rgba(255,255,255,.2); }
+.bh .chkall { display: flex; justify-content: flex-end; padding: 4px 2px 6px; }
+.bh .chkall .chkbtn { margin-left: 0; }
 .bh.doc .chkbtn { border-color: var(--rule, #333); background: transparent; }
 
 /* 날짜·시각 고르기 (상세 편집, 2026-10-29) */
