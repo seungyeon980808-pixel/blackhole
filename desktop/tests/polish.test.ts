@@ -99,3 +99,20 @@ describe("자료 지키기", () => {
     expect(root.querySelector("#bhToast")!.textContent).toContain("디스크 공간이 부족함");
   });
 });
+
+describe("키보드만으로", () => {
+  it("할 일 줄은 Tab으로 갈 수 있고 Enter로 상세 창이 열리며 커서가 창 안으로", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const root = document.querySelector<HTMLElement>("#app")!;
+    Object.defineProperty(root, "clientWidth", { configurable: true, get: () => 1300 });
+    app = await mountBlackhole(root, memoryAdapter(), { now: () => new Date("2026-11-02T10:00:00") });
+    await app.submitText("금요일까지 생기부 점검");
+    const row = root.querySelector<HTMLElement>(".tl .task[data-ev]")!;
+    expect(row.tabIndex).toBe(0);
+    row.focus();
+    row.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await new Promise((r) => setTimeout(r, 5));
+    expect(root.querySelector(".dpanel")!.textContent).toContain("생기부 점검");
+    expect(document.activeElement?.closest(".dpanel")).not.toBeNull();
+  });
+});

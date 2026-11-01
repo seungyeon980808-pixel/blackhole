@@ -3164,6 +3164,16 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
       return;
     }
+    // A to-do row or a box on the day table (Tab reaches them): Enter opens it, as a click does.
+    if (el.matches(".task[data-ev], .ev[data-evbox]")) {
+      if (!adapter.recordAction) {
+        openDetail(el.dataset.ev!);
+        // Opened from the keyboard: the cursor goes into the panel (Esc closes it and comes back to the input).
+        return void window.setTimeout(() => root.querySelector<HTMLElement>(".dpanel input, .dpanel textarea")?.focus(), 0);
+      }
+      (el.querySelector<HTMLElement>(".tn") ?? el).click();
+      return;
+    }
     if (el.matches("[data-tdone],[data-sub],[data-ok],[data-no],[data-undo],[data-mopen]") && !(el instanceof HTMLButtonElement)) {
       el.click();
       return;

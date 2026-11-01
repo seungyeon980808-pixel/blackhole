@@ -179,7 +179,7 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
   for (const { e, a, b, lane } of placed) {
     if (b <= S || a >= E) continue;
     const work = e.workFor ? num.get(e.workFor) : undefined;
-    h += `<div class="ev ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.workFor ? "work" : ""} ${e.end ? "" : "noend"}" data-ev="${e.id}" data-evbox="${e.id}" draggable="false" style="top:${y(a)};height:max(20px, calc(${y(b)} - ${y(a)}));left:calc(${((lane / L) * 54).toFixed(2)}% + 4px);width:calc(${(54 / L).toFixed(2)}% - 6px)">
+    h += `<div class="ev ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.workFor ? "work" : ""} ${e.end ? "" : "noend"}" data-ev="${e.id}" data-evbox="${e.id}" draggable="false" tabindex="0" aria-label="${esc(e.title)} 열기" style="top:${y(a)};height:max(20px, calc(${y(b)} - ${y(a)}));left:calc(${((lane / L) * 54).toFixed(2)}% + 4px);width:calc(${(54 / L).toFixed(2)}% - 6px)">
       <div class="t" title="${esc(`${e.start}${e.end ? "–" + e.end : ""} ${e.title}`)}">${work ? `<span class="no">${work}</span> 작업 · ` : ""}${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</div>${e.end ? "" : '<div class="r">끝 미정</div>'}<i class="grip" title="끌어 늘이기"></i></div>`;
   }
   // Deadlines: a card in its own lane (one left edge for all), its bottom edge on the deadline time.
@@ -244,7 +244,7 @@ export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => s
     const urgent = isUrgent(t, ctx.now, off);
     const sd = t.subs.filter((x) => x.done).length;
     const open = !!ctx.open?.has(`subs:${t.id}`);
-    return `<div class="task" data-ev="${t.id}" data-task="${t.id}" data-num="${n}" draggable="true">
+    return `<div class="task" data-ev="${t.id}" data-task="${t.id}" data-num="${n}" draggable="true" tabindex="0" aria-label="${esc(t.title)} 열기">
       <span class="no ${urgent ? "urg" : ""}" data-num="${n}">${n}</span><span class="ck" data-tdone="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="${esc(t.title)} 완료"></span>${starBtn(t)}
       <span class="tn ${t.star === 2 ? "s2b" : ""}">${esc(t.title)}${t.draft ? '<span class="dr">초안</span>' : ""}${t.wait ? `<span class="wait" title="먼저 있어야 할 일">기다림 · ${esc(t.wait)}</span>` : ""}${t.subs.length ? `<button class="pg" data-subs="${t.id}" aria-expanded="${open}">${sd}/${t.subs.length} ${open ? "▾" : "▸"}</button>` : `<button class="pg add" data-subs="${t.id}" title="단계 추가">+</button>`}</span>
       <span class="due ${urgent ? "urg" : t.due <= ctx.today ? "today" : ""}">${dueText(t, ctx.now, ctx.today, fd, off)}</span></div>${stepRows(t, n, open)}`;
