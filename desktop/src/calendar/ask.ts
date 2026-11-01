@@ -27,6 +27,8 @@ export interface AskDoc {
   said: string;
   time?: string;
   done?: boolean;
+  /** A to-do with no deadline (its date is only when it was put in). */
+  noDue?: boolean;
   /** Where it came from (원문 위치): source, note path. */
   where: string;
 }
@@ -141,7 +143,7 @@ export function docsOf(s: CalendarState, src: AskSources | null): AskDoc[] {
   const out: AskDoc[] = [];
   const said = (c: string) => c.slice(0, 10);
   for (const e of s.events) if (!e.gone && !e.sample) out.push({ id: e.id, kind: "event", title: e.title, text: e.details ?? "", date: e.date, time: e.start ?? undefined, said: said(e.createdAt), where: e.source });
-  for (const t of s.tasks) if (!t.gone && !t.sample) out.push({ id: t.id, kind: "task", title: t.title, text: [t.details ?? "", ...t.subs.map((x) => x.title)].join(" "), date: t.noDue ? said(t.createdAt) : t.due, time: t.dueTime ?? undefined, done: t.done, said: said(t.createdAt), where: t.source });
+  for (const t of s.tasks) if (!t.gone && !t.sample) out.push({ id: t.id, kind: "task", title: t.title, text: [t.details ?? "", ...t.subs.map((x) => x.title)].join(" "), date: t.noDue ? said(t.createdAt) : t.due, time: t.dueTime ?? undefined, done: t.done, noDue: t.noDue || undefined, said: said(t.createdAt), where: t.source });
   for (const p of s.periods) if (!p.gone && !p.sample) out.push({ id: p.id, kind: "period", title: p.title, text: p.details ?? "", date: p.from, to: p.to, said: said(p.createdAt), where: p.source });
   for (const n of s.notes) if (!n.gone && !n.sample) out.push({ id: n.id, kind: "note", title: n.title, text: n.details ?? "", date: said(n.createdAt), said: said(n.createdAt), where: n.source });
   s.inbox.forEach((x, i) => {
@@ -155,7 +157,8 @@ export function docsOf(s: CalendarState, src: AskSources | null): AskDoc[] {
 /** How a record is said in one line (glass dates; 「까지」 for deadlines). */
 export function whenOf(d: AskDoc): string {
   if (d.kind === "event") return `${short(d.date)} ${d.time ?? "종일"}`;
-  if (d.kind === "task") return `${short(d.date)}${d.time ? " " + d.time : ""}까지${d.done ? " · 끝냄" : ""}`;
+  // 「날짜 없음」: its date is only when it was put in, never a deadline (the AI called them 밀린 할 일).
+  if (d.kind === "task") return `${d.noDue ? "날짜 없음" : `${short(d.date)}${d.time ? " " + d.time : ""}까지`}${d.done ? " · 끝냄" : ""}`;
   if (d.kind === "period") return `${short(d.date)} ~ ${short(d.to ?? d.date)}`;
   if (d.kind === "secret") return "키체인 · Touch ID로 복사";
   return short(d.date);

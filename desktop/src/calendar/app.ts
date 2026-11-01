@@ -1786,6 +1786,27 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (!side && !o.phone) setChat(true);
     const m: ChatMessage = { id: newId(s, "c"), at: stamp(now), who: "ai", text: "기록을 찾아 정리하는 중…" };
     s.chat.push(m);
+    // 「오늘 할 일 뭐 남았어?」 「밀린 거 뭐야」: the open to-dos themselves, the same list as the morning brief (no AI,
+    // which left one out now and then).
+    if (/(?:오늘|지금|남은|밀린|안\s*끝난|못\s*끝낸)\s*(?:할\s*일|거|것|일)|뭐\s*해야|할\s*일\s*(?:뭐|몇|남)/.test(q) && !/내일|모레|다음\s*주|이번\s*주|이번\s*달|지난|작년|\d+\s*월|\d+\s*일/.test(q)) {
+      const today = ymd(now);
+      const open = s.tasks.filter((t) => !t.gone && !t.done && !t.sample);
+      const fd = (k: string) => theme().fd(k);
+      const late = open.filter((t) => !t.noDue && t.due < today).sort((a, b) => a.due.localeCompare(b.due));
+      const due = open.filter((t) => !t.noDue && t.due === today).sort((a, b) => (a.dueTime ?? "99").localeCompare(b.dueTime ?? "99"));
+      const none = open.filter((t) => t.noDue);
+      const lines = [
+        due.length ? `오늘 마감 ${due.length} — ${due.map((t) => `${t.dueTime ? `${t.dueTime} ` : ""}${t.title}`).join(" · ")}` : "오늘 마감 없음",
+        ...(late.length ? [`밀린 할 일 ${late.length} — ${late.map((t) => `${t.title}(${fd(t.due)})`).join(" · ")}`] : []),
+        ...(none.length ? [`날짜 없는 할 일 ${none.length} — ${none.map((t) => t.title).join(" · ")}`] : [])
+      ];
+      m.text = lines.join("\n");
+      m.refs = [...due, ...late].map((t) => t.id).slice(0, 12);
+      m.redo = { text: o.said ?? q, as: "put" };
+      if (o.phone) toPhone(m);
+      await save();
+      return render();
+    }
     busy++;
     render();
     try {

@@ -346,3 +346,24 @@ describe("물음 말투 더 (밤샘 3차)", () => {
     for (const t of ["오늘 2반 수업 분위기 좋았음", "3반 지민이 상담 요청함"]) expect(wantsRoute(t), t).toBe(false);
   });
 });
+
+describe("날짜 없는 할 일을 AI에 보낼 때 (밤샘)", () => {
+  it("넣은 날을 마감처럼 「10/28까지」가 아니라 「날짜 없음」", async () => {
+    const { whenOf } = await import("../src/calendar/ask");
+    expect(whenOf({ id: "t", kind: "task", title: "대의원회 준비", text: "", date: "2026-10-28", said: "2026-10-28", where: "", noDue: true })).toBe("날짜 없음");
+    expect(whenOf({ id: "t", kind: "task", title: "송금", text: "", date: "2026-10-27", said: "2026-10-20", where: "" })).toMatch(/10\/27.*까지/);
+  });
+});
+
+describe("「오늘 할 일 뭐 남았어?」는 앱이 직접 (밤샘)", () => {
+  it("오늘 마감·밀린 할 일·날짜 없는 할 일을 빠짐없이, AI 정리 없이", async () => {
+    const task = (id: string, title: string, due: string, x = {}) => ({ id, kind: "task" as const, title, area: "school" as const, source: "t", createdAt: "2026-10-20T09:00", due, dueTime: null, done: false, reminders: [], subs: [], ...x });
+    const { s, calls } = await mount({
+      routeText: async (t) => ({ parts: [part("ask", t, { question: t, terms: ["할 일"] })] }),
+      answerAi: async () => ({ enough: true, lines: [] })
+    }, (a) => a.state.tasks.push(task("t1", "진석이에게 10만원 송금", "2026-10-27"), task("t2", "출결 마감", "2026-10-29"), task("t3", "대의원회 준비", "2026-10-20", { noDue: true }), task("t4", "초과근무 신청", "2026-11-07")));
+    await app!.submitText("오늘 할 일 뭐 남았어?");
+    expect(calls.answer).toHaveLength(0);
+    expect(s.chat.at(-1)!.text).toBe("오늘 마감 1 — 출결 마감\n밀린 할 일 1 — 진석이에게 10만원 송금(10/27(화))\n날짜 없는 할 일 1 — 대의원회 준비");
+  });
+});
