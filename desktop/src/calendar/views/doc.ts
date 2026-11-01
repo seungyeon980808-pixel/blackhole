@@ -210,7 +210,10 @@ export function printSheet(ctx: Ctx): string {
   const G = taskGroups(ctx.s, k);
   return `<div class="dtitle">${fdDocLong(k)} 일일 현황</div><div class="summary">${docSummary(ctx, k)}</div><div class="gap"></div>
     <div class="cols"><div>${sec(0, "시간표", "10분 단위")}${docTimetable(ctx, k, 6, 24, 27)}</div><div>
-      ${sec(1, "할 일")}<div class="grp">가. 오늘까지</div>${G.today.map((t) => taskHTML(ctx, t, false)).join("")}<div class="grp">나. 7일 안 마감</div>${G.week.map((t) => taskHTML(ctx, t, false)).join("")}
+      ${sec(1, "할 일")}<div class="grp">가. 오늘까지</div>${G.today.map((t) => taskHTML(ctx, t, false)).join("")}<div class="grp">나. 7일 안 마감</div>${G.week.map((t) => taskHTML(ctx, t, false)).join("")}${(() => {
+        const none = ctx.s.tasks.filter((t) => !t.gone && !t.done && !t.sample && t.noDue);
+        return none.length ? `<div class="grp">다. 날짜 없음</div>${none.map((t) => taskHTML(ctx, t, false)).join("")}` : "";
+      })()}
       <div class="gap"></div>${sec(2, "일정")}${evTable(ctx, eventsOn(ctx.s, k), { act: false })}
       <div class="gap"></div>${sec(3, "메모")}${Array.from({ length: 6 }, () => '<div class="line"></div>').join("")}
     </div></div><div class="foot">- 1 -</div>`;
