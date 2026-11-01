@@ -53,3 +53,10 @@ describe("이미 있는 기록 바꾸기 (밤샘 2차 45문장)", async () => {
     expect(changeTargets(s, item("대의원회", "MOVE", "16일"), now).map((x) => x.id)).toEqual(["e2"]);
   });
 });
+
+describe("여러 줄 중 한 줄이 할 일 (실제 10/30)", () => {
+  it("「학습지제작레포 실사용해보기,\\n시간은 약 30분 예상」은 확실한 기억이 아님", () => {
+    expect(memoDraft("학습지제작레포 실사용해보기,\n시간은 약 30분 예상", NOW)?.final ?? false).toBe(false);
+    expect(memoDraft("3반 민수 땅콩 알레르기 있음\n엄마 연락처는 기록부", NOW)?.final).toBe(true);
+  });
+});

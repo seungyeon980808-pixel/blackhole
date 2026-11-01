@@ -521,7 +521,10 @@ export const isFiller = (raw: string): boolean => {
 };
 
 export const notJustAMemo = (raw: string): boolean => {
-  const t = raw.trim();
+  // 「학습지제작레포 실사용해보기,\n시간은 약 30분 예상」: the to-do is on the first line, not the last.
+  const lines = raw.split("\n").map((l) => l.trim().replace(/[,，]\s*$/, "")).filter(Boolean);
+  if (lines.length > 1 && lines.some((l) => notJustAMemo(l))) return true;
+  const t = raw.trim().replace(/[,，]\s*$/, "");
   // 「임용2차 감독 안 하게 됐어」 「모임 불참」: a change to what is in the calendar, the AI's to match.
   return TODO_END.test(t) || DONE_END.test(t) || CONDITION.test(t) || AI_ONLY.test(t) || DATE_DIGITS(t) || /안\s*(?:하|가)(?:게|기로)|못\s*가|불참/.test(t);
 };
