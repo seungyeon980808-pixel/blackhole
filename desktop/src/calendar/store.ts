@@ -78,8 +78,8 @@ export interface Applied {
 export const MANY_TARGETS = "바꿀 일정이 여럿이라 확인 필요: ";
 export const NEW_TIME_UNSAID = "바뀐 날짜·시각이 없어 일정은 그대로 둠";
 /** 「취소됨」 「취소했음」 「없어졌대」 at the end: news that something is off (「취소 신청서 내기」 is not). */
-const CANCEL_DONE = /(?:취소\s*(?:됨|됐|되었|했|함|래|라고|요|임)|없어졌|없어짐|무산|안\s*(?:하|가)(?:게|기로)\s*(?:됐|됨|함|했)|불참)[가-힣]*[.!~\s]*$/;
-const CANCEL_SAID = /취소|안\s*하|안\s*함|없어|없던|무산|안\s*열|빠지|빠짐|빠졌|안\s*가|못\s*가|불참/;
+const CANCEL_DONE = /(?:취소\s*(?:됨|됐|되었|했|함|래|라고|요|임)|없어졌|없어짐|무산|안\s*(?:하|가)(?:게|기로)\s*(?:됐|됨|함|했)|불참|지워\s*줘|지워|삭제|빼\s*줘)[가-힣]*[.!~\s]*$/;
+const CANCEL_SAID = /취소|안\s*하|안\s*함|없어|없던|무산|안\s*열|빠지|빠짐|빠졌|안\s*가|못\s*가|불참|지워|지우|삭제|빼\s*줘|빼\s*주/;
 const MOVE_SAID = /바뀌|바뀜|바꿈|변경|미뤄|미룸|미뤘|연기|앞당|당겨|당김|당겼|연장|늘어|늘렸|늘림|옮|아니고|아니라|말고|(?:으로|로)(?:\s|$|까지)/;
 
 /**
@@ -268,8 +268,9 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       if (name.length >= 2 && same.length === 1 && (spoken.includes(`${name}은`) || spoken.includes(`${name}는`))) item = { ...item, change: "MOVE" };
     }
     // 「치과 예약 취소했음」 put down as a record: it is the 치과 in the calendar that is off.
-    if (!item.change && (item.kind === "NOTE" || (item.kind === "SCHEDULE" && !item.startAt)) && CANCEL_DONE.test(words)) {
-      const off = { ...item, change: "CANCEL" as const, title: item.title.replace(/\s*(?:예약\s*)?취소.*$/, "").trim() || item.title };
+    // 「진석이 송금 할 일 지워줘」 「수능 일정 삭제」 too (the model made a to-do or a note of the words).
+    if (!item.change && (item.kind === "NOTE" || item.kind === "TODO" || (item.kind === "SCHEDULE" && !item.startAt)) && CANCEL_DONE.test(words)) {
+      const off = { ...item, change: "CANCEL" as const, title: item.title.replace(/\s*(?:예약\s*)?(?:취소|삭제|지워|지우|빼).*$/, "").replace(/\s*(?:할\s*일|일정)$/, "").trim() || item.title };
       if (changeTargets(s, off, now).length === 1) item = off;
     }
     // 「취소됨」 「4시로 바뀜」: the entry already in the calendar, not a new one.

@@ -115,3 +115,19 @@ describe("오타·줄임말 날짜 (4차 시험)", () => {
     expect(parseDraft("수 12시 30분 점심 약속", NOW).date).toBe("2026-11-04");
   });
 });
+
+describe("지우라는 말 (5차 시험)", () => {
+  it("「진석이 송금 할 일 지워줘」: AI가 할 일로 줘도 그 할 일을 지움", async () => {
+    const { applyProposal } = await import("../src/calendar/store");
+    const { emptyState } = await import("../src/calendar/model");
+    const s = emptyState();
+    s.tasks.push({ id: "t1", kind: "task", title: "진석이에게 10만원 송금", area: "personal", source: "t", createdAt: "2026-10-20T09:00", due: "2026-10-27", dueTime: null, done: false, reminders: [], subs: [] } as never);
+    const todo = { kind: "TODO", area: "PERSONAL", title: "진석이 송금", details: "", startAt: "", endAt: "", reminderAt: "", reminders: [], subtasks: [], evidence: { sentence: "진석이 송금 할 일 지워줘", dateText: "", timeText: "", endDateText: "", reminderText: "" }, confidence: 0.8, needsReview: false, reviewReasons: [] };
+    applyProposal(s, { sourceText: todo.evidence.sentence, needsReview: false, reviewReasons: [], items: [todo] } as never, "t", NOW);
+    expect(s.tasks.map((t) => [t.id, !!t.gone])).toEqual([["t1", true]]);
+  });
+
+  it("「수능 일정 삭제」는 규칙이 기억으로 끝내지 않음", () => {
+    expect(memoDraft("수능 일정 삭제", NOW)?.final ?? false).toBe(false);
+  });
+});
