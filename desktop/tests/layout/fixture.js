@@ -1,4 +1,4 @@
-// 레이아웃 검사용 가짜 자료 (실제 사람·학교 자료 아님). window.__BH_LAYOUT = { theme, chat } 를 먼저 둡니다.
+// 레이아웃 검사용 가짜 자료 (실제 사람·학교 자료 아님). 루틴은 매일: 어느 요일에 돌려도 같은 화면(평일 루틴이 월요일에만 일정 칸을 덮어 검사가 갈리던 것). window.__BH_LAYOUT = { theme, chat } 를 먼저 둡니다.
 (() => {
   const L = window.__BH_LAYOUT || { theme: "glass", chat: "open" };
   const FIX = (t, mode) => {
@@ -16,9 +16,9 @@
         tk("t6", "도서 반납", k(5), null), tk("t7", "방과후 신청서 확인", T, "08:30", { done: true }) ],
       periods: [], notes: [{ id: "n1", kind: "note", title: "2학년 4반 진도 종료", area: "school", source: "휴대폰", createdAt: k(-2) + "T15:10", details: "" }, { id: "n2", kind: "note", title: "3학년 1반 진도 3단원까지", area: "school", source: "데스크톱", createdAt: k(-1) + "T09:00", details: "" }], memos: [], chat: [], inbox: [], log: [],
       routines: [
-        { id: "r1", title: "메일 확인", at: "08:20", repeat: "weekdays", done: [k(-3), k(-1), T], createdAt: at },
+        { id: "r1", title: "메일 확인", at: "08:20", repeat: "daily", done: [k(-3), k(-1), T], createdAt: at },
         { id: "r2", title: "교실 환기", at: "12:30", repeat: "daily", done: [k(-1)], createdAt: at },
-        { id: "r3", title: "업무일지", at: "16:10", repeat: [1, 3, 5], done: [], createdAt: at } ],
+        { id: "r3", title: "업무일지", at: "16:10", repeat: "daily", done: [], createdAt: at } ],
       settings: { theme: t, ...(mode ? { mode } : {}) } };
     return s;
   };
