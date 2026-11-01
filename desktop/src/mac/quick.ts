@@ -255,7 +255,9 @@ export function mountQuick(root: HTMLElement): void {
     if (i !== undefined && hits[Number(i)]) void openHit(hits[Number(i)]);
   });
   input.addEventListener("paste", (e) => {
-    const files = [...(e.clipboardData?.files ?? [])];
+    // One paste may carry the same picture twice (two kinds of one file): once is enough.
+    const seen = new Set<string>();
+    const files = [...(e.clipboardData?.files ?? [])].filter((f) => !seen.has(`${f.name}|${f.size}|${f.type}`) && !!seen.add(`${f.name}|${f.size}|${f.type}`));
     if (!files.length) return;
     e.preventDefault();
     say("넣는 중…");

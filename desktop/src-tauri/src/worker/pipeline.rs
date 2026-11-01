@@ -35,6 +35,19 @@ fn weak_audio(info: &WavInfo) -> bool {
     info.duration_ms < MIN_SPEECH_MS || info.rms < WEAK_RMS
 }
 
+/// What to do about it, in words (the numbers stay in the log): no sound at all, too short, or too quiet.
+fn weak_audio_reason(info: &WavInfo) -> String {
+    eprintln!("weak audio: {} ms, rms {:.0}", info.duration_ms, info.rms);
+    let why = if info.rms < 1.0 {
+        "소리가 들어오지 않음 · 마이크가 켜져 있는지, 다른 마이크가 골라져 있지 않은지 확인해 주세요"
+    } else if info.duration_ms < MIN_SPEECH_MS {
+        "너무 짧게 녹음됨 · 단추를 누른 채 조금 더 길게 말해 주세요"
+    } else {
+        "소리가 너무 작음 · 마이크 가까이에서 말해 주세요"
+    };
+    format!("{WEAK_AUDIO_REASON}: {why}")
+}
+
 /// True when every word of the transcript is (a variant of) a hint word: the recognizer
 /// repeated its prompt instead of hearing speech. "수행평회" counts as a variant of "수행평가".
 pub fn only_hint_words(transcript: &str, hints: &[String]) -> bool {
@@ -356,7 +369,7 @@ pub fn analyze_with(input: &Input, engine: EngineId, reference: DateTime<FixedOf
         timings: Timings { total_ms: started.elapsed().as_millis() as u64, ..Timings::default() },
     };
     if let Some(info) = wav.filter(weak_audio) {
-        return Ok(empty(format!("{WEAK_AUDIO_REASON} (길이 {}ms, 음량 {:.0})", info.duration_ms, info.rms), engine, String::new(), String::new()));
+        return Ok(empty(weak_audio_reason(&info), engine, String::new(), String::new()));
     }
     // Text and documents have nothing to read directly; they always use engine A. With the
     // OCR hint on, images always go to the model directly (the hint only exists there).

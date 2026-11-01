@@ -116,3 +116,20 @@ describe("키보드만으로", () => {
     expect(document.activeElement?.closest(".dpanel")).not.toBeNull();
   });
 });
+
+describe("결과에 대한 지적 (실제 대화 10/30)", () => {
+  it("「일원역 이동이 왜 저렇게 시간으로 들어가」: 질문이 아니라 고칠 목록, 그 카드를 다시 보여 줌", async () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    const root = document.querySelector<HTMLElement>("#app")!;
+    Object.defineProperty(root, "clientWidth", { configurable: true, get: () => 1300 });
+    let t = new Date("2026-10-30T09:44:00").getTime();
+    app = await mountBlackhole(root, memoryAdapter(), { now: () => new Date(t) });
+    await app.submitText("10시 40분에 조퇴라서 11시까지 일원역으로 가야함");
+    t += 60_000;
+    await app.submitText("일원역 이동이 왜 저렇게 시간으로 들어가");
+    expect(app.state.reports).toHaveLength(1);
+    expect(app.state.reports[0].want).toContain("왜 저렇게");
+    expect(app.state.chat.at(-1)!.text).toMatch(/^고칠 목록에 넣었어요/);
+    expect(app.state.chat.at(-1)!.refs!.length).toBeGreaterThan(0);
+  });
+});

@@ -1366,6 +1366,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     // (Checked synchronously first: the rule draft must appear before the first await.)
     if (!checked && mode !== "put" && (MOVE_RE.test(v) || RETIME_RE.test(v)) && (await moveBySentence(v, src))) return;
     if (!checked && mode !== "put" && addRoutineBySentence(v, src)) return;
+    // 「일원역 이동이 왜 저렇게 시간으로 들어가」 right after a result: what went wrong, into 고칠 목록 (not a question).
+    if (!checked && mode !== "put" && complaint(v, src)) return;
     // 「음...」 「ㅋㅋㅋ」: nothing to keep, said so in the chat (no 기억, no AI).
     if (isFiller(v)) {
       s.chat.push({ id: newId(s, "c"), at: stamp(clock()), who: "me", text: v, kind: "text", src }, { id: newId(s, "c"), at: stamp(clock()), who: "ai", text: "넣을 내용이 없어 그냥 두었어요" });
@@ -1661,7 +1663,26 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
 
   /** 「이상해요」: the words before this answer, what it did, what was meant → the fix list (this Mac only). */
-  function saveReport(m: ChatMessage, want: string): void {
+  /**
+   * A complaint about what was just put in (「왜 저렇게 …」 「이상하게 들어갔어」 「잘못 들어갔」, within 30 minutes of
+   * a result card): kept in 고칠 목록 like 「이상해요」, and the card it is about is shown again to fix by hand.
+   */
+  function complaint(v: string, src: string): boolean {
+    if (!/왜\s*(?:저렇게|이렇게|그렇게|저리|이리)|이상하게\s*(?:들어|넣|잡)|잘못\s*(?:들어|넣|잡)|엉뚱하게|틀리게\s*(?:들어|넣)/.test(v) || v.length > 80) return false;
+    const now = clock();
+    const last = [...s.chat].reverse().find((m) => m.who === "ai" && m.refs?.length && !m.brief);
+    if (!last || now.getTime() - fromStamp(last.at).getTime() > 30 * 60_000) return false;
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: v, kind: "text", src });
+    saveReport(last, v, true);
+    const live = (last.refs ?? []).filter((r) => findEntry(s, r) && !findEntry(s, r)!.gone);
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "ai", text: `고칠 목록에 넣었어요 · ${live.length ? "지금 고치려면 아래 카드를 눌러 바꿔 주세요" : "다음에 고칠 때 이 문장으로 시험합니다"}`, refs: live });
+    if (!side) setChat(true);
+    void save();
+    render();
+    return true;
+  }
+
+  function saveReport(m: ChatMessage, want: string, quiet = false): void {
     const i = s.chat.indexOf(m);
     let said = "";
     for (let j = i - 1; j >= 0; j--) if (s.chat[j].who === "me") { said = s.chat[j].text; break; }
@@ -1670,7 +1691,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       : m.text;
     s.reports.push({ id: newId(s, "r"), at: stamp(clock()), said, got: `${m.text && m.refs?.length ? m.text + " · " : ""}${got}`, want });
     m.reported = true;
-    toast("고칠 목록에 넣었어요 · 다음에 고칠 때 이 문장으로 시험합니다");
+    if (!quiet) toast("고칠 목록에 넣었어요 · 다음에 고칠 때 이 문장으로 시험합니다");
   }
 
   /** 「질문이었어요」 / 「넣어 주세요」: the same words the other way; what they put in goes first. */
@@ -3812,7 +3833,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   adapter.onAlarmAnswer?.((a, action) => void answerNative(a, action));
   // A picture pasted into the input (⌘V) goes in like a dropped file.
   const onPaste = (e: ClipboardEvent) => {
-    const files = [...(e.clipboardData?.files ?? [])];
+    // The Mac may hand the same picture twice in one paste (two kinds of the same file): it went in twice.
+    const seen = new Set<string>();
+    const files = [...(e.clipboardData?.files ?? [])].filter((f) => !seen.has(`${f.name}|${f.size}|${f.type}`) && !!seen.add(`${f.name}|${f.size}|${f.type}`));
     if (!files.length || !(e.target as HTMLElement).closest?.("#bhIn, #bhChatIn")) return;
     e.preventDefault();
     for (const f of files) {
