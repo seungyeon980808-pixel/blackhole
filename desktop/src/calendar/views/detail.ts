@@ -37,11 +37,11 @@ function pickHTML(ctx: Ctx, x: Entry & { kind: "event" | "task" }, month: string
   const quick: [string, string][] = [[today, "오늘"], [add(today, 1), "내일"], [add(today, 2), "모레"], [add(today, ((8 - dow) % 7) || 7), "다음 주 월"]];
   const chip = (attr: string, label: string, on: boolean, title = "") => `<button type="button" class="pk ${on ? "on" : ""}" ${attr}${title ? ` title="${esc(title)}"` : ""}>${label}</button>`;
   const quickRow = quick.map(([d, t]) => chip(`data-dday="${d}"`, t, d === day)).join("") + (x.kind === "task" ? chip("data-dnodue", "날짜 없음", !day) : "");
-  // The month: Sunday first like the 월 view, the days of the other months faint; a dot count = entries already that day.
+  // The month: Monday first like the 월 view (11-02), the days of the other months faint; a dot count = entries already that day.
   const y = +month.slice(0, 4);
   const m = +month.slice(5, 7) - 1;
   const first = new Date(y, m, 1);
-  const start = new Date(y, m, 1 - first.getDay());
+  const start = new Date(y, m, 1 - ((first.getDay() + 6) % 7));
   const busy = new Map<string, number>();
   for (const e of ctx.s.events) if (!e.gone && e.id !== x.id) busy.set(e.date, (busy.get(e.date) ?? 0) + 1);
   for (const t of ctx.s.tasks) if (!t.gone && !t.done && !t.noDue && t.id !== x.id) busy.set(t.due, (busy.get(t.due) ?? 0) + 1);
@@ -53,7 +53,7 @@ function pickHTML(ctx: Ctx, x: Entry & { kind: "event" | "task" }, month: string
     const n = busy.get(k) ?? 0;
     cells.push(`<button type="button" class="pd ${d.getMonth() !== m ? "out" : ""} ${k === today ? "now" : ""} ${k === day ? "on" : ""} ${d.getDay() === 0 ? "sun" : d.getDay() === 6 ? "sat" : ""}" data-dday="${k}" title="${n ? `${n}개 있음` : "비어 있음"}">${d.getDate()}${n ? `<i>${n > 3 ? "•••" : "•".repeat(n)}</i>` : ""}</button>`);
   }
-  const cal = `<div class="pcal"><div class="pch"><button type="button" class="ib" data-dmon="-1" aria-label="이전 달">‹</button><b>${y}년 ${m + 1}월</b><button type="button" class="ib" data-dmon="1" aria-label="다음 달">›</button></div><div class="pgw">${"일월화수목금토".split("").map((c) => `<span>${c}</span>`).join("")}</div><div class="pgd">${cells.join("")}</div></div>`;
+  const cal = `<div class="pcal"><div class="pch"><button type="button" class="ib" data-dmon="-1" aria-label="이전 달">‹</button><b>${y}년 ${m + 1}월</b><button type="button" class="ib" data-dmon="1" aria-label="다음 달">›</button></div><div class="pgw">${"월화수목금토일".split("").map((c) => `<span>${c}</span>`).join("")}</div><div class="pgd">${cells.join("")}</div></div>`;
   // This school's periods (설정), lunch and the end of the day; 「시간 없음」 / 「종일」.
   const st = ctx.s.settings;
   const lessons = st.periods.map((p, i) => chip(`data-dtime="${p}"`, `${i + 1}교시`, !!time && p.startsWith(time), p.replace("-", "–"))).join("");
@@ -81,6 +81,8 @@ export function detailHTML(ctx: Ctx, id: string, fd: (k: string) => string, mont
   // 끝냄 is the box by the title (Todoist, Apple 미리 알림): never mistaken for closing the panel (2026-10-29).
   const box = x.kind === "task" ? `<button type="button" class="dchk ${x.done ? "on" : ""}" data-tdone="${x.id}" role="checkbox" aria-checked="${x.done}" title="${x.done ? "끝냄 취소" : "끝냄으로 체크"}" aria-label="끝냄">${x.done ? "✓" : ""}</button>` : "";
   rows.push(`<div class="dtitle">${box}<textarea class="d-title" data-df="title" rows="2" aria-label="제목" spellcheck="false">${esc(x.title)}</textarea></div>`);
+  // 짧은 이름: what the 주요 일정 띠 writes (6 letters; 11-02 사용자). Not for 기억.
+  if (x.kind !== "note") rows.push(`<input class="d-short" data-df="short" value="${esc(x.short ?? "")}" maxlength="10" placeholder="짧은 이름 — 주요 일정 띠에 (6글자, 비우면 제목 앞 6글자)" aria-label="짧은 이름" spellcheck="false">`);
   if (x.review?.length) rows.push(`<div class="dwarn">※ ${esc(x.review.join(" · "))}</div>`);
   if (x.suggest?.length) rows.push(`<div class="doffer">${aiOffer(x, fd)}</div>`);
   if (x.kind === "event" || x.kind === "task") rows.push(field("종류", seg("data-dkind", [["event", "일정"], ["task", "할 일"]], x.kind)));

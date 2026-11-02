@@ -6,7 +6,7 @@
 import { AnalyzeError, type AnalyzeInput, type BlackholeAdapter, type RoutePart, type BoardOptions, type ClaudeStatus, type DeskStatus, type GoogleCalendars, type InboxStatus, type MessengerStatus, type PutItem } from "./adapter";
 import { looksSecret } from "./secret";
 import { answer as answerQuestion, AskIndex, checkLines, classify, docsOf, gather, keepInSpan, KIND_LABEL, lineOf, wantsAll, wantsRoute, whenOf, WINDOWS, type AskDoc, type AskHit, type AskSources } from "./ask";
-import { addDays, fromStamp, hm, mins, nowHM, pad, parseDay, stamp, ymd } from "./dates";
+import { addDays, DOW_MON, fromStamp, hm, mins, mon0, nowHM, pad, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
 import { normalizeState, sharedFrom, TEXT_SIZES, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type Period, type Task, type SharedCalendar, type SpokenSetting, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
@@ -609,7 +609,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     root.classList.toggle("side", side);
     root.dataset.view = view;
     // 「오늘로」 shows only when today is not on screen.
-    const showsToday = view === "memo" || (view === "day" ? ymd(cur) === c.today : view === "week" ? Math.abs(addDays(cur, -cur.getDay()).getTime() - addDays(parseDay(c.today), -parseDay(c.today).getDay()).getTime()) < 864e5 / 2 : cur.getMonth() === c.now.getMonth() && cur.getFullYear() === c.now.getFullYear());
+    const showsToday = view === "memo" || (view === "day" ? ymd(cur) === c.today : view === "week" ? Math.abs(addDays(cur, -mon0(cur)).getTime() - addDays(parseDay(c.today), -mon0(parseDay(c.today))).getTime()) < 864e5 / 2 : cur.getMonth() === c.now.getMonth() && cur.getFullYear() === c.now.getFullYear());
     root.querySelectorAll<HTMLElement>(".today[data-nav]").forEach((b) => (b.hidden = showsToday));
     root.classList.toggle("panel-closed", sideCapable && !sidePref && wideEnough());
     // Desktop, too narrow for the panel: the chat slides in from the right (takes no width).
@@ -894,6 +894,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (f === "title") {
       if (!v || v === x.title) return void (el.value = x.title);
       return editEntry(id, "제목", (y) => void (y.title = v.slice(0, 200)));
+    }
+    if (f === "short") {
+      if (v === (x.short ?? "")) return;
+      return editEntry(id, "짧은 이름", (y) => void (v ? (y.short = v.slice(0, 10)) : delete y.short));
     }
     if (f === "tag") {
       const t = cleanTag(v);
@@ -2333,9 +2337,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     };
     const m = ctxMenu.month;
     const first = new Date(m.getFullYear(), m.getMonth(), 1);
-    const cells = Array.from({ length: 42 }, (_, i) => addDays(first, i - first.getDay()));
+    const cells = Array.from({ length: 42 }, (_, i) => addDays(first, i - mon0(first)));
     el.innerHTML = `<div class="cm-h">「${escapeHtml(e.title)}」 날짜 옮기기</div>${pick("tomorrow", "내일")}${pick("weekday", "다음 평일")}${pick("nextweek", "다음 주 같은 요일")}
-      <div class="cm-cal"><div class="cm-mh"><button data-mvm="-1" aria-label="이전 달">‹</button><b>${m.getFullYear()}. ${m.getMonth() + 1}.</b><button data-mvm="1" aria-label="다음 달">›</button></div><div class="cm-g">${"일월화수목금토".split("").map((d) => `<i>${d}</i>`).join("")}${cells.map((d) => `<button data-mv="${ymd(d)}" class="${d.getMonth() === m.getMonth() ? "" : "out"} ${ymd(d) === ymd(clock()) ? "td" : ""}">${d.getDate()}</button>`).join("")}</div></div>`;
+      <div class="cm-cal"><div class="cm-mh"><button data-mvm="-1" aria-label="이전 달">‹</button><b>${m.getFullYear()}. ${m.getMonth() + 1}.</b><button data-mvm="1" aria-label="다음 달">›</button></div><div class="cm-g">${DOW_MON.split("").map((d) => `<i>${d}</i>`).join("")}${cells.map((d) => `<button data-mv="${ymd(d)}" class="${d.getMonth() === m.getMonth() ? "" : "out"} ${ymd(d) === ymd(clock()) ? "td" : ""}">${d.getDate()}</button>`).join("")}</div></div>`;
     el.hidden = false;
     if (x || y) {
       const base = root.getBoundingClientRect();
@@ -2355,10 +2359,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     }
     const m = pickMonth;
     const first = new Date(m.getFullYear(), m.getMonth(), 1);
-    const cells = Array.from({ length: 42 }, (_, i) => addDays(first, i - first.getDay()));
+    const cells = Array.from({ length: 42 }, (_, i) => addDays(first, i - mon0(first)));
     const k = ymd(cur);
     el.innerHTML = `<button data-pickgo="${ymd(clock())}">오늘<span>${theme().fd(ymd(clock()))}</span></button>
-      <div class="cm-cal"><div class="cm-mh"><button data-pickm="-1" aria-label="이전 달">‹</button><b>${m.getFullYear()}. ${m.getMonth() + 1}.</b><button data-pickm="1" aria-label="다음 달">›</button></div><div class="cm-g">${"일월화수목금토".split("").map((d) => `<i>${d}</i>`).join("")}${cells.map((d) => `<button data-pickgo="${ymd(d)}" class="${d.getMonth() === m.getMonth() ? "" : "out"} ${ymd(d) === ymd(clock()) ? "td" : ""} ${ymd(d) === k ? "sel" : ""}">${d.getDate()}</button>`).join("")}</div></div>`;
+      <div class="cm-cal"><div class="cm-mh"><button data-pickm="-1" aria-label="이전 달">‹</button><b>${m.getFullYear()}. ${m.getMonth() + 1}.</b><button data-pickm="1" aria-label="다음 달">›</button></div><div class="cm-g">${DOW_MON.split("").map((d) => `<i>${d}</i>`).join("")}${cells.map((d) => `<button data-pickgo="${ymd(d)}" class="${d.getMonth() === m.getMonth() ? "" : "out"} ${ymd(d) === ymd(clock()) ? "td" : ""} ${ymd(d) === k ? "sel" : ""}">${d.getDate()}</button>`).join("")}</div></div>`;
     const b = root.querySelector<HTMLElement>("[data-datepick]")?.getBoundingClientRect();
     const base = root.getBoundingClientRect();
     if (b) {
@@ -4217,6 +4221,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   root.addEventListener("paste", onPaste);
   // Mac-standard keys: ⌘, 설정 · ⌘N 입력 · ⌘F 찾기 · ⌘Z 되돌리기 · ←/→ 날짜 · T 오늘 (by key code: works with 한글 input on).
   const onGlobalKey = (e: KeyboardEvent) => {
+    // Esc closes the 상세 창 even when the keyboard is not inside the app's box (opened from the month
+    // calendar the focus stays on the page; 11-02 「무슨 키를 눌러도 안 닫힘」).
+    if (e.key === "Escape" && detailId && !root.contains(e.target as Node)) {
+      e.preventDefault();
+      return setDetail(null);
+    }
     if (alarmOn || e.isComposing || guideOpen) return;
     const t = e.target as HTMLElement;
     const typing = !!t.closest?.("input, textarea, select, [contenteditable=true]");

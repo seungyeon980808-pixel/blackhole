@@ -48,9 +48,10 @@ export const fdDocLong = (s: string): string => {
   return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.(${DOW[d.getDay()]})`;
 };
 
-/** Sunday-first week containing d. */
+/** Monday-first week containing d (11-02). */
 export function weekDays(d: Date): string[] {
-  const s = addDays(d, -d.getDay());
+  // 월요일 시작 (11-02 사용자).
+  const s = addDays(d, -((d.getDay() + 6) % 7));
   return Array.from({ length: 7 }, (_, i) => ymd(addDays(s, i)));
 }
 
@@ -74,3 +75,8 @@ export function isoWithOffset(d: Date): string {
   const a = Math.abs(off);
   return `${ymd(d)}T${nowHM(d)}:${pad(d.getSeconds())}${sign}${pad(Math.floor(a / 60))}:${pad(a % 60)}`;
 }
+
+/** 월요일 시작 (11-02 사용자: 「월화수목금토일」): days since this week's Monday (월 0 … 일 6). */
+export const mon0 = (d: Date): number => (d.getDay() + 6) % 7;
+/** The calendars' weekday heads, Monday first. */
+export const DOW_MON = "월화수목금토일";

@@ -15,6 +15,8 @@ export const DROPPED_STEP = "원문에 없는 하위 할 일을 버림: ";
 interface Base {
   id: string;
   title: string;
+  /** 짧은 이름 (주요 일정 띠에 쓰는 이름, 6글자 안팎; 11-02 사용자). */
+  short?: string;
   area: Area;
   /** Where it came from: 데스크톱, 사진, 음성, 인박스, 가짜 자료 ... */
   source: string;

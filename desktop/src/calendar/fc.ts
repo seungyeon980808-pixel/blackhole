@@ -7,7 +7,7 @@ import { Calendar, type CalendarOptions, type EventInput } from "@fullcalendar/c
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { addDays, DOW, mins, parseDay, ymd } from "./dates";
+import { addDays, DOW, mins, mon0, parseDay, ymd } from "./dates";
 import type { CalendarState, Task, ThemeName } from "./model";
 import { liveEvents, livePeriods, liveTasks } from "./store";
 import { dueBadge, type Ctx, type ThemeView } from "./views/common";
@@ -32,8 +32,8 @@ function build(s: CalendarState, week: boolean, around: Date | undefined, work: 
   const out: EventInput[] = [];
   const st = s.settings;
   // Work week: only the shown week decides the fold rows.
-  const w0 = around ? ymd(addDays(around, -around.getDay())) : "";
-  const w6 = around ? ymd(addDays(around, 6 - around.getDay())) : "";
+  const w0 = around ? ymd(addDays(around, -mon0(around))) : "";
+  const w6 = around ? ymd(addDays(around, 6 - mon0(around))) : "";
   const shown = (k: string) => !around || (k >= w0 && k <= w6);
   const folds = new Map<string, { at: string; title: string }[]>();
   let top = false;
@@ -84,7 +84,7 @@ function build(s: CalendarState, week: boolean, around: Date | undefined, work: 
   }
   // Work week: the period numbers, faint, down the Monday column only (설정 「학교 시간」 · 「교시 구간 옅게」).
   if (work && around && st.showPeriods) {
-    const day = ymd(addDays(around, 1 - around.getDay()));
+    const day = ymd(addDays(around, -mon0(around)));
     st.periods.forEach((p, n) => {
       const [a, b] = p.split("-");
       if (a && b) out.push({ start: `${day}T${a}`, end: `${day}T${b}`, display: "background", classNames: ["bh-pn"], extendedProps: { kind: "pn", n: n + 1 } });
@@ -147,7 +147,7 @@ export class FcHost {
     // Month: six weeks with the shown day's week always the second row (the week before on top).
     const fcView = ctx.view === "month" ? "rolling" : "timeGridWeek";
     const month = fcView === "rolling";
-    const at = month ? addDays(ctx.cur, -ctx.cur.getDay() - 7) : ctx.cur;
+    const at = month ? addDays(ctx.cur, -mon0(ctx.cur) - 7) : ctx.cur;
     const work = !month && range === "work";
     const b = build(ctx.s, !month, ctx.cur, work);
     const key = `${fcView}|${theme}|${compact}|${month ? "" : `${range}|${b.top}|${b.bottom}`}`;
@@ -206,7 +206,8 @@ export class FcHost {
       now: ctx.now,
       headerToolbar: false,
       height: "100%",
-      firstDay: 0,
+      // 월요일 시작 (11-02 사용자).
+      firstDay: 1,
       fixedWeekCount: !month,
       eventDisplay: "block",
       displayEventTime: false,

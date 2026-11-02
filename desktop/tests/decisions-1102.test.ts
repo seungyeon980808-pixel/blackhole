@@ -241,3 +241,15 @@ describe("주요 일정 띠: 겹칠 때만 위로 · ★ 고르기 (11-02)", () 
     expect(upcomingBand(c, "2026-11-02", (k) => k, 60, 560, "all").shown).toBe(3);
   });
 });
+
+describe("월요일 시작 · D-day는 진짜 오늘 기준 · 띠 이름 (11-02)", () => {
+  it("다른 날을 보고 있어도 D-day는 오늘부터, 띠 이름이 있으면 그 이름", async () => {
+    const { rightStack } = await import("../src/calendar/views/today");
+    const s = emptyState();
+    s.events.push({ id: "a", kind: "event", title: "수능응시자 모의고사", short: "수능모의", date: "2026-11-08", start: "07:30", end: "16:30", star: 2, provisional: false, reminders: [], area: "school", source: "t", createdAt: "2026-11-01T08:00" } as never);
+    const html = rightStack({ s, today: "2026-11-02" } as never, "2026-11-07", (k: string) => k);
+    expect(html).toContain("D-6");
+    expect(html).toContain("수능모의");
+    expect(html).toContain("11/8");
+  });
+});

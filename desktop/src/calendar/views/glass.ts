@@ -188,7 +188,7 @@ export const glass: ThemeView = {
     const c = ctx.cur;
     if (ctx.view === "month") return { title: `${c.getFullYear()}년 ${c.getMonth() + 1}월` };
     if (ctx.view === "week") {
-      const a = addDays(c, -c.getDay());
+      const a = addDays(c, -((c.getDay() + 6) % 7));
       const b = addDays(a, 6);
       return { title: `${a.getMonth() + 1}월 ${a.getDate()}일 – ${a.getMonth() === b.getMonth() ? "" : `${b.getMonth() + 1}월 `}${b.getDate()}일` };
     }

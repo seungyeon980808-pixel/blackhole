@@ -205,8 +205,8 @@ describe("month: this week always the second row", () => {
     app!.setView("month", "2026-10-27");
     const days = () => [...root.querySelectorAll<HTMLElement>(".fc-rolling-view .fc-daygrid-day[data-date]")].map((x) => x.dataset.date);
     expect(days()).toHaveLength(42);
-    expect(days()[0]).toBe("2026-10-18"); // the week before
-    expect(days()[7]).toBe("2026-10-25"); // this week = second row
+    expect(days()[0]).toBe("2026-10-19"); // the week before (월요일 시작, 11-02)
+    expect(days()[7]).toBe("2026-10-26"); // this week = second row
     // Six week rows (a days-long duration drew all 42 days on one line).
     expect(root.querySelectorAll(".fc-rolling-view .fc-daygrid-body tr[role=row]")).toHaveLength(6);
     // No school-period bands on the week grid any more.

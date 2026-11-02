@@ -202,6 +202,10 @@ export function streak(r: Routine, today: string): number {
 export interface Upcoming {
   id: string;
   title: string;
+  /** 짧은 이름 (띠에 씀), when set. */
+  short?: string;
+  /** The day (YYYY-MM-DD). */
+  date: string;
   star: number;
   days: number;
   /** A period's last day, in days from today. */
@@ -221,15 +225,15 @@ export function upcoming(s: CalendarState, today: string, fd: (k: string) => str
   const days = (k: string) => Math.round((parseDay(k).getTime() - parseDay(today).getTime()) / 864e5);
   for (const e of liveEvents(s)) {
     if (e.workFor || !(e.star ?? 0) || e.date <= today || e.date > until) continue;
-    out.push({ id: e.id, title: e.title, star: e.star ?? 0, days: days(e.date), when: `${fd(e.date)}${e.start ? ` ${e.start}${e.end ? "–" + e.end : ""}` : ""}${e.details ? ` · ${e.details}` : ""}` });
+    out.push({ id: e.id, title: e.title, short: e.short, date: e.date, star: e.star ?? 0, days: days(e.date), when: `${fd(e.date)}${e.start ? ` ${e.start}${e.end ? "–" + e.end : ""}` : ""}${e.details ? ` · ${e.details}` : ""}` });
   }
   for (const t of liveTasks(s)) {
     if (t.done || t.noDue || !(t.star ?? 0) || t.due <= today || t.due > until) continue;
-    out.push({ id: t.id, title: t.title, star: t.star ?? 0, days: days(t.due), when: `${fd(t.due)}${t.dueTime ? " " + t.dueTime : ""}까지`, steps: t.subs.length ? [t.subs.filter((x) => x.done).length, t.subs.length] : undefined });
+    out.push({ id: t.id, title: t.title, short: t.short, date: t.due, star: t.star ?? 0, days: days(t.due), when: `${fd(t.due)}${t.dueTime ? " " + t.dueTime : ""}까지`, steps: t.subs.length ? [t.subs.filter((x) => x.done).length, t.subs.length] : undefined });
   }
   for (const p of livePeriods(s)) {
     if (p.from <= today) continue;
-    out.push({ id: p.id, title: p.title, star: p.star ?? 0, days: days(p.from), endDays: days(p.to), when: `${fd(p.from)}–${fd(p.to)}` });
+    out.push({ id: p.id, title: p.title, short: p.short, date: p.from, star: p.star ?? 0, days: days(p.from), endDays: days(p.to), when: `${fd(p.from)}–${fd(p.to)}` });
   }
   return out.sort((a, b) => a.days - b.days || b.star - a.star);
 }
@@ -420,56 +424,68 @@ export function upcomingBand(ctx: Ctx, k: string, fd: (k: string) => string, ran
   const LH = 18;
   const px = (d: number) => (Math.min(d, range) / range) * W;
   const pct = (d: number) => `${((Math.min(d, range) / range) * 100).toFixed(3)}%`;
-  // Place the names first: the lowest row where it does not touch the name before it.
-  type Placed = { u: Upcoming; lane: number; name: string; showD: boolean; flip: boolean };
-  const rows: [number, number][][] = [[], [], []];
+  // Names above the line (★ + 짧은 이름 or the first 6 letters); D-day and date under it (11-02 사용자).
+  // Each goes on the lowest row where it does not touch the one before it (3 rows above, 2 under).
+  type Placed = { u: Upcoming; lane: number; name: string; flip: boolean; under: number };
+  const free = (r: [number, number][], [a, b]: [number, number]) => r.every(([p, q]) => b + 4 <= p || a >= q + 4);
+  const above: [number, number][][] = [[], [], []];
+  const below: [number, number][][] = [[], []];
   const placed: Placed[] = [];
+  const md = (k: string) => `${+k.slice(5, 7)}/${+k.slice(8, 10)}`;
   for (const u of items) {
     const x = px(u.days);
     const star = u.star ? 14 : 0;
-    const dd = `D-${u.days}`;
-    const six = u.title.length > 6 ? `${u.title.slice(0, 6)}…` : u.title;
-    const full = textW(six) + star + textW(dd) * 0.85 + 18;
-    const flip = x + full > W && x > W / 2;
-    const span = (w: number): [number, number] => (flip ? [x - w, x] : [x, x + w]);
-    const free = (r: [number, number][], [a, b]: [number, number]) => r.every(([p, q]) => b + 4 <= p || a >= q + 4);
-    let lane = rows.findIndex((r) => free(r, span(full)));
-    let name = six;
-    let showD = true;
+    const base = u.short?.trim() || u.title;
+    let name = base.length > 6 ? `${base.slice(0, 6)}…` : base;
+    const w = textW(name) + star + 10;
+    const flip = x + w > W && x > W / 2;
+    const span = (n: number): [number, number] => (flip ? [x - n, x] : [x, x + n]);
+    let lane = above.findIndex((r) => free(r, span(w)));
     if (lane < 0) {
-      // No row has room for all of it: the row with the most room, the D-day first, then letters.
-      showD = false;
+      // No row has room: the row with the most room, then fewer letters (3 at least).
       const roomIn = (r: [number, number][]) => (flip ? x - Math.max(0, ...r.filter(([, q]) => q <= x).map(([, q]) => q + 6)) : Math.min(W, ...r.filter(([p]) => p >= x).map(([p]) => p - 6)) - x);
-      lane = [0, 1, 2].reduce((best, l) => (roomIn(rows[l]) > roomIn(rows[best]) ? l : best), 0);
-      const room = roomIn(rows[lane]);
+      lane = [0, 1, 2].reduce((best, l) => (roomIn(above[l]) > roomIn(above[best]) ? l : best), 0);
+      const room = roomIn(above[lane]);
       while (name.replace("…", "").length > 3 && textW(name) + star + 10 > room) name = `${name.replace("…", "").slice(0, -1)}…`;
     }
-    rows[lane].push(span(showD ? full : textW(name) + star + 10));
-    placed.push({ u, lane, name, showD, flip });
+    above[lane].push(span(textW(name) + star + 10));
+    const uw = textW(`D-${u.days} ${md(u.date)}`) * 0.85 + 6;
+    const us: [number, number] = [x - uw / 2, x + uw / 2];
+    let under = below.findIndex((r) => free(r, us));
+    if (under < 0) under = 1;
+    below[under].push(us);
+    placed.push({ u, lane, name, flip, under });
   }
   const lanes = Math.max(1, ...placed.map((p) => p.lane + 1));
+  const unders = Math.max(1, ...placed.map((p) => p.under + 1));
   const axY = lanes * LH + 8;
-  let h = `<div class="bax" style="top:${axY}px"></div><span class="btk" style="left:0;top:${axY + 5}px">오늘</span>`;
+  // 「오늘」 on the line's start (under it are the D-days).
+  let h = `<div class="bax" style="top:${axY}px"></div><span class="btk m td" style="left:0;top:${axY - 7}px">오늘</span>`;
   const t0 = parseDay(k);
+  // Months sit on the line itself (the space under it is the D-days').
   for (let d = 1; d < range; d++) {
     const dt = addDays(t0, d);
-    if (dt.getDate() === 1 && px(d) > 24 && px(d) < W - 24) h += `<span class="btk m" style="left:${pct(d)};top:${axY + 5}px">${dt.getMonth() + 1}월</span>`;
+    if (dt.getDate() === 1 && px(d) > 24 && px(d) < W - 24) h += `<span class="btk m" style="left:${pct(d)};top:${axY - 7}px">${dt.getMonth() + 1}월</span>`;
   }
-  for (const { u, lane, name, showD, flip } of placed) {
+  for (const { u, lane, name, flip, under } of placed) {
     h += u.endDays !== undefined && u.endDays > u.days
       ? `<i class="bpr" style="left:${pct(u.days)};width:max(5px, ${(((Math.min(u.endDays, range) - u.days) / range) * 100).toFixed(3)}%);top:${axY}px"></i>`
       : `<i class="bdot" style="left:${pct(u.days)};top:${axY}px"></i>`;
     const top = (lanes - 1 - lane) * LH;
+    const tip = esc(`${u.title} · ${u.when} · D-${u.days}`);
     h += `<i class="bstem" style="left:${pct(u.days)};top:${top + LH}px;height:${axY - top - LH}px"></i>`;
-    h += `<span class="blb ${flip ? "fl" : ""}" data-ev="${u.id}" title="${esc(`${u.title} · ${u.when} · D-${u.days}`)}" style="${flip ? `right:${(100 - (px(u.days) / W) * 100).toFixed(3)}%` : `left:${pct(u.days)}`};top:${top}px">${u.star ? `<span class="star s${u.star}">★</span>` : ""}<b>${esc(name)}</b>${showD ? `<span class="d">D-${u.days}</span>` : ""}</span>`;
+    h += `<span class="blb ${flip ? "fl" : ""}" data-ev="${u.id}" title="${tip}" style="${flip ? `right:${(100 - (px(u.days) / W) * 100).toFixed(3)}%` : `left:${pct(u.days)}`};top:${top}px">${u.star ? `<span class="star s${u.star}">★</span>` : ""}<b>${esc(name)}</b></span>`;
+    h += `<span class="bdd ${u.days <= 7 ? "soon" : ""}" data-ev="${u.id}" title="${tip}" style="left:${pct(u.days)};top:${axY + 6 + under * 14}px"><b>D-${u.days}</b> ${md(u.date)}</span>`;
   }
-  return { html: `<div class="band" style="height:${axY + 20}px">${h}</div>`, shown: items.length, later };
+  return { html: `<div class="band" style="height:${axY + 8 + unders * 14 + 6}px">${h}</div>`, shown: items.length, later };
+
 }
 
 export function rightStack(ctx: Ctx, k: string, fd: (k: string) => string, o?: Pick<TodayOpts, "upRange" | "bandW" | "upStars">): string {
   const range = o?.upRange ?? 60;
   const stars = o?.upStars ?? "all";
-  const b = upcomingBand(ctx, k, fd, range, o?.bandW ?? 560, stars);
+  // D-day from the real today, whatever day is shown (11-02: 11/7을 보면 11/8이 D-1로 나오던 것).
+  const b = upcomingBand(ctx, ctx.today ?? k, fd, range, o?.bandW ?? 560, stars);
   const pick = (v: StarPick, label: string, cls: string) => `<button class="${v === stars ? "on" : ""}" data-upstars="${v}" title="${label}"><span class="star ${cls}">★</span></button>`;
   return `<div class="rstack">
     <div class="panel g ups ${b.shown ? "" : "empty"}"><div class="ph"><b>다가오는 주요 일정</b><span class="useg stars">${pick(1, "노랑 ★만", "s1")}${pick(2, "빨강 ★만", "s2")}${pick("all", "노랑·빨강 둘 다", "half")}</span><span class="useg">${b.later ? `<button class="ulater" data-uprange="120" title="120일로 넓히기">그 뒤 ${b.later}개</button>` : ""}${([30, 60, 120] as const).map((v) => `<button class="${v === range ? "on" : ""}" data-uprange="${v}">${v}일</button>`).join("")}</span></div>

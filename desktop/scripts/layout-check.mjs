@@ -1,6 +1,6 @@
 // 레이아웃 검사 (실제 브라우저): 일·주·월 보기 × 창 4가지 × 대화 열림/접힘 × 테마 2가지에서
 //   (a) 창 밖으로 나간 칸 0  (b) 칸끼리 겹침 0  (c) 날짜 줄과 아래 칸의 좌우 끝선 일치(일 보기)
-//   (d) 주 「업무 08–17」·월: 달력이 창 높이를 꽉 채움(아래 빈 공간 0, 달력 안 스크롤 없음)
+//   (d) 주 「업무 08–17」·월: 달력이 창 높이를 꽉 채움(정해 둔 아래 여백 말고 빈 공간 0, 달력 안 스크롤 없음)
 //   (e) 일 보기에서 상세 편집 패널을 연 상태: 창 안, 옆 자리가 있으면 하루의 칸들과 겹침 0
 // 가짜 자료(tests/layout)만 씁니다. 사용: npm run layout  (그림: LAYOUT_OUT=폴더)
 // playwright-core와 Chromium은 이 저장소에 넣지 않습니다: 설치된 것을 PLAYWRIGHT_CORE·CHROMIUM으로 알려 주면 씁니다.
@@ -118,7 +118,8 @@ try {
             const sc = host.querySelector(".fc-timegrid-body, .fc-daygrid-body")?.closest(".fc-scroller");
             const last = host.querySelector(host.querySelector(".fc-timegrid-slots") ? ".fc-timegrid-slots tr:last-child" : ".fc-daygrid-body tbody > tr:last-child")?.getBoundingClientRect();
             if (sc && sc.scrollHeight > sc.clientHeight + 1) fill = `달력 안 스크롤 ${sc.scrollHeight}/${sc.clientHeight}`;
-            else if (last && hb.bottom - last.bottom > 3) fill = `아래 빈 공간 ${Math.round(hb.bottom - last.bottom)}px`;
+            // The month keeps its own bottom margin (padding-bottom, 11-02 「아래에 여백」): only space beyond it counts.
+            else if (last && hb.bottom - last.bottom > 3 + (parseFloat(getComputedStyle(host).paddingBottom) || 0)) fill = `아래 빈 공간 ${Math.round(hb.bottom - last.bottom)}px`;
           }
           return { out, overlap, edge, scroll, fill, mode: document.querySelector(".bh.side") ? "옆 대화" : document.querySelector(".bh.panel-closed") ? "접힘" : "서랍" };
         });

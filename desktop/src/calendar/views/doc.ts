@@ -180,8 +180,8 @@ export const doc: ThemeView = {
 function printMonth(ctx: Ctx): string {
   const c = ctx.cur;
   const first = new Date(c.getFullYear(), c.getMonth(), 1);
-  const s0 = addDays(first, -first.getDay());
-  let h = `<table class="cal"><thead><tr>${[..."일월화수목금토"].map((x) => `<th>${x}</th>`).join("")}</tr></thead><tbody>`;
+  const s0 = addDays(first, -((first.getDay() + 6) % 7));
+  let h = `<table class="cal"><thead><tr>${[..."월화수목금토일"].map((x) => `<th>${x}</th>`).join("")}</tr></thead><tbody>`;
   for (let w = 0; w < 6; w++) {
     h += "<tr>";
     for (let i = 0; i < 7; i++) {
@@ -192,7 +192,7 @@ function printMonth(ctx: Ctx): string {
         ...eventsOn(ctx.s, k).map((e) => doc.monthChip(ctx, "event", e as unknown as Record<string, unknown>)),
         ...dueOn(ctx.s, k).map((t) => doc.monthChip(ctx, "task", t as unknown as Record<string, unknown>))
       ];
-      h += `<td class="${d.getMonth() !== c.getMonth() ? "out" : ""} ${d.getDay() === 0 ? "sun" : ""}"><span class="n">${d.getDate()}</span>${ps.map((p) => `<div class="pb">${p.from === k || d.getDay() === 0 ? esc(p.title) : "&nbsp;"}</div>`).join("")}${items.slice(0, 8).join("")}${items.length > 8 ? `<div class="more">외 ${items.length - 8}건</div>` : ""}</td>`;
+      h += `<td class="${d.getMonth() !== c.getMonth() ? "out" : ""} ${d.getDay() === 0 ? "sun" : ""}"><span class="n">${d.getDate()}</span>${ps.map((p) => `<div class="pb">${p.from === k || d.getDay() === 1 ? esc(p.title) : "&nbsp;"}</div>`).join("")}${items.slice(0, 8).join("")}${items.length > 8 ? `<div class="more">외 ${items.length - 8}건</div>` : ""}</td>`;
     }
     h += "</tr>";
   }

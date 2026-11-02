@@ -9,7 +9,9 @@ button { cursor: pointer; }
 .bh { position: relative; height: 100%; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; overflow: hidden; }
 .bh.doc { grid-template-rows: auto auto 1fr auto; }
 .bh .content { min-height: 0; overflow: hidden; }
-.bh .fchost { height: 100%; }
+.bh .fchost { height: 100%; box-sizing: border-box; }
+/* 월간: 맨 아래 줄 밑에 숨 쉴 여백 (11-02 「하단에 공간이 없어 어색함」). */
+.bh [data-view="month"] .fchost, .bh .fchost:has(.fc-rolling-view) { padding-bottom: 14px; }
 .bh .sp { flex: 1; }
 .bh .conn { font-size: 11.5px; white-space: nowrap; }
 
@@ -668,8 +670,8 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .dpanel .pd i { font-style: normal; font-size: 8px; letter-spacing: -1px; color: var(--ink2); height: 8px; }
 .bh .dpanel .pd:hover { background: var(--x-chip, #eee); }
 .bh .dpanel .pd.out { opacity: .38; }
-.bh .dpanel .pd.sun, .bh .dpanel .pgw span:first-child { color: #e26d6d; }
-.bh .dpanel .pd.sat, .bh .dpanel .pgw span:last-child { color: #6d9ae2; }
+.bh .dpanel .pd.sun, .bh .dpanel .pgw span:last-child { color: #e26d6d; }
+.bh .dpanel .pd.sat, .bh .dpanel .pgw span:nth-child(6) { color: #6d9ae2; }
 .bh .dpanel .pd.now { box-shadow: inset 0 0 0 1px var(--ink2); }
 .bh .dpanel .pd.on { background: var(--x-sel, #ddd); font-weight: 700; color: var(--ink); }
 
@@ -748,3 +750,10 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .tdv .ups .blb b { font-weight: 600; } .bh .tdv .ups .blb .star { font-size: 11px; margin-right: 1px; }
 .bh .tdv .ups .blb .d { font-size: 10.5px; color: var(--ink3); margin-left: 4px; font-variant-numeric: tabular-nums; }
 .bh .tdv .ups .blb:hover { z-index: 3; background: var(--x-pop, rgba(20,40,110,.97)); border-radius: 0 3px 3px 0; }
+.bh .tdv .ups .btk.m { background: var(--x-pop, #2b5bd6); padding: 0 4px; border-radius: 3px; line-height: 13px; z-index: 1; }
+.bh .tdv .ups .bdd { position: absolute; transform: translateX(-50%); white-space: nowrap; font-size: 10.5px; line-height: 13px; color: var(--ink3); font-variant-numeric: tabular-nums; cursor: pointer; }
+.bh .tdv .ups .bdd b { color: var(--ink2); font-weight: 700; } .bh .tdv .ups .bdd.soon b { color: var(--ink); }
+.bh .dpanel .d-short { width: 100%; box-sizing: border-box; margin: -2px 0 8px; background: none; border: 0; border-bottom: 1px dashed var(--x-line); color: var(--ink2); font: inherit; font-size: 12.5px; padding: 3px 0; }
+.bh .dpanel .d-short:focus { outline: 0; border-bottom-style: solid; color: var(--ink); }
+.bh .tdv .ups .btk.td { transform: translateX(-100%); margin-left: -2px; }
+.bh .tdv .ups .band { margin-left: 30px; }
