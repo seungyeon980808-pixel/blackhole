@@ -268,3 +268,13 @@ describe("11-02 시안 15: 학교 · 외부 · 개인 색", () => {
     expect(normalizeState(JSON.parse(JSON.stringify(app!.state)))!.events.find((e) => e.id === ev.id)!.area).toBe("outside");
   });
 });
+
+describe("11-02 외부 = 학교 밖에서 하는 일", () => {
+  it("출장·모의고사 감독·임용 감독은 규칙 초안부터 외부, 학교 안의 일은 학교", () => {
+    const s = emptyState();
+    const at = new Date("2026-11-02T10:00:00");
+    expect(draftFromText(s, "11월 8일 수능응시자 모의고사 7시 30분", "데스크톱", at, "a").area).toBe("outside");
+    expect(draftFromText(s, "목요일 오후 2시 출장", "데스크톱", at, "b").area).toBe("outside");
+    expect(draftFromText(s, "내일 3시 교직원 회의", "데스크톱", at, "c").area).toBe("school");
+  });
+});

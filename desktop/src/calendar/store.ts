@@ -206,6 +206,7 @@ const DEED_WORDS: string[][] = [
 const deedSaid = (word: string, said: string): boolean => said.includes(word) || DEED_WORDS.some((g) => g.some((w) => word === w || word.endsWith(w)) && g.some((w) => said.includes(w)));
 
 /** Words that make an item school work whatever the model said (「행정실 가서 카드 제출」 「2학년 9반 …」). */
+const OUTSIDE_WORDS = /출장|포럼|외부\s*(?:연수|강의|감독)|모의고사\s*감독|수능응시자|임용.{0,4}감독/;
 const SCHOOL_WORDS = /품의|초과근무|벌점|지각|교육청|장학사|체험학습|교직원|교과|보강|시간표|나이스|학급|종례|조회|(?<!수영|피아노|요가|미술|영어|태권도|발레|필라테스|골프|테니스)\s*수업|\d+\s*반(?![가-힣])|\d+\s*반(?:도|은|는|에|의|부터|까지)|\d\s*학년|\d\s*교시|행정실|교무실|교원|교사|기안|공문|결재|수행평가|생기부|세특|방과후|학생|학부모|담임|쿨메신저|협의회|협의록|출장|급식지도|진도|교학공|대의원회|학생회/;
 
 /** The class numbers a text names: 「2학년 3반 … 6반」 → ["3반", "6반"]. */
@@ -567,7 +568,8 @@ export function draftFromText(s: CalendarState, said: string, source: string, no
     return note;
   }
   const r = parseDraft(text, now, s.settings);
-  const base = { title: r.title, area: (SCHOOL_WORDS.test(text) ? "school" : "personal") as Area, source, createdAt: stamp(now), draft: true, srcKey, review: r.needsReview ? [r.explanation] : undefined };
+  // 학교 밖에서 하는 일은 외부 (11-02 사용자: 「학교 일정은 학교 안에서만」, 출장도 외부).
+  const base = { title: r.title, area: (OUTSIDE_WORDS.test(text) ? "outside" : SCHOOL_WORDS.test(text) ? "school" : "personal") as Area, source, createdAt: stamp(now), draft: true, srcKey, review: r.needsReview ? [r.explanation] : undefined };
   // 「11월 2일부터 6일까지 체험학습」: a span of days is a 기간.
   if (r.until && r.date) {
     const period: Period = { ...base, id: draftId("p"), kind: "period", from: r.date, to: r.until };
