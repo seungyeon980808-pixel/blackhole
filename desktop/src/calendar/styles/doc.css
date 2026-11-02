@@ -244,12 +244,11 @@
 .bh.doc {
   --x-hair: #dedede; --x-line: #8a8a8a; --x-chip: #f0f0f0; --x-sel: #e2e2e2; --x-box: #f4f4f4;
   --x-hatch: #ececec; --x-off: rgba(0,0,0,.035); --x-pinbg: #fff; --x-inv: #fff; --x-star0: #b5b5b5;
+  --x-work: #dcefe9; --x-workno: #1f8a70; --x-lunch: rgba(0,0,0,.05); --x-pop: #fff;
 }
 .bh.doc .tdv .panel, .bh.doc .matrix .panel { background: #fff; border: 1px solid var(--rule); border-radius: 0; }
 .bh.doc .tdv .ph b, .bh.doc .matrix h4, .bh.doc .tl .grp { font-family: var(--sans); color: var(--ink); }
 .bh.doc .tdv, .bh.doc .matrix { font-family: var(--sans); }
-.bh.doc .dtg .ev { border-radius: 0; }
-.bh.doc .dtg .pin .lb { border: 1px solid var(--hair); border-radius: 0; }
 .bh.doc .conn.warn { background: #111; }
 
 /* 머리줄: 같은 높이(28px)·같은 모서리 */

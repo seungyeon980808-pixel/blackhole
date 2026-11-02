@@ -98,6 +98,8 @@ export interface Task extends Base {
   noDue?: boolean;
   /** 「기다림」: what has to happen first (「병렬협조 마무리」 「한 선생님 연락」). */
   wait?: string;
+  /** 걸리는 시간 in minutes (one of EFFORTS); unset = guessed from the title. Decides 급함. */
+  effort?: number;
 }
 
 /** Several whole days, inclusive. */
@@ -271,7 +273,8 @@ export const DEFAULT_SETTINGS: Settings = {
   assembly: "08:40-08:50",
   periods: ["08:50-09:35", "09:45-10:30", "10:40-11:25", "11:35-12:20", "13:20-14:05", "14:15-15:00", "15:10-15:55"],
   eventMinutes: 60,
-  remindMinutes: 30,
+  // 일정 3분 전 (11-02 사용자 결정; 기한은 30분 전, 작업 시간은 시작할 때, 루틴은 알람 없음).
+  remindMinutes: 3,
   brief: true,
   showPeriods: true,
   textSize: 100

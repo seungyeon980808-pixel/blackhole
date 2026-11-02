@@ -72,7 +72,7 @@ describe("「3시」 said alone is the afternoon", () => {
     expect(a.calls).toEqual(["skip:rule"]);
     const ev = app!.state.events.find((e) => e.title === "치과")!;
     expect(ev.start).toBe("15:00");
-    expect(ev.reminders).toEqual(["2026-10-28T14:30"]);
+    expect(ev.reminders).toEqual(["2026-10-28T14:57"]);
   });
 });
 
@@ -173,13 +173,13 @@ describe("said time ranges (「오늘 1620~2120 초과근무 일정」 went in a
     expect(clockText("오늘 1320까지 안내 메세지 보내기")).toBe("오늘 13:20까지 안내 메세지 보내기");
   });
 
-  it("goes in at once as 16:20–21:20 (no AI needed), alarm 30 min before", async () => {
+  it("goes in at once as 16:20–21:20 (no AI needed), alarm 3 min before (11-02)", async () => {
     const a = mac();
     await mount(a);
     await app!.submitText("오늘 1620~2120 초과근무 일정");
     const ev = app!.state.events.find((e) => e.title === "초과근무")!;
     expect([ev.date, ev.start, ev.end, ev.draft]).toEqual(["2026-10-27", "16:20", "21:20", false]);
-    expect(ev.reminders).toEqual(["2026-10-27T15:50"]);
+    expect(ev.reminders).toEqual(["2026-10-27T16:17"]);
     expect(a.calls).toEqual(["skip:rule"]);
   });
 

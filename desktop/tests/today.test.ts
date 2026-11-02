@@ -4,7 +4,7 @@ import { mountBlackhole, type BlackholeApp } from "../src/calendar/app";
 import type { BlackholeAdapter } from "../src/calendar/adapter";
 import { memoryAdapter } from "../src/calendar/memory-adapter";
 import { emptyState, sharedFrom, type CalendarState, type Routine } from "../src/calendar/model";
-import { isUrgent, orderedTasks, routineOn, streak } from "../src/calendar/views/today";
+import { isUrgent, orderedTasks, routineOn, streak, urgency } from "../src/calendar/views/today";
 
 const NOW = new Date(2026, 9, 27, 10, 40); // 화요일
 let app: BlackholeApp | null = null;
@@ -35,36 +35,30 @@ async function mount(st: CalendarState, extra: Partial<BlackholeAdapter> = {}): 
 }
 
 describe("order and numbers", () => {
-  it("urgent (≤6 hours, overdue too) → star → earliest; 「나중」 after; one number for the list and the table", async () => {
+  it("급함 = 걸리는 시간 대비 남은 근무 시간 (11-02) → star → earliest; 「나중」 after; deadlines are the 「남은 시간」 word, not marks on the table", async () => {
     const s = base();
-    expect(isUrgent(s.tasks[0], NOW, s.settings.offWork)).toBe(true); // 10분 지남
-    expect(isUrgent(s.tasks[1], NOW, s.settings.offWork)).toBe(true); // 4시간 20분
-    expect(isUrgent(s.tasks[2], NOW, s.settings.offWork)).toBe(false); // 7시간 20분
+    expect(urgency(s.tasks[0], NOW, s)).toBe(3); // 10분 지남
+    expect(isUrgent(s.tasks[1], NOW, s)).toBe(false); // 제출 = 10분, 4시간 20분 남음
+    expect(urgency(s.tasks[2], NOW, s)).toBe(0);
+    // 하루 걸리는 출제, 내일 퇴근 때까지 (근무 시간 약 13시간 40분 < 하루 × 2): 급함.
+    expect(urgency({ ...s.tasks[1], title: "기말 문제 출제", due: "2026-10-28", dueTime: null }, NOW, s)).toBe(2);
     const o = orderedTasks(s, "2026-10-27", NOW);
-    expect(o.today.map((t) => t.id)).toEqual(["t2", "t1", "t3"]); // both urgent: the red star first
+    expect(o.today.map((t) => t.id)).toEqual(["t1", "t2", "t3"]);
     expect(o.later.map((t) => t.id)).toEqual(["t4"]);
-    expect([...o.num.entries()]).toEqual([["t2", 1], ["t1", 2], ["t3", 3], ["t4", 4]]);
     const root = await mount(s);
     const list = [...root.querySelectorAll<HTMLElement>(".tl .task")].map((x) => `${x.dataset.num}:${x.dataset.task}`);
-    expect(list).toEqual(["1:t2", "2:t1", "3:t3", "4:t4"]);
-    const pin = root.querySelector<HTMLElement>('.dtg .dl[data-ev="t2"]')!;
-    expect(pin.dataset.num).toBe("1");
-    // On the axis the place says the time: 「번호 · 제목」, the time on hover.
-    expect(pin.textContent).not.toContain("15:00");
-    expect(pin.title).toContain("15:00");
-    // 18:00 is outside 업무 08–17: in the row under the table, not floating on it.
-    expect(root.querySelector('.dtg .dl[data-ev="t3"]')).toBeNull();
-    expect(root.querySelector('.dt .after .dl[data-ev="t3"]')!.textContent).toContain("18:00");
-    // Hovering a number lights the same number on both sides.
-    root.querySelector<HTMLElement>('.tl .task[data-num="1"] .tn')!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-    expect([...root.querySelectorAll(".no.hl")].map((x) => x.closest(".dl, .task")!.className.split(" ")[0])).toEqual(["dl", "task"]);
-    // Urgency is bold time, not a colored dot.
-    expect(root.querySelector('.task[data-ev="t1"] .due')!.classList.contains("urg")).toBe(true);
-    expect(root.querySelector('.task[data-ev="t3"] .due')!.classList.contains("urg")).toBe(false);
+    expect(list).toEqual(["1:t1", "2:t2", "3:t3", "4:t4"]);
+    const rem = (id: string) => root.querySelector<HTMLElement>(`.tl .task[data-ev="${id}"] .rem`)!;
+    expect([rem("t1").textContent, rem("t1").classList.contains("R3")]).toEqual(["10분 지남", true]);
+    expect(rem("t2").textContent).toBe("4시간 남음");
+    expect(rem("t4").textContent).toBe("D-5");
+    expect(root.querySelector('.dtg [data-ev="t2"]')).toBeNull();
   });
 
   it("filter chips: 급함 shows only the urgent ones", async () => {
-    const root = await mount(base());
+    const s = base();
+    s.tasks[1].effort = 180; // 3시간 걸리는데 4시간 20분 남음: 급함
+    const root = await mount(s);
     root.querySelector<HTMLButtonElement>('[data-tf="urgent"]')!.click();
     expect([...root.querySelectorAll<HTMLElement>(".tl .task")].map((x) => x.dataset.task)).toEqual(["t1"]); // t2 is starred → 지금 할 것
     root.querySelector<HTMLButtonElement>('[data-tf="now"]')!.click();
@@ -124,9 +118,9 @@ describe("루틴", () => {
     root.querySelector<HTMLElement>(`[data-rt="${made.id}"]`)!.click();
     await tick();
     expect(made.done).toEqual(["2026-10-27"]);
-    // On the day table: a dotted line with its name, checked.
-    const rt = root.querySelector<HTMLElement>(`.dtg .rt.dn [data-rt="${made.id}"]`)!;
-    expect(rt.textContent).toBe("메일 확인 ✓"); // the line's place says the time
+    // On the day table: a small box in its 10-minute cell, checked.
+    const rt = root.querySelector<HTMLElement>(`.dtg .sg.rt.dn[data-rt="${made.id}"]`)!;
+    expect(rt.textContent).toBe("메일 확인 ✓"); // the cell's place says the time
     expect(rt.title).toContain("루틴 08:20");
     expect(JSON.stringify(sharedFrom(app!.state, "2026-10-27T10:40"))).not.toContain("메일 확인");
   });
@@ -163,7 +157,7 @@ describe("moving to another day", () => {
 
   it("⌥→ moves the picked entry one day; dropping on the header's › moves it to the next day", async () => {
     const root = await mount(base());
-    root.querySelector<HTMLElement>('.tl .task[data-ev="t3"] .due')!.click();
+    root.querySelector<HTMLElement>('.tl .task[data-ev="t3"] .no')!.click();
     document.dispatchEvent(new KeyboardEvent("keydown", { code: "ArrowRight", key: "ArrowRight", altKey: true, bubbles: true }));
     await Promise.resolve();
     expect(app!.state.tasks.find((t) => t.id === "t3")!.due).toBe("2026-10-28");
@@ -177,26 +171,28 @@ describe("moving to another day", () => {
 });
 
 describe("work blocks and the range", () => {
-  it("a to-do dropped on the table becomes a linked one-hour 「작업 시간」 box with the same number", async () => {
+  it("a to-do dragged onto the table becomes a linked 30-minute 「작업 시간」 box (5-minute steps) with the same number", async () => {
     const root = await mount(base());
-    const grid = root.querySelector<HTMLElement>(".dtg")!;
-    grid.getBoundingClientRect = () => ({ top: 0, height: 540, left: 0, width: 400, right: 400, bottom: 540, x: 0, y: 0, toJSON: () => ({}) });
-    const drop = new MouseEvent("drop", { bubbles: true, cancelable: true, clientY: 180 }); // 08:00 + 1/3 of 9 hours = 11:00
-    Object.defineProperty(drop, "dataTransfer", { value: { getData: () => "t3", types: ["text/bh-task"] } });
-    root.querySelector<HTMLElement>(".dtg .dtc")!.dispatchEvent(drop);
+    const ly = root.querySelector<HTMLElement>(".dtg .dly")!;
+    ly.getBoundingClientRect = () => ({ top: 0, height: 540, left: 0, width: 360, right: 360, bottom: 540, x: 0, y: 0, toJSON: () => ({}) });
+    document.elementFromPoint = () => null;
+    const pe = (type: string, x: number, y: number) => new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 });
+    root.querySelector<HTMLElement>('.tl .task[data-ev="t3"] .tn')!.dispatchEvent(pe("pointerdown", 600, 300));
+    window.dispatchEvent(pe("pointermove", 200, 190)); // row 4 (11시), 200/360 of the hour = 33분 → 35분
+    window.dispatchEvent(pe("pointerup", 200, 190));
     await tick();
     const w = app!.state.events.find((e) => e.workFor === "t3")!;
-    expect([w.title, w.start, w.end, w.date]).toEqual(["가정통신문", "11:00", "12:00", "2026-10-27"]);
-    expect(root.querySelector(`.dtg .ev.work[data-ev="${w.id}"] .no`)!.textContent).toBe("3");
+    expect([w.title, w.start, w.end, w.date]).toEqual(["가정통신문", "11:35", "12:05", "2026-10-27"]);
+    expect(w.reminders).toEqual(["2026-10-27T11:35"]); // rings when it starts
+    expect(root.querySelector(`.dtg .sg.work[data-ev="${w.id}"] .no`)!.textContent).toBe("3");
     expect(JSON.stringify(sharedFrom(app!.state, "2026-10-27T10:40"))).not.toContain(w.id); // the phone does not get it
   });
 
-  it("업무 08–17 / 하루 전체: remembered; deadlines outside the range sit at the edge", async () => {
+  it("업무 08–17 / 하루 전체: remembered", async () => {
     let root = await mount(base());
     expect(root.querySelector<HTMLElement>(".dtg")!.dataset.e).toBe(String(17 * 60));
     root.querySelector<HTMLButtonElement>('[data-dr="all"]')!.click();
     expect(root.querySelector<HTMLElement>(".dtg")!.dataset.e).toBe(String(24 * 60));
-    expect(root.querySelector('.dtg .dl[data-ev="t3"]')!.getAttribute("title")).toContain("18:00"); // inside the table now
     app!.destroy();
     root = await mount(base());
     expect(root.querySelector<HTMLElement>(".dtg")!.dataset.s).toBe("0");

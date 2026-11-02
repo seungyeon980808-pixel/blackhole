@@ -9,25 +9,124 @@ import type { CalEvent, CalendarState, Entry, Routine, Task } from "../model";
 import { dueOn, eventsOn, liveEvents, livePeriods, liveTasks } from "../store";
 import { duplicates, esc, type Ctx } from "./common";
 
-export const URGENT_MIN = 6 * 60;
 const STAR = ["☆", "★", "★"];
 
 /* ---------- rules (pure) ---------- */
 
 /** Minutes from now to the deadline (negative = passed). A day-only deadline ends at 퇴근. */
 export function minsLeft(t: Task, now: Date, offWork = "16:20"): number {
+  return Math.round((dueAt(t, offWork).getTime() - now.getTime()) / 60000);
+}
+
+const dueAt = (t: Task, offWork = "16:20"): Date => {
   const d = parseDay(t.due);
   const [h, m] = (t.dueTime ?? offWork).split(":").map(Number);
   d.setHours(h, m, 0, 0);
-  return Math.round((d.getTime() - now.getTime()) / 60000);
+  return d;
+};
+
+/** 걸리는 시간 (11-02 사용자 결정): six steps. */
+export const EFFORTS: [number, string][] = [[10, "10분"], [30, "30분"], [60, "1시간"], [180, "3시간"], [480, "하루"], [1440, "여러 날"]];
+export const effortName = (n: number): string => EFFORTS.find(([m]) => m === n)?.[1] ?? `${n}분`;
+
+/** A first guess from the title (the user corrects it with one click): 공문 제출 10분 · 출제 하루. */
+export function guessEffort(title: string): number {
+  // 「출제 원안 제출」 「대의원회 기안 올리기」: what is done at the end decides it (a hand-in is short).
+  if (/(?:제출|송금|보내기|보냄|확인|전화|연락|신청|출력|결재|올리기|답장|회신|예약|입금|이체|주문|반납)\s*(?:하기)?\s*$/.test(title)) return 10;
+  if (/세특|생기부|생활기록부|교육과정\s*(?:편성|작성)|논문|연구\s*보고서/.test(title)) return 1440;
+  if (/출제|시험\s*문제|문항\s*(?:제작|개발)|평가\s*계획|수업\s*(?:자료|준비)|강의안|발표\s*자료|연수\s*준비|교재/.test(title)) return 480;
+  if (/채점|보고서|계획서|결과물|정리|자료\s*(?:제작|만들)|PPT|ppt|피피티|상담\s*준비|성적\s*처리/.test(title)) return 180;
+  if (/기안|공문\s*작성|가정통신문\s*작성|회의록|협의록|작성|만들기|준비/.test(title)) return 60;
+  if (/제출|송금|보내|보냄|확인|전화|연락|신청|출력|결재|올리기|답장|회신|예약|입금|이체|구매|주문/.test(title)) return 10;
+  return 30;
+}
+export const effortOf = (t: Task): number => t.effort ?? guessEffort(t.title);
+
+/** Work time (평일 출근–퇴근) between two instants, in minutes. */
+export function workMinsBetween(from: Date, to: Date, onWork = "08:20", offWork = "16:20"): number {
+  if (to <= from) return 0;
+  const on = mins(onWork);
+  const off = mins(offWork);
+  let total = 0;
+  for (let d = parseDay(ymd(from)); d <= to && total < 1e6; d = addDays(d, 1)) {
+    const wd = d.getDay();
+    if (wd === 0 || wd === 6) continue;
+    const a = Math.max(on, ymd(d) === ymd(from) ? from.getHours() * 60 + from.getMinutes() : 0);
+    const b = Math.min(off, ymd(d) === ymd(to) ? to.getHours() * 60 + to.getMinutes() : 24 * 60);
+    if (b > a) total += b - a;
+  }
+  return total;
 }
 
-/** 급함: the deadline is within 6 hours (or passed). Decided by the clock, never by hand. */
-export const isUrgent = (t: Task, now: Date, offWork?: string): boolean => !t.noDue && minsLeft(t, now, offWork) <= URGENT_MIN;
+/** The day's hours (설정) and, when known, the calendar (its 작업 시간 count as work already planned). */
+export type UrgencyCtx = string | { settings: { onWork: string; offWork: string }; events?: CalEvent[] };
+
+/**
+ * 급함 단계 (11-02): what is left of 걸리는 시간 against the work time left until the deadline.
+ * 0 여유 · 1 곧 (× 4 or less) · 2 급함 (× 2 or less, at least the last hour) · 3 늦음 (passed, or cannot be finished).
+ */
+export function urgency(t: Task, now: Date, c: UrgencyCtx = "16:20"): 0 | 1 | 2 | 3 {
+  if (t.noDue || t.done) return 0;
+  const [on, off] = typeof c === "string" ? ["08:20", c] : [c.settings.onWork, c.settings.offWork];
+  const due = dueAt(t, off);
+  if (due <= now) return 3;
+  const need = needLeft(t, c);
+  if (!need) return 0;
+  const left = workMinsBetween(now, due, on, off);
+  if (left < need) return 3;
+  if (left <= Math.max(60, need * 2)) return 2;
+  if (left <= need * 4) return 1;
+  return 0;
+}
+
+/** 걸리는 시간 minus the 작업 시간 already set for it. */
+function needLeft(t: Task, c: UrgencyCtx): number {
+  const planned = typeof c === "string" ? 0 : (c.events ?? []).filter((e) => e.workFor === t.id && !e.gone && e.start && e.end).reduce((n, e) => n + mins(e.end!) - mins(e.start!), 0);
+  return Math.max(0, effortOf(t) - planned);
+}
+
+/** 급함: 급함 단계 2 or more. Decided by the clock and 걸리는 시간, never by hand. */
+export const isUrgent = (t: Task, now: Date, c?: UrgencyCtx): boolean => urgency(t, now, c) >= 2;
+
+/** The one 「남은 시간」 word: 「D-3」 · 「5시간 남음」 · 「40분 남음」 · 「4일 지남」 · 「2시간 지남」. */
+export function remainText(t: Task, now: Date, offWork?: string): string {
+  if (t.noDue) return "";
+  const due = dueAt(t, offWork);
+  const m = Math.round((due.getTime() - now.getTime()) / 60000);
+  if (m < 0) return -m >= 1440 ? `${Math.floor(-m / 1440)}일 지남` : -m >= 60 ? `${Math.floor(-m / 60)}시간 지남` : `${-m}분 지남`;
+  const days = Math.round((parseDay(t.due).getTime() - parseDay(ymd(now)).getTime()) / 864e5);
+  if (days > 0) return `D-${days}`;
+  return m >= 60 ? `${Math.floor(m / 60)}시간 남음` : `${m}분 남음`;
+}
+
+/** 「늦어도 11/3(화) 08:20 시작」: walking back the work time still needed from the deadline. */
+export function startBy(t: Task, c: UrgencyCtx, fd: (k: string) => string, today: string): string {
+  if (t.noDue) return "";
+  const [on, off] = typeof c === "string" ? ["08:20", c] : [c.settings.onWork, c.settings.offWork];
+  let need = needLeft(t, c);
+  if (!need) return "";
+  let d = parseDay(t.due);
+  let end = Math.min(mins(t.dueTime ?? off), mins(off));
+  for (let i = 0; i < 60; i++) {
+    const wd = d.getDay();
+    if (wd !== 0 && wd !== 6) {
+      const avail = Math.max(0, end - mins(on));
+      if (avail >= need) {
+        const at = end - need;
+        const k = ymd(d);
+        return `늦어도 ${k === today ? "" : fd(k) + " "}${String(Math.floor(at / 60)).padStart(2, "0")}:${String(at % 60).padStart(2, "0")} 시작`;
+      }
+      need -= avail;
+    }
+    d = addDays(d, -1);
+    end = mins(off);
+  }
+  return "";
+}
 
 export type Bucket = "now" | "urgent" | "imp" | "rest";
-export function bucketOf(t: Task, now: Date, offWork?: string): Bucket {
-  const u = isUrgent(t, now, offWork);
+export function bucketOf(t: Task, now: Date, c?: UrgencyCtx): Bucket {
+  const u = isUrgent(t, now, c);
   const i = (t.star ?? 0) > 0;
   return u && i ? "now" : u ? "urgent" : i ? "imp" : "rest";
 }
@@ -42,7 +141,7 @@ export function orderedTasks(s: CalendarState, today: string, now: Date): { toda
   const open = live.filter((t) => !t.done);
   const isToday = (t: Task) => !t.noDue && t.due <= today;
   const byUrgency = (a: Task, b: Task) =>
-    Number(isUrgent(b, now, off)) - Number(isUrgent(a, now, off)) || (b.star ?? 0) - (a.star ?? 0) || minsLeft(a, now, off) - minsLeft(b, now, off);
+    urgency(b, now, s) - urgency(a, now, s) || (b.star ?? 0) - (a.star ?? 0) || minsLeft(a, now, off) - minsLeft(b, now, off);
   const t = open.filter(isToday).sort(byUrgency);
   const later = open.filter((x) => !x.noDue && !isToday(x)).sort((a, b) => (a.due + (a.dueTime ?? "99")).localeCompare(b.due + (b.dueTime ?? "99")) || (b.star ?? 0) - (a.star ?? 0));
   // 「날짜 없음」: no deadline was given — never today, never urgent, off the day table.
@@ -138,90 +237,92 @@ export interface TodayOpts {
   filter: "all" | Bucket;
 }
 
-const pct = (m: number, S: number, E: number) => `${(((m - S) / (E - S)) * 100).toFixed(3)}%`;
+/** One stretch of time cut at the hour lines: the day table is one row per hour, 6 cells of 10 minutes. */
+export function hourPieces(a: number, b: number, S: number, E: number): { row: number; x0: number; x1: number; first: boolean; last: boolean }[] {
+  const out: { row: number; x0: number; x1: number; first: boolean; last: boolean }[] = [];
+  const from = Math.max(a, S);
+  const to = Math.min(b, E);
+  for (let m = from; m < to; ) {
+    const h = Math.floor(m / 60);
+    const end = Math.min(to, (h + 1) * 60);
+    out.push({ row: h - S / 60, x0: (m - h * 60) / 60, x1: (end - h * 60) / 60, first: m === a, last: end === b });
+    m = end;
+  }
+  return out;
+}
 
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+/**
+ * 하루표 (11-02 사용자 시안 「10분 칸」): one row per hour, 6 cells of 10 minutes. Appointments are a light
+ * fill (no edge stripe), 작업 시간 (a to-do dragged here) a mint fill with its number and 「남은 시간」.
+ * Deadlines are not drawn here — they are the 「남은 시간」 word on the to-do and on its 작업 상자.
+ */
 export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, number>, fd: (k: string) => string): string {
   const st = ctx.s.settings;
   const [S, E] = o.range === "work" ? [8 * 60, 17 * 60] : [0, 24 * 60];
-  const y = (m: number) => pct(Math.max(S, Math.min(E, m)), S, E);
+  const rows = (E - S) / 60;
   const evs = eventsOn(ctx.s, k);
   const allDay = evs.filter((e) => !e.start);
   const timed = evs.filter((e) => e.start);
-  const step = o.range === "work" ? 1 : 2;
-  let h = "";
   const nowM = k === ctx.today ? ctx.nowM : -1;
-  // The hour next to 「now」 steps aside for it (the now time sits in the hour column).
-  for (let H = S / 60; H <= E / 60; H += step) h += `<div class="hr" style="top:${y(H * 60)}">${nowM >= 0 && Math.abs(H * 60 - nowM) < (step === 1 ? 14 : 28) ? "" : `<span>${String(H).padStart(2, "0")}:00</span>`}</div>`;
+  // A piece of time as boxes, one per hour row (lane: which of `lanes` stacked rows it takes).
+  const piece = (a: number, b: number, cls: string, attrs: (p: ReturnType<typeof hourPieces>[number]) => string, inner: (p: ReturnType<typeof hourPieces>[number]) => string, lane = 0, lanes = 1) =>
+    hourPieces(a, b, S, E).map((p) => `<div class="sg ${cls}${p.first ? " f" : ""}${p.last ? " l" : ""}" ${attrs(p)} style="top:calc(${((p.row + lane / lanes) / rows) * 100}% + 2px);height:calc(${100 / rows / lanes}% - 4px);left:calc(${p.x0 * 100}% + 1px);width:calc(${(p.x1 - p.x0) * 100}% - 2px)">${inner(p)}</div>`).join("");
+  let h = "";
   const wd = parseDay(k).getDay();
   const school = wd >= 1 && wd <= 5;
-  if (school && st.showPeriods) {
-    st.periods.forEach((p, i) => {
-      const [a, b] = p.split("-");
-      if (a && b && mins(b) > S && mins(a) < E) h += `<div class="per" style="top:${y(mins(a))};height:calc(${y(mins(b))} - ${y(mins(a))})" title="${i + 1}교시 ${a}–${b}"><b>${i + 1}</b></div>`;
-    });
+  if (mins(st.onWork) > S) h += piece(S, mins(st.onWork), "off", () => "", () => "");
+  if (mins(st.offWork) < E) h += piece(mins(st.offWork), E, "off", () => "", () => "");
+  if (school) {
     const [l0, l1] = st.lunch.split("-");
-    if (l0 && l1) h += `<div class="lunch" style="top:${y(mins(l0))};height:calc(${y(mins(l1))} - ${y(mins(l0))})"><b>점심</b></div>`;
+    if (l0 && l1) h += piece(mins(l0), mins(l1), "lunch", () => 'title="점심"', () => "");
   }
-  if (mins(st.onWork) > S) h += `<div class="off" style="top:0;height:${y(mins(st.onWork))}"></div>`;
-  if (mins(st.offWork) < E) h += `<div class="off" style="top:${y(mins(st.offWork))};bottom:0"></div>`;
-  // Appointments: boxes in as few lanes as needed, in the left part (deadline marks on the right).
-  const lanes: number[] = [];
-  const placed = timed
-    .map((e) => ({ e, a: mins(e.start!), b: e.end ? mins(e.end) : mins(e.start!) + (st.eventMinutes || 60) }))
-    .sort((p, q) => p.a - q.a)
-    .map((p) => {
-      let lane = lanes.findIndex((end) => end <= p.a);
-      if (lane < 0) lane = lanes.push(0) - 1;
-      lanes[lane] = p.b;
-      return { ...p, lane };
-    });
-  const L = Math.max(1, lanes.length);
-  for (const { e, a, b, lane } of placed) {
-    if (b <= S || a >= E) continue;
-    const work = e.workFor ? num.get(e.workFor) : undefined;
-    h += `<div class="ev ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.workFor ? "work" : ""} ${e.end ? "" : "noend"}" data-ev="${e.id}" data-evbox="${e.id}" draggable="false" tabindex="0" aria-label="${esc(e.title)} 열기" style="top:${y(a)};height:max(20px, calc(${y(b)} - ${y(a)}));left:calc(${((lane / L) * 54).toFixed(2)}% + 4px);width:calc(${(54 / L).toFixed(2)}% - 6px)">
-      <div class="t" title="${esc(`${e.start}${e.end ? "–" + e.end : ""} ${e.title}`)}">${work ? `<span class="no">${work}</span> 작업 · ` : ""}${esc(e.title)}${e.provisional ? '<span class="ga">가</span>' : ""}</div>${e.end ? "" : '<div class="r">끝 미정</div>'}<i class="grip" title="끌어 늘이기"></i></div>`;
+  // Appointments, 작업 시간 and 루틴 share rows: what overlaps takes a lane of its own (stacked in the row).
+  type Item = { a: number; b: number; html: (lane: number, lanes: number) => string };
+  const items: Item[] = [];
+  for (const e of timed) {
+    const a = mins(e.start!);
+    const b = e.end && mins(e.end) > a ? mins(e.end) : a + (st.eventMinutes || 60);
+    const n = e.workFor ? num.get(e.workFor) : undefined;
+    const task = e.workFor ? ctx.s.tasks.find((t) => t.id === e.workFor) : undefined;
+    const lv = task ? urgency(task, ctx.now, ctx.s) : 0;
+    const rem = task && !task.done && !task.noDue ? `<button class="rem R${lv}" data-rem="${task.id}" title="${esc(`${fd(task.due)}${task.dueTime ? " " + task.dueTime : ""}까지 · 눌러서 기한 다시 정하기`)}">${remainText(task, ctx.now, st.offWork)}</button>` : "";
+    const cls = `ev ${e.workFor ? "work" : ""} ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.end ? "" : "noend"}`;
+    items.push({ a, b, html: (lane, lanes) => piece(a, b, cls, () => `data-ev="${e.id}" data-evbox="${e.id}" tabindex="0" aria-label="${esc(e.title)} 열기" title="${esc(`${e.start}${e.end ? "–" + e.end : ""} ${e.title}`)}"`, (p) =>
+      `${p.first ? `${n ? `<span class="no">${n}</span>` : ""}<span class="t">${esc(e.title)}</span>${e.provisional ? '<span class="ga">가</span>' : ""}${!e.end ? '<span class="r">끝 미정</span>' : (p.x1 - p.x0) >= 0.5 && lanes === 1 ? `<span class="r">${e.start}–${e.end}</span>` : ""}${rem}` : ""}${p.last ? '<i class="grip" title="끌어 늘이기"></i>' : ""}`, lane, lanes) });
   }
-  // Deadlines: a card in its own lane (one left edge for all), its bottom edge on the deadline time.
-  // Close ones stack upward; ones outside the shown hours go to a row under the table.
-  const outside: string[] = [];
-  let stackAt = Infinity;
-  let stack = 0;
-  // On the axis the card's place says the time (사용자 지적): 「번호 · 제목」 only; the row under the
-  // table (outside the hours) keeps the time.
-  const card = (t: Task, n: number | undefined, urgent: boolean, style: string) =>
-    `<div class="dl ${urgent ? "urg" : ""}" data-ev="${t.id}" data-num="${n ?? ""}" style="${style}" title="${esc(`${t.dueTime}까지 ${t.title}`)}"><span class="no ${urgent ? "urg" : ""}" data-num="${n ?? ""}">${n ?? ""}</span>${style ? "" : `<span class="tm">${t.dueTime}</span>`}<span class="nm">${esc(t.title)}</span></div>`;
-  const dues = dueOn(ctx.s, k).filter((x) => x.dueTime && !x.done).sort((a, b) => b.dueTime!.localeCompare(a.dueTime!));
-  for (const t of dues) {
-    const m = mins(t.dueTime!);
-    const n = num.get(t.id);
-    const urgent = isUrgent(t, ctx.now, st.offWork);
-    if (m > E || m < S) {
-      outside.unshift(card(t, n, urgent, ""));
-      continue;
-    }
-    // About one card high in minutes: closer than that, this one sits on top of the later one.
-    stack = stackAt - m < 36 * ((E - S) / 540) ? stack + 1 : 0;
-    stackAt = stack ? stackAt : m;
-    h += card(t, n, urgent, `top:calc(${y(stack ? stackAt : m)} - ${24 + stack * 26}px)`);
-  }
-  // 루틴 (added in 설정 → 루틴): a dotted line at its time with its name; a click checks it for today.
   for (const r of ctx.s.routines.filter((x) => routineOn(x, k))) {
-    const m = mins(r.at);
-    if (m < S || m > E) continue;
+    const a = mins(r.at);
+    const b = r.end && mins(r.end) > a ? mins(r.end) : a + 10;
     const dn = r.done.includes(k);
-    // At a time an appointment's box already covers (08:20 메일 확인 inside 07:40–08:30 등교 지도): drawn beside it,
-    // where it neither hides the box's name nor takes its clicks.
-    // (Its name sits just above its line, so a box ending right there counts too.)
-    const under = timed.some((e) => mins(e.start!) - 5 <= m && m <= (e.end ? mins(e.end) : mins(e.start!) + 30) + 10);
-    h += `<div class="rt ${dn ? "dn" : ""} ${under ? "side" : ""}" style="top:${y(m)}"><button data-rt="${r.id}" role="checkbox" aria-checked="${dn}" title="루틴 ${r.at}${r.end ? `–${r.end}` : ""} · ${repeatLabel(r)}${streak(r, k) ? ` · ${streak(r, k)}일째` : ""} · 누르면 ${dn ? "안 함으로" : "오늘 함"}">${esc(r.title)}${dn ? " ✓" : ""}</button></div>`;
+    items.push({ a, b, html: (lane, lanes) => piece(a, b, `rt ${dn ? "dn" : ""}`, () => `data-rt="${r.id}" role="checkbox" aria-checked="${dn}" title="${esc(`루틴 ${r.at}${r.end ? `–${r.end}` : ""} · ${repeatLabel(r)}${streak(r, k) ? ` · ${streak(r, k)}일째` : ""} · 누르면 ${dn ? "안 함으로" : "오늘 함"}`)}"`, (p) => (p.first ? `<span class="t">${esc(r.title)}${dn ? " ✓" : ""}</span>` : ""), lane, lanes) });
   }
-  if (nowM >= S && nowM <= E) h += `<div class="nowl" style="top:${y(nowM)}"><span>${String(Math.floor(nowM / 60)).padStart(2, "0")}:${String(nowM % 60).padStart(2, "0")}</span></div>`;
+  // Lanes per cluster of overlapping items (a lone item keeps the whole row).
+  items.sort((x, y) => x.a - y.a);
+  let ci = 0;
+  while (ci < items.length) {
+    let end = items[ci].b;
+    let cj = ci + 1;
+    while (cj < items.length && items[cj].a < end) end = Math.max(end, items[cj++].b);
+    const lanes: number[] = [];
+    const lane = items.slice(ci, cj).map((it) => {
+      let l = lanes.findIndex((b) => b <= it.a);
+      if (l < 0) l = lanes.push(0) - 1;
+      lanes[l] = it.b;
+      return l;
+    });
+    items.slice(ci, cj).forEach((it, i) => (h += it.html(lane[i], lanes.length)));
+    ci = cj;
+  }
+  if (nowM >= S && nowM < E) h += `<div class="nowl" style="top:${((Math.floor(nowM / 60) - S / 60) / rows) * 100}%;height:${100 / rows}%;left:${((nowM % 60) / 60) * 100}%"><span>${hhmm(nowM)}</span></div>`;
+  let grid = "";
+  for (let H = S / 60; H < E / 60; H++) grid += `<div class="hrow"><span class="hl">${String(H).padStart(2, "0")}:00</span>${"<i></i>".repeat(6)}</div>`;
   const dups = duplicates(ctx.s).filter((d) => d.x.kind === "event" && d.x.date === k);
   return `<div class="dt panel g">
     <div class="dta">${allDay.map((e) => `<span class="chip ${e.provisional ? "prov" : ""}" data-ev="${e.id}">종일 · ${esc(e.title)}</span>`).join("")}${dups.length ? `<button class="warnlink" data-checks>같은 일정 ${dups.length + 1}개 · 합치기</button>` : ""}<span class="mode"><button data-dr="work" class="${o.range === "work" ? "on" : ""}">업무 08–17</button><button data-dr="all" class="${o.range === "all" ? "on" : ""}">하루 전체</button></span></div>
-    <div class="dtgw"><div class="dtg" data-dtg="${k}" data-s="${S}" data-e="${E}">${h}<div class="dtc" data-dtc title="위아래로 끌면 새 일정 · 할 일을 끌어 놓으면 작업 시간"></div></div></div>
-    ${outside.length ? `<div class="after"><b>${E < 24 * 60 ? `${String(E / 60).padStart(2, "0")}:00 밖` : "밖"}</b><div class="afl">${outside.join("")}</div></div>` : ""}
+    <div class="dtgw"><div class="dhd"><span></span><span>:00</span><span>:10</span><span>:20</span><span>:30</span><span>:40</span><span>:50</span></div>
+      <div class="dtg" data-dtg="${k}" data-s="${S}" data-e="${E}" style="--rows:${rows}">${grid}<div class="dly" data-dtc title="끌면 새 일정 · 할 일을 끌어 놓으면 작업 시간 (5분 단위)">${h}</div></div></div>
   </div>`;
 }
 
@@ -241,17 +342,21 @@ export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => s
   const off = ctx.s.settings.offWork;
   const { today, later, undated, done, num } = orderedTasks(ctx.s, k === ctx.today ? ctx.today : k, ctx.now);
   const all = [...today, ...later, ...undated];
-  const count = (b: Bucket) => all.filter((t) => bucketOf(t, ctx.now, off) === b).length;
-  const pass = (t: Task) => o.filter === "all" || bucketOf(t, ctx.now, off) === o.filter;
+  const count = (b: Bucket) => all.filter((t) => bucketOf(t, ctx.now, ctx.s) === b).length;
+  const pass = (t: Task) => o.filter === "all" || bucketOf(t, ctx.now, ctx.s) === o.filter;
   const row = (t: Task) => {
     const n = num.get(t.id)!;
-    const urgent = isUrgent(t, ctx.now, off);
     const sd = t.subs.filter((x) => x.done).length;
     const open = !!ctx.open?.has(`subs:${t.id}`);
-    return `<div class="task" data-ev="${t.id}" data-task="${t.id}" data-num="${n}" draggable="true" tabindex="0" aria-label="${esc(t.title)} 열기">
-      <span class="no ${urgent ? "urg" : ""}" data-num="${n}">${n}</span><span class="ck" data-tdone="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="${esc(t.title)} 완료"></span>${starBtn(t)}
+    // 작업 시간 already set for it (the first one still ahead).
+    const work = liveEvents(ctx.s).filter((e) => e.workFor === t.id && e.start && `${e.date}T${e.end ?? e.start}` >= `${ctx.today}T${hhmm(ctx.nowM)}`).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0];
+    const lv = urgency(t, ctx.now, ctx.s);
+    const by = lv === 1 || lv === 2 ? startBy(t, ctx.s, fd, ctx.today) : "";
+    const tip = t.noDue ? "기한 정하기" : `${fd(t.due)}${t.dueTime ? " " + t.dueTime : ""}까지 · 걸리는 시간 ${effortName(effortOf(t))}${by ? ` · ${by}` : ""} · 눌러서 기한 다시 정하기`;
+    return `<div class="task" data-ev="${t.id}" data-task="${t.id}" data-num="${n}" tabindex="0" aria-label="${esc(t.title)} 열기">
+      <span class="no" data-num="${n}">${n}</span><span class="ck" data-tdone="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="${esc(t.title)} 완료"></span>${starBtn(t)}
       <span class="tn ${t.star === 2 ? "s2b" : ""}">${esc(t.title)}${t.draft ? '<span class="dr">초안</span>' : ""}${t.wait ? `<span class="wait" title="먼저 있어야 할 일">기다림 · ${esc(t.wait)}</span>` : ""}${t.subs.length ? `<button class="pg" data-subs="${t.id}" aria-expanded="${open}">${sd}/${t.subs.length} ${open ? "▾" : "▸"}</button>` : `<button class="pg add" data-subs="${t.id}" title="단계 추가">+</button>`}</span>
-      <span class="due ${urgent ? "urg" : t.due <= ctx.today ? "today" : ""}">${dueText(t, ctx.now, ctx.today, fd, off)}</span></div>${stepRows(t, n, open)}`;
+      <span class="wk">${work ? `<span title="작업 시간 ${esc(`${fd(work.date)} ${work.start}–${work.end ?? ""}`)}">⏱ ${work.date === ctx.today ? "" : fd(work.date) + " "}${work.start}</span>` : ""}</span><button class="rem R${lv} ${t.noDue ? "none" : ""}" data-rem="${t.id}" title="${esc(tip)}">${t.noDue ? "+ 기한" : remainText(t, ctx.now, off)}</button></div>${stepRows(t, n, open)}`;
   };
   const chip = (key: TodayOpts["filter"], name: string, c: number) => `<button class="${o.filter === key ? "on" : ""}" data-tf="${key}">${name}<b>${c}</b></button>`;
   const t1 = today.filter(pass);
@@ -264,7 +369,7 @@ export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => s
     ${all.length === 0 ? '<div class="none">없음 · 「금요일까지 보고서」처럼 쓰면 들어갑니다</div>' : ""}
     ${t1.length ? `<div class="grp">오늘 ${d.getMonth() + 1}/${d.getDate()}(${DOW[d.getDay()]})<span>${t1.length}</span></div>${t1.map(row).join("")}` : ""}
     ${t2.length ? `<div class="grp later">나중<span>${t2.length}</span></div><div class="laterl">${t2.map(row).join("")}</div>` : ""}
-    ${t3.length ? `<div class="grp later">날짜 없음<span>${t3.length}</span></div><div class="laterl">${t3.map(row).join("")}</div>` : ""}
+    ${t3.length ? `<div class="grp later">날짜 없는 할 일<span>${t3.length}</span></div><div class="laterl">${t3.map(row).join("")}</div>` : ""}
     ${done.length ? `<details class="fold" data-fold="done" ${ctx.open?.has("done") ? "open" : ""}><summary>완료 ${done.length}</summary>${ctx.open?.has("done") ? done.map((t) => `<div class="task done" data-ev="${t.id}"><span></span><span class="ck on" data-tdone="${t.id}" role="checkbox" aria-checked="true" tabindex="0"></span><span></span><span class="tn">${esc(t.title)}</span><span class="due"></span></div>`).join("") : ""}</details>` : ""}
   </div>`;
 }
@@ -296,9 +401,9 @@ export function priorityView(ctx: Ctx, fd: (k: string) => string): string {
   const { today, later, undated } = orderedTasks(ctx.s, ctx.today, ctx.now);
   const open = [...today, ...later, ...undated];
   const q: [Bucket, string, string][] = [["now", "① 지금 할 것", "중요 · 급함"], ["imp", "② 계획할 것", "중요 · 여유"], ["urgent", "③ 빨리 처리할 것", "보통 · 급함"], ["rest", "④ 나중에", "보통 · 여유"]];
-  const item = (t: Task) => `<div class="mq" draggable="true" data-task="${t.id}" data-ev="${t.id}">${starBtn(t)}<span class="tn ${t.star === 2 ? "s2b" : ""}">${esc(t.title)}</span><span class="due ${isUrgent(t, ctx.now, off) ? "urg" : ""}">${dueText(t, ctx.now, ctx.today, fd, off)}</span></div>`;
+  const item = (t: Task) => `<div class="mq" draggable="true" data-task="${t.id}" data-ev="${t.id}">${starBtn(t)}<span class="tn ${t.star === 2 ? "s2b" : ""}">${esc(t.title)}</span><span class="due ${isUrgent(t, ctx.now, ctx.s) ? "urg" : ""}">${dueText(t, ctx.now, ctx.today, fd, off)}</span></div>`;
   const quad = ([k, n, d]: [Bucket, string, string]) => {
-    const rows = open.filter((t) => bucketOf(t, ctx.now, off) === k);
+    const rows = open.filter((t) => bucketOf(t, ctx.now, ctx.s) === k);
     return `<div class="panel g quad" data-quad="${k}"><h4>${n}<span>${d} · ${rows.length}</span></h4>${rows.map(item).join("") || '<div class="none">없음</div>'}</div>`;
   };
   return `<div class="matrix"><span></span><div class="mh">급함 · 6시간 안 (마감 따라 자동)</div><div class="mh">여유</div>
@@ -340,7 +445,7 @@ export function phoneToday(ctx: Ctx, o: TodayOpts, fd: (k: string) => string): s
   const open = (key: string) => !!ctx.open?.has(key);
   const trow = (t: Task) => {
     const n = ord.num.get(t.id);
-    const urg = isUrgent(t, ctx.now, off);
+    const urg = isUrgent(t, ctx.now, ctx.s);
     const due = dueText(t, ctx.now, ctx.today, fd, off);
     const [left, right] = t.dueTime && t.due <= k ? [t.dueTime, due.split(" · ")[1] ?? ""] : [t.noDue ? "—" : t.due === k ? "오늘" : `${parseDay(t.due).getMonth() + 1}/${parseDay(t.due).getDate()}`, t.noDue ? "날짜 없음" : ""];
     return `<div class="prow" data-ev="${t.id}"><span class="tm ${urg ? "b" : ""}">${left}</span><span class="tn"><span class="ck" data-tdone="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="${esc(t.title)} 완료"></span><span class="no">${n ?? ""}</span>${t.star ? `<span class="star s${t.star}">★</span> ` : ""}${esc(t.title)}${t.wait ? ` <i class="x">기다림 · ${esc(t.wait)}</i>` : ""}${t.subs.length ? ` <i class="x">${t.subs.filter((x) => x.done).length}/${t.subs.length}</i>` : ""}</span><span class="x ${urg ? "b" : ""}">${right}</span></div>`;

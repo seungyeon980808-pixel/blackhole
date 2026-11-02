@@ -15,7 +15,7 @@ import { seedState } from "./samples";
 import {
   anchorRelativeDates, applyAction, cancelEntry, describe, type Applied, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, retimeReminders, upcomingAlarms, type Alarm
 } from "./store";
-import { phoneToday, priorityView, todayView, type TodayOpts } from "./views/today";
+import { EFFORTS, effortOf, hourPieces, phoneToday, priorityView, todayView, type TodayOpts } from "./views/today";
 import { checksBar, dictationFixes, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
 import { detailHTML } from "./views/detail";
 import { cleanTag, isClassTag, liveNotes, ruleTags, tagsOf, untaggedLines } from "./tags";
@@ -710,6 +710,56 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     void act(() => undefined);
   }
 
+  /**
+   * 「남은 시간」 칸을 누르면 (11-02): 기한 다시 정하기 — 오늘 퇴근 전 · 내일 · 금요일 · 다음 주 월요일, 말로 쓰기,
+   * 걸리는 시간 6단계, 날짜 고르기(상세 창), 기한 없애기. ⌘Z로 되돌림.
+   */
+  function openRemPop(id: string, at: HTMLElement): void {
+    const x = findEntry(s, id);
+    root.querySelector(".rempop")?.remove();
+    if (!x || x.kind !== "task") return;
+    const off = s.settings.offWork;
+    const today = clock();
+    const day = (n: number) => ymd(addDays(today, n));
+    const wd = today.getDay();
+    const fri = day(wd < 5 ? 5 - wd : 12 - wd);
+    const mon = day(((8 - wd) % 7) || 7);
+    const fd = theme().fd;
+    const opts: [string, string][] = [["오늘 퇴근 전", day(0)], ["내일", day(1)], ["금요일", fri], ["다음 주 월요일", mon]];
+    const ef = effortOf(x);
+    const r = at.getBoundingClientRect();
+    root.insertAdjacentHTML("beforeend", `<div class="rempop" data-remfor="${id}" role="dialog" aria-label="기한 다시 정하기" style="left:${Math.max(8, Math.min(r.right - 248, window.innerWidth - 256))}px;top:${Math.min(r.bottom + 6, window.innerHeight - 250)}px">
+      <div class="hd">${escapeHtml(x.title)}</div>
+      <div class="sub">${x.noDue ? "기한 없음" : `지금 기한 ${fd(x.due)} ${x.dueTime ?? off}`}</div>
+      <div class="rq">${opts.map(([n, d]) => `<button data-remset="${d}|${off}">${n}<small>${fd(d)} ${off}</small></button>`).join("")}</div>
+      <input data-remsay placeholder="말로 쓰기 — 「목요일 3시」 · Enter" aria-label="기한을 말로">
+      <div class="lbl">걸리는 시간 ${x.effort === undefined ? "(제목으로 짐작함)" : ""}</div>
+      <div class="ef">${EFFORTS.map(([m, n]) => `<button data-effort="${m}" class="${m === ef ? "on" : ""}">${n}</button>`).join("")}</div>
+      <div class="ft"><button data-remcal>날짜 고르기 ▸</button>${x.noDue ? "" : "<button data-remnone>기한 없애기</button>"}</div>
+    </div>`);
+    root.querySelector<HTMLInputElement>(".rempop [data-remsay]")?.focus();
+  }
+
+  /** A new deadline from the pop-up: its reminder is 30 minutes before (11-02 알람 기본값). */
+  function setDue(id: string, day: string | null, time: string | null, label = "기한"): void {
+    root.querySelector(".rempop")?.remove();
+    editEntry(id, label, (y) => {
+      if (y.kind !== "task") return;
+      if (!day) {
+        y.noDue = true;
+        y.reminders = [];
+        return;
+      }
+      y.due = day;
+      y.dueTime = time;
+      y.noDue = false;
+      const at = new Date(fromStamp(`${day}T${time ?? s.settings.offWork}`).getTime() - 30 * 60e3);
+      y.reminders = at.getTime() > clock().getTime() ? [stamp(at)] : [];
+    });
+    const y = findEntry(s, id);
+    if (y?.kind === "task") toast(day ? `「${y.title}」 기한 → ${theme().fd(day)}${time ? " " + time : ""} · ⌘Z 되돌리기` : `「${y.title}」 날짜 없는 할 일로`, undefined, true);
+  }
+
   /** 「15:30」 「30분 전」 「1시간 전」 「하루 전」 → a reminder stamp for the entry. */
   function reminderFrom(x: Entry, v: string): string | null {
     if (x.kind !== "event" && x.kind !== "task") return null;
@@ -875,7 +925,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         <div class="set-row">점심 <input class="tin w2" data-time="lunch" value="${st.lunch}"> 조회 <input class="tin w2" data-time="assembly" value="${st.assembly}"></div>
         <div class="pgrid">${st.periods.map((p, i) => `<label>${i + 1}교시 <input class="tin w2" data-period="${i}" value="${p}"></label>`).join("")}</div>
         <div class="set-row">끝 없는 일정 기본 길이 <input class="tin" data-time="eventMinutes" value="${st.eventMinutes}" style="width:44px">분</div>
-        <div class="set-row">알림 일정 <input class="tin" data-time="remindMinutes" value="${st.remindMinutes ?? 30}" style="width:44px">분 전</div>
+        <div class="set-row">알림 일정 <input class="tin" data-time="remindMinutes" value="${st.remindMinutes ?? 3}" style="width:44px">분 전 <span class="set-note" style="display:inline">· 기한은 30분 전, 작업 시간은 시작할 때</span></div>
         <label class="set-row"><input type="checkbox" data-set="showPeriods" ${st.showPeriods ? "checked" : ""}> 하루표에 교시 구간 옅게</label>
         <label class="set-row"><input type="checkbox" data-set="brief" ${st.brief !== false ? "checked" : ""}> 출근 때 오늘 할 일 한눈에 · 퇴근 전 못 끝낸 할 일 알려 주기</label>
         <div class="set-note">「퇴근 전」 「출근 전」 「점심시간에」 「3교시 전/에/끝나고」를 이 시간으로 읽습니다. 24시간(예: 08:50-09:35).</div>` },
@@ -2089,12 +2139,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     void act(() => undefined);
   }
 
-  /** 작업 시간: a to-do dragged onto the day table blocks time for it (1 hour, resizable). */
-  function blockWork(taskId: string, day: string, at: number): void {
+  /** 작업 시간: a to-do dragged onto the day table blocks time for it (30 minutes, 5-minute steps, resizable). */
+  function blockWork(taskId: string, day: string, at: number, len = 30): void {
     const t = findEntry(s, taskId);
     if (!t || t.kind !== "task") return;
-    const a = Math.max(0, Math.min(Math.round(at / 10) * 10, 23 * 60));
-    const ev: CalEvent = { id: newId(s, "e"), kind: "event", title: t.title, area: t.area, source: "하루표", createdAt: stamp(clock()), date: day, start: hm(a), end: hm(Math.min(a + 60, 23 * 60 + 59)), provisional: false, reminders: [], workFor: t.id, touched: true };
+    const a = Math.max(0, Math.min(Math.round(at / 5) * 5, 24 * 60 - len));
+    // 작업 시간 rings when it starts (11-02 알람 기본값).
+    const ev: CalEvent = { id: newId(s, "e"), kind: "event", title: t.title, area: t.area, source: "하루표", createdAt: stamp(clock()), date: day, start: hm(a), end: hm(Math.min(a + len, 23 * 60 + 59)), provisional: false, reminders: [`${day}T${hm(a)}`].filter((r) => fromStamp(r).getTime() > clock().getTime()), workFor: t.id, touched: true };
     s.events.push(ev);
     undoStack.push({ label: `「${t.title}」 작업 시간`, run: () => {
       ev.gone = true;
@@ -2104,21 +2155,23 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     void act(() => undefined);
   }
 
-  /** A new appointment drawn on the day table: asks for its title right there. */
+  /** A new appointment drawn on the day table: asks for its title right there (over its first hour row). */
   function askNewEvent(day: string, a: number, b: number): void {
     const grid = root.querySelector<HTMLElement>(".dtg");
-    if (!grid) return;
+    const ly = grid?.querySelector<HTMLElement>(".dly");
+    if (!grid || !ly) return;
     const S = Number(grid.dataset.s);
     const E = Number(grid.dataset.e);
-    const top = ((a - S) / (E - S)) * 100;
-    const h = ((b - a) / (E - S)) * 100;
-    grid.querySelector(".newev")?.remove();
-    grid.insertAdjacentHTML("beforeend", `<div class="newev" style="top:${top}%;height:max(26px, ${h}%)"><input placeholder="${hm(a)}–${hm(b)} 일정 이름 · Enter" aria-label="새 일정 이름" data-newev="${day}|${a}|${b}"></div>`);
-    grid.querySelector<HTMLInputElement>(".newev input")?.focus();
+    const rows = (E - S) / 60;
+    const p = hourPieces(a, b, S, E)[0];
+    if (!p) return;
+    ly.querySelector(".newev")?.remove();
+    ly.insertAdjacentHTML("beforeend", `<div class="newev" style="top:${(p.row / rows) * 100}%;height:${100 / rows}%;left:${Math.min(p.x0, 0.5) * 100}%;width:max(50%, ${(p.x1 - p.x0) * 100}%)"><input placeholder="${hm(a)}–${hm(b)} 일정 이름 · Enter" aria-label="새 일정 이름" data-newev="${day}|${a}|${b}"></div>`);
+    ly.querySelector<HTMLInputElement>(".newev input")?.focus();
   }
 
   function addEventAt(day: string, a: number, b: number, title: string): void {
-    const ev: CalEvent = { id: newId(s, "e"), kind: "event", title: title.slice(0, 80), area: "personal", source: "하루표", createdAt: stamp(clock()), date: day, start: hm(a), end: hm(b), provisional: false, reminders: [stamp(new Date(fromStamp(`${day}T${hm(a)}`).getTime() - 30 * 60e3))], touched: true };
+    const ev: CalEvent = { id: newId(s, "e"), kind: "event", title: title.slice(0, 80), area: "personal", source: "하루표", createdAt: stamp(clock()), date: day, start: hm(a), end: hm(b), provisional: false, reminders: [stamp(new Date(fromStamp(`${day}T${hm(a)}`).getTime() - (s.settings.remindMinutes ?? 3) * 60e3))].filter((r) => fromStamp(r).getTime() > clock().getTime()), touched: true };
     s.events.push(ev);
     undoStack.push({ label: `「${ev.title}」 넣기`, run: () => {
       ev.gone = true;
@@ -2683,6 +2736,33 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const q = <T extends HTMLElement = HTMLElement>(sel: string) => t.closest<T>(sel);
     const now = clock();
     if (q("[data-alarm]")) return void answer(q("[data-alarm]")!.dataset.alarm as "done" | "snooze");
+    // 남은 시간 칸 · 기한 다시 정하기 창.
+    if (q("[data-rem]")) {
+      ev.stopPropagation();
+      const b = q("[data-rem]")!;
+      if (root.querySelector(`.rempop[data-remfor="${b.dataset.rem}"]`)) return void root.querySelector(".rempop")?.remove();
+      return openRemPop(b.dataset.rem!, b);
+    }
+    const pop = q<HTMLElement>(".rempop");
+    if (pop) {
+      const id = pop.dataset.remfor!;
+      if (q("[data-remset]")) {
+        const [d, tm] = q("[data-remset]")!.dataset.remset!.split("|");
+        return setDue(id, d, tm);
+      }
+      if (q("[data-effort]")) {
+        pop.remove();
+        const n = Number(q("[data-effort]")!.dataset.effort);
+        return editEntry(id, "걸리는 시간", (y) => void (y.kind === "task" && (y.effort = n)));
+      }
+      if (q("[data-remnone]")) return setDue(id, null, null, "기한 없앰");
+      if (q("[data-remcal]")) {
+        pop.remove();
+        return openDetail(id);
+      }
+      return;
+    }
+    root.querySelector(".rempop")?.remove();
     if (q("[data-secret]")) {
       const v = secretAsk;
       secretAsk = null;
@@ -3186,6 +3266,15 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
       return;
     }
+    if (el.matches?.(".rempop [data-remsay]") && !e.isComposing && (e.key === "Enter" || e.key === "Escape")) {
+      e.preventDefault();
+      e.stopPropagation();
+      const pop = el.closest<HTMLElement>(".rempop")!;
+      if (e.key === "Escape") return void pop.remove();
+      const r = parseDraft((el as HTMLInputElement).value.trim(), clock(), s.settings);
+      if (!r.date && !r.hasTime) return toast("날짜·시각을 알아보지 못했어요 · 예: 목요일 3시, 내일 퇴근 전, 1105");
+      return setDue(pop.dataset.remfor!, r.date ?? ymd(clock()), r.hasTime && r.time ? r.time : null);
+    }
     if (el.matches?.("[data-tagrename]") && !e.isComposing && (e.key === "Enter" || e.key === "Escape")) {
       e.preventDefault();
       e.stopPropagation();
@@ -3663,85 +3752,132 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     render();
   }, true);
   /*
-   * The day table: drag a box to move it (10 min), its bottom edge to make it longer, an empty part
-   * to draw a new appointment; drop a box on a day in the week line to move it there.
+   * The day table (one row per hour, 6 cells of 10 min): drag a box to move it, its right end to make it
+   * longer, an empty part to draw a new appointment; drag a to-do from the list onto it for 작업 시간.
+   * All in 5-minute steps, with pointer events (the Mac app's web view does not pass the browser's drag
+   * and drop of page elements reliably).
    */
-  let dt: { mode: "move" | "end" | "new"; id?: string; y0: number; px: number; S: number; E: number; a: number; b: number; el?: HTMLElement; ghost?: HTMLElement; day: string; moved: boolean } | null = null;
-  const dtMin = (d: NonNullable<typeof dt>, clientY: number) => Math.round((clientY - d.y0) / d.px / 10) * 10;
-  root.addEventListener("pointerdown", (e) => {
-    const t = e.target as HTMLElement;
-    const grid = t.closest<HTMLElement>(".dtg");
-    if (!grid || e.button !== 0) return;
+  const gridAt = (grid: HTMLElement, x: number, y: number): number | null => {
+    const ly = grid.querySelector<HTMLElement>(".dly");
+    if (!ly) return null;
+    const r = ly.getBoundingClientRect();
+    const S = Number(grid.dataset.s);
+    const rows = (Number(grid.dataset.e) - S) / 60;
+    const row = Math.floor((y - r.top) / (r.height / rows));
+    if (row < 0 || row >= rows || x < r.left - 4 || x > r.right + 4) return null;
+    const f = Math.max(0, Math.min(1, (x - r.left) / r.width));
+    return S + row * 60 + Math.round((f * 60) / 5) * 5;
+  };
+  const drawGhost = (grid: HTMLElement, a: number, b: number, label: string) => {
+    const ly = grid.querySelector<HTMLElement>(".dly")!;
     const S = Number(grid.dataset.s);
     const E = Number(grid.dataset.e);
-    const px = grid.clientHeight / (E - S);
-    const box = t.closest<HTMLElement>("[data-evbox]");
+    const rows = (E - S) / 60;
+    ly.querySelectorAll(".ghost").forEach((g) => g.remove());
+    ly.insertAdjacentHTML("beforeend", hourPieces(a, b, S, E).map((p) => `<div class="sg ghost" style="top:calc(${(p.row / rows) * 100}% + 2px);height:calc(${100 / rows}% - 4px);left:calc(${p.x0 * 100}% + 1px);width:calc(${(p.x1 - p.x0) * 100}% - 2px)">${p.first ? escapeHtml(label) : ""}</div>`).join(""));
+  };
+  const clearGhost = () => root.querySelectorAll(".dtg .ghost").forEach((g) => g.remove());
+  let dt: { mode: "move" | "end" | "new" | "task"; id?: string; x0: number; y0: number; off: number; a: number; b: number; day: string; moved: boolean; title?: string; label?: HTMLElement } | null = null;
+  root.addEventListener("pointerdown", (e) => {
+    const t = e.target as HTMLElement;
+    if (e.button !== 0) return;
+    // A to-do row (not its buttons) can be dragged onto the day table.
+    const row = t.closest<HTMLElement>(".tl .task[data-task]");
+    if (row && !t.closest("button, .ck, input, .star, .pg, .rem")) {
+      const x = findEntry(s, row.dataset.task!);
+      if (x?.kind === "task") dt = { mode: "task", id: x.id, x0: e.clientX, y0: e.clientY, off: 0, a: 0, b: 0, day: ymd(cur), moved: false, title: x.title };
+      return;
+    }
+    const grid = t.closest<HTMLElement>(".dtg");
+    if (!grid || t.closest("[data-rt], .rem, .newev")) return;
     const day = grid.dataset.dtg!;
+    const m = gridAt(grid, e.clientX, e.clientY);
+    if (m === null) return;
+    const box = t.closest<HTMLElement>("[data-evbox]");
     if (box) {
       const x = findEntry(s, box.dataset.evbox!);
       if (x?.kind !== "event" || !x.start) return;
       const a = mins(x.start);
-      dt = { mode: t.closest(".grip") ? "end" : "move", id: x.id, y0: e.clientY, px, S, E, a, b: x.end ? mins(x.end) : a + (s.settings.eventMinutes || 60), el: box, day, moved: false };
+      dt = { mode: t.closest(".grip") ? "end" : "move", id: x.id, x0: e.clientX, y0: e.clientY, off: m - a, a, b: x.end ? mins(x.end) : a + (s.settings.eventMinutes || 60), day, moved: false, title: x.title };
       return;
     }
     if (t.closest("[data-dtc]")) {
-      const r = grid.getBoundingClientRect();
-      const a = Math.round((S + (e.clientY - r.top) / px) / 10) * 10;
-      dt = { mode: "new", y0: e.clientY, px, S, E, a, b: a + 30, day, moved: false };
+      dt = { mode: "new", x0: e.clientX, y0: e.clientY, off: 0, a: m, b: m + 30, day, moved: false };
       e.preventDefault();
     }
   });
   window.addEventListener("pointermove", (e) => {
     if (!dt) return;
-    if (!dt.moved && Math.abs(e.clientY - dt.y0) < 4) return;
+    if (!dt.moved && Math.hypot(e.clientX - dt.x0, e.clientY - dt.y0) < 5) return;
     dt.moved = true;
     hideTip();
-    const d = dtMin(dt, e.clientY);
     const grid = root.querySelector<HTMLElement>(".dtg");
-    if (!grid) return;
-    const top = (m: number) => `${(((m - dt!.S) / (dt!.E - dt!.S)) * 100).toFixed(3)}%`;
-    if (dt.mode === "new") {
-      if (!dt.ghost) {
-        grid.insertAdjacentHTML("beforeend", '<div class="ev ghost"></div>');
-        dt.ghost = grid.lastElementChild as HTMLElement;
+    const m = grid ? gridAt(grid, e.clientX, e.clientY) : null;
+    root.querySelectorAll(".dctl .ar.drop").forEach((w) => w.classList.remove("drop"));
+    const ar = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest(".dctl .ar");
+    if (dt.mode === "task") {
+      if (!dt.label) {
+        root.insertAdjacentHTML("beforeend", `<div class="dragtask"></div>`);
+        dt.label = root.lastElementChild as HTMLElement;
       }
-      const end = dt.a + Math.max(10, d);
-      const [a, b] = d >= 0 ? [dt.a, end] : [dt.a + d, dt.a];
-      dt.ghost.style.top = top(a);
-      dt.ghost.style.height = `calc(${top(b)} - ${top(a)})`;
-      dt.ghost.textContent = `${hm(Math.max(0, a))}–${hm(Math.min(1439, b))}`;
+      dt.label.style.left = `${e.clientX + 14}px`;
+      dt.label.style.top = `${e.clientY + 12}px`;
+      if (grid && m !== null) {
+        dt.a = m;
+        drawGhost(grid, m, m + 30, `${hm(m)}–${hm(m + 30)}`);
+        dt.label.textContent = `${hm(m)}–${hm(m + 30)} · ${dt.title}`;
+      } else {
+        clearGhost();
+        dt.a = -1;
+        dt.label.textContent = ar ? `${Number((ar as HTMLElement).dataset.nav) < 0 ? "전날" : "다음 날"}로 옮기기 · ${dt.title}` : `하루표 칸에 놓으면 작업 시간 · ${dt.title}`;
+      }
+      ar?.classList.add("drop");
       return;
     }
-    const el = dt.el!;
+    if (!grid || m === null) {
+      if (dt.mode === "move") ar?.classList.add("drop");
+      return;
+    }
+    if (dt.mode === "new") {
+      const [a, b] = m >= dt.a ? [dt.a, Math.max(dt.a + 5, m)] : [m, dt.a];
+      drawGhost(grid, a, b, `${hm(a)}–${hm(b)}`);
+      dt.b = m;
+      return;
+    }
     const len = dt.b - dt.a;
-    const a = dt.mode === "move" ? dt.a + d : dt.a;
-    const b = dt.mode === "move" ? a + len : Math.max(dt.a + 10, dt.b + d);
-    el.style.top = top(a);
-    el.style.height = `max(20px, calc(${top(b)} - ${top(a)}))`;
-    el.querySelector(".r")!.textContent = `${hm(Math.max(0, a))}–${hm(Math.min(1439, b))}`;
-    // Over ‹ ›: dropping there moves it to the day before / after.
-    root.querySelectorAll(".dctl .ar.drop").forEach((w) => w.classList.remove("drop"));
-    (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest(".dctl .ar")?.classList.add("drop");
+    const a = dt.mode === "move" ? Math.max(0, Math.min(m - dt.off, 24 * 60 - len)) : dt.a;
+    const b = dt.mode === "move" ? a + len : Math.max(dt.a + 5, m);
+    root.querySelectorAll<HTMLElement>(`.dtg [data-evbox="${dt.id}"]`).forEach((x) => x.classList.add("drag"));
+    drawGhost(grid, a, b, `${hm(a)}–${hm(b)} ${dt.title ?? ""}`);
   });
   window.addEventListener("pointerup", (e) => {
     const d0 = dt;
     dt = null;
-    if (!d0 || !d0.moved) return;
+    if (!d0) return;
+    d0.label?.remove();
+    clearGhost();
+    root.querySelectorAll(".dtg .drag").forEach((x) => x.classList.remove("drag"));
+    if (!d0.moved) return;
     barJustDragged = true;
     root.querySelectorAll(".dctl .ar.drop").forEach((w) => w.classList.remove("drop"));
-    const d = dtMin(d0, e.clientY);
+    const ar = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>(".dctl .ar");
+    const grid = root.querySelector<HTMLElement>(".dtg");
+    const m = grid ? gridAt(grid, e.clientX, e.clientY) : null;
+    if (d0.mode === "task") {
+      if (ar) return moveTo(d0.id!, ymd(addDays(cur, Number(ar.dataset.nav))));
+      if (grid && m !== null) return blockWork(d0.id!, grid.dataset.dtg!, m, 30);
+      return;
+    }
+    if (ar && d0.mode === "move") return moveTo(d0.id!, ymd(addDays(parseDay(d0.day), Number(ar.dataset.nav))));
+    if (m === null) return render();
     if (d0.mode === "new") {
-      d0.ghost?.remove();
-      const [a, b] = d >= 0 ? [d0.a, d0.a + Math.max(10, d)] : [d0.a + d, d0.a];
+      const [a, b] = m >= d0.a ? [d0.a, Math.max(d0.a + 5, m)] : [m, d0.a];
       return askNewEvent(d0.day, Math.max(0, a), Math.min(1439, b));
     }
-    const ar = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>(".dctl .ar");
-    if (ar && d0.mode === "move") return moveTo(d0.id!, ymd(addDays(parseDay(d0.day), Number(ar.dataset.nav))));
     const len = d0.b - d0.a;
-    let a = d0.mode === "move" ? d0.a + d : d0.a;
-    a = Math.max(0, Math.min(a, 24 * 60 - 10));
-    const b = Math.min(24 * 60 - 1, d0.mode === "move" ? a + len : Math.max(d0.a + 10, d0.b + d));
-    if (d) retime(d0.id!, null, { start: hm(a), end: hm(b) });
+    const a = d0.mode === "move" ? Math.max(0, Math.min(m - d0.off, 24 * 60 - len)) : d0.a;
+    const b = Math.min(24 * 60 - 1, d0.mode === "move" ? a + len : Math.max(d0.a + 5, m));
+    if (a !== d0.a || b !== d0.b) retime(d0.id!, null, { start: hm(a), end: hm(b) });
     else render();
   });
   // To-dos (and the 우선순위 rows) are dragged with the browser's drag and drop.
@@ -3752,7 +3888,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     e.dataTransfer.effectAllowed = "move";
     hideTip();
   });
-  const dropZone = (t: EventTarget | null) => (t as HTMLElement | null)?.closest?.<HTMLElement>(".dtg, .quad, .dctl .ar");
+  const dropZone = (t: EventTarget | null) => (t as HTMLElement | null)?.closest?.<HTMLElement>(".quad, .dctl .ar");
   // Held over ‹ ›: one more day every 0.7 s (the arrow shows 「+2」…); dropping moves it that far.
   let flip: { el: HTMLElement; n: number; timer: ReturnType<typeof setInterval> } | null = null;
   const endFlip = () => {
@@ -3794,12 +3930,6 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const n = flip?.el === z ? flip.n : 1;
       endFlip();
       return moveTo(id, ymd(addDays(cur, Number(z.dataset.nav) * n)));
-    }
-    if (z.classList.contains("dtg")) {
-      const r = z.getBoundingClientRect();
-      const S = Number(z.dataset.s);
-      const E = Number(z.dataset.e);
-      return blockWork(id, z.dataset.dtg!, S + ((e.clientY - r.top) / r.height) * (E - S));
     }
     // 우선순위: ①② = 중요(★ at least one), ③④ = 보통; ①③ = 급함 → the deadline becomes today.
     const x = findEntry(s, id);

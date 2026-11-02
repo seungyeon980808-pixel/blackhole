@@ -367,6 +367,7 @@ html.native-glass .bh .bar .title { padding-left: 0; }
   --page: #eef1f6;
   --x-hair: rgba(22,23,42,.08); --x-line: rgba(22,23,42,.3); --x-chip: rgba(22,23,42,.05); --x-sel: rgba(22,23,42,.1); --x-box: rgba(255,255,255,.75);
   --x-hatch: rgba(22,23,42,.05); --x-off: rgba(22,23,42,.05); --x-pinbg: rgba(255,255,255,.96); --x-inv: #fff; --x-star0: rgba(22,23,42,.28);
+  --x-work: rgba(19,163,131,.16); --x-workno: #13a383; --x-lunch: rgba(22,23,42,.06); --x-pop: rgba(255,255,255,.98);
 }
 .bh.glass .ic.go { background: var(--ink); color: var(--page); }
 .bh.glass .bub.me { background: var(--x-sel); color: var(--ink); }

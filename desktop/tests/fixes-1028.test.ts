@@ -243,6 +243,6 @@ describe("이미 지난 알림", () => {
     expect(x.reminders).toEqual([]);
     expect(missedAlarms(s, new Date(2026, 9, 29, 7, 0))).toEqual([]);
     const later = draftFromText(s, "내일 오전 8시 회의", "데스크톱", night, "k2") as CalEvent;
-    expect(later.reminders).toEqual(["2026-10-29T07:30"]);
+    expect(later.reminders).toEqual(["2026-10-29T07:57"]);
   });
 });

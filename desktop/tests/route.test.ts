@@ -112,6 +112,7 @@ describe("넣기·질문·설정 in the app", () => {
 
   it("「알람은 수업 시작 2분 전에」 changes the setting, moves the reminders still ahead, and undoes", async () => {
     const { s, root, calls } = await mount({ routeText: async () => ({ parts: [part("setting", "알람은 수업 시작 2분 전에 울릴 수 있게 하십시오", { key: "remindMinutes", value: "2" })] }) }, (a) => {
+      a.state.settings.remindMinutes = 30; // the earlier default, as on this user's Mac
       a.state.events.push(
         { id: "e-a", kind: "event", title: "9반 수업", date: "2026-10-29", start: "13:20", end: "14:05", area: "school", source: "데스크톱", createdAt: "2026-10-29T08:00", provisional: false, reminders: ["2026-10-29T12:50"] } as CalEvent,
         { id: "e-b", kind: "event", title: "회의", date: "2026-10-29", start: "15:00", end: "16:00", area: "school", source: "데스크톱", createdAt: "2026-10-29T08:00", provisional: false, reminders: ["2026-10-29T14:50"] } as CalEvent

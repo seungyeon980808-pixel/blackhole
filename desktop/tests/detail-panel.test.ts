@@ -63,7 +63,7 @@ describe("상세 편집 패널", () => {
 
   it("a to-do: time, sub-steps (add · up · delete), kind 일정 ↔ 할 일 keeps the panel on the new entry; outside click closes", async () => {
     const root = await mount();
-    root.querySelector<HTMLElement>('.dtg [data-ev="t1"]')!.click();
+    root.querySelector<HTMLElement>('.tl [data-ev="t1"] .tn')!.click();
     const t = app!.state.tasks.find((x) => x.id === "t1")!;
     const time = root.querySelector<HTMLInputElement>('#bhDetail [data-df="time"]')!;
     time.value = "1620";
@@ -139,7 +139,7 @@ describe("상세 편집 패널", () => {
 
   it("할 일: 교시는 그 시작 시각, 「날짜 없음」은 마감·알림을 비움", async () => {
     const root = await mount();
-    root.querySelector<HTMLElement>('.dtg [data-ev="t1"]')!.click();
+    root.querySelector<HTMLElement>('.tl [data-ev="t1"] .tn')!.click();
     const panel = root.querySelector<HTMLElement>("#bhDetail")!;
     const t = app!.state.tasks.find((x) => x.id === "t1")!;
     expect(panel.querySelector(".pnow b")!.textContent).toContain("16:00까지");
@@ -155,7 +155,7 @@ describe("상세 편집 패널", () => {
 
   it("끝냄은 제목 옆 체크 상자(창은 그대로), 닫기는 아래 「닫기」 단추", async () => {
     const root = await mount();
-    root.querySelector<HTMLElement>('.dtg [data-ev="t1"]')!.click();
+    root.querySelector<HTMLElement>('.tl [data-ev="t1"] .tn')!.click();
     const t = app!.state.tasks.find((x) => x.id === "t1")!;
     expect(root.querySelector("#bhDetail .dacts [data-tdone]")).toBeNull();
     root.querySelector<HTMLElement>("#bhDetail .dtitle .dchk")!.click();

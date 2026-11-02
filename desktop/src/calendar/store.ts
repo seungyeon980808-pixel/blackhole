@@ -384,9 +384,10 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       item = { ...item, startAt: moved.toISOString(), endAt: span ? at(span.end).toISOString() : "", reminders, reviewReasons, needsReview: reviewReasons.length > 0 };
     }
     const common = { title: item.title, area: areaOf(item.area), source, createdAt, details: item.details || undefined, review: itemReview(item), ...(srcKey ? { srcKey } : {}) };
-    // No reminder said: the worker's 30 minutes before a time becomes this user's own (설정 「알림」).
+    // No reminder said: the worker's 30 minutes before an appointment becomes this user's own (설정 「알림」,
+    // 기본 3분 전); a deadline keeps 30 minutes before (11-02 알람 기본값).
     const lead = s.settings.remindMinutes ?? 30;
-    if (lead !== 30 && !item.evidence.reminderText.trim() && item.startAt) {
+    if (lead !== 30 && item.kind === "SCHEDULE" && !item.evidence.reminderText.trim() && item.startAt) {
       const def = new Date(item.startAt).getTime() - 30 * 60e3;
       item = { ...item, reminders: item.reminders.map((r) => (new Date(r).getTime() === def ? new Date(def + (30 - lead) * 60e3).toISOString() : r)) };
     }
@@ -575,7 +576,7 @@ export function draftFromText(s: CalendarState, said: string, source: string, no
   }
   const task: Task = {
     ...base, id: draftId("t"), kind: "task", due: r.date ?? ymd(now), dueTime: r.hasTime ? r.time : null, done: false,
-    reminders: r.date ? [r.hasTime && r.time ? plusMinutes(r.date, r.time, -(r.remindBefore ?? s.settings.remindMinutes ?? 30)) : r.remindBefore ? plusMinutes(r.date, "09:00", -r.remindBefore) : `${r.date}T09:00`] : [], subs: []
+    reminders: r.date ? [r.hasTime && r.time ? plusMinutes(r.date, r.time, -(r.remindBefore ?? 30)) : r.remindBefore ? plusMinutes(r.date, "09:00", -r.remindBefore) : `${r.date}T09:00`] : [], subs: []
   };
   if (!r.date) task.noDue = true;
   task.reminders = task.reminders.filter((x) => fromStamp(x).getTime() > now.getTime());
@@ -898,7 +899,6 @@ export function retimeReminders(s: CalendarState, from: number, to: number, now:
     });
   };
   for (const e of s.events) if (!e.gone && e.start) e.reminders = move(e.date, e.start, e.reminders);
-  for (const t of s.tasks) if (!t.gone && !t.done && !t.noDue) t.reminders = move(t.due, t.dueTime, t.reminders);
   return n;
 }
 

@@ -120,7 +120,7 @@ describe("results as cards in the chat", () => {
     expect(ev.title).toBe("치과 정기검진");
     expect(ev.start).toBe("16:30");
     expect(ev.end).toBe("17:30");
-    expect(ev.reminders).toEqual(["2026-10-28T16:00"]);
+    expect(ev.reminders).toEqual(["2026-10-28T16:27"]);
     expect(ev.touched).toBe(true);
     document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyZ", key: "z", metaKey: true, bubbles: true }));
     expect(ev.title).toBe("치과");

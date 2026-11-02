@@ -90,7 +90,7 @@ function largeHTML(s: CalendarState, now: Date, head: string, input: string): st
   const off = s.settings.offWork;
   const trow = (x: Task) => {
     const n = o.num.get(x.id);
-    const urg = isUrgent(x, now, off);
+    const urg = isUrgent(x, now, s);
     const due = dueText(x, now, k, fdW, off);
     const [left, right] = x.dueTime && x.due <= k ? [x.dueTime, due.split(" · ")[1] ?? ""] : [x.noDue ? "—" : x.due === k ? "오늘" : `${parseDay(x.due).getMonth() + 1}/${parseDay(x.due).getDate()}`, x.noDue ? "마감 없음" : ""];
     return `<div class="hr"><span class="tm ${urg ? "b" : ""}">${left}</span><span class="tt"><button class="ck" data-toggle="${x.id}" role="checkbox" aria-checked="false" aria-label="${esc(x.title)} 완료"></button><span class="no">${n ?? ""}</span>${x.star ? `<span class="${x.star === 2 ? "s2" : "s1"}">★</span> ` : ""}<span class="nm" data-open="${x.id}">${esc(x.title)}</span>${x.subs.length ? ` <i class="x">${x.subs.filter((y) => y.done).length}/${x.subs.length}</i>` : ""}</span><span class="x ${urg ? "b" : ""}">${right}</span></div>`;

@@ -241,12 +241,12 @@ describe("deadlines on the calendar (month · week · day, both themes)", () => 
     root.querySelector<HTMLElement>(".wrng")!.click();
 
     app!.setView("day", timed.due);
-    // 오늘 화면: a timed deadline is a card on the day table with 「번호 · 시각 · 제목」 (or under it when outside the hours).
-    const mark = root.querySelector<HTMLElement>(`.dt .dl[data-ev="${timed.id}"]`)!;
-    expect(mark.textContent).toContain(`${timed.dueTime}연수 보고서 제출`);
+    // 오늘 화면 (11-02): a deadline is the 「남은 시간」 word on its to-do (its time on hover), not a mark on the day table.
+    expect(root.querySelector(`.dtg [data-ev="${timed.id}"]`)).toBeNull();
+    expect(root.querySelector<HTMLElement>(`.tl .task[data-ev="${timed.id}"] .rem`)!.title).toContain(timed.dueTime!);
     app!.setView("day", "2026-10-21");
     expect(root.querySelector(".tl")!.textContent).toContain("출석부 마감");
-    expect(root.querySelector(".tl .due.urg")).not.toBeNull();
+    expect(root.querySelector(".tl .rem.R2, .tl .rem.R3")).not.toBeNull();
   });
 
   it("공문서: month chips, week table with time and urgency, day timetable", async () => {

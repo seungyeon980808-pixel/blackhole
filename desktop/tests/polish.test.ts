@@ -171,19 +171,22 @@ describe("작은 위젯 (밤샘)", () => {
 });
 
 describe("하루표 루틴 표시 (밤샘)", () => {
-  it("일정 칸이 덮는 시각(끝 바로 뒤 포함)의 루틴은 옆에, 비어 있는 시각은 그대로", async () => {
+  it("일정과 겹치는 루틴은 같은 줄을 반씩 나눠 씀, 비어 있는 시각은 그대로", async () => {
     document.body.innerHTML = '<div id="app"></div>';
     const root = document.querySelector<HTMLElement>("#app")!;
     Object.defineProperty(root, "clientWidth", { configurable: true, get: () => 1300 });
     const { emptyState } = await import("../src/calendar/model");
     const s = emptyState();
-    s.events.push({ id: "e1", kind: "event", title: "등교 지도", area: "school", source: "t", createdAt: "2026-10-27T09:00", date: "2026-11-02", start: "07:40", end: "08:20", provisional: false, reminders: [] } as never);
+    s.events.push({ id: "e1", kind: "event", title: "등교 지도", area: "school", source: "t", createdAt: "2026-10-27T09:00", date: "2026-11-02", start: "08:15", end: "08:30", provisional: false, reminders: [] } as never);
     s.routines.push({ id: "r1", title: "메일 확인", at: "08:20", repeat: "weekdays", done: [], createdAt: "2026-10-01T08:00" } as never, { id: "r2", title: "업무일지", at: "16:10", repeat: "weekdays", done: [], createdAt: "2026-10-01T08:00" } as never);
     const adapter = memoryAdapter();
     await adapter.save(s);
     app = await mountBlackhole(root, adapter, { now: () => new Date("2026-11-02T10:00:00") });
-    const rt = [...root.querySelectorAll<HTMLElement>(".dtg .rt")];
-    expect(rt.map((x) => x.classList.contains("side"))).toEqual([true, false]);
+    // 10분 칸 (11-02): what overlaps shares the row in two lanes (half height each); a free one keeps the whole row.
+    const h = (sel: string) => root.querySelector<HTMLElement>(sel)!.style.height;
+    expect(h('.dtg .sg.rt[data-rt="r1"]')).toBe(h('.dtg .sg.ev[data-ev="e1"]'));
+    expect(h('.dtg .sg.rt[data-rt="r1"]')).not.toBe(h('.dtg .sg.rt[data-rt="r2"]'));
+    expect(root.querySelector<HTMLElement>('.dtg .sg.rt[data-rt="r1"]')!.style.top).not.toBe(root.querySelector<HTMLElement>('.dtg .sg.ev[data-ev="e1"]')!.style.top);
   });
 });
 

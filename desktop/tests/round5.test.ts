@@ -74,16 +74,17 @@ describe("the day (A-2, A-5, B-10, B-11)", () => {
     app!.setView("day", "2026-10-27");
     const bar = root.querySelector<HTMLElement>('.dtg [data-ev="e1"]')!;
     expect(bar.querySelector(".t")!.textContent).toBe("초과근무");
-    // The box's place on the axis says the time (사용자 지적): the range only on hover.
-    expect(bar.querySelector(".r")).toBeNull();
-    expect(bar.querySelector<HTMLElement>(".t")!.title).toBe("16:20–21:20 초과근무");
+    // 10분 칸 (11-02): a wide box also says its range; every piece says it on hover.
+    expect(bar.querySelector(".r")!.textContent).toBe("16:20–21:20");
+    expect(bar.title).toBe("16:20–21:20 초과근무");
     const open = root.querySelector<HTMLElement>('.dtg [data-ev="e2"]')!;
     expect(open.classList.contains("noend")).toBe(true);
     expect(open.textContent).toContain("끝 미정");
     expect(root.querySelector(".tl .ph")!.textContent).toContain("완료 1");
     expect([...root.querySelectorAll(".tl > .task .tn")].map((x) => x.textContent)).toEqual(["보고서1/2 ▸"]); // the title and its x/y steps
     expect(root.querySelector(".tl details.fold summary")!.textContent).toBe("완료 1");
-    expect(root.querySelector('.task[data-ev="t1"] .due')!.textContent).toBe("17:00 · 8시간"); // 24-hour deadline, then the time left
+    expect(root.querySelector('.task[data-ev="t1"] .rem')!.textContent).toBe("8시간 남음"); // the time left; the deadline itself on hover
+    expect(root.querySelector<HTMLElement>('.task[data-ev="t1"] .rem')!.title).toContain("17:00까지");
   });
 
   it("the strip is 24-hour only", () => {
