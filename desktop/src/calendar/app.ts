@@ -13,7 +13,8 @@ import { startRecording, type Recording } from "./recorder";
 import { isFiller, isSimpleCertain, memoDraft, needsAi, parseDraft, parseRule, singleTime, spokenDays, timeRange, timeWords } from "./rules";
 import { seedState } from "./samples";
 import {
-  anchorRelativeDates, applyAction, cancelEntry, describe, type Applied, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, retimeReminders, upcomingAlarms, type Alarm
+  anchorRelativeDates, applyAction, cancelEntry, describe, type Applied, draftFromText, draftsOf, findEntry, log, markFired, missedAlarms, newId, refineDrafts, rekey, retimeReminders, upcomingAlarms, type Alarm,
+  liveEvents,
 } from "./store";
 import { EFFORTS, effortOf, hourPieces, phoneToday, priorityView, todayView, type TodayOpts } from "./views/today";
 import { checksBar, dictationFixes, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
@@ -1443,7 +1444,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
    * Draft first, AI later: a sentence goes on the calendar at once from the rule parser, then
    * the AI result replaces that same entry (same id) when it arrives.
    */
-  async function analyze(input: AnalyzeInput, me: Omit<ChatMessage, "id" | "at" | "who">, src: string, inboxTitle: string, opts: { noDraft?: boolean; noMe?: boolean; question?: boolean } = {}): Promise<void> {
+  async function analyze(input: AnalyzeInput, me: Omit<ChatMessage, "id" | "at" | "who">, src: string, inboxTitle: string, opts: { noDraft?: boolean; noMe?: boolean; question?: boolean; at?: { day: string; a: number; b: number } } = {}): Promise<void> {
     const t0 = performance.now();
     const now = clock();
     if (!opts.noMe) s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", ...me, src });
@@ -1455,6 +1456,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     let draftId = "";
     if (drafted) {
       const x = draftFromText(s, input.text!, src, now, key, own);
+      if (opts.at) pinAt([x.id], opts.at);
       log(s, { label: "초안", msg: describe(s, x.id, theme().fd).msg, src, ref: x.id }, now);
       draftMsg = card("다듬는 중…", [x.id]);
       draftWas = JSON.stringify([x.kind, x.title, (x as { date?: string }).date, (x as { start?: string }).start, (x as { end?: string }).end, (x as { due?: string }).due, (x as { dueTime?: string }).dueTime]);
@@ -1473,6 +1475,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const proposal = await adapter.analyze(input.text !== undefined ? { ...input, text: spokenDays(input.text) } : input);
       const at = clock();
       const applied = refineDrafts(s, key, proposal, src, at, own);
+      if (opts.at) pinAt(applied.refs, opts.at);
       afterApplied(applied.refs, applied.missing, src, at, applied.updated, applied.suggested, applied.done, applied.changed);
       if (!opts.noMe && me.kind === "voice" && proposal.sourceText) s.chat[s.chat.length - 1].text = proposal.sourceText;
       const dup = dropDuplicates(applied.refs);
@@ -2255,18 +2258,21 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
 
   /** 작업 시간: a to-do dragged onto the day table blocks time for it (30 minutes, 5-minute steps, resizable). */
-  function blockWork(taskId: string, day: string, at: number, len = 30): void {
+  function blockWork(taskId: string, day: string, at: number, len = 30, sub?: number, quiet = false): void {
     const t = findEntry(s, taskId);
     if (!t || t.kind !== "task") return;
+    const step = sub !== undefined ? t.subs[sub] : undefined;
+    const title = step ? step.title : t.title;
     const a = Math.max(0, Math.min(Math.round(at / 5) * 5, 24 * 60 - len));
     // 작업 시간 rings when it starts (11-02 알람 기본값).
-    const ev: CalEvent = { id: newId(s, "e"), kind: "event", title: t.title, area: t.area, source: "하루표", createdAt: stamp(clock()), date: day, start: hm(a), end: hm(Math.min(a + len, 23 * 60 + 59)), provisional: false, reminders: [`${day}T${hm(a)}`].filter((r) => fromStamp(r).getTime() > clock().getTime()), workFor: t.id, touched: true };
+    const ev: CalEvent = { id: newId(s, "e"), kind: "event", title, area: t.area, source: "하루표", createdAt: stamp(clock()), date: day, start: hm(a), end: hm(Math.min(a + len, 23 * 60 + 59)), provisional: false, reminders: [`${day}T${hm(a)}`].filter((r) => fromStamp(r).getTime() > clock().getTime()), workFor: t.id, ...(step ? { workSub: sub } : {}), touched: true };
     s.events.push(ev);
-    undoStack.push({ label: `「${t.title}」 작업 시간`, run: () => {
+    if (quiet) return;
+    undoStack.push({ label: `「${title}」 작업 시간`, run: () => {
       ev.gone = true;
       void act(() => undefined);
     } });
-    toast(`작업 시간: 「${t.title}」 ${hm(a)}–${ev.end}`, undefined, true);
+    toast(`작업 시간: 「${title}」 ${hm(a)}–${ev.end}`, undefined, true);
     void act(() => undefined);
   }
 
@@ -2281,8 +2287,34 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const p = hourPieces(a, b, S, E)[0];
     if (!p) return;
     ly.querySelector(".newev")?.remove();
-    ly.insertAdjacentHTML("beforeend", `<div class="newev" style="top:${(p.row / rows) * 100}%;height:${100 / rows}%;left:${Math.min(p.x0, 0.5) * 100}%;width:max(50%, ${(p.x1 - p.x0) * 100}%)"><input placeholder="${hm(a)}–${hm(b)} 일정 이름 · Enter" aria-label="새 일정 이름" data-newev="${day}|${a}|${b}"></div>`);
+    ly.insertAdjacentHTML("beforeend", `<div class="newev" style="top:${(p.row / rows) * 100}%;height:${100 / rows}%;left:${Math.min(p.x0, 0.5) * 100}%;width:max(50%, ${(p.x1 - p.x0) * 100}%)"><input placeholder="${hm(a)}–${hm(b)} 대화창처럼 쓰기 · Enter" aria-label="새 일정 이름" data-newev="${day}|${a}|${b}"></div>`);
     ly.querySelector<HTMLInputElement>(".newev input")?.focus();
+  }
+
+  /**
+   * Words written in a box drawn on the day table (11-02 시안 13): read as in the chat (title, ★, 영역, 메모,
+   * several things), but the day and time are the box's. A 기한 said in them stays the to-do's; the box
+   * becomes its 작업 시간.
+   */
+  function putAt(day: string, a: number, b: number, text: string): void {
+    const d = parseDay(day);
+    const when = `${d.getMonth() + 1}월 ${d.getDate()}일 ${hm(a)}부터 ${hm(b)}까지`;
+    void analyze({ text: `${text} (${when})`, now: clock() }, { text, kind: "text" }, "하루표", text.slice(0, 40), { at: { day, a, b } });
+  }
+
+  /** The box's own day and time on what came out of its words (see putAt). */
+  function pinAt(ids: string[], at: { day: string; a: number; b: number }): void {
+    const xs = ids.map((id) => findEntry(s, id)).filter((x): x is Entry => !!x && !x.gone);
+    const ev = xs.find((x): x is CalEvent => x.kind === "event" && !x.workFor);
+    if (ev) {
+      ev.date = at.day;
+      ev.start = hm(at.a);
+      ev.end = hm(at.b);
+      ev.reminders = [stamp(new Date(fromStamp(`${at.day}T${hm(at.a)}`).getTime() - (s.settings.remindMinutes ?? 3) * 60e3))].filter((r) => fromStamp(r).getTime() > clock().getTime());
+      return;
+    }
+    const t = xs.find((x): x is Task => x.kind === "task");
+    if (t && !liveEvents(s).some((e) => e.workFor === t.id && e.date === at.day && e.start === hm(at.a))) blockWork(t.id, at.day, at.a, at.b - at.a, undefined, true);
   }
 
   function addEventAt(day: string, a: number, b: number, title: string): void {
@@ -3534,7 +3566,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const [day, a, b] = el.dataset.newev.split("|");
       const v = el.value.trim();
       el.closest(".newev")?.remove();
-      if (v) addEventAt(day, Number(a), Number(b), v);
+      if (v) putAt(day, Number(a), Number(b), v);
       return;
     }
     if (el instanceof HTMLInputElement && el.dataset.subadd) {
@@ -3939,10 +3971,19 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     ly.insertAdjacentHTML("beforeend", hourPieces(a, b, S, E).map((p) => `<div class="sg ghost" style="top:calc(${(p.row / rows) * 100}% + 2px);height:calc(${100 / rows}% - 4px);left:calc(${p.x0 * 100}% + 1px);width:calc(${(p.x1 - p.x0) * 100}% - 2px)">${p.first ? escapeHtml(label) : ""}</div>`).join(""));
   };
   const clearGhost = () => root.querySelectorAll(".dtg .ghost").forEach((g) => g.remove());
-  let dt: { mode: "move" | "end" | "new" | "task"; id?: string; x0: number; y0: number; off: number; a: number; b: number; day: string; moved: boolean; title?: string; label?: HTMLElement } | null = null;
+  let dt: { mode: "move" | "end" | "new" | "task"; id?: string; sub?: number; x0: number; y0: number; off: number; a: number; b: number; day: string; moved: boolean; title?: string; label?: HTMLElement } | null = null;
   root.addEventListener("pointerdown", (e) => {
     const t = e.target as HTMLElement;
     if (e.button !== 0) return;
+    // A small check of a to-do (11-02): dragged onto the day table, its own 작업 시간.
+    const step = t.closest<HTMLElement>(".tl .step");
+    const stepCk = step?.querySelector<HTMLElement>("[data-sub]");
+    if (step && stepCk && !t.closest("button, .ck, input")) {
+      const [tid, j] = stepCk.dataset.sub!.split(":");
+      const x = findEntry(s, tid);
+      if (x?.kind === "task" && x.subs[Number(j)]) dt = { mode: "task", id: x.id, sub: Number(j), x0: e.clientX, y0: e.clientY, off: 0, a: 0, b: 0, day: ymd(cur), moved: false, title: x.subs[Number(j)].title };
+      return;
+    }
     // A to-do row (not its buttons) can be dragged onto the day table.
     const row = t.closest<HTMLElement>(".tl .task[data-task]");
     if (row && !t.closest("button, .ck, input, .star, .pg, .rem")) {
@@ -3951,7 +3992,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return;
     }
     const grid = t.closest<HTMLElement>(".dtg");
-    if (!grid || t.closest("[data-rt], .rem, .newev")) return;
+    if (!grid || t.closest("[data-rt], .rem, .newev, .wck")) return;
     const day = grid.dataset.dtg!;
     const m = gridAt(grid, e.clientX, e.clientY);
     if (m === null) return;
@@ -4031,8 +4072,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (ar) return moveTo(d0.id!, ymd(addDays(cur, Number(ar.dataset.nav))));
       // Onto another to-do: 묶기 (that one first, as the default 대표).
       const onto = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>(".tl .task[data-task]");
-      if (onto && onto.dataset.task !== d0.id) return openMerge([onto.dataset.task!, d0.id!]);
-      if (grid && m !== null) return blockWork(d0.id!, grid.dataset.dtg!, m, 30);
+      if (onto && onto.dataset.task !== d0.id && d0.sub === undefined) return openMerge([onto.dataset.task!, d0.id!]);
+      if (grid && m !== null) return blockWork(d0.id!, grid.dataset.dtg!, m, 30, d0.sub);
       return;
     }
     if (ar && d0.mode === "move") return moveTo(d0.id!, ymd(addDays(parseDay(d0.day), Number(ar.dataset.nav))));

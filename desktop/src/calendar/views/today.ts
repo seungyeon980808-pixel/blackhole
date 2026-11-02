@@ -301,15 +301,19 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
     const task = e.workFor ? ctx.s.tasks.find((t) => t.id === e.workFor) : undefined;
     const lv = task ? urgency(task, ctx.now, ctx.s) : 0;
     const rem = task && !task.done && !task.noDue ? `<button class="rem R${lv}" data-rem="${task.id}" title="${esc(`${fd(task.due)}${task.dueTime ? " " + task.dueTime : ""}까지 · 눌러서 기한 다시 정하기`)}">${remainText(task, ctx.now, st.offWork)}</button>` : "";
-    const cls = `ev ${e.workFor ? "work" : ""} ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.end ? "" : "noend"}`;
+    // 작업 칸: a check that is the to-do's (or its small check's) own, so either one checks both (11-02).
+    const sub = task && e.workSub !== undefined ? task.subs[e.workSub] : undefined;
+    const wdone = task ? (sub ? sub.done : task.done) : false;
+    const wck = task ? `<span class="ck wck ${wdone ? "on" : ""}" ${sub ? `data-sub="${task.id}:${e.workSub}"` : `data-tdone="${task.id}"`} role="checkbox" aria-checked="${wdone}" tabindex="0" title="${wdone ? "안 한 것으로" : "했음"}"></span>` : "";
+    const cls = `ev ${e.workFor ? "work" : ""} ${wdone ? "dn" : ""} ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.end ? "" : "noend"}`;
     items.push({ a, b, html: (lane, lanes) => piece(a, b, cls, () => `data-ev="${e.id}" data-evbox="${e.id}" tabindex="0" aria-label="${esc(e.title)} 열기" title="${esc(`${e.start}${e.end ? "–" + e.end : ""} ${e.title}`)}"`, (p) =>
-      `${p.first ? `${n ? `<span class="no">${n}</span>` : ""}${e.periodSaid && !e.title.includes(e.periodSaid) ? `<span class="pd">${e.periodSaid}</span>` : ""}<span class="t">${esc(e.title)}</span>${e.provisional ? '<span class="ga">가</span>' : ""}${!e.end ? '<span class="r">끝 미정</span>' : (p.x1 - p.x0) >= 0.5 && lanes === 1 ? `<span class="r">${e.start}–${e.end}</span>` : ""}${rem}` : ""}${p.last ? '<i class="grip" title="끌어 늘이기"></i>' : ""}`, lane, lanes) });
+      `${p.first ? `${wck}${n ? `<span class="no">${n}</span>` : ""}${e.periodSaid && !e.title.includes(e.periodSaid) ? `<span class="pd">${e.periodSaid}</span>` : ""}<span class="t">${esc(e.title)}</span>${e.provisional ? '<span class="ga">가</span>' : ""}${!e.end ? '<span class="r">끝 미정</span>' : ""}${rem}` : ""}${p.last ? '<i class="grip" title="끌어 늘이기"></i>' : ""}`, lane, lanes) });
   }
   // 고정 칸 share the rows too: an appointment at lunch takes half the row, no words on top of each other.
   for (const [name, span] of fixed) {
     const [x, y] = span.split("-");
     if (!x || !y || mins(y) <= mins(x)) continue;
-    items.push({ a: mins(x), b: mins(y), html: (lane, lanes) => piece(mins(x), mins(y), "fix", () => `title="${name} ${x}–${y}"`, (p) => (p.first ? `<span class="t">${name}</span>${lanes === 1 ? `<span class="r">${x}–${y}</span>` : ""}` : ""), lane, lanes) });
+    items.push({ a: mins(x), b: mins(y), html: (lane, lanes) => piece(mins(x), mins(y), "fix", () => `title="${name} ${x}–${y}"`, (p) => (p.first ? `<span class="t">${name}</span>` : ""), lane, lanes) });
   }
   for (const r of ctx.s.routines.filter((x) => routineOn(x, k))) {
     const a = mins(r.at);

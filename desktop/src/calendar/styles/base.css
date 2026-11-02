@@ -271,10 +271,10 @@ html.native-glass .bh.side .panelbar { padding-top: 12px; padding-bottom: 8px; }
 .bh .tdv .dta .mode button.on { background: var(--x-sel); color: var(--ink); font-weight: 700; }
 .bh .dtgw { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 10px 12px 8px; display: flex; flex-direction: column; }
 /* 하루표 (11-02 「10분 칸」): one row per hour, 6 cells of 10 minutes; boxes are a plain fill, no edge stripe. */
-.bh .tdv .dhd { display: grid; grid-template-columns: 46px repeat(6, 1fr); font-size: 10.5px; color: var(--ink3); padding-bottom: 3px; font-variant-numeric: tabular-nums; }
+.bh .tdv .dhd { display: grid; grid-template-columns: 46px repeat(6, 1fr); font-size: 12px; font-weight: 600; color: var(--ink); opacity: .85; padding-bottom: 3px; font-variant-numeric: tabular-nums; }
 .bh .tdv .dtg { position: relative; flex: 1; min-height: calc(var(--rows) * 36px); display: grid; grid-template-rows: repeat(var(--rows), minmax(36px, 1fr)); user-select: none; -webkit-user-select: none; }
 .bh .tdv .dtg .hrow { display: grid; grid-template-columns: 46px repeat(6, 1fr); }
-.bh .tdv .dtg .hrow .hl { font-size: 11px; color: var(--ink2); padding-top: 3px; font-variant-numeric: tabular-nums; }
+.bh .tdv .dtg .hrow .hl { font-size: 13px; font-weight: 700; color: var(--ink); padding-top: 3px; font-variant-numeric: tabular-nums; }
 .bh .tdv .dtg .hrow i { border-top: 1px solid var(--x-hair); border-left: 1px solid var(--x-hair); opacity: .8; }
 .bh .tdv .dtg .hrow i:nth-of-type(4) { border-left-color: var(--x-line); opacity: .45; }
 .bh .tdv .dtg .dly { position: absolute; left: 46px; right: 0; top: 0; bottom: 0; cursor: crosshair; }
@@ -762,3 +762,9 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .tdv .ups .band { margin-left: 30px; }
 /* 대화가 오른쪽에 있으면 본문 아래에 입력칸이 없어 칸들이 창 끝에 붙었음: 아래 여백 (11-02). */
 .bh.side #bhMain { padding-bottom: 14px; box-sizing: border-box; }
+
+/* 하루표 시안 13 (11-02): 작업 칸의 체크 = 할 일(또는 작은 체크)의 체크. 작은 체크 줄은 하루표로 끌 수 있음. */
+.bh .tdv .dtg .sg .wck { flex: none; box-sizing: border-box; width: 12px; height: 12px; margin-top: 1px; border: 1.5px solid var(--ink2); border-radius: 3px; cursor: pointer; }
+.bh .tdv .dtg .sg .wck.on { background: var(--ink); border-color: var(--ink); }
+.bh .tdv .dtg .sg.dn .t { text-decoration: line-through; opacity: .6; }
+.bh .tdv .tl .step { cursor: grab; }

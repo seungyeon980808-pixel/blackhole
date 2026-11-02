@@ -1,5 +1,6 @@
 /** 오늘(일) 화면 (2026-10-27): shared numbers, 6-hour urgency, stars, 루틴, moving days, work blocks, work/all range. */
 import { afterEach, describe, expect, it } from "vitest";
+import sample from "./fixtures/proposal-sample.json";
 import { mountBlackhole, type BlackholeApp } from "../src/calendar/app";
 import type { BlackholeAdapter } from "../src/calendar/adapter";
 import { memoryAdapter } from "../src/calendar/memory-adapter";
@@ -186,6 +187,54 @@ describe("work blocks and the range", () => {
     expect(w.reminders).toEqual(["2026-10-27T11:35"]); // rings when it starts
     expect(root.querySelector(`.dtg .sg.work[data-ev="${w.id}"] .no`)!.textContent).toBe("3");
     expect(JSON.stringify(sharedFrom(app!.state, "2026-10-27T10:40"))).not.toContain(w.id); // the phone does not get it
+  });
+
+  it("11-02 시안 13: a small check dragged onto the table gets its own 작업 칸; its check is the small check's", async () => {
+    const st = base();
+    st.tasks.find((t) => t.id === "t3")!.subs = [{ title: "초안 쓰기", done: false }, { title: "결재 올리기", done: false }];
+    const root = await mount(st);
+    root.querySelector<HTMLElement>('[data-subs="t3"]')!.click(); // open its steps
+    await tick();
+    const ly = root.querySelector<HTMLElement>(".dtg .dly")!;
+    ly.getBoundingClientRect = () => ({ top: 0, height: 540, left: 0, width: 360, right: 360, bottom: 540, x: 0, y: 0, toJSON: () => ({}) });
+    document.elementFromPoint = () => null;
+    const pe = (type: string, x: number, y: number) => new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 });
+    const step = root.querySelectorAll<HTMLElement>(".tl .step .s")[1];
+    expect(step).toBeTruthy();
+    step.dispatchEvent(pe("pointerdown", 600, 300));
+    window.dispatchEvent(pe("pointermove", 200, 206));
+    window.dispatchEvent(pe("pointerup", 200, 206));
+    await tick();
+    const w = app!.state.events.find((e) => e.workFor === "t3")!;
+    expect([w.title, w.workSub, w.start]).toEqual(["결재 올리기", 1, "11:35"]);
+    root.querySelector<HTMLElement>(".dhd")!.click(); // the click that ends a drag is swallowed (as in a browser)
+    root.querySelector<HTMLElement>(`.dtg [data-ev="${w.id}"] .wck`)!.click();
+    await tick();
+    expect(app!.state.tasks.find((t) => t.id === "t3")!.subs[1].done).toBe(true);
+    expect(root.querySelector(`.dtg [data-ev="${w.id}"]`)!.classList.contains("dn")).toBe(true);
+  });
+
+  it("11-02 시안 13: no time written inside the boxes (the place is the time), still on hover", async () => {
+    const root = await mount(base());
+    const box = root.querySelector<HTMLElement>(".dtg .sg.ev[data-ev]")!;
+    expect(box.querySelector(".r")?.textContent ?? "").not.toMatch(/\d:\d\d/);
+    expect(box.title).toMatch(/\d\d:\d\d/);
+    expect(root.querySelector(".dtg .sg.fix .r")).toBeNull();
+  });
+
+  it("11-02 시안 13: words in a drawn box are read as in the chat, but keep the box's day and time", async () => {
+    const root = await mount(base(), { analyze: async () => ({ ...sample, items: (sample as { items: unknown[] }).items.slice(0, 1) }) as never });
+    const ly = root.querySelector<HTMLElement>(".dtg .dly")!;
+    ly.insertAdjacentHTML("beforeend", '<div class="newev"><input data-newev="2026-10-27|900|950"></div>');
+    const input = ly.querySelector<HTMLInputElement>(".newev input")!;
+    input.value = "내일 오후 3시에 학부모 상담";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await tick();
+    await tick();
+    const ev = app!.state.events.filter((e) => !e.gone && e.source !== "t" && !e.workFor && e.title.includes("상담"));
+    expect(ev).toHaveLength(1);
+    expect([ev[0].date, ev[0].start, ev[0].end, ev[0].provisional]).toEqual(["2026-10-27", "15:00", "15:50", false]);
+    expect(app!.state.chat.some((m) => m.who === "me" && m.text === "내일 오후 3시에 학부모 상담")).toBe(true);
   });
 
   it("업무 08–17 / 하루 전체: remembered", async () => {

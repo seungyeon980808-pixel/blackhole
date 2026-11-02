@@ -60,6 +60,8 @@ export interface CalEvent extends Base {
   reminders: string[];
   /** 「작업 시간」: time blocked on the day table for this to-do (its id). The to-do stays one. */
   workFor?: string;
+  /** 작업 시간 for one of that to-do's small checks (its index, 11-02): checking one checks the other. */
+  workSub?: number;
   /** 「3교시」 「5,6교시」 said for its time (11-02: shown as 「3교시」 on the day table). */
   periodSaid?: string;
 }
