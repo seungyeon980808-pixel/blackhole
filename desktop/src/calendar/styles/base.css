@@ -109,7 +109,8 @@ button { cursor: pointer; }
 .bh.side .sheetcomp { margin: 6px 10px 10px; }
 .bh.side .bub.ai { max-width: 100%; }
 .bh.side .bub.me { max-width: 88%; }
-html.native-glass .bh.side .panelbar { padding-top: 34px; }
+/* 「대화」 제목을 머리줄과 같은 줄에 (11-02 시안 12). */
+html.native-glass .bh.side .panelbar { padding-top: 12px; padding-bottom: 8px; }
 /* Edit form inside a card */
 .bh .rc.edit { display: flex; flex-direction: column; gap: 5px; }
 .bh .rc.edit input { font: inherit; font-size: 12.5px; padding: 3px 6px; min-width: 0; }

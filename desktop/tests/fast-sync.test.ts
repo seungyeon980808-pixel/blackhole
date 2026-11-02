@@ -125,6 +125,8 @@ describe("phone input on the Mac (inbox)", () => {
     const draft = app!.state.events.find((e) => e.srcKey === job)!;
     expect(draft.draft).toBe(true);
     expect(draft.start).toBe("15:00");
+    // 11-02: 말로 넣은 일정은 타이핑이 아니라 가승인 (승인해야 확정).
+    expect(draft.provisional).toBe(true);
     expect(app!.state.draftedJobs).toContain(job);
     await app!.poll(); // same file again: no second draft
     expect(app!.state.events.filter((e) => e.srcKey === job)).toHaveLength(1);
@@ -135,6 +137,7 @@ describe("phone input on the Mac (inbox)", () => {
     expect(ev).toHaveLength(1);
     expect(ev[0].id).toBe(draft.id);
     expect(ev[0].draft).toBe(false);
+    expect(ev[0].provisional).toBe(true);
     // Shared with the phone: the job is listed, so the phone drops its own draft.
     expect(sharedFrom(app!.state, "x").sources).toContain(job);
   });

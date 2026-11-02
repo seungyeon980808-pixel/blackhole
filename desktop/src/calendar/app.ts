@@ -1263,8 +1263,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const now = clock();
       if (r.proposal) {
         const drafted = s.draftedJobs.includes(r.jobId);
-        // Phone text or speech (drafted from its words) is the user's own: its appointments are 확정.
-        const applied = refineDrafts(s, r.jobId, r.proposal, "인박스", now, drafted);
+        // Phone text the user typed is their own: its appointments are 확정. Speech is not typed (11-02: 가승인).
+        const spoken = s.events.some((x) => x.srcKey === r.jobId && x.provisional) || s.chat.some((m) => m.kind === "voice" && !!r.proposal!.sourceText && m.text === r.proposal!.sourceText);
+        const applied = refineDrafts(s, r.jobId, r.proposal, "인박스", now, drafted && !spoken);
         if (applied.duplicate) {
           changed = true;
           continue;
@@ -1313,7 +1314,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const now = clock();
       const src = "휴대폰";
       const at = d.at ? new Date(d.at) : now;
-      const x = draftFromText(s, d.text, src, at, d.jobId, true);
+      const x = draftFromText(s, d.text, src, at, d.jobId, d.kind !== "voice");
       const memo = x.kind === "note" && !x.draft;
       const simple = memo || skipsAi(d.text, at);
       s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: d.text, kind: d.kind === "voice" ? "voice" : "text", src });
@@ -1429,8 +1430,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
 
   /**
-   * Words the user wrote or said themselves (11-02: their appointments go in 확정, not 가승인). A notice
-   * pasted into the box, the clipboard, a link, a photo or a file is someone else's words: 가승인.
+   * Words the user typed themselves (11-02: their appointments go in 확정, not 가승인). Speech, a notice
+   * pasted into the box, the clipboard, a link, a photo or a file wait for 승인: 가승인.
    */
   function ownWords(text: string, src: string): boolean {
     if (/클립보드|링크|사진|넣기|끌어\s*놓기|붙여넣기|바탕화면|인박스/.test(src)) return false;
@@ -1448,7 +1449,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (!opts.noMe) s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", ...me, src });
     const key = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const drafted = input.text !== undefined && !opts.noDraft;
-    const own = input.text !== undefined ? ownWords(input.text, src) : me.kind === "voice";
+    const own = input.text !== undefined && me.kind !== "voice" && ownWords(input.text, src);
     let draftMsg: ChatMessage | null = null;
     let draftWas = "";
     let draftId = "";
