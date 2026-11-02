@@ -416,7 +416,7 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
   .bh .tgrid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) fit-content(48%); grid-template-areas: "dt tl" "dt rs"; }
   .bh .tgrid > .dt { grid-area: dt; } .bh .tgrid > .tl { grid-area: tl; } .bh .tgrid > .rstack { grid-area: rs; }
   .bh .tdv .rstack { min-height: 0; overflow: hidden; }
-  .bh .tdv .rstack > .panel, .bh .tdv .rstack > .panel.empty { flex: 1 1 0; min-width: 0; max-height: 100%; }
+  .bh .tdv .rstack > .panel, .bh .tdv .rstack > .panel.empty { flex: 1 1 auto; min-width: 0; max-height: 100%; }
   .bh .tdv .rstack .none { padding: 2px 0; }
 }
 @container (max-width: 619px) {
@@ -724,3 +724,23 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .mergepop .ft { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
 .bh .tdv .steps .subout { margin-left: 8px; border: 0; background: none; color: var(--ink3); font: inherit; font-size: 11px; cursor: pointer; visibility: hidden; padding: 0; }
 .bh .tdv .steps .step:hover .subout { visibility: visible; }
+/* 다가오는 주요 일정 띠 (11-02 시안 10 「가. 계단」). */
+.bh .tdv .ups .ph { align-items: center; }
+.bh .tdv .ups .useg { display: inline-flex; align-items: center; gap: 0; }
+.bh .tdv .ups .useg button { font: inherit; font-size: 11px; font-weight: 600; color: var(--ink2); background: none; border: 1px solid var(--x-hair); padding: 1px 7px; cursor: pointer; }
+.bh .tdv .ups .useg button + button { border-left: 0; }
+.bh .tdv .ups .useg button[data-uprange="30"] { border-radius: 4px 0 0 4px; } .bh .tdv .ups .useg button[data-uprange="120"]:last-child { border-radius: 0 4px 4px 0; }
+.bh .tdv .ups .useg button.on { background: var(--x-sel); color: var(--ink); }
+.bh .tdv .ups .useg .ulater { border: 0 !important; text-decoration: underline; color: var(--ink2); margin-right: 6px; font-weight: 500; }
+.bh .tdv .ups .band { position: relative; margin: 2px 0 0; }
+.bh .tdv .ups .bax { position: absolute; left: 0; right: 0; border-top: 1px solid var(--x-line); }
+.bh .tdv .ups .btk { position: absolute; font-size: 10px; color: var(--ink3); white-space: nowrap; transform: translateX(-50%); }
+.bh .tdv .ups .btk[style^="left:0"] { transform: none; } .bh .tdv .ups .btk.m { color: var(--ink2); font-weight: 600; }
+.bh .tdv .ups .bdot { position: absolute; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 1px; background: var(--ink); }
+.bh .tdv .ups .bpr { position: absolute; height: 6px; margin-top: -3px; border-radius: 2px; background: var(--ink2); }
+.bh .tdv .ups .bstem { position: absolute; width: 0; border-left: 1.5px solid var(--x-line); }
+.bh .tdv .ups .blb { position: absolute; white-space: nowrap; font-size: 12px; line-height: 16px; padding-left: 4px; border-left: 1.5px solid var(--ink2); cursor: pointer; }
+.bh .tdv .ups .blb.fl { border-left: 0; border-right: 1.5px solid var(--ink2); padding: 0 4px 0 0; }
+.bh .tdv .ups .blb b { font-weight: 600; } .bh .tdv .ups .blb .star { font-size: 11px; margin-right: 1px; }
+.bh .tdv .ups .blb .d { font-size: 10.5px; color: var(--ink3); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.bh .tdv .ups .blb:hover { z-index: 3; background: var(--x-pop, rgba(20,40,110,.97)); border-radius: 0 3px 3px 0; }

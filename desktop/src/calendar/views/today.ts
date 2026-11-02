@@ -204,6 +204,8 @@ export interface Upcoming {
   title: string;
   star: number;
   days: number;
+  /** A period's last day, in days from today. */
+  endDays?: number;
   when: string;
   steps?: [number, number];
 }
@@ -227,7 +229,7 @@ export function upcoming(s: CalendarState, today: string, fd: (k: string) => str
   }
   for (const p of livePeriods(s)) {
     if (p.from <= today) continue;
-    out.push({ id: p.id, title: p.title, star: p.star ?? 0, days: days(p.from), when: `${fd(p.from)}–${fd(p.to)}` });
+    out.push({ id: p.id, title: p.title, star: p.star ?? 0, days: days(p.from), endDays: days(p.to), when: `${fd(p.from)}–${fd(p.to)}` });
   }
   return out.sort((a, b) => a.days - b.days || b.star - a.star);
 }
@@ -239,6 +241,10 @@ export interface TodayOpts {
   range: "work" | "all";
   /** to-do filter chip */
   filter: "all" | Bucket;
+  /** 다가오는 주요 일정 띠: days ahead (30 · 60 · 120, default 60). */
+  upRange?: 30 | 60 | 120;
+  /** The band's width last measured (px), for fitting the names. */
+  bandW?: number;
 }
 
 /** One stretch of time cut at the hour lines: the day table is one row per hour, 6 cells of 10 minutes. */
@@ -382,15 +388,76 @@ export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => s
   </div>`;
 }
 
-export function rightStack(ctx: Ctx, k: string, fd: (k: string) => string): string {
-  const up = upcoming(ctx.s, k, fd).slice(0, UPCOMING_MAX);
-  const find = (id: string) => [...ctx.s.events, ...ctx.s.tasks, ...ctx.s.periods].find((x) => x.id === id);
+/** Text width at 12px (canvas when there is one; otherwise Hangul 1em, digits and Latin about .6em). */
+let measure: CanvasRenderingContext2D | null | undefined;
+function textW(s: string): number {
+  if (measure === undefined) {
+    try {
+      measure = typeof document !== "undefined" ? document.createElement("canvas").getContext("2d") : null;
+      if (measure) measure.font = '600 12px -apple-system, "Apple SD Gothic Neo", sans-serif';
+    } catch {
+      measure = null;
+    }
+  }
+  if (measure) return measure.measureText(s).width;
+  return [...s].reduce((n, c) => n + (/[ㄱ-힝]/.test(c) ? 12 : c === " " ? 3.5 : 7), 0);
+}
+
+/**
+ * 다가오는 주요 일정 띠 (11-02 사용자 시안 10 「가. 계단」): today → 30 · 60 · 120 days on one line, each
+ * entry at its day. Names in date order go bottom → middle → top and round again (always the same
+ * order); a name is at most 6 letters (+…), and where the next name in its row is close the D-day
+ * goes first, then letters (3 at least). Full name and date on hover.
+ */
+export function upcomingBand(ctx: Ctx, k: string, fd: (k: string) => string, range: 30 | 60 | 120 = 60, W = 560): { html: string; shown: number; later: number } {
+  const all = upcoming(ctx.s, k, fd);
+  const items = all.filter((u) => u.days <= range).slice(0, UPCOMING_MAX);
+  const later = all.length - items.length;
+  const lanes = Math.min(3, Math.max(1, items.length));
+  const LH = 18;
+  const axY = lanes * LH + 8;
+  const px = (d: number) => (Math.min(d, range) / range) * W;
+  const pct = (d: number) => `${((Math.min(d, range) / range) * 100).toFixed(3)}%`;
+  let h = `<div class="bax" style="top:${axY}px"></div><span class="btk" style="left:0;top:${axY + 5}px">오늘</span>`;
+  const t0 = parseDay(k);
+  for (let d = 1; d < range; d++) {
+    const dt = addDays(t0, d);
+    if (dt.getDate() === 1 && px(d) > 24 && px(d) < W - 24) h += `<span class="btk m" style="left:${pct(d)};top:${axY + 5}px">${dt.getMonth() + 1}월</span>`;
+  }
+  const lane = (i: number) => i % lanes;
+  items.forEach((u, i) => {
+    const x = px(u.days);
+    h += u.endDays !== undefined && u.endDays > u.days
+      ? `<i class="bpr" style="left:${pct(u.days)};width:max(5px, ${(((Math.min(u.endDays, range) - u.days) / range) * 100).toFixed(3)}%);top:${axY}px"></i>`
+      : `<i class="bdot" style="left:${pct(u.days)};top:${axY}px"></i>`;
+    // Room up to the next name in the same row (or the end); the last one near the end writes to the left.
+    const next = items.slice(i + 1).find((_, j) => lane(i + 1 + j) === lane(i));
+    let room = (next ? px(next.days) : W) - x - 6;
+    let flip = false;
+    if (!next && room < 70) {
+      const prev = [...items.slice(0, i)].reverse().find((_, j) => lane(i - 1 - j) === lane(i));
+      flip = true;
+      room = x - (prev ? px(prev.days) + 70 : 0);
+    }
+    const star = u.star ? 14 : 0;
+    const dd = `D-${u.days}`;
+    const six = u.title.length > 6 ? `${u.title.slice(0, 6)}…` : u.title;
+    let name = six;
+    let showD = textW(six) + star + textW(dd) * 0.85 + 18 <= room;
+    if (!showD) while (name.replace("…", "").length > 3 && textW(name) + star + 10 > room) name = `${name.replace("…", "").slice(0, -1)}…`;
+    const top = (lanes - 1 - lane(i)) * LH;
+    h += `<i class="bstem" style="left:${pct(u.days)};top:${top + LH}px;height:${axY - top - LH}px"></i>`;
+    h += `<span class="blb ${flip ? "fl" : ""}" data-ev="${u.id}" title="${esc(`${u.title} · ${u.when} · D-${u.days}`)}" style="${flip ? `right:${(100 - (x / W) * 100).toFixed(3)}%` : `left:${pct(u.days)}`};top:${top}px">${u.star ? `<span class="star s${u.star}">★</span>` : ""}<b>${esc(name)}</b>${showD ? `<span class="d">${dd}</span>` : ""}</span>`;
+  });
+  return { html: `<div class="band" style="height:${axY + 20}px">${h}</div>`, shown: items.length, later };
+}
+
+export function rightStack(ctx: Ctx, k: string, fd: (k: string) => string, o?: Pick<TodayOpts, "upRange" | "bandW">): string {
+  const range = o?.upRange ?? 60;
+  const b = upcomingBand(ctx, k, fd, range, o?.bandW ?? 560);
   return `<div class="rstack">
-    <div class="panel g ups ${up.length ? "" : "empty"}"><div class="ph"><b>다가오는 주요 일정</b><span>${up.length ? `${up.length}개` : ""}</span></div>
-      ${up.length ? up.map((u) => {
-        const x = find(u.id);
-        return `<div class="ms" data-ev="${u.id}">${x ? starBtn(x) : "<span></span>"}<div><div class="t ${u.star === 2 ? "s2b" : ""}">${esc(u.title)}</div><div class="w">${esc(u.when)}</div>${u.steps ? `<div class="prog"><i style="--p:${((u.steps[0] / u.steps[1]) * 100).toFixed(0)}%"></i>${u.steps[0]}/${u.steps[1]} 단계</div>` : ""}</div><span class="d ${u.days <= 7 ? "soon" : ""}">D-${u.days}</span></div>`;
-      }).join("") : '<div class="none">★ 표시한 일정·할 일과 기간이 여기에 D-day 순으로</div>'}</div>
+    <div class="panel g ups ${b.shown ? "" : "empty"}"><div class="ph"><b>다가오는 주요 일정</b><span class="useg">${b.later ? `<button class="ulater" data-uprange="120" title="120일로 넓히기">그 뒤 ${b.later}개</button>` : ""}${([30, 60, 120] as const).map((v) => `<button class="${v === range ? "on" : ""}" data-uprange="${v}">${v}일</button>`).join("")}</span></div>
+      ${b.shown ? b.html : `<div class="none">${range}일 안에 ★ 표시한 일정·할 일이나 기간이 없어요</div>`}</div>
   </div>`;
 }
 
@@ -399,7 +466,7 @@ export function todayView(ctx: Ctx, o: TodayOpts, fd: (k: string) => string, che
   const { num } = orderedTasks(ctx.s, k === ctx.today ? ctx.today : k, ctx.now);
   return `<div class="tdv">
     ${checks}
-    <div class="tgrid">${dayTable(ctx, k, o, num, fd)}${taskList(ctx, k, o, fd)}${rightStack(ctx, k, fd)}</div>
+    <div class="tgrid">${dayTable(ctx, k, o, num, fd)}${taskList(ctx, k, o, fd)}${rightStack(ctx, k, fd, o)}</div>
   </div>`;
 }
 

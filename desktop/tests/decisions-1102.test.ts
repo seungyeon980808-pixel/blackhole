@@ -185,8 +185,12 @@ describe("다가오는 주요 일정 · 할 일 묶기 (11-02)", () => {
     expect(upcoming(s, "2026-11-02", (k) => k).map((u) => u.title)).toEqual(["수능", "기말고사", "겨울 연수"]);
     for (let i = 0; i < 12; i++) s.events.push({ id: `x${i}`, kind: "event", title: `행사${i}`, date: `2027-01-${String(i + 10).padStart(2, "0")}`, start: null, end: null, star: 1, provisional: false, reminders: [], area: "school", source: "t", createdAt: "2026-11-01T08:00" } as never);
     const { rightStack, UPCOMING_MAX } = await import("../src/calendar/views/today");
-    const html = rightStack({ s, today: "2026-11-02" } as never, "2026-11-02", (k: string) => k);
-    expect((html.match(/class="ms"/g) ?? []).length).toBe(UPCOMING_MAX);
+    const html = rightStack({ s, today: "2026-11-02" } as never, "2026-11-02", (k: string) => k, { upRange: 120 });
+    expect((html.match(/class="blb/g) ?? []).length).toBe(UPCOMING_MAX);
+    // 기본 60일: 그 안의 것만, 나머지는 「그 뒤 n개」. 이름은 6글자까지.
+    const h60 = rightStack({ s, today: "2026-11-02" } as never, "2026-11-02", (k: string) => k);
+    expect((h60.match(/class="blb/g) ?? []).length).toBe(3);
+    expect(h60).toContain("그 뒤 12개");
   });
 
   it("⌘+클릭으로 둘 고르고 새 이름으로 묶으면 나머지는 하위 체크, ⌘Z로 원래대로, 따로 떼기", async () => {

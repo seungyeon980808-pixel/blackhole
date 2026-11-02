@@ -186,9 +186,11 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   /** The month the 상세 편집 date picker shows (null: the entry's own month). */
   let detailMonth: string | null = null;
   /** 오늘 화면: 업무 08–17 / 하루 전체, and the to-do filter chip (both remembered). */
-  const today: TodayOpts = { range: "work", filter: "all" };
+  const today: TodayOpts = { range: "work", filter: "all", upRange: 60 };
   try {
     if (localStorage.getItem("bh-dayrange") === "all") today.range = "all";
+    const ur = Number(localStorage.getItem("bh-uprange"));
+    if (ur === 30 || ur === 120) today.upRange = ur;
   } catch {
     /* default */
   }
@@ -594,6 +596,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         const tt = main.querySelector<HTMLElement>(".ttwrap, .colx");
         if (tt && scroll !== undefined) tt.scrollTop = scroll;
         else if (tt) scrollToNow(tt, c.nowM);
+        // 주요 일정 띠: the names fit the band's real width (drawn again once when it changed).
+        const band = main.querySelector<HTMLElement>(".ups .band");
+        if (band && band.clientWidth > 0 && Math.abs((today.bandW ?? 560) - band.clientWidth) > 24) {
+          today.bandW = band.clientWidth;
+          return render();
+        }
       }
     }
     root.classList.toggle("side", side);
@@ -3050,6 +3058,15 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       }
       return render();
     }
+    if (q("[data-uprange]")) {
+      today.upRange = Number(q("[data-uprange]")!.dataset.uprange) as 30 | 60 | 120;
+      try {
+        localStorage.setItem("bh-uprange", String(today.upRange));
+      } catch {
+        /* not kept */
+      }
+      return render();
+    }
     if (q("[data-tf]")) {
       today.filter = q("[data-tf]")!.dataset.tf as TodayOpts["filter"];
       return render();
@@ -3106,7 +3123,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       });
       if (q("[data-droutine]")) return toRoutine(id);
     }
-    const POP = ".strip [data-ev], .dstrip [data-ev], .dtg [data-ev], .tl .task[data-ev] .tn, .ups .ms[data-ev], .dta .chip[data-ev]";
+    const POP = ".strip [data-ev], .dstrip [data-ev], .dtg [data-ev], .tl .task[data-ev] .tn, .ups .ms[data-ev], .ups .blb[data-ev], .dta .chip[data-ev]";
     if ((view === "day" || view === "pri") && (q(POP) || q(".quad .mq[data-ev] .tn")) && !q("button, [role=checkbox], input")) {
       const hit = q<HTMLElement>(POP) ?? q<HTMLElement>(".quad .mq[data-ev] .tn")!;
       const t = hit.dataset.ev ? hit : hit.closest<HTMLElement>("[data-ev]")!;
