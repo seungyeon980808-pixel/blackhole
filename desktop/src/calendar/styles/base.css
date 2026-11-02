@@ -279,7 +279,9 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 .bh .tdv .dtg .sg .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .bh .tdv .dtg .sg .r { font-size: 11px; color: var(--ink2); font-variant-numeric: tabular-nums; flex: none; }
 .bh .tdv .dtg .sg.off { background: var(--x-off); border-radius: 0; pointer-events: none; }
-.bh .tdv .dtg .sg.lunch { background: var(--x-lunch, rgba(0,0,0,.13)); border-radius: 0; pointer-events: none; }
+.bh .tdv .dtg .sg.fix { background: var(--x-fix, rgba(0,8,40,.32)); box-shadow: inset 0 0 0 1px var(--x-hair); align-items: flex-start; padding-top: 4px; pointer-events: none; z-index: 1; }
+.bh .tdv .dtg .sg.fix .t { font-weight: 700; color: var(--ink2); letter-spacing: .02em; }
+.bh .tdv .dtg .sg.fix .r { color: var(--ink3); }
 .bh .tdv .dtg .pn { position: absolute; margin: 1px 0 0 3px; font-size: 9px; font-weight: 600; color: var(--ink3); pointer-events: none; }
 .bh .tdv .dtg .sg.ev { background: var(--x-box); cursor: grab; z-index: 3; }
 .bh .tdv .dtg .sg.ev.prov { background: none; box-shadow: inset 0 0 0 1px var(--x-line); }

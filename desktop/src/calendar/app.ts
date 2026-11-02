@@ -923,6 +923,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         <div class="set-note">모든 데스크톱에 보입니다. 위치·크기는 기억합니다. ${escapeHtml(desk.pretty.widget || "⌃⌥⌘W")}를 누르면 위젯이 잠깐 맨 앞으로 옵니다(단축키는 「단축키 · 시작」에서 바꿈).</div>` : "" }] : []),
       { id: "school", name: "학교 시간", sum: `${st.onWork}–${st.offWork} · 점심 ${st.lunch.replace("-", "–")} · 조회 ${st.assembly.replace("-", "–")}`, body: `<div class="set-row">출근 <input class="tin" data-time="onWork" value="${st.onWork}"> 퇴근 <input class="tin" data-time="offWork" value="${st.offWork}"></div>
         <div class="set-row">점심 <input class="tin w2" data-time="lunch" value="${st.lunch}"> 조회 <input class="tin w2" data-time="assembly" value="${st.assembly}"></div>
+        <div class="set-row">출근길 <input class="tin w2" data-time="commuteIn" value="${st.commuteIn}"> 퇴근길 <input class="tin w2" data-time="commuteOut" value="${st.commuteOut}"></div>
         <div class="pgrid">${st.periods.map((p, i) => `<label>${i + 1}교시 <input class="tin w2" data-period="${i}" value="${p}"></label>`).join("")}</div>
         <div class="set-row">끝 없는 일정 기본 길이 <input class="tin" data-time="eventMinutes" value="${st.eventMinutes}" style="width:44px">분</div>
         <div class="set-row">알림 일정 <input class="tin" data-time="remindMinutes" value="${st.remindMinutes ?? 3}" style="width:44px">분 전 <span class="set-note" style="display:inline">· 기한은 30분 전, 작업 시간은 시작할 때</span></div>
@@ -3497,13 +3498,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
         }
       }
       else if (k === "onWork" || k === "offWork") st[k] = one(el.value) ?? st[k];
-      else if (k === "lunch" || k === "assembly") st[k] = two(el.value) ?? st[k];
+      else if (k === "lunch" || k === "assembly" || k === "commuteIn" || k === "commuteOut") st[k] = two(el.value) ?? st[k];
       else if (el.dataset.period) {
         const v = two(el.value);
         if (v) st.periods[Number(el.dataset.period)] = v;
       }
       // What was not taken goes back to the kept value, with one line on how to write it.
-      const kept = k === "eventMinutes" || k === "remindMinutes" ? String(st[k] ?? 30) : k === "onWork" || k === "offWork" || k === "lunch" || k === "assembly" ? st[k] : st.periods[Number(el.dataset.period)];
+      const kept = k === "eventMinutes" || k === "remindMinutes" ? String(st[k] ?? 30) : k === "onWork" || k === "offWork" || k === "lunch" || k === "assembly" || k === "commuteIn" || k === "commuteOut" ? st[k] : st.periods[Number(el.dataset.period)];
       if (el.value.trim() !== kept) {
         const ok = k === "eventMinutes" || k === "remindMinutes" ? /^\s*\d+\s*$/.test(el.value) : (k === "onWork" || k === "offWork" ? one : two)(el.value) !== null;
         if (!ok) toast(k === "eventMinutes" || k === "remindMinutes" ? "숫자만 적어 주세요 · 예: 30" : k === "onWork" || k === "offWork" ? "시각을 읽지 못했어요 · 예: 08:20" : "시간을 읽지 못했어요 · 예: 08:50-09:35");

@@ -74,8 +74,8 @@ describe("the day (A-2, A-5, B-10, B-11)", () => {
     app!.setView("day", "2026-10-27");
     const bar = root.querySelector<HTMLElement>('.dtg [data-ev="e1"]')!;
     expect(bar.querySelector(".t")!.textContent).toBe("초과근무");
-    // 10분 칸 (11-02): a wide box also says its range; every piece says it on hover.
-    expect(bar.querySelector(".r")!.textContent).toBe("16:20–21:20");
+    // 10분 칸 (11-02): every piece says its range on hover (it shares the row with 퇴근길 here, so no range words in it).
+    expect(bar.querySelector(".r")).toBeNull();
     expect(bar.title).toBe("16:20–21:20 초과근무");
     const open = root.querySelector<HTMLElement>('.dtg [data-ev="e2"]')!;
     expect(open.classList.contains("noend")).toBe(true);

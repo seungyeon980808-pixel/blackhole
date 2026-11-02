@@ -214,6 +214,9 @@ export interface Settings {
   lunch: string;
   /** 「조회 때/전/후」: the morning class meeting (HH:MM-HH:MM). */
   assembly: string;
+  /** 하루표의 고정 칸 (11-02): 출근길 · 퇴근길 (HH:MM-HH:MM, 평일). */
+  commuteIn: string;
+  commuteOut: string;
   /** 「n교시 전/후/에」: the school periods, in order (HH:MM-HH:MM each). */
   periods: string[];
   /** An appointment without an end is drawn this many minutes long (marked 「끝 미정」). */
@@ -271,6 +274,8 @@ export const DEFAULT_SETTINGS: Settings = {
   offWork: "16:20",
   lunch: "12:20-13:20",
   assembly: "08:40-08:50",
+  commuteIn: "07:00-08:20",
+  commuteOut: "16:40-18:00",
   periods: ["08:50-09:35", "09:45-10:30", "10:40-11:25", "11:35-12:20", "13:20-14:05", "14:15-15:00", "15:10-15:55"],
   eventMinutes: 60,
   // 일정 3분 전 (11-02 사용자 결정; 기한은 30분 전, 작업 시간은 시작할 때, 루틴은 알람 없음).

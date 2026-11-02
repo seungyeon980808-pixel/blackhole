@@ -273,12 +273,8 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
   let h = "";
   const wd = parseDay(k).getDay();
   const school = wd >= 1 && wd <= 5;
-  if (mins(st.onWork) > S) h += piece(S, mins(st.onWork), "off", () => "", () => "");
-  if (mins(st.offWork) < E) h += piece(mins(st.offWork), E, "off", () => "", () => "");
-  if (school) {
-    const [l0, l1] = st.lunch.split("-");
-    if (l0 && l1) h += piece(mins(l0), mins(l1), "lunch", () => 'title="점심"', () => "");
-  }
+  // 고정 칸 (11-02 사용자: 「너무 연해서 뭘 하겠다는 건지 모르겠다」): 출근길 · 점심 · 퇴근길 on school days, named.
+  const fixed: [string, string][] = school ? [["출근", st.commuteIn ?? "07:00-08:20"], ["점심", st.lunch], ["퇴근", st.commuteOut ?? "16:40-18:00"]] : [];
   // Appointments, 작업 시간 and 루틴 share rows: what overlaps takes a lane of its own (stacked in the row).
   type Item = { a: number; b: number; html: (lane: number, lanes: number) => string };
   const items: Item[] = [];
@@ -292,6 +288,12 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
     const cls = `ev ${e.workFor ? "work" : ""} ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.end ? "" : "noend"}`;
     items.push({ a, b, html: (lane, lanes) => piece(a, b, cls, () => `data-ev="${e.id}" data-evbox="${e.id}" tabindex="0" aria-label="${esc(e.title)} 열기" title="${esc(`${e.start}${e.end ? "–" + e.end : ""} ${e.title}`)}"`, (p) =>
       `${p.first ? `${n ? `<span class="no">${n}</span>` : ""}<span class="t">${esc(e.title)}</span>${e.provisional ? '<span class="ga">가</span>' : ""}${!e.end ? '<span class="r">끝 미정</span>' : (p.x1 - p.x0) >= 0.5 && lanes === 1 ? `<span class="r">${e.start}–${e.end}</span>` : ""}${rem}` : ""}${p.last ? '<i class="grip" title="끌어 늘이기"></i>' : ""}`, lane, lanes) });
+  }
+  // 고정 칸 share the rows too: an appointment at lunch takes half the row, no words on top of each other.
+  for (const [name, span] of fixed) {
+    const [x, y] = span.split("-");
+    if (!x || !y || mins(y) <= mins(x)) continue;
+    items.push({ a: mins(x), b: mins(y), html: (lane, lanes) => piece(mins(x), mins(y), "fix", () => `title="${name} ${x}–${y}"`, (p) => (p.first ? `<span class="t">${name}</span>${lanes === 1 ? `<span class="r">${x}–${y}</span>` : ""}` : ""), lane, lanes) });
   }
   for (const r of ctx.s.routines.filter((x) => routineOn(x, k))) {
     const a = mins(r.at);
