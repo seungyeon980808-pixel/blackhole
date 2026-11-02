@@ -265,6 +265,6 @@ describe("11-02 시안 15: 학교 · 외부 · 개인 색", () => {
     expect(ev.area).toBe("outside");
     await new Promise((r) => setTimeout(r, 0));
     expect(root.querySelector(`.dtg [data-ev="${ev.id}"]`)!.classList.contains("k-outside")).toBe(true);
-    expect(normalizeState(JSON.parse(JSON.stringify(app!.state))).events.find((e) => e.id === ev.id)!.area).toBe("outside");
+    expect(normalizeState(JSON.parse(JSON.stringify(app!.state)))!.events.find((e) => e.id === ev.id)!.area).toBe("outside");
   });
 });
