@@ -243,13 +243,13 @@ export const glass: ThemeView = {
       const e = x as unknown as CalEvent;
       // The title first, the start faint on the right (「5교시」 in school hours); a narrow day drops
       // the time first. The end and the rest on hover. Kind by shape: filled · dashed 가승인.
-      return `<span class="c cev ${e.provisional ? "prov" : ""} ${e.draft ? "draft" : ""}" title="${esc(`${e.start ? `${e.start}${e.end ? "–" + e.end : ""} ` : "종일 "}${e.title}`)}"><span class="w1">${esc(e.title)}</span>${e.start ? `<span class="ct">${shortWhen(ctx.s, e.date, e.start)}</span>` : ""}</span>`;
+      return `<span class="c cev ${e.provisional ? "prov" : ""} ${e.draft ? "draft" : ""}" title="${esc(`${e.start ? `${e.start}${e.end ? "–" + e.end : ""} ` : "종일 "}${e.title}`)}"><span class="w1">${e.star ? `<span class="mst s${e.star}">★</span>` : ""}${esc(e.title)}</span>${e.start ? `<span class="ct">${shortWhen(ctx.s, e.date, e.start)}</span>` : ""}</span>`;
     }
     if (kind === "task") {
       const t = x as unknown as Task;
       const b = dueBadge(ctx.today, t);
       // 안 A: a dot says 「deadline」 (red when today or late), the title, details on hover.
-      return `<span class="c task due mdot ${b?.hot ? "hot" : ""} ${t.done ? "done" : ""} ${t.draft ? "draft" : ""}" title="${esc(`마감 ${t.dueTime ? t.dueTime + " " : ""}${t.title}${b ? ` · ${b.text}` : ""}`)}">${esc(t.title)}</span>`;
+      return `<span class="c task due mdot ${b?.hot ? "hot" : ""} ${t.done ? "done" : ""} ${t.draft ? "draft" : ""}" title="${esc(`마감 ${t.dueTime ? t.dueTime + " " : ""}${t.title}${b ? ` · ${b.text}` : ""}`)}">${t.star ? `<span class="mst s${t.star}">★</span>` : ""}${esc(t.title)}</span>`;
     }
     const p = x as unknown as Period;
     return `<span class="pb ${p.area}" title="${esc(`${p.title} ${fd(p.from)}–${fd(p.to)}`)}">${esc(p.title)}</span>`;

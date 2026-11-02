@@ -246,8 +246,8 @@ export class FcHost {
         // Week boxes on the time axis: the place says the time (사용자 지적), so the title only — the
         // exact time on hover. (The fold rows outside the hours keep theirs.)
         if (!month && kind === "event" && !arg.event.allDay) {
-          const e = x as { date: string; start: string | null; end?: string | null; title: string; draft?: boolean };
-          return { html: `<div class="wbt" title="${escapeText(`${e.start ?? ""}${e.end ? "–" + e.end : ""} ${e.title}`)}"><span class="w1">${escapeText(e.title)}${e.draft ? '<span class="dr">초안</span>' : ""}</span></div>` };
+          const e = x as { date: string; start: string | null; end?: string | null; title: string; draft?: boolean; star?: number };
+          return { html: `<div class="wbt" title="${escapeText(`${e.start ?? ""}${e.end ? "–" + e.end : ""} ${e.title}`)}"><span class="w1">${e.star ? `<span class="mst s${e.star}">★</span>` : ""}${escapeText(e.title)}${e.draft ? '<span class="dr">초안</span>' : ""}</span></div>` };
         }
         if (!month && kind === "task" && !arg.event.allDay) {
           const t = x as unknown as Task;

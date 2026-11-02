@@ -359,7 +359,7 @@ html.native-glass .bh .bar .title { padding-left: 0; }
   --wall: radial-gradient(1100px 700px at 15% 0%, #1763b8, transparent 60%), radial-gradient(900px 800px at 60% 100%, #2e8796, transparent 60%), #0b3a8c;
   --page: #0b2a5a;
   --x-hair: rgba(255,255,255,.1); --x-line: rgba(255,255,255,.4); --x-chip: rgba(255,255,255,.08); --x-sel: rgba(255,255,255,.22); --x-box: rgba(255,255,255,.18);
-  --x-hatch: rgba(255,255,255,.05); --x-off: rgba(0,10,40,.18); --x-pinbg: rgba(12,40,100,.92); --x-inv: #0b2a5a; --x-star0: rgba(255,255,255,.3);
+  --x-hatch: rgba(255,255,255,.05); --x-off: rgba(0,10,40,.18); --x-pinbg: rgba(12,40,100,.92); --x-inv: #0b2a5a; --x-star0: rgba(255,255,255,.3); --x-evbox: rgba(255,255,255,.3);
 }
 .bh.glass[data-mode="light"] {
   --school: rgba(22,23,42,.85); --personal: rgba(22,23,42,.6); --todo: rgba(22,23,42,.85); --note: rgba(22,23,42,.7); --now: #16172a;

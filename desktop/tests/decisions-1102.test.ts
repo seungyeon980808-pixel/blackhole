@@ -144,3 +144,33 @@ describe("급함 = 걸리는 시간 대비 남은 근무 시간 (11-02, 2배)", 
     expect(app!.state.tasks.find((x) => x.id === t.id)!.due).toBe("2026-11-02");
   });
 });
+
+describe("월간 ★ · 교시 표시 (11-02)", () => {
+  it("「교시」라고 말한 수업은 그 교시가 하루표에 보임 (「3교시 전」은 아님)", async () => {
+    const { periodSaid } = await import("../src/calendar/store");
+    expect(periodSaid("내일 3교시 2-3 과학")).toBe("3교시");
+    expect(periodSaid("수요일 5,6교시 과학실 예약")).toBe("5~6교시");
+    expect(periodSaid("3교시 전에 출석부")).toBeUndefined();
+    const root = await mount();
+    await app!.submitText("내일 3교시 2-3 과학 수업");
+    const ev = app!.state.events.find((e) => e.title.includes("과학"))!;
+    expect([ev.start, ev.periodSaid]).toEqual(["10:40", "3교시"]);
+    app!.setView("day", ev.date);
+    expect(root.querySelector(`.dtg [data-ev="${ev.id}"] .pd`)!.textContent).toBe("3교시");
+  });
+
+  it("월간 보기에서 일정을 눌러도 월간 그대로 상세 창이 열리고, ★가 칸에 보임", async () => {
+    const root = await mount();
+    await app!.submitText("11월 10일 3시 학부모 상담");
+    const ev = app!.state.events.find((e) => e.title.includes("상담"))!;
+    app!.setView("month", "2026-11-10");
+    const chip = () => root.querySelector<HTMLElement>(`.fc [data-ev="${ev.id}"]`)!;
+    chip().click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(root.querySelector(".fc-rolling-view, .fc-dayGridMonth-view")).not.toBeNull();
+    root.querySelector<HTMLElement>('#bhDetail [data-dstar="2"]')!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(ev.star).toBe(2);
+    expect(chip().querySelector(".mst.s2")).not.toBeNull();
+  });
+});

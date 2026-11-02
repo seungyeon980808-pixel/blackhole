@@ -163,12 +163,12 @@ export const doc: ThemeView = {
   monthChip: (ctx, kind, x) => {
     if (kind === "event") {
       const e = x as unknown as CalEvent;
-      return `<div class="e ${e.provisional ? "prov" : ""} ${e.draft ? "draft" : ""}"><span class="t">${e.start ?? "종일"}</span> ${esc(e.title)}</div>`;
+      return `<div class="e ${e.provisional ? "prov" : ""} ${e.draft ? "draft" : ""}"><span class="t">${e.start ?? "종일"}</span> ${e.star ? `<span class="mst s${e.star}">★</span>` : ""}${esc(e.title)}</div>`;
     }
     if (kind === "task") {
       const t = x as unknown as Task;
       const b = dueBadge(ctx.today, t);
-      return `<div class="e due ${t.done ? "done" : ""} ${b?.hot ? "red" : ""} ${t.draft ? "draft" : ""}">${t.done ? "■" : "□"} <span class="t">마감${t.dueTime ? " " + t.dueTime : ""}</span> ${esc(t.title)}${b ? ` <b>${b.text}</b>` : ""}</div>`;
+      return `<div class="e due ${t.done ? "done" : ""} ${b?.hot ? "red" : ""} ${t.draft ? "draft" : ""}">${t.done ? "■" : "□"} <span class="t">마감${t.dueTime ? " " + t.dueTime : ""}</span> ${t.star ? `<span class="mst s${t.star}">★</span>` : ""}${esc(t.title)}${b ? ` <b>${b.text}</b>` : ""}</div>`;
     }
     const p = x as unknown as Period;
     return `<div class="pb" title="${esc(p.title)}">${esc(p.title)}</div>`;

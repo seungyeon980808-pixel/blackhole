@@ -243,6 +243,16 @@ function itemReview(item: ProposalItem): string[] | undefined {
   return item.needsReview && item.reviewReasons.length ? item.reviewReasons : undefined;
 }
 
+/** 「3교시」 「5,6교시」 「3~4교시」 said as the time of a lesson (not 「3교시 전/후」): its label. */
+export function periodSaid(said: string): string | undefined {
+  const m = /((?:\d{1,2}\s*[,~\-·]\s*)*\d{1,2})\s*교시(?!\s*(?:전|후|끝나|뒤|부터|까지|에서|이후|이전))/.exec(said);
+  if (!m) return undefined;
+  const ns = m[1].split(/[^\d]+/).filter(Boolean).map(Number);
+  const a = Math.min(...ns);
+  const b = Math.max(...ns);
+  return a === b ? `${a}교시` : `${a}~${b}교시`;
+}
+
 /**
  * Schedules go in as 가승인 (provisional), except what the user wrote or said themselves (`own`, 11-02:
  * 「직접 쓴 일정은 확정」). To-dos, periods and notes go in directly (the UI offers 되돌리기).
@@ -461,7 +471,8 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       start: timed ? nowHM(start) : null,
       end,
       provisional: !own,
-      reminders
+      reminders,
+      ...(span && periodSaid(timeSaid) ? { periodSaid: periodSaid(timeSaid) } : {})
     };
     s.events.push(ev);
     out.refs.push(ev.id);
@@ -568,7 +579,8 @@ export function draftFromText(s: CalendarState, said: string, source: string, no
     const ev: CalEvent = {
       ...base, id: draftId("e"), kind: "event", date: r.date, start: r.time,
       end: `${String(Math.floor(endM / 60)).padStart(2, "0")}:${String(endM % 60).padStart(2, "0")}`,
-      provisional: !own, reminders: [plusMinutes(r.date, r.time, -(r.remindBefore ?? s.settings.remindMinutes ?? 30))]
+      provisional: !own, reminders: [plusMinutes(r.date, r.time, -(r.remindBefore ?? s.settings.remindMinutes ?? 30))],
+      ...(periodSaid(text) ? { periodSaid: periodSaid(text) } : {})
     };
     ev.reminders = ev.reminders.filter((r) => fromStamp(r).getTime() > now.getTime());
     s.events.push(ev);

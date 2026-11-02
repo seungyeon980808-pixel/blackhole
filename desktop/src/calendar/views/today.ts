@@ -287,7 +287,7 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
     const rem = task && !task.done && !task.noDue ? `<button class="rem R${lv}" data-rem="${task.id}" title="${esc(`${fd(task.due)}${task.dueTime ? " " + task.dueTime : ""}까지 · 눌러서 기한 다시 정하기`)}">${remainText(task, ctx.now, st.offWork)}</button>` : "";
     const cls = `ev ${e.workFor ? "work" : ""} ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.end ? "" : "noend"}`;
     items.push({ a, b, html: (lane, lanes) => piece(a, b, cls, () => `data-ev="${e.id}" data-evbox="${e.id}" tabindex="0" aria-label="${esc(e.title)} 열기" title="${esc(`${e.start}${e.end ? "–" + e.end : ""} ${e.title}`)}"`, (p) =>
-      `${p.first ? `${n ? `<span class="no">${n}</span>` : ""}<span class="t">${esc(e.title)}</span>${e.provisional ? '<span class="ga">가</span>' : ""}${!e.end ? '<span class="r">끝 미정</span>' : (p.x1 - p.x0) >= 0.5 && lanes === 1 ? `<span class="r">${e.start}–${e.end}</span>` : ""}${rem}` : ""}${p.last ? '<i class="grip" title="끌어 늘이기"></i>' : ""}`, lane, lanes) });
+      `${p.first ? `${n ? `<span class="no">${n}</span>` : ""}${e.periodSaid && !e.title.includes(e.periodSaid) ? `<span class="pd">${e.periodSaid}</span>` : ""}<span class="t">${esc(e.title)}</span>${e.provisional ? '<span class="ga">가</span>' : ""}${!e.end ? '<span class="r">끝 미정</span>' : (p.x1 - p.x0) >= 0.5 && lanes === 1 ? `<span class="r">${e.start}–${e.end}</span>` : ""}${rem}` : ""}${p.last ? '<i class="grip" title="끌어 늘이기"></i>' : ""}`, lane, lanes) });
   }
   // 고정 칸 share the rows too: an appointment at lunch takes half the row, no words on top of each other.
   for (const [name, span] of fixed) {

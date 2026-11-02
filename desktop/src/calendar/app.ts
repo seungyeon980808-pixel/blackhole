@@ -3231,7 +3231,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (view !== "day") {
       const day = q("[data-day]");
       if (day) return openDay(day.dataset.day!);
-      const e = q("[data-ev]");
+      // On the month/week calendar the calendar's own click opens the entry's panel (★ there): not the day too
+      // (11-02 사용자: 월간에서 중요 표시를 하려니 일간으로 넘어가 버림).
+      const e = adapter.recordAction ? q("[data-ev]") : q("[data-ev]:not(.fc [data-ev])");
       if (e) {
         const x = findEntry(s, e.dataset.ev!);
         if (x && (x.kind === "event" || x.kind === "task")) return openDay(x.kind === "event" ? x.date : x.due);
