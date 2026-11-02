@@ -159,6 +159,10 @@ try {
           r.out.push(...d.filter((x) => !x.startsWith("겹침")));
           r.overlap.push(...d.filter((x) => x.startsWith("겹침")).map((x) => x.slice(4)));
           await page.screenshot({ path: join(OUT, `${tag}-detail.png`) });
+          // 「닫기」를 누르면 화면에서도 사라져 대화 칸이 다시 보여야 함.
+          await page.click("#bhDetail .dclose2");
+          await page.waitForTimeout(250);
+          if (await page.evaluate(() => getComputedStyle(document.querySelector("#bhDetail")).display !== "none")) r.out.push("상세 패널이 닫아도 보임");
         }
         const bad = [...r.out.map((x) => `창 밖: ${x}`), ...r.overlap.map((x) => `겹침: ${x}`), r.edge && `끝선: ${r.edge}`, r.scroll, r.fill, ...errors].filter(Boolean);
         n++;

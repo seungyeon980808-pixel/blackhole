@@ -559,6 +559,8 @@ html.phone .bh .content { overflow-y: auto; }
 
 /* 상세 편집 패널(2026-10-28): 대화 패널 자리에 겹쳐 열림, 칸마다 바로 저장. 단추는 아래 한 줄(글자와 겹치지 않음) */
 .bh .dpanel { position: absolute; z-index: 60; display: flex; flex-direction: column; box-sizing: border-box; background: var(--page, #fff); color: var(--ink); border-left: 1px solid var(--line, #999); font-size: 13px; }
+/* 닫으면 숨김: 위 display:flex가 hidden을 덮어 닫아도 창이 남아 대화 칸이 안 돌아왔음 (11-02). */
+.bh .dpanel[hidden] { display: none; }
 .bh .dpanel.over { border: 1px solid var(--line, #999); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
 .bh .dpanel .dph { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px 14px; border-bottom: 1px solid var(--hair, #ddd); flex: none; }
 .bh .dpanel .dph b { font-size: 12px; color: var(--ink2); font-weight: 600; }
