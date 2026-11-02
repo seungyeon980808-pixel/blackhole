@@ -260,7 +260,8 @@ const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${St
  */
 export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, number>, fd: (k: string) => string): string {
   const st = ctx.s.settings;
-  const [S, E] = o.range === "work" ? [8 * 60, 17 * 60] : [0, 24 * 60];
+  // 11-02 사용자: 「07–18」(집에 도착할 때까지) · 「07–21」(야근하는 날).
+  const [S, E] = o.range === "work" ? [7 * 60, 18 * 60] : [7 * 60, 21 * 60];
   const rows = (E - S) / 60;
   const evs = eventsOn(ctx.s, k);
   const allDay = evs.filter((e) => !e.start);
@@ -320,7 +321,7 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
   for (let H = S / 60; H < E / 60; H++) grid += `<div class="hrow"><span class="hl">${String(H).padStart(2, "0")}:00</span>${"<i></i>".repeat(6)}</div>`;
   const dups = duplicates(ctx.s).filter((d) => d.x.kind === "event" && d.x.date === k);
   return `<div class="dt panel g">
-    <div class="dta">${allDay.map((e) => `<span class="chip ${e.provisional ? "prov" : ""}" data-ev="${e.id}">종일 · ${esc(e.title)}</span>`).join("")}${dups.length ? `<button class="warnlink" data-checks>같은 일정 ${dups.length + 1}개 · 합치기</button>` : ""}<span class="mode"><button data-dr="work" class="${o.range === "work" ? "on" : ""}">업무 08–17</button><button data-dr="all" class="${o.range === "all" ? "on" : ""}">하루 전체</button></span></div>
+    <div class="dta">${allDay.map((e) => `<span class="chip ${e.provisional ? "prov" : ""}" data-ev="${e.id}">종일 · ${esc(e.title)}</span>`).join("")}${dups.length ? `<button class="warnlink" data-checks>같은 일정 ${dups.length + 1}개 · 합치기</button>` : ""}<span class="mode"><button data-dr="work" class="${o.range === "work" ? "on" : ""}" title="07:00–18:00">07–18</button><button data-dr="all" class="${o.range === "all" ? "on" : ""}" title="07:00–21:00 · 야근하는 날">07–21 야근</button></span></div>
     <div class="dtgw"><div class="dhd"><span></span><span>:00</span><span>:10</span><span>:20</span><span>:30</span><span>:40</span><span>:50</span></div>
       <div class="dtg" data-dtg="${k}" data-s="${S}" data-e="${E}" style="--rows:${rows}">${grid}<div class="dly" data-dtc title="끌면 새 일정 · 할 일을 끌어 놓으면 작업 시간 (5분 단위)">${h}</div></div></div>
   </div>`;

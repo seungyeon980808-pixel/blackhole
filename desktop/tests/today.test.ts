@@ -178,8 +178,8 @@ describe("work blocks and the range", () => {
     document.elementFromPoint = () => null;
     const pe = (type: string, x: number, y: number) => new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 });
     root.querySelector<HTMLElement>('.tl .task[data-ev="t3"] .tn')!.dispatchEvent(pe("pointerdown", 600, 300));
-    window.dispatchEvent(pe("pointermove", 200, 190)); // row 4 (11시), 200/360 of the hour = 33분 → 35분
-    window.dispatchEvent(pe("pointerup", 200, 190));
+    window.dispatchEvent(pe("pointermove", 200, 206)); // 07–18: 11 rows of 49px, row 4 (11시), 200/360 of the hour = 33분 → 35분
+    window.dispatchEvent(pe("pointerup", 200, 206));
     await tick();
     const w = app!.state.events.find((e) => e.workFor === "t3")!;
     expect([w.title, w.start, w.end, w.date]).toEqual(["가정통신문", "11:35", "12:05", "2026-10-27"]);
@@ -190,12 +190,12 @@ describe("work blocks and the range", () => {
 
   it("업무 08–17 / 하루 전체: remembered", async () => {
     let root = await mount(base());
-    expect(root.querySelector<HTMLElement>(".dtg")!.dataset.e).toBe(String(17 * 60));
+    expect(root.querySelector<HTMLElement>(".dtg")!.dataset.e).toBe(String(18 * 60));
     root.querySelector<HTMLButtonElement>('[data-dr="all"]')!.click();
-    expect(root.querySelector<HTMLElement>(".dtg")!.dataset.e).toBe(String(24 * 60));
+    expect(root.querySelector<HTMLElement>(".dtg")!.dataset.e).toBe(String(21 * 60));
     app!.destroy();
     root = await mount(base());
-    expect(root.querySelector<HTMLElement>(".dtg")!.dataset.s).toBe("0");
+    expect(root.querySelector<HTMLElement>(".dtg")!.dataset.e).toBe(String(21 * 60)); // remembered
   });
 });
 

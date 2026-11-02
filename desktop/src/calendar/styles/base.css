@@ -270,7 +270,6 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 /* 하루표 (11-02 「10분 칸」): one row per hour, 6 cells of 10 minutes; boxes are a plain fill, no edge stripe. */
 .bh .tdv .dhd { display: grid; grid-template-columns: 46px repeat(6, 1fr); font-size: 10.5px; color: var(--ink3); padding-bottom: 3px; font-variant-numeric: tabular-nums; }
 .bh .tdv .dtg { position: relative; flex: 1; min-height: calc(var(--rows) * 36px); display: grid; grid-template-rows: repeat(var(--rows), minmax(36px, 1fr)); user-select: none; -webkit-user-select: none; }
-.bh .tdv .dtg[data-e="1440"] { flex: none; }
 .bh .tdv .dtg .hrow { display: grid; grid-template-columns: 46px repeat(6, 1fr); }
 .bh .tdv .dtg .hrow .hl { font-size: 11px; color: var(--ink2); padding-top: 3px; font-variant-numeric: tabular-nums; }
 .bh .tdv .dtg .hrow i { border-top: 1px solid var(--x-hair); border-left: 1px solid var(--x-hair); opacity: .8; }
