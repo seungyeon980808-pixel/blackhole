@@ -306,9 +306,11 @@ html.native-glass .bh.side .panelbar { padding-top: 34px; }
 /* 남은 시간 (11-02): one word, its colour the 급함 단계 — 여유 · 곧 주황 · 급함 빨강 · 늦음 진한 빨강. Click = 기한 다시 정하기. */
 .bh .rem { border: 0; font: inherit; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 3px; white-space: nowrap; cursor: pointer; min-width: 58px; text-align: center; flex: none; }
 .bh .rem.R0 { color: var(--ink2); background: var(--x-chip); }
-.bh .rem.R1 { color: #3a2300; background: #ffb547; }
-.bh .rem.R2 { color: #fff; background: #ff5a4f; }
-.bh .rem.R3 { color: #fff; background: #c9184a; }
+.bh .rem.R1 { color: #3a2300; background: rgba(255,181,71,.7); }
+.bh .rem.R2 { color: #fff; background: rgba(255,90,79,.7); }
+.bh .rem.R3 { color: #fff; background: rgba(201,24,74,.7); }
+/* 11-02 사용자가 고른 진하기(시안 7 「5.5단계」): 색은 70%, 여유는 흰 25% 위 흰 글자. */
+.bh.glass:not([data-mode="light"]) .rem.R0 { color: rgba(255,255,255,.85); background: rgba(255,255,255,.245); }
 .bh .rem.none { background: none; color: var(--ink3); font-weight: 500; visibility: hidden; }
 .bh .tdv .tl .task:hover .rem.none { visibility: visible; }
 .bh .rem:hover { filter: brightness(1.12); }
