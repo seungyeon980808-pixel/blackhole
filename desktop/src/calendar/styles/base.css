@@ -757,3 +757,5 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .dpanel .d-short:focus { outline: 0; border-bottom-style: solid; color: var(--ink); }
 .bh .tdv .ups .btk.td { transform: translateX(-100%); margin-left: -2px; }
 .bh .tdv .ups .band { margin-left: 30px; }
+/* 대화가 오른쪽에 있으면 본문 아래에 입력칸이 없어 칸들이 창 끝에 붙었음: 아래 여백 (11-02). */
+.bh.side #bhMain { padding-bottom: 14px; box-sizing: border-box; }
