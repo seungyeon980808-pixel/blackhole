@@ -176,13 +176,17 @@ describe("월간 ★ · 교시 표시 (11-02)", () => {
 });
 
 describe("다가오는 주요 일정 · 할 일 묶기 (11-02)", () => {
-  it("★ 표시한 것은 석 달 앞까지 (37일 뒤 ★ 기말고사가 빠지던 것)", async () => {
+  it("날짜 창 없이 D-day 순, 화면에는 10개까지 (37일 뒤 ★ 기말고사가 빠지던 것)", async () => {
     const { upcoming } = await import("../src/calendar/views/today");
     const s = emptyState();
     s.periods.push({ id: "p1", kind: "period", title: "기말고사", from: "2026-12-09", to: "2026-12-10", star: 2, area: "school", source: "t", createdAt: "2026-11-01T08:00" } as never);
     s.periods.push({ id: "p2", kind: "period", title: "겨울 연수", from: "2026-12-20", to: "2026-12-22", area: "school", source: "t", createdAt: "2026-11-01T08:00" } as never);
     s.events.push({ id: "e1", kind: "event", title: "수능", date: "2026-11-19", start: null, end: null, star: 2, provisional: false, reminders: [], area: "school", source: "t", createdAt: "2026-11-01T08:00" } as never);
-    expect(upcoming(s, "2026-11-02", (k) => k).map((u) => u.title)).toEqual(["수능", "기말고사"]); // 별 없는 기간은 30일 안만
+    expect(upcoming(s, "2026-11-02", (k) => k).map((u) => u.title)).toEqual(["수능", "기말고사", "겨울 연수"]);
+    for (let i = 0; i < 12; i++) s.events.push({ id: `x${i}`, kind: "event", title: `행사${i}`, date: `2027-01-${String(i + 10).padStart(2, "0")}`, start: null, end: null, star: 1, provisional: false, reminders: [], area: "school", source: "t", createdAt: "2026-11-01T08:00" } as never);
+    const { rightStack, UPCOMING_MAX } = await import("../src/calendar/views/today");
+    const html = rightStack({ s, today: "2026-11-02" } as never, "2026-11-02", (k: string) => k);
+    expect((html.match(/class="ms"/g) ?? []).length).toBe(UPCOMING_MAX);
   });
 
   it("⌘+클릭으로 둘 고르고 새 이름으로 묶으면 나머지는 하위 체크, ⌘Z로 원래대로, 따로 떼기", async () => {

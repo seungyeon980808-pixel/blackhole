@@ -209,13 +209,12 @@ export interface Upcoming {
 }
 
 /**
- * 다가오는 주요 일정: starred appointments, deadlines and periods three months ahead (11-02: 37일 뒤
- * ★ 기말고사가 30일 창 밖이라 빠졌음), other periods 30 days ahead, by D-day.
+ * 다가오는 주요 일정: starred appointments and deadlines, and periods, by D-day — no day limit
+ * (11-02 사용자: 날짜 창이 아니라 개수로, 화면에는 10개까지 `UPCOMING_MAX`).
  */
-export const UPCOMING_STAR_DAYS = 90;
+export const UPCOMING_MAX = 10;
 export function upcoming(s: CalendarState, today: string, fd: (k: string) => string): Upcoming[] {
-  const until = ymd(addDays(parseDay(today), UPCOMING_STAR_DAYS));
-  const near = ymd(addDays(parseDay(today), 30));
+  const until = "9999-12-31";
   const out: Upcoming[] = [];
   const days = (k: string) => Math.round((parseDay(k).getTime() - parseDay(today).getTime()) / 864e5);
   for (const e of liveEvents(s)) {
@@ -227,7 +226,7 @@ export function upcoming(s: CalendarState, today: string, fd: (k: string) => str
     out.push({ id: t.id, title: t.title, star: t.star ?? 0, days: days(t.due), when: `${fd(t.due)}${t.dueTime ? " " + t.dueTime : ""}까지`, steps: t.subs.length ? [t.subs.filter((x) => x.done).length, t.subs.length] : undefined });
   }
   for (const p of livePeriods(s)) {
-    if (p.from <= today || p.from > ((p.star ?? 0) ? until : near)) continue;
+    if (p.from <= today) continue;
     out.push({ id: p.id, title: p.title, star: p.star ?? 0, days: days(p.from), when: `${fd(p.from)}–${fd(p.to)}` });
   }
   return out.sort((a, b) => a.days - b.days || b.star - a.star);
@@ -384,10 +383,10 @@ export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => s
 }
 
 export function rightStack(ctx: Ctx, k: string, fd: (k: string) => string): string {
-  const up = upcoming(ctx.s, k, fd);
+  const up = upcoming(ctx.s, k, fd).slice(0, UPCOMING_MAX);
   const find = (id: string) => [...ctx.s.events, ...ctx.s.tasks, ...ctx.s.periods].find((x) => x.id === id);
   return `<div class="rstack">
-    <div class="panel g ups ${up.length ? "" : "empty"}"><div class="ph"><b>다가오는 주요 일정</b><span title="★ 표시한 것은 석 달 앞까지, 기간은 30일 앞까지">★ 석 달</span></div>
+    <div class="panel g ups ${up.length ? "" : "empty"}"><div class="ph"><b>다가오는 주요 일정</b><span>${up.length ? `${up.length}개` : ""}</span></div>
       ${up.length ? up.map((u) => {
         const x = find(u.id);
         return `<div class="ms" data-ev="${u.id}">${x ? starBtn(x) : "<span></span>"}<div><div class="t ${u.star === 2 ? "s2b" : ""}">${esc(u.title)}</div><div class="w">${esc(u.when)}</div>${u.steps ? `<div class="prog"><i style="--p:${((u.steps[0] / u.steps[1]) * 100).toFixed(0)}%"></i>${u.steps[0]}/${u.steps[1]} 단계</div>` : ""}</div><span class="d ${u.days <= 7 ? "soon" : ""}">D-${u.days}</span></div>`;
