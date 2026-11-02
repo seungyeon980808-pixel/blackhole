@@ -208,9 +208,14 @@ export interface Upcoming {
   steps?: [number, number];
 }
 
-/** 다가오는 주요 일정 (30 days): starred appointments and deadlines, and periods, by D-day. */
+/**
+ * 다가오는 주요 일정: starred appointments, deadlines and periods three months ahead (11-02: 37일 뒤
+ * ★ 기말고사가 30일 창 밖이라 빠졌음), other periods 30 days ahead, by D-day.
+ */
+export const UPCOMING_STAR_DAYS = 90;
 export function upcoming(s: CalendarState, today: string, fd: (k: string) => string): Upcoming[] {
-  const until = ymd(addDays(parseDay(today), 30));
+  const until = ymd(addDays(parseDay(today), UPCOMING_STAR_DAYS));
+  const near = ymd(addDays(parseDay(today), 30));
   const out: Upcoming[] = [];
   const days = (k: string) => Math.round((parseDay(k).getTime() - parseDay(today).getTime()) / 864e5);
   for (const e of liveEvents(s)) {
@@ -222,7 +227,7 @@ export function upcoming(s: CalendarState, today: string, fd: (k: string) => str
     out.push({ id: t.id, title: t.title, star: t.star ?? 0, days: days(t.due), when: `${fd(t.due)}${t.dueTime ? " " + t.dueTime : ""}까지`, steps: t.subs.length ? [t.subs.filter((x) => x.done).length, t.subs.length] : undefined });
   }
   for (const p of livePeriods(s)) {
-    if (p.from <= today || p.from > until) continue;
+    if (p.from <= today || p.from > ((p.star ?? 0) ? until : near)) continue;
     out.push({ id: p.id, title: p.title, star: p.star ?? 0, days: days(p.from), when: `${fd(p.from)}–${fd(p.to)}` });
   }
   return out.sort((a, b) => a.days - b.days || b.star - a.star);
@@ -332,7 +337,7 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
 function stepRows(t: Task, n: number, open: boolean): string {
   if (!t.subs.length || !open) return "";
   const next = t.subs.findIndex((x) => !x.done);
-  return `<div class="steps">${t.subs.map((x, j) => `<div class="step ${x.done ? "done" : ""} ${j === next ? "next" : ""}"><span class="n">${n}-${j + 1}</span><span class="ck ${x.done ? "on" : ""}" data-sub="${t.id}:${j}" role="checkbox" aria-checked="${x.done}" tabindex="0"></span><span class="s">${esc(x.title)}${x.ai ? '<span class="aisug" title="원문에 없던 단계 · AI가 제안">AI 제안</span>' : ""}</span>${j === next ? '<span class="tag">다음</span>' : "<span></span>"}</div>`).join("")}<input class="subadd on" data-subadd="${t.id}" placeholder="+ 단계 추가" aria-label="${esc(t.title)} 단계 추가"></div>`;
+  return `<div class="steps">${t.subs.map((x, j) => `<div class="step ${x.done ? "done" : ""} ${j === next ? "next" : ""}"><span class="n">${n}-${j + 1}</span><span class="ck ${x.done ? "on" : ""}" data-sub="${t.id}:${j}" role="checkbox" aria-checked="${x.done}" tabindex="0"></span><span class="s">${esc(x.title)}${x.ai ? '<span class="aisug" title="원문에 없던 단계 · AI가 제안">AI 제안</span>' : ""}<button class="subout" data-subout="${t.id}:${j}" title="따로 떼어 할 일 하나로">따로 떼기</button></span>${j === next ? '<span class="tag">다음</span>' : "<span></span>"}</div>`).join("")}<input class="subadd on" data-subadd="${t.id}" placeholder="+ 단계 추가" aria-label="${esc(t.title)} 단계 추가"></div>`;
 }
 
 export function starBtn(x: Entry): string {
@@ -356,7 +361,7 @@ export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => s
     const lv = urgency(t, ctx.now, ctx.s);
     const by = lv === 1 || lv === 2 ? startBy(t, ctx.s, fd, ctx.today) : "";
     const tip = t.noDue ? "기한 정하기" : `${fd(t.due)}${t.dueTime ? " " + t.dueTime : ""}까지 · 걸리는 시간 ${effortName(effortOf(t))}${by ? ` · ${by}` : ""} · 눌러서 기한 다시 정하기`;
-    return `<div class="task" data-ev="${t.id}" data-task="${t.id}" data-num="${n}" tabindex="0" aria-label="${esc(t.title)} 열기">
+    return `<div class="task ${ctx.sel?.has(t.id) ? "sel" : ""}" data-ev="${t.id}" data-task="${t.id}" data-num="${n}" tabindex="0" aria-label="${esc(t.title)} 열기" title="⌘+클릭으로 여러 개 고르기 · 다른 할 일 위에 끌어 놓으면 묶기">
       <span class="no" data-num="${n}">${n}</span><span class="ck" data-tdone="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="${esc(t.title)} 완료"></span>${starBtn(t)}
       <span class="tn ${t.star === 2 ? "s2b" : ""}">${esc(t.title)}${t.draft ? '<span class="dr">초안</span>' : ""}${t.wait ? `<span class="wait" title="먼저 있어야 할 일">기다림 · ${esc(t.wait)}</span>` : ""}${t.subs.length ? `<button class="pg" data-subs="${t.id}" aria-expanded="${open}">${sd}/${t.subs.length} ${open ? "▾" : "▸"}</button>` : `<button class="pg add" data-subs="${t.id}" title="단계 추가">+</button>`}</span>
       <span class="wk">${work ? `<span title="작업 시간 ${esc(`${fd(work.date)} ${work.start}–${work.end ?? ""}`)}">⏱ ${work.date === ctx.today ? "" : fd(work.date) + " "}${work.start}</span>` : ""}</span><button class="rem R${lv} ${t.noDue ? "none" : ""}" data-rem="${t.id}" title="${esc(tip)}">${t.noDue ? "+ 기한" : remainText(t, ctx.now, off)}</button></div>${stepRows(t, n, open)}`;
@@ -373,6 +378,7 @@ export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => s
     ${t1.length ? `<div class="grp">오늘 ${d.getMonth() + 1}/${d.getDate()}(${DOW[d.getDay()]})<span>${t1.length}</span></div>${t1.map(row).join("")}` : ""}
     ${t2.length ? `<div class="grp later">나중<span>${t2.length}</span></div><div class="laterl">${t2.map(row).join("")}</div>` : ""}
     ${t3.length ? `<div class="grp later">날짜 없는 할 일<span>${t3.length}</span></div><div class="laterl">${t3.map(row).join("")}</div>` : ""}
+    ${(ctx.sel?.size ?? 0) >= 2 ? `<div class="mbar"><b>${ctx.sel!.size}개 고름</b><button data-selclear>취소</button><button class="pri" data-mergeopen>하나로 묶기</button></div>` : (ctx.sel?.size ?? 0) === 1 ? '<div class="mbar hint">⌘+클릭으로 묶을 할 일을 더 고르세요<button data-selclear>취소</button></div>' : ""}
     ${done.length ? `<details class="fold" data-fold="done" ${ctx.open?.has("done") ? "open" : ""}><summary>완료 ${done.length}</summary>${ctx.open?.has("done") ? done.map((t) => `<div class="task done" data-ev="${t.id}"><span></span><span class="ck on" data-tdone="${t.id}" role="checkbox" aria-checked="true" tabindex="0"></span><span></span><span class="tn">${esc(t.title)}</span><span class="due"></span></div>`).join("") : ""}</details>` : ""}
   </div>`;
 }
@@ -381,7 +387,7 @@ export function rightStack(ctx: Ctx, k: string, fd: (k: string) => string): stri
   const up = upcoming(ctx.s, k, fd);
   const find = (id: string) => [...ctx.s.events, ...ctx.s.tasks, ...ctx.s.periods].find((x) => x.id === id);
   return `<div class="rstack">
-    <div class="panel g ups ${up.length ? "" : "empty"}"><div class="ph"><b>다가오는 주요 일정</b><span>30일</span></div>
+    <div class="panel g ups ${up.length ? "" : "empty"}"><div class="ph"><b>다가오는 주요 일정</b><span title="★ 표시한 것은 석 달 앞까지, 기간은 30일 앞까지">★ 석 달</span></div>
       ${up.length ? up.map((u) => {
         const x = find(u.id);
         return `<div class="ms" data-ev="${u.id}">${x ? starBtn(x) : "<span></span>"}<div><div class="t ${u.star === 2 ? "s2b" : ""}">${esc(u.title)}</div><div class="w">${esc(u.when)}</div>${u.steps ? `<div class="prog"><i style="--p:${((u.steps[0] / u.steps[1]) * 100).toFixed(0)}%"></i>${u.steps[0]}/${u.steps[1]} 단계</div>` : ""}</div><span class="d ${u.days <= 7 ? "soon" : ""}">D-${u.days}</span></div>`;

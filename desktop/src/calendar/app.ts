@@ -194,6 +194,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
   /** The entry last clicked or hovered (⌥←/⌥→ move it a day). */
   let picked: string | null = null;
+  /** 할 일 묶기: to-dos picked with ⌘-click (11-02). */
+  const mergeSel = new Set<string>();
   /** The 「기억」 find box. */
   let memoQuery = "";
   /** 기억 보기: 날짜별/주제별 (remembered), the tags chosen to filter, the tag being renamed. */
@@ -273,6 +275,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       recording: !!recording,
       busy: busy > 0,
       open: openFolds,
+      sel: mergeSel,
       fixSkip,
       editing,
       canEdit: !adapter.recordAction,
@@ -740,6 +743,102 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     root.querySelector<HTMLInputElement>(".rempop [data-remsay]")?.focus();
   }
 
+  /**
+   * 할 일 묶기 (11-02 시안 6): pick the 대표 이름 (one of them, or a new one); the others become its 하위 체크.
+   * 기한 = the earliest, ★ = the highest, 걸리는 시간 = the sum, 작업 시간 go to the merged one. One ⌘Z.
+   */
+  function openMerge(ids: string[]): void {
+    root.querySelector(".mergepop")?.remove();
+    const ts = ids.map((id) => findEntry(s, id)).filter((x): x is Task => x?.kind === "task" && !x.gone && !x.done);
+    if (ts.length < 2) return toast("묶을 할 일을 두 개 이상 골라 주세요");
+    root.insertAdjacentHTML("beforeend", `<div class="mergepop" role="dialog" aria-label="하나로 묶기" style="left:${Math.max(12, window.innerWidth / 2 - 170)}px;top:${Math.max(12, window.innerHeight / 2 - 190)}px">
+      <h4>하나로 묶기</h4>
+      <div class="lbl">대표 이름</div>
+      ${ts.map((x, i) => `<label><input type="radio" name="mhead" value="${x.id}" ${i === 0 ? "checked" : ""}>${escapeHtml(x.title)}</label>`).join("")}
+      <label><input type="radio" name="mhead" value=""><input type="text" data-mnew placeholder="새 이름 — 예: 방한용품 구매"></label>
+      <div class="lbl">묶은 뒤</div><div class="pv"></div>
+      <div class="ft"><button data-mcancel>취소</button><button class="pri" data-mok>묶기</button></div>
+    </div>`);
+    const pop = root.querySelector<HTMLElement>(".mergepop")!;
+    pop.dataset.ids = ts.map((x) => x.id).join(",");
+    const preview = () => {
+      const head = pop.querySelector<HTMLInputElement>("input[name=mhead]:checked")?.value ?? "";
+      const name = head ? findEntry(s, head)!.title : pop.querySelector<HTMLInputElement>("[data-mnew]")!.value.trim() || "새 이름";
+      const subs = ts.flatMap((x) => (x.id === head ? x.subs.map((y) => y.title) : [x.title, ...x.subs.map((y) => y.title)]));
+      const dated = ts.filter((x) => !x.noDue).sort((a, b) => (a.due + (a.dueTime ?? "99")).localeCompare(b.due + (b.dueTime ?? "99")))[0];
+      pop.querySelector(".pv")!.innerHTML = `<b>${escapeHtml(name)}</b> · ${dated ? `기한 ${theme().fd(dated.due)}${dated.dueTime ? " " + dated.dueTime : ""}` : "날짜 없음"} · 하위 ${subs.length}개<div class="sb">${subs.map((x) => `☐ ${escapeHtml(x)}`).join("<br>")}</div>`;
+    };
+    pop.addEventListener("change", preview);
+    pop.addEventListener("input", (e) => {
+      if ((e.target as HTMLElement).matches("[data-mnew]")) pop.querySelector<HTMLInputElement>('input[name=mhead][value=""]')!.checked = true;
+      preview();
+    });
+    preview();
+  }
+
+  function mergeTasks(ids: string[], headId: string, newTitle: string): void {
+    root.querySelector(".mergepop")?.remove();
+    const ts = ids.map((id) => findEntry(s, id)).filter((x): x is Task => x?.kind === "task" && !x.gone);
+    if (ts.length < 2) return;
+    const head = ts.find((x) => x.id === headId) ?? ts[0];
+    const title = headId ? head.title : newTitle.trim().slice(0, 80);
+    if (!title) return toast("새 이름을 적어 주세요");
+    const before = ts.map((x) => structuredClone(x));
+    const works = s.events.filter((e) => e.workFor && ts.some((x) => x.id === e.workFor && x.id !== head.id)).map((e) => [e, e.workFor!] as const);
+    const effort = ts.reduce((n, x) => n + effortOf(x), 0);
+    const dated = ts.filter((x) => !x.noDue).sort((a, b) => (a.due + (a.dueTime ?? "99")).localeCompare(b.due + (b.dueTime ?? "99")))[0];
+    const subs = [
+      ...(headId ? head.subs : [{ title: head.title, done: head.done }, ...head.subs]),
+      ...ts.filter((x) => x.id !== head.id).flatMap((x) => [{ title: x.title, done: x.done }, ...x.subs])
+    ];
+    head.title = title;
+    head.subs = subs;
+    head.star = Math.max(...ts.map((x) => x.star ?? 0)) as 0 | 1 | 2;
+    head.effort = EFFORTS.reduce((best, [m]) => (Math.abs(m - effort) < Math.abs(best - effort) ? m : best), EFFORTS[0][0]);
+    if (dated) {
+      head.due = dated.due;
+      head.dueTime = dated.dueTime;
+      head.noDue = false;
+      head.reminders = dated.reminders.slice();
+    }
+    head.touched = true;
+    for (const x of ts) if (x !== head) x.gone = true;
+    for (const [e] of works) e.workFor = head.id;
+    mergeSel.clear();
+    openFolds.add(`subs:${head.id}`);
+    log(s, { label: "묶음", msg: `${title} ← ${ts.filter((x) => x !== head).map((x) => x.title).join(", ")}`, src: adapter.origin, ref: head.id }, clock());
+    undoStack.push({ label: `「${title}」 묶기`, run: () => {
+      for (const b of before) {
+        const y = findEntry(s, b.id);
+        if (y) {
+          for (const k of Object.keys(y)) delete (y as unknown as Record<string, unknown>)[k];
+          Object.assign(y, b);
+        }
+      }
+      for (const [e, w] of works) e.workFor = w;
+      void act(() => undefined);
+    } });
+    toast(`「${title}」으로 묶었어요 · 하위 ${subs.length}개`, undefined, true);
+    void act(() => undefined);
+  }
+
+  /** 「따로 떼기」: a 하위 체크 becomes a to-do of its own (same 기한). */
+  function splitSub(id: string, j: number): void {
+    const x = findEntry(s, id);
+    if (x?.kind !== "task" || !x.subs[j]) return;
+    const sub = x.subs[j];
+    const t: Task = { id: newId(s, "t"), kind: "task", title: sub.title, area: x.area, source: "하루표", createdAt: stamp(clock()), due: x.due, dueTime: x.dueTime, done: sub.done, reminders: x.reminders.slice(), subs: [], ...(x.noDue ? { noDue: true } : {}), touched: true };
+    x.subs.splice(j, 1);
+    s.tasks.push(t);
+    undoStack.push({ label: `「${sub.title}」 떼기`, run: () => {
+      x.subs.splice(j, 0, sub);
+      t.gone = true;
+      void act(() => undefined);
+    } });
+    toast(`「${sub.title}」을 따로 떼었어요`, undefined, true);
+    void act(() => undefined);
+  }
+
   /** A new deadline from the pop-up: its reminder is 30 minutes before (11-02 알람 기본값). */
   function setDue(id: string, day: string | null, time: string | null, label = "기한"): void {
     root.querySelector(".rempop")?.remove();
@@ -757,7 +856,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       y.reminders = at.getTime() > clock().getTime() ? [stamp(at)] : [];
     });
     const y = findEntry(s, id);
-    if (y?.kind === "task") toast(day ? `「${y.title}」 기한 → ${theme().fd(day)}${time ? " " + time : ""} · ⌘Z 되돌리기` : `「${y.title}」 날짜 없는 할 일로`, undefined, true);
+    if (y?.kind === "task") toast(day ? `「${y.title}」 기한 → ${theme().fd(day)}${time ? " " + time : ""}` : `「${y.title}」 날짜 없는 할 일로`, undefined, true);
   }
 
   /** 「15:30」 「30분 전」 「1시간 전」 「하루 전」 → a reminder stamp for the entry. */
@@ -2764,6 +2863,32 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return;
     }
     root.querySelector(".rempop")?.remove();
+    // 할 일 묶기: ⌘-click picks; the bar and the dialog.
+    const mp = q<HTMLElement>(".mergepop");
+    if (mp) {
+      if (q("[data-mcancel]")) return void mp.remove();
+      if (q("[data-mok]")) {
+        const head = mp.querySelector<HTMLInputElement>("input[name=mhead]:checked")?.value ?? "";
+        return mergeTasks(mp.dataset.ids!.split(","), head, mp.querySelector<HTMLInputElement>("[data-mnew]")!.value);
+      }
+      return;
+    }
+    if (q("[data-selclear]")) {
+      mergeSel.clear();
+      return render();
+    }
+    if (q("[data-mergeopen]")) return openMerge([...mergeSel]);
+    if (q("[data-subout]")) {
+      const [id, j] = q("[data-subout]")!.dataset.subout!.split(":");
+      return splitSub(id, Number(j));
+    }
+    const pickRow = q<HTMLElement>(".tl .task[data-task]");
+    if (pickRow && (ev.metaKey || ev.ctrlKey) && !q("button, .ck, .star, .pg, .rem, input")) {
+      const id = pickRow.dataset.task!;
+      if (mergeSel.has(id)) mergeSel.delete(id);
+      else mergeSel.add(id);
+      return render();
+    }
     if (q("[data-secret]")) {
       const v = secretAsk;
       secretAsk = null;
@@ -3832,7 +3957,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       } else {
         clearGhost();
         dt.a = -1;
-        dt.label.textContent = ar ? `${Number((ar as HTMLElement).dataset.nav) < 0 ? "전날" : "다음 날"}로 옮기기 · ${dt.title}` : `하루표 칸에 놓으면 작업 시간 · ${dt.title}`;
+        const onto = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>(".tl .task[data-task]");
+        const other = onto && onto.dataset.task !== dt.id ? findEntry(s, onto.dataset.task!) : undefined;
+        dt.label.textContent = ar ? `${Number((ar as HTMLElement).dataset.nav) < 0 ? "전날" : "다음 날"}로 옮기기 · ${dt.title}` : other ? `놓으면 「${other.title}」와 묶기` : `하루표 칸에 놓으면 작업 시간 · ${dt.title}`;
       }
       ar?.classList.add("drop");
       return;
@@ -3868,6 +3995,9 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const m = grid ? gridAt(grid, e.clientX, e.clientY) : null;
     if (d0.mode === "task") {
       if (ar) return moveTo(d0.id!, ymd(addDays(cur, Number(ar.dataset.nav))));
+      // Onto another to-do: 묶기 (that one first, as the default 대표).
+      const onto = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>(".tl .task[data-task]");
+      if (onto && onto.dataset.task !== d0.id) return openMerge([onto.dataset.task!, d0.id!]);
       if (grid && m !== null) return blockWork(d0.id!, grid.dataset.dtg!, m, 30);
       return;
     }

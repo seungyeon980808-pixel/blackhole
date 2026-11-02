@@ -174,3 +174,46 @@ describe("월간 ★ · 교시 표시 (11-02)", () => {
     expect(chip().querySelector(".mst.s2")).not.toBeNull();
   });
 });
+
+describe("다가오는 주요 일정 · 할 일 묶기 (11-02)", () => {
+  it("★ 표시한 것은 석 달 앞까지 (37일 뒤 ★ 기말고사가 빠지던 것)", async () => {
+    const { upcoming } = await import("../src/calendar/views/today");
+    const s = emptyState();
+    s.periods.push({ id: "p1", kind: "period", title: "기말고사", from: "2026-12-09", to: "2026-12-10", star: 2, area: "school", source: "t", createdAt: "2026-11-01T08:00" } as never);
+    s.periods.push({ id: "p2", kind: "period", title: "겨울 연수", from: "2026-12-20", to: "2026-12-22", area: "school", source: "t", createdAt: "2026-11-01T08:00" } as never);
+    s.events.push({ id: "e1", kind: "event", title: "수능", date: "2026-11-19", start: null, end: null, star: 2, provisional: false, reminders: [], area: "school", source: "t", createdAt: "2026-11-01T08:00" } as never);
+    expect(upcoming(s, "2026-11-02", (k) => k).map((u) => u.title)).toEqual(["수능", "기말고사"]); // 별 없는 기간은 30일 안만
+  });
+
+  it("⌘+클릭으로 둘 고르고 새 이름으로 묶으면 나머지는 하위 체크, ⌘Z로 원래대로, 따로 떼기", async () => {
+    const root = await mount();
+    await app!.submitText("내일까지 방한용품 품의하기");
+    await app!.submitText("금요일까지 지마켓 아이디 전달하기");
+    const [a, b] = ["방한용품", "지마켓"].map((w) => app!.state.tasks.find((t) => t.title.includes(w))!);
+    app!.setView("day", "2026-11-02"); // the month test before leaves the view remembered
+    const row = (id: string) => root.querySelector<HTMLElement>(`.tl .task[data-task="${id}"] .tn`)!;
+    row(a.id).dispatchEvent(new MouseEvent("click", { bubbles: true, metaKey: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    row(b.id).dispatchEvent(new MouseEvent("click", { bubbles: true, metaKey: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    root.querySelector<HTMLElement>("[data-mergeopen]")!.click();
+    const pop = root.querySelector<HTMLElement>(".mergepop")!;
+    const name = pop.querySelector<HTMLInputElement>("[data-mnew]")!;
+    name.value = "방한용품 구매";
+    name.dispatchEvent(new Event("input", { bubbles: true }));
+    pop.querySelector<HTMLElement>("[data-mok]")!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    const live = app!.state.tasks.filter((t) => !t.gone && !t.done);
+    const m = live.find((t) => t.title === "방한용품 구매")!;
+    expect(m.subs.map((x) => x.title)).toEqual(["방한용품 품의하기", "지마켓 아이디 전달하기"]);
+    expect(m.due).toBe("2026-11-03"); // 가장 이른 기한
+    expect(live.some((t) => t.title.includes("지마켓"))).toBe(false);
+    // 따로 떼기
+    root.querySelector<HTMLElement>(`[data-subout="${m.id}:1"]`)!.click();
+    expect(app!.state.tasks.some((t) => !t.gone && t.title === "지마켓 아이디 전달하기")).toBe(true);
+    document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyZ", key: "z", metaKey: true, bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyZ", key: "z", metaKey: true, bubbles: true }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(app!.state.tasks.filter((t) => !t.gone && !t.done).map((t) => t.title).sort()).toEqual(["방한용품 품의하기", "지마켓 아이디 전달하기"]);
+  });
+});

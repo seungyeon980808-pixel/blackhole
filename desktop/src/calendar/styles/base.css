@@ -707,3 +707,20 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .mst { margin-right: 3px; font-size: .92em; }
 .bh .mst.s1 { color: #ffd84a; } .bh .mst.s2 { color: #ff5a5f; }
 .bh .tdv .dtg .sg .pd { flex: none; font-size: 10.5px; font-weight: 700; padding: 0 4px; border-radius: 3px; background: var(--ink); color: var(--x-inv); line-height: 15px; }
+/* 할 일 묶기 (11-02 시안 6). */
+.bh .tdv .tl .task.sel { background: var(--x-sel); box-shadow: inset 0 0 0 1px var(--x-line); }
+.bh .tdv .tl .mbar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 7px 10px; border-radius: 6px; background: var(--x-pop, rgba(20,40,110,.97)); border: 1px solid var(--x-line); font-size: 13px; z-index: 5; }
+.bh .tdv .tl .mbar b { flex: 1; } .bh .tdv .tl .mbar.hint { color: var(--ink2); font-size: 12px; justify-content: space-between; }
+.bh .tdv .tl .mbar button, .bh .mergepop button { font: inherit; font-size: 12.5px; color: var(--ink); background: var(--x-chip); border: 1px solid var(--x-line); border-radius: 4px; padding: 3px 10px; cursor: pointer; }
+.bh .tdv .tl .mbar button.pri, .bh .mergepop button.pri { background: var(--ink); color: var(--x-inv); border-color: var(--ink); font-weight: 700; }
+.bh .mergepop { position: fixed; z-index: 70; width: 340px; padding: 14px; border-radius: 8px; background: var(--x-pop, rgba(20,40,110,.97)); color: var(--ink); border: 1px solid var(--x-line); box-shadow: 0 16px 40px rgba(0,0,0,.4); font-size: 13px; }
+.bh .mergepop h4 { margin: 0 0 8px; font-size: 14.5px; }
+.bh .mergepop .lbl { font-size: 11.5px; color: var(--ink2); margin: 10px 0 4px; }
+.bh .mergepop label { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; cursor: pointer; }
+.bh .mergepop label:hover { background: var(--x-chip); }
+.bh .mergepop input[type=text] { flex: 1; min-width: 0; background: var(--x-chip); border: 1px solid var(--x-line); border-radius: 4px; color: var(--ink); padding: 4px 7px; font: inherit; }
+.bh .mergepop .pv { background: var(--x-chip); border-radius: 5px; padding: 8px 10px; font-size: 12.5px; line-height: 1.7; }
+.bh .mergepop .pv .sb { color: var(--ink2); padding-left: 14px; }
+.bh .mergepop .ft { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
+.bh .tdv .steps .subout { margin-left: 8px; border: 0; background: none; color: var(--ink3); font: inherit; font-size: 11px; cursor: pointer; visibility: hidden; padding: 0; }
+.bh .tdv .steps .step:hover .subout { visibility: visible; }

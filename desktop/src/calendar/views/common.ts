@@ -25,6 +25,8 @@ export interface Ctx {
   open?: Set<string>;
   /** Records the user chose to keep as they are when asked about the dictation fix. */
   fixSkip?: Set<string>;
+  /** 할 일 묶기: the to-dos picked with ⌘-click. */
+  sel?: Set<string>;
   /** The entry whose card shows the edit form (Mac). */
   editing?: string | null;
   /** Cards may offer 수정 (not on the phone: its changes travel as actions only). */
