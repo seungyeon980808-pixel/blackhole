@@ -119,12 +119,21 @@ describe("상세 편집 패널", () => {
     expect(panel.querySelector(".pnow b")!.textContent).toContain("13:20–14:05");
     click('[data-dday="2026-10-29"]');
     expect(e.date).toBe("2026-10-29");
-    // A 교시 for an appointment is the whole lesson (this school: 3교시 10:40–11:25).
-    click('[data-dtime="10:40-11:25"]');
+    // 11-02 시안 11: one line on top (D-n · 길이).
+    expect(panel.querySelector(".pnow small")!.textContent).toBe("오늘 · 45분");
+    // A 교시 for an appointment is the whole lesson (this school: 3교시 10:40–11:25), from the one 「교시 ▾」.
+    const pick = (v: string) => {
+      const sel = root.querySelector<HTMLSelectElement>("#bhDetail [data-dtimesel]")!;
+      sel.value = v;
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    pick("10:40-11:25");
     expect([e.start, e.end]).toEqual(["10:40", "11:25"]);
-    click('[data-dlen="90"]');
-    expect(e.end).toBe("12:10");
-    // The next month, then a day in it.
+    root.querySelector<HTMLElement>('#bhDetail [data-dlen="120"]')!.click();
+    expect(e.end).toBe("12:40");
+    // The month shows only after 「날짜 고르기 ▾」; then the next month, then a day in it.
+    expect(root.querySelector("#bhDetail .pcal")).toBeNull();
+    root.querySelector<HTMLElement>("#bhDetail [data-dcal]")!.click();
     click('[data-dmon="1"]');
     expect(panel.querySelector(".pch b")!.textContent).toBe("2026년 11월");
     click('[data-dday="2026-11-05"]');
@@ -143,7 +152,9 @@ describe("상세 편집 패널", () => {
     const panel = root.querySelector<HTMLElement>("#bhDetail")!;
     const t = app!.state.tasks.find((x) => x.id === "t1")!;
     expect(panel.querySelector(".pnow b")!.textContent).toContain("16:00까지");
-    panel.querySelector<HTMLElement>('[data-dtime="13:20-14:05"]')!.click();
+    const sel = panel.querySelector<HTMLSelectElement>("[data-dtimesel]")!;
+    sel.value = "13:20-14:05";
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
     expect(t.dueTime).toBe("13:20");
     panel.querySelector<HTMLElement>("[data-dnodue]")!.click();
     expect([t.noDue, t.dueTime]).toEqual([true, null]);

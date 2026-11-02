@@ -768,3 +768,21 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .tdv .dtg .sg .wck.on { background: var(--ink); border-color: var(--ink); }
 .bh .tdv .dtg .sg.dn .t { text-decoration: line-through; opacity: .6; }
 .bh .tdv .tl .step { cursor: grab; }
+
+/* 상세 창 시안 11 (11-02): 「언제」·「정리」 두 묶음, 위 한 줄 요약, 달력은 「날짜 고르기 ▾」로, 교시는 하나의 ▾, 출처는 접어서. */
+.bh .dpanel .dph .dseg button { font-size: 11.5px; padding: 2px 9px; }
+.bh .dpanel .dshort { display: flex; align-items: center; gap: 6px; margin-top: -4px; font-size: 12px; color: var(--ink3, #888); }
+.bh .dpanel .dshort .d-short { flex: 1; margin: 0; }
+.bh .dpanel .dsec { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 9px; background: var(--x-chip, rgba(127,127,127,.08)); }
+.bh .dpanel .dsec h4 { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--ink3, #888); }
+.bh .dpanel .dsec .pnow { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.bh .dpanel .dsec .pnow b { font-size: 16px; font-weight: 700; color: var(--ink); }
+.bh .dpanel .dsec .pnow small { font-size: 11.5px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.bh .dpanel .pk.ghost { background: none; }
+.bh .dpanel .dgrid { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 8px; align-items: center; }
+.bh .dpanel .dgrid .drow .ed-h { flex: 1; }
+.bh .dpanel .dper { flex: none; font: inherit; font-size: 12px; color: var(--ink); background: var(--x-chip, #eee); border: 1px solid var(--line, #999); border-radius: 7px; padding: 3px 6px; }
+.bh.glass .dpanel .dper { color-scheme: dark; }
+.bh.glass[data-mode="light"] .dpanel .dper { color-scheme: light; }
+.bh .dpanel details.dsrc summary { cursor: pointer; }
+.bh .dpanel .dsrc { font-size: 11.5px; color: var(--ink3, #888); }

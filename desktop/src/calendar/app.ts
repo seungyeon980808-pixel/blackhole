@@ -673,7 +673,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const typing = el.dataset.id === x.id && el.contains(document.activeElement) && document.activeElement?.matches("input, textarea");
     if (!typing) {
       const scroll = el.querySelector(".dbody")?.scrollTop ?? 0;
-      el.innerHTML = detailHTML(ctx(), x.id, theme().fd, detailMonth ?? undefined, ymd(clock()));
+      el.innerHTML = detailHTML(ctx(), x.id, theme().fd, detailMonth ?? undefined, ymd(clock()), root.classList.contains("side"));
       el.querySelector(".dbody")!.scrollTop = el.dataset.id === x.id ? scroll : 0;
     }
     el.dataset.id = x.id;
@@ -2965,6 +2965,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       detailMonth = null;
       return retime(detailId, q("#bhDetail [data-dday]")!.dataset.dday!, false, "", "옮김");
     }
+    // 「날짜 고르기 ▾」: the month opens only when asked (11-02 시안 11), and stays as it was for the next one.
+    if (q("#bhDetail [data-dcal]")) {
+      if (openFolds.has("dcal")) openFolds.delete("dcal");
+      else openFolds.add("dcal");
+      return renderDetail();
+    }
     if (q("#bhDetail [data-dmon]") && detailId) {
       const x = findEntry(s, detailId);
       const base = detailMonth ?? (x?.kind === "event" ? x.date : x?.kind === "task" && !x.noDue ? x.due : ymd(clock())).slice(0, 7);
@@ -3589,6 +3595,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
 
   const onChange = async (e: Event) => {
     const el = e.target as HTMLInputElement | HTMLSelectElement;
+    // 「교시 ▾」 in the 상세 panel: as the 교시 buttons were (a lesson for an appointment, its start for a to-do).
+    if (el instanceof HTMLSelectElement && el.matches("#bhDetail [data-dtimesel]") && detailId && el.value) {
+      const [a, b] = el.value.split("-");
+      const x = findEntry(s, detailId);
+      return retime(detailId, null, { start: a, end: x?.kind === "event" ? b : undefined }, "", "시각");
+    }
     if (el.id === "bhFile") {
       const f = (el as HTMLInputElement).files?.[0];
       (el as HTMLInputElement).value = "";
