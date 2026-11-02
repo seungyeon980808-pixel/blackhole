@@ -729,7 +729,11 @@ html.phone .bh .content { overflow-y: auto; }
 .bh .tdv .ups .useg { display: inline-flex; align-items: center; gap: 0; }
 .bh .tdv .ups .useg button { font: inherit; font-size: 11px; font-weight: 600; color: var(--ink2); background: none; border: 1px solid var(--x-hair); padding: 1px 7px; cursor: pointer; }
 .bh .tdv .ups .useg button + button { border-left: 0; }
-.bh .tdv .ups .useg button[data-uprange="30"] { border-radius: 4px 0 0 4px; } .bh .tdv .ups .useg button[data-uprange="120"]:last-child { border-radius: 0 4px 4px 0; }
+.bh .tdv .ups .useg button[data-uprange="30"], .bh .tdv .ups .useg button[data-upstars="1"] { border-radius: 4px 0 0 4px; } .bh .tdv .ups .useg button[data-uprange="120"]:last-child, .bh .tdv .ups .useg button[data-upstars="all"] { border-radius: 0 4px 4px 0; }
+.bh .tdv .ups .useg.stars { margin-left: auto; margin-right: 8px; } .bh .tdv .ups .useg.stars button { padding: 0 6px; font-size: 12px; opacity: .55; } .bh .tdv .ups .useg.stars button.on { opacity: 1; }
+.bh .tdv .ups .ph b { margin-right: auto; }
+/* 노랑·빨강 반반 ★ */
+.bh .star.half { background: linear-gradient(90deg, #ffd84a 50%, #ff5a5f 50%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .bh .tdv .ups .useg button.on { background: var(--x-sel); color: var(--ink); }
 .bh .tdv .ups .useg .ulater { border: 0 !important; text-decoration: underline; color: var(--ink2); margin-right: 6px; font-weight: 500; }
 .bh .tdv .ups .band { position: relative; margin: 2px 0 0; }

@@ -245,6 +245,8 @@ export interface TodayOpts {
   upRange?: 30 | 60 | 120;
   /** The band's width last measured (px), for fitting the names. */
   bandW?: number;
+  /** Which ★ the band shows: 1 노랑 · 2 빨강 · "all" 둘 다. */
+  upStars?: 1 | 2 | "all";
 }
 
 /** One stretch of time cut at the hour lines: the day table is one row per hour, 6 cells of 10 minutes. */
@@ -404,60 +406,74 @@ function textW(s: string): number {
 }
 
 /**
- * 다가오는 주요 일정 띠 (11-02 사용자 시안 10 「가. 계단」): today → 30 · 60 · 120 days on one line, each
- * entry at its day. Names in date order go bottom → middle → top and round again (always the same
- * order); a name is at most 6 letters (+…), and where the next name in its row is close the D-day
+ * 다가오는 주요 일정 띠 (11-02 사용자 시안 10 「가. 계단」, 고침): today → 30 · 60 · 120 days on one line,
+ * each entry at its day. A name goes on the bottom row; only when it would touch the one before it does
+ * it go a row up (3 rows at most). A name is at most 6 letters (+…); with no room on any row the D-day
  * goes first, then letters (3 at least). Full name and date on hover.
+ * `stars`: which ★ to show — 1 노랑만 · 2 빨강만 · "all" 둘 다 (and the periods without a ★).
  */
-export function upcomingBand(ctx: Ctx, k: string, fd: (k: string) => string, range: 30 | 60 | 120 = 60, W = 560): { html: string; shown: number; later: number } {
-  const all = upcoming(ctx.s, k, fd);
+export type StarPick = 1 | 2 | "all";
+export function upcomingBand(ctx: Ctx, k: string, fd: (k: string) => string, range: 30 | 60 | 120 = 60, W = 560, stars: StarPick = "all"): { html: string; shown: number; later: number } {
+  const all = upcoming(ctx.s, k, fd).filter((u) => stars === "all" || u.star === stars);
   const items = all.filter((u) => u.days <= range).slice(0, UPCOMING_MAX);
   const later = all.length - items.length;
-  const lanes = Math.min(3, Math.max(1, items.length));
   const LH = 18;
-  const axY = lanes * LH + 8;
   const px = (d: number) => (Math.min(d, range) / range) * W;
   const pct = (d: number) => `${((Math.min(d, range) / range) * 100).toFixed(3)}%`;
+  // Place the names first: the lowest row where it does not touch the name before it.
+  type Placed = { u: Upcoming; lane: number; name: string; showD: boolean; flip: boolean };
+  const rows: [number, number][][] = [[], [], []];
+  const placed: Placed[] = [];
+  for (const u of items) {
+    const x = px(u.days);
+    const star = u.star ? 14 : 0;
+    const dd = `D-${u.days}`;
+    const six = u.title.length > 6 ? `${u.title.slice(0, 6)}…` : u.title;
+    const full = textW(six) + star + textW(dd) * 0.85 + 18;
+    const flip = x + full > W && x > W / 2;
+    const span = (w: number): [number, number] => (flip ? [x - w, x] : [x, x + w]);
+    const free = (r: [number, number][], [a, b]: [number, number]) => r.every(([p, q]) => b + 4 <= p || a >= q + 4);
+    let lane = rows.findIndex((r) => free(r, span(full)));
+    let name = six;
+    let showD = true;
+    if (lane < 0) {
+      // No row has room for all of it: the row with the most room, the D-day first, then letters.
+      showD = false;
+      const roomIn = (r: [number, number][]) => (flip ? x - Math.max(0, ...r.filter(([, q]) => q <= x).map(([, q]) => q + 6)) : Math.min(W, ...r.filter(([p]) => p >= x).map(([p]) => p - 6)) - x);
+      lane = [0, 1, 2].reduce((best, l) => (roomIn(rows[l]) > roomIn(rows[best]) ? l : best), 0);
+      const room = roomIn(rows[lane]);
+      while (name.replace("…", "").length > 3 && textW(name) + star + 10 > room) name = `${name.replace("…", "").slice(0, -1)}…`;
+    }
+    rows[lane].push(span(showD ? full : textW(name) + star + 10));
+    placed.push({ u, lane, name, showD, flip });
+  }
+  const lanes = Math.max(1, ...placed.map((p) => p.lane + 1));
+  const axY = lanes * LH + 8;
   let h = `<div class="bax" style="top:${axY}px"></div><span class="btk" style="left:0;top:${axY + 5}px">오늘</span>`;
   const t0 = parseDay(k);
   for (let d = 1; d < range; d++) {
     const dt = addDays(t0, d);
     if (dt.getDate() === 1 && px(d) > 24 && px(d) < W - 24) h += `<span class="btk m" style="left:${pct(d)};top:${axY + 5}px">${dt.getMonth() + 1}월</span>`;
   }
-  const lane = (i: number) => i % lanes;
-  items.forEach((u, i) => {
-    const x = px(u.days);
+  for (const { u, lane, name, showD, flip } of placed) {
     h += u.endDays !== undefined && u.endDays > u.days
       ? `<i class="bpr" style="left:${pct(u.days)};width:max(5px, ${(((Math.min(u.endDays, range) - u.days) / range) * 100).toFixed(3)}%);top:${axY}px"></i>`
       : `<i class="bdot" style="left:${pct(u.days)};top:${axY}px"></i>`;
-    // Room up to the next name in the same row (or the end); the last one near the end writes to the left.
-    const next = items.slice(i + 1).find((_, j) => lane(i + 1 + j) === lane(i));
-    let room = (next ? px(next.days) : W) - x - 6;
-    let flip = false;
-    if (!next && room < 70) {
-      const prev = [...items.slice(0, i)].reverse().find((_, j) => lane(i - 1 - j) === lane(i));
-      flip = true;
-      room = x - (prev ? px(prev.days) + 70 : 0);
-    }
-    const star = u.star ? 14 : 0;
-    const dd = `D-${u.days}`;
-    const six = u.title.length > 6 ? `${u.title.slice(0, 6)}…` : u.title;
-    let name = six;
-    let showD = textW(six) + star + textW(dd) * 0.85 + 18 <= room;
-    if (!showD) while (name.replace("…", "").length > 3 && textW(name) + star + 10 > room) name = `${name.replace("…", "").slice(0, -1)}…`;
-    const top = (lanes - 1 - lane(i)) * LH;
+    const top = (lanes - 1 - lane) * LH;
     h += `<i class="bstem" style="left:${pct(u.days)};top:${top + LH}px;height:${axY - top - LH}px"></i>`;
-    h += `<span class="blb ${flip ? "fl" : ""}" data-ev="${u.id}" title="${esc(`${u.title} · ${u.when} · D-${u.days}`)}" style="${flip ? `right:${(100 - (x / W) * 100).toFixed(3)}%` : `left:${pct(u.days)}`};top:${top}px">${u.star ? `<span class="star s${u.star}">★</span>` : ""}<b>${esc(name)}</b>${showD ? `<span class="d">${dd}</span>` : ""}</span>`;
-  });
+    h += `<span class="blb ${flip ? "fl" : ""}" data-ev="${u.id}" title="${esc(`${u.title} · ${u.when} · D-${u.days}`)}" style="${flip ? `right:${(100 - (px(u.days) / W) * 100).toFixed(3)}%` : `left:${pct(u.days)}`};top:${top}px">${u.star ? `<span class="star s${u.star}">★</span>` : ""}<b>${esc(name)}</b>${showD ? `<span class="d">D-${u.days}</span>` : ""}</span>`;
+  }
   return { html: `<div class="band" style="height:${axY + 20}px">${h}</div>`, shown: items.length, later };
 }
 
-export function rightStack(ctx: Ctx, k: string, fd: (k: string) => string, o?: Pick<TodayOpts, "upRange" | "bandW">): string {
+export function rightStack(ctx: Ctx, k: string, fd: (k: string) => string, o?: Pick<TodayOpts, "upRange" | "bandW" | "upStars">): string {
   const range = o?.upRange ?? 60;
-  const b = upcomingBand(ctx, k, fd, range, o?.bandW ?? 560);
+  const stars = o?.upStars ?? "all";
+  const b = upcomingBand(ctx, k, fd, range, o?.bandW ?? 560, stars);
+  const pick = (v: StarPick, label: string, cls: string) => `<button class="${v === stars ? "on" : ""}" data-upstars="${v}" title="${label}"><span class="star ${cls}">★</span></button>`;
   return `<div class="rstack">
-    <div class="panel g ups ${b.shown ? "" : "empty"}"><div class="ph"><b>다가오는 주요 일정</b><span class="useg">${b.later ? `<button class="ulater" data-uprange="120" title="120일로 넓히기">그 뒤 ${b.later}개</button>` : ""}${([30, 60, 120] as const).map((v) => `<button class="${v === range ? "on" : ""}" data-uprange="${v}">${v}일</button>`).join("")}</span></div>
-      ${b.shown ? b.html : `<div class="none">${range}일 안에 ★ 표시한 일정·할 일이나 기간이 없어요</div>`}</div>
+    <div class="panel g ups ${b.shown ? "" : "empty"}"><div class="ph"><b>다가오는 주요 일정</b><span class="useg stars">${pick(1, "노랑 ★만", "s1")}${pick(2, "빨강 ★만", "s2")}${pick("all", "노랑·빨강 둘 다", "half")}</span><span class="useg">${b.later ? `<button class="ulater" data-uprange="120" title="120일로 넓히기">그 뒤 ${b.later}개</button>` : ""}${([30, 60, 120] as const).map((v) => `<button class="${v === range ? "on" : ""}" data-uprange="${v}">${v}일</button>`).join("")}</span></div>
+      ${b.shown ? b.html : `<div class="none">${range}일 안에 ${stars === 1 ? "노랑 ★" : stars === 2 ? "빨강 ★" : "★ 표시한"} 일정·할 일이 없어요</div>`}</div>
   </div>`;
 }
 

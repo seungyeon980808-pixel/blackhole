@@ -225,3 +225,19 @@ describe("다가오는 주요 일정 · 할 일 묶기 (11-02)", () => {
     expect(app!.state.tasks.filter((t) => !t.gone && !t.done).map((t) => t.title).sort()).toEqual(["방한용품 품의하기", "지마켓 아이디 전달하기"]);
   });
 });
+
+describe("주요 일정 띠: 겹칠 때만 위로 · ★ 고르기 (11-02)", () => {
+  it("멀리 떨어진 두 일정은 둘 다 맨 아래 줄 · 노랑만 / 빨강만 / 둘 다", async () => {
+    const { upcomingBand } = await import("../src/calendar/views/today");
+    const s = emptyState();
+    const ev = (id: string, title: string, date: string, star: number) => ({ id, kind: "event", title, date, start: null, end: null, star, provisional: false, reminders: [], area: "school", source: "t", createdAt: "2026-11-01T08:00" }) as never;
+    s.events.push(ev("a", "수능", "2026-11-19", 2), ev("b", "기말고사", "2026-12-09", 2), ev("c", "종업식", "2026-12-20", 1));
+    const c = { s, today: "2026-11-02" } as never;
+    const tops = (html: string) => [...html.matchAll(/class="blb[^"]*"[^>]*top:(\d+)px/g)].map((m) => Number(m[1]));
+    const both = upcomingBand(c, "2026-11-02", (k) => k, 60, 560, 2);
+    expect(both.shown).toBe(2);
+    expect(new Set(tops(both.html)).size).toBe(1); // one row: they do not touch
+    expect(upcomingBand(c, "2026-11-02", (k) => k, 60, 560, 1).shown).toBe(1);
+    expect(upcomingBand(c, "2026-11-02", (k) => k, 60, 560, "all").shown).toBe(3);
+  });
+});

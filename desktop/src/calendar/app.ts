@@ -191,6 +191,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (localStorage.getItem("bh-dayrange") === "all") today.range = "all";
     const ur = Number(localStorage.getItem("bh-uprange"));
     if (ur === 30 || ur === 120) today.upRange = ur;
+    const us = localStorage.getItem("bh-upstars");
+    if (us === "1" || us === "2") today.upStars = Number(us) as 1 | 2;
   } catch {
     /* default */
   }
@@ -3053,6 +3055,16 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       today.range = q("[data-dr]")!.dataset.dr === "all" ? "all" : "work";
       try {
         localStorage.setItem("bh-dayrange", today.range);
+      } catch {
+        /* not kept */
+      }
+      return render();
+    }
+    if (q("[data-upstars]")) {
+      const v = q("[data-upstars]")!.dataset.upstars!;
+      today.upStars = v === "all" ? "all" : (Number(v) as 1 | 2);
+      try {
+        localStorage.setItem("bh-upstars", v);
       } catch {
         /* not kept */
       }
