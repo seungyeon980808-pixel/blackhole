@@ -523,3 +523,18 @@ html.native-glass .bh .tlsp { display: block; width: 70px; height: 30px; }
 .bh.glass .tdv .dtg .sg.ev.prov.k-personal { background: none; box-shadow: inset 0 0 0 2px rgb(214,104,160); }
 .bh.glass .tdv .dtg .sg.ev:is(.k-school, .k-outside, .k-personal):not(.prov) .t { color: #fff; }
 .bh.glass .tdv .dtg .sg.ev:is(.k-school, .k-outside, .k-personal).past { opacity: 1; }
+/* 주간·월간도 하루표와 같은 색 (11-02 사용자): 주간은 칸 전체, 월간은 한 줄. */
+.bh.glass .fc .fc-timegrid-event.bh-ev.school, .bh.glass .fc .fc-daygrid-event.bh-ev.school .cev { background: rgba(74,144,226,.88); }
+.bh.glass .fc .fc-timegrid-event.bh-ev.outside, .bh.glass .fc .fc-daygrid-event.bh-ev.outside .cev { background: rgba(142,110,224,.88); }
+.bh.glass .fc .fc-timegrid-event.bh-ev.personal, .bh.glass .fc .fc-daygrid-event.bh-ev.personal .cev { background: rgba(214,104,160,.88); }
+.bh.glass .fc .fc-timegrid-event.bh-ev.school.fc-event-past, .bh.glass .fc .fc-daygrid-event.bh-ev.school.fc-event-past .cev { background: rgba(74,144,226,.53); }
+.bh.glass .fc .fc-timegrid-event.bh-ev.outside.fc-event-past, .bh.glass .fc .fc-daygrid-event.bh-ev.outside.fc-event-past .cev { background: rgba(142,110,224,.53); }
+.bh.glass .fc .fc-timegrid-event.bh-ev.personal.fc-event-past, .bh.glass .fc .fc-daygrid-event.bh-ev.personal.fc-event-past .cev { background: rgba(214,104,160,.53); }
+.bh.glass .fc .fc-timegrid-event.bh-ev.prov, .bh.glass .fc .fc-daygrid-event.bh-ev.prov .cev { background: none; outline: 0; }
+.bh.glass .fc .fc-timegrid-event.bh-ev.prov.school, .bh.glass .fc .fc-daygrid-event.bh-ev.prov.school .cev { box-shadow: inset 0 0 0 2px rgb(74,144,226); }
+.bh.glass .fc .fc-timegrid-event.bh-ev.prov.outside, .bh.glass .fc .fc-daygrid-event.bh-ev.prov.outside .cev { box-shadow: inset 0 0 0 2px rgb(142,110,224); }
+.bh.glass .fc .fc-timegrid-event.bh-ev.prov.personal, .bh.glass .fc .fc-daygrid-event.bh-ev.prov.personal .cev { box-shadow: inset 0 0 0 2px rgb(214,104,160); }
+.bh.glass .fc .fc-daygrid-event.bh-ev .cev { border-radius: 4px; padding-left: 4px; padding-right: 4px; }
+.bh.glass .fc .fc-daygrid-event.bh-ev:not(.prov) .cev, .bh.glass .fc .fc-daygrid-event.bh-ev:not(.prov) .cev *, .bh.glass .fc .fc-timegrid-event.bh-ev:not(.prov) .wbt, .bh.glass .fc .fc-timegrid-event.bh-ev:not(.prov) .wbt * { color: #fff; }
+.bh.glass .fc .fc-daygrid-event.bh-ev .cev .mst.s1 { color: #ffd84a; }
+.bh.glass .fc .fc-daygrid-event.bh-ev .cev .mst.s2 { color: #ff5a5f; }
