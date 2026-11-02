@@ -60,7 +60,7 @@ export function log(s: CalendarState, entry: Omit<LogEntry, "at">, now: Date): v
 
 /* ---------- worker proposal → entries ---------- */
 
-const areaOf = (a: string): Area => (a === "SCHOOL" ? "school" : "personal");
+const areaOf = (a: string): Area => (a === "SCHOOL" ? "school" : a === "OUTSIDE" ? "outside" : "personal");
 
 export interface Applied {
   /** IDs of entries created. */
@@ -345,7 +345,7 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
       item = { ...item, title: `${first} ${base.title}` };
     }
     if (classes.length === 1 && !classesIn(item.title).length) item = { ...item, title: `${classes[0]} ${item.title}` };
-    if (item.area !== "SCHOOL" && SCHOOL_WORDS.test(`${item.title} ${sentence}`)) item = { ...item, area: "SCHOOL" };
+    if (item.area === "PERSONAL" && SCHOOL_WORDS.test(`${item.title} ${sentence}`)) item = { ...item, area: "SCHOOL" };
     // 「다음주 수욜 6교시 공개수업 참관하고 협의록 쓰기」 split in two: the to-do after 「…하고」 is that day's.
     const prev = i > 0 ? queue[i - 1] : undefined;
     // 「… 면담 있고 끝나면 바로 회의록 정리」: the same when the to-do starts from the end of that appointment.

@@ -305,7 +305,7 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
     const sub = task && e.workSub !== undefined ? task.subs[e.workSub] : undefined;
     const wdone = task ? (sub ? sub.done : task.done) : false;
     const wck = task ? `<span class="ck wck ${wdone ? "on" : ""}" ${sub ? `data-sub="${task.id}:${e.workSub}"` : `data-tdone="${task.id}"`} role="checkbox" aria-checked="${wdone}" tabindex="0" title="${wdone ? "안 한 것으로" : "했음"}"></span>` : "";
-    const cls = `ev ${e.workFor ? "work" : ""} ${wdone ? "dn" : ""} ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.end ? "" : "noend"}`;
+    const cls = `ev ${e.workFor ? "work" : `k-${e.area}`} ${wdone ? "dn" : ""} ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.end ? "" : "noend"}`;
     items.push({ a, b, html: (lane, lanes) => piece(a, b, cls, () => `data-ev="${e.id}" data-evbox="${e.id}" tabindex="0" aria-label="${esc(e.title)} 열기" title="${esc(`${e.start}${e.end ? "–" + e.end : ""} ${e.title}`)}"`, (p) =>
       `${p.first ? `${wck}${n ? `<span class="no">${n}</span>` : ""}${e.periodSaid && !e.title.includes(e.periodSaid) ? `<span class="pd">${e.periodSaid}</span>` : ""}<span class="t">${esc(e.title)}</span>${e.provisional ? '<span class="ga">가</span>' : ""}${!e.end ? '<span class="r">끝 미정</span>' : ""}${rem}` : ""}${p.last ? '<i class="grip" title="끌어 늘이기"></i>' : ""}`, lane, lanes) });
   }

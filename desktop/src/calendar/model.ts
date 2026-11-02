@@ -5,7 +5,8 @@
  *
  * Dates are local "YYYY-MM-DD", times local "HH:MM", reminders local "YYYY-MM-DDTHH:MM".
  */
-export type Area = "school" | "personal";
+/** 학교 · 외부(내가 골라서 학교 밖에서 하는 일, 11-02) · 개인(완전히 사적인 일). */
+export type Area = "school" | "outside" | "personal";
 
 /** Review note on a to-do without a deadline (its `due` is the day it came in). */
 export const NO_DUE_NOTE = "마감 날짜가 없어 오늘로 둠";
@@ -340,7 +341,7 @@ function base<T extends Base>(x: unknown, kind: T["kind" & keyof T]): T | null {
   return Object.assign(v, {
     kind,
     title: typeof v.title === "string" ? v.title : String(v.title ?? ""),
-    area: v.area === "personal" ? "personal" : "school",
+    area: v.area === "personal" || v.area === "outside" ? v.area : "school",
     source: typeof v.source === "string" ? v.source : "",
     createdAt: typeof v.createdAt === "string" ? v.createdAt : "",
     ...(v.review === undefined ? {} : { review: strs(v.review) })

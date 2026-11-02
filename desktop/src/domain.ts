@@ -8,7 +8,7 @@ export const ITEM_COLUMNS = [
 
 export type ItemStatus = "PENDING" | "APPROVED" | "DONE" | "DELETED";
 export type ItemKind = "SCHEDULE" | "TODO";
-export type ItemArea = "PERSONAL" | "SCHOOL";
+export type ItemArea = "PERSONAL" | "SCHOOL" | "OUTSIDE";
 export type SyncState = "LOCAL_FIXTURE" | "PENDING" | "SYNCED" | "ERROR";
 
 export interface Item {

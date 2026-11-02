@@ -67,7 +67,7 @@ function isItem(value: unknown): value is ProposalItem {
   return (
     typeof item === "object" && item !== null &&
     ["SCHEDULE", "TODO", "NOTE", "PERIOD"].includes(item.kind) &&
-    ["PERSONAL", "SCHOOL"].includes(item.area) &&
+    ["PERSONAL", "SCHOOL", "OUTSIDE"].includes(item.area) &&
     isString(item.title) && item.title.length > 0 && item.title.length <= 80 &&
     isString(item.details) &&
     isInstantOrEmpty(item.startAt) && isInstantOrEmpty(item.endAt) && isInstantOrEmpty(item.reminderAt) &&

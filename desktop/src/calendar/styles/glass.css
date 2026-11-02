@@ -3,7 +3,7 @@
   --font: "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", system-ui, sans-serif;
   --ink: #f4f5fb; --ink2: rgba(244,245,251,.7); --ink3: rgba(244,245,251,.42);
   --glass: rgba(255,255,255,.1); --glass2: rgba(255,255,255,.18); --line: rgba(255,255,255,.24); --hair: rgba(255,255,255,.1);
-  --school: #6fd3ff; --personal: #ff9ad8; --todo: #ffd36e; --note: #b8f08a; --now: #ff6b8a;
+  --school: #6fd3ff; --outside: #6fd3ff; --personal: #ff9ad8; --todo: #ffd36e; --note: #b8f08a; --now: #ff6b8a;
   --page: #0b0c18;
   --wall: radial-gradient(900px 650px at 0% 0%, #4b37c4 0%, transparent 60%), radial-gradient(800px 650px at 100% 100%, #0f86a6 0%, transparent 60%), radial-gradient(600px 500px at 60% 40%, #b0347f55 0%, transparent 60%), #0d0f20;
   --tday: #fff; --tdayink: #111;
@@ -12,7 +12,7 @@
 .bh.glass[data-mode="light"] {
   --ink: #16172a; --ink2: rgba(22,23,42,.68); --ink3: rgba(22,23,42,.42);
   --glass: rgba(255,255,255,.62); --glass2: rgba(255,255,255,.88); --line: rgba(22,23,42,.12); --hair: rgba(22,23,42,.07);
-  --school: #1689c9; --personal: #c9479a; --todo: #b98000; --note: #3f8a12; --now: #e0304f;
+  --school: #1689c9; --outside: #1689c9; --personal: #c9479a; --todo: #b98000; --note: #3f8a12; --now: #e0304f;
   --page: #e8eaf3;
   --wall: radial-gradient(900px 650px at 0% 0%, #d4caff 0%, transparent 60%), radial-gradient(800px 650px at 100% 100%, #bfeef7 0%, transparent 60%), radial-gradient(600px 500px at 60% 40%, #ffd3ec 0%, transparent 60%), #f1f2f8;
   --tday: #16172a; --tdayink: #fff;
@@ -32,12 +32,14 @@
 /* marks */
 .bh.glass .c { display: block; font-size: 11px; line-height: 15px; padding: 0 4px; border-radius: 4px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; color: var(--ink); }
 .bh.glass .c.school { background: color-mix(in srgb, var(--school) 26%, transparent); }
+.bh.glass .c.outside { background: color-mix(in srgb, var(--outside) 26%, transparent); }
 .bh.glass .c.personal { background: color-mix(in srgb, var(--personal) 26%, transparent); }
 .bh.glass .c.task { background: none; padding-left: 1px; }
 .bh.glass .c.task.done { text-decoration: line-through; opacity: .45; }
 .bh.glass .c.prov { outline: 1px dashed var(--ink3); outline-offset: -1px; }
 .bh.glass .pb { display: block; font-size: 10.5px; line-height: 14px; height: 14px; padding: 0 6px; white-space: nowrap; overflow: hidden; font-weight: 700; color: var(--ink); border-radius: 7px; }
 .bh.glass .pb.school { background: color-mix(in srgb, var(--school) 34%, transparent); }
+.bh.glass .pb.outside { background: color-mix(in srgb, var(--outside) 34%, transparent); }
 .bh.glass .pb.personal { background: color-mix(in srgb, var(--personal) 34%, transparent); }
 .bh.glass .ga { font-size: 9px; font-weight: 800; padding: 0 3px; border-radius: 3px; background: var(--ink); color: var(--page); margin-left: 3px; vertical-align: 1px; }
 .bh.glass .dd { font-size: 11px; font-weight: 700; color: var(--ink3); white-space: nowrap; }
@@ -84,12 +86,14 @@
 .bh.glass .fc .fc-timegrid-slot-label { vertical-align: top; }
 .bh.glass .fc .fc-timegrid-event { border-radius: 4px; border: 0; box-shadow: none; }
 .bh.glass .fc .fc-timegrid-event.school { background: color-mix(in srgb, var(--school) 30%, transparent); }
+.bh.glass .fc .fc-timegrid-event.outside { background: color-mix(in srgb, var(--outside) 30%, transparent); }
 .bh.glass .fc .fc-timegrid-event.personal { background: color-mix(in srgb, var(--personal) 30%, transparent); }
 .bh.glass .fc .fc-timegrid-event.prov { outline: 1px dashed var(--ink2); outline-offset: -1px; }
 .bh.glass .fc .wbt { font-size: 10.5px; line-height: 13px; padding: 1px 4px; overflow: hidden; color: var(--ink); }
 .bh.glass .fc .fc-timegrid-col-events .fc-timegrid-event-harness-inset .fc-timegrid-event { box-shadow: none; }
 .bh.glass .fc .fc-daygrid-body .bh-per .pbw { display: block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 .bh.glass .fc .bh-per.school .pbw { background: color-mix(in srgb, var(--school) 40%, transparent); }
+.bh.glass .fc .bh-per.outside .pbw { background: color-mix(in srgb, var(--outside) 40%, transparent); }
 .bh.glass .fc .bh-per.personal .pbw { background: color-mix(in srgb, var(--personal) 40%, transparent); }
 .bh.glass .fc .fc-bg-event.bh-bell { background: none; opacity: 1; border-top: 1px dashed var(--ink3); z-index: 1; }
 .bh.glass .fc .fc-bg-event.bh-bell .fc-event-title, .bh.glass .fc .fc-bg-event.bh-bell span { position: absolute; right: 2px; top: -7px; font-size: 9px; font-style: normal; color: var(--ink3); background: var(--page); padding: 0 2px; margin: 0; line-height: 12px; }
@@ -106,6 +110,7 @@
 .bh.glass .tt .row i:nth-child(4) { border-left: 1px solid color-mix(in srgb, var(--ink) 30%, transparent); }
 .bh.glass .tt .bk { position: absolute; top: 1px; bottom: 1px; border-radius: 3px; font-size: 10.5px; line-height: 1.15; padding: 1px 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; display: flex; align-items: center; }
 .bh.glass .tt .bk.school { background: color-mix(in srgb, var(--school) 42%, transparent); }
+.bh.glass .tt .bk.outside { background: color-mix(in srgb, var(--outside) 42%, transparent); }
 .bh.glass .tt .bk.personal { background: color-mix(in srgb, var(--personal) 30%, transparent); }
 .bh.glass .tt .bk.prov { outline: 1px dashed var(--ink); outline-offset: -1px; background: color-mix(in srgb, var(--ink) 10%, transparent); }
 .bh.glass .tt .bk.half { bottom: 50%; }
@@ -355,14 +360,14 @@ html.native-glass .bh .bar .title { padding-left: 0; }
 
 /* ── 색은 별의 노랑·빨강만: 나머지는 흰색 밝기(밝은 모드는 먹색 농도) ── */
 .bh.glass {
-  --school: rgba(255,255,255,.92); --personal: rgba(255,255,255,.72); --todo: rgba(255,255,255,.92); --note: rgba(255,255,255,.8); --now: #fff;
+  --school: rgba(255,255,255,.92); --outside: rgba(255,255,255,.92); --personal: rgba(255,255,255,.72); --todo: rgba(255,255,255,.92); --note: rgba(255,255,255,.8); --now: #fff;
   --wall: radial-gradient(1100px 700px at 15% 0%, #1763b8, transparent 60%), radial-gradient(900px 800px at 60% 100%, #2e8796, transparent 60%), #0b3a8c;
   --page: #0b2a5a;
   --x-hair: rgba(255,255,255,.1); --x-line: rgba(255,255,255,.4); --x-chip: rgba(255,255,255,.08); --x-sel: rgba(255,255,255,.22); --x-box: rgba(255,255,255,.18);
   --x-hatch: rgba(255,255,255,.05); --x-off: rgba(0,10,40,.18); --x-pinbg: rgba(12,40,100,.92); --x-inv: #0b2a5a; --x-star0: rgba(255,255,255,.3); --x-evbox: rgba(255,255,255,.3);
 }
 .bh.glass[data-mode="light"] {
-  --school: rgba(22,23,42,.85); --personal: rgba(22,23,42,.6); --todo: rgba(22,23,42,.85); --note: rgba(22,23,42,.7); --now: #16172a;
+  --school: rgba(22,23,42,.85); --outside: rgba(22,23,42,.85); --personal: rgba(22,23,42,.6); --todo: rgba(22,23,42,.85); --note: rgba(22,23,42,.7); --now: #16172a;
   --wall: radial-gradient(1100px 700px at 15% 0%, #dfe7f3, transparent 60%), radial-gradient(900px 800px at 60% 100%, #e6eef0, transparent 60%), #eef1f6;
   --page: #eef1f6;
   --x-hair: rgba(22,23,42,.08); --x-line: rgba(22,23,42,.3); --x-chip: rgba(22,23,42,.05); --x-sel: rgba(22,23,42,.1); --x-box: rgba(255,255,255,.75);
@@ -505,3 +510,16 @@ html.native-glass .bh .tlsp { display: block; width: 70px; height: 30px; }
 .bh.glass .dpanel { background: color-mix(in srgb, var(--page) 92%, transparent); backdrop-filter: blur(28px) saturate(160%); -webkit-backdrop-filter: blur(28px) saturate(160%); }
 .bh.glass .dpanel input, .bh.glass .dpanel textarea { color-scheme: dark; }
 .bh.glass[data-mode="light"] .dpanel input, .bh.glass[data-mode="light"] .dpanel textarea { color-scheme: light; }
+
+/* 하루표 종류별 색 (11-02 시안 15 ①: 중간 톤 · 흰 글씨): 학교 파랑 · 외부 보라 · 개인 자홍. 작업 시간(민트)·고정 칸·루틴은 그대로. */
+.bh.glass .tdv .dtg .sg.ev.k-school { background: rgba(74,144,226,.88); box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
+.bh.glass .tdv .dtg .sg.ev.k-outside { background: rgba(142,110,224,.88); box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
+.bh.glass .tdv .dtg .sg.ev.k-personal { background: rgba(214,104,160,.88); box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
+.bh.glass .tdv .dtg .sg.ev.k-school.past { background: rgba(74,144,226,.53); }
+.bh.glass .tdv .dtg .sg.ev.k-outside.past { background: rgba(142,110,224,.53); }
+.bh.glass .tdv .dtg .sg.ev.k-personal.past { background: rgba(214,104,160,.53); }
+.bh.glass .tdv .dtg .sg.ev.prov.k-school { background: none; box-shadow: inset 0 0 0 2px rgb(74,144,226); }
+.bh.glass .tdv .dtg .sg.ev.prov.k-outside { background: none; box-shadow: inset 0 0 0 2px rgb(142,110,224); }
+.bh.glass .tdv .dtg .sg.ev.prov.k-personal { background: none; box-shadow: inset 0 0 0 2px rgb(214,104,160); }
+.bh.glass .tdv .dtg .sg.ev:is(.k-school, .k-outside, .k-personal):not(.prov) .t { color: #fff; }
+.bh.glass .tdv .dtg .sg.ev:is(.k-school, .k-outside, .k-personal).past { opacity: 1; }

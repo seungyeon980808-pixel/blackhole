@@ -5,7 +5,7 @@ import { memoryAdapter } from "../src/calendar/memory-adapter";
 import { DEFAULT_SETTINGS } from "../src/calendar/model";
 import { timeWords } from "../src/calendar/rules";
 import { draftFromText } from "../src/calendar/store";
-import { emptyState } from "../src/calendar/model";
+import { emptyState, normalizeState } from "../src/calendar/model";
 
 let app: BlackholeApp | null = null;
 afterEach(() => {
@@ -251,5 +251,20 @@ describe("월요일 시작 · D-day는 진짜 오늘 기준 · 띠 이름 (11-02
     expect(html).toContain("D-6");
     expect(html).toContain("수능모의");
     expect(html).toContain("11/8");
+  });
+});
+
+describe("11-02 시안 15: 학교 · 외부 · 개인 색", () => {
+  it("외부 영역이 저장·불러오기에서 살아 있고, 하루표 칸에 종류 표시가 붙고, 상세 창에서 고를 수 있음", async () => {
+    const root = await mount();
+    await app!.submitText("오늘 오후 2시 학부모 상담");
+    const ev = app!.state.events.find((e) => e.title.includes("학부모 상담"))!;
+    expect(root.querySelector(`.dtg [data-ev="${ev.id}"]`)!.classList.contains(`k-${ev.area}`)).toBe(true);
+    root.querySelector<HTMLElement>(`.dtg [data-ev="${ev.id}"]`)!.click();
+    root.querySelector<HTMLElement>('#bhDetail [data-darea="outside"]')!.click();
+    expect(ev.area).toBe("outside");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(root.querySelector(`.dtg [data-ev="${ev.id}"]`)!.classList.contains("k-outside")).toBe(true);
+    expect(normalizeState(JSON.parse(JSON.stringify(app!.state))).events.find((e) => e.id === ev.id)!.area).toBe("outside");
   });
 });
