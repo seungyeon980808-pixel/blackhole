@@ -24,10 +24,12 @@ describe("phone 오늘", () => {
     const root = document.querySelector<HTMLElement>("#app")!;
     app = await mountBlackhole(root, { ...memoryAdapter(), origin: "휴대폰", load: async () => s }, { now: () => new Date(2026, 9, 27, 10, 40), seed: false });
     app.setView("day", "2026-10-27");
-    const titles = [...root.querySelectorAll(".phv .pch")].map((x) => x.textContent!.replace(/[☑▦★\d]|남음/g, "").trim());
+    // 11-04 시안 18: 상자 없이 줄 머리(할 일 · 오늘 일정), 일정은 세로 시간 줄.
+    const titles = [...root.querySelectorAll(".phv .psh b")].map((x) => x.textContent!.trim());
     expect(titles).toEqual(["할 일", "오늘 일정"]);
     expect(root.querySelector(".phv .pnt")!.textContent).toContain("11:00 학년 협의회");
-    const rows = [...root.querySelectorAll(".phv .pcard:nth-of-type(3) .prow .tn")].map((x) => x.textContent);
+    expect(root.querySelector(".phv .ptask .rem")).not.toBeNull(); // 남은 시간 칸
+    const rows = [...root.querySelectorAll(".phv .ptl .pev .tn")].map((x) => x.textContent);
     expect(rows.filter((x) => x!.startsWith("초과근무"))).toEqual(["초과근무 ×2"]);
     expect(root.querySelector(".phv .tdv.phtable")).toBeNull();
     root.querySelector<HTMLButtonElement>('[data-fold="phtable"]')!.click();

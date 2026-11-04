@@ -3251,7 +3251,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       });
       if (q("[data-droutine]")) return toRoutine(id);
     }
-    const POP = ".strip [data-ev], .dstrip [data-ev], .dtg [data-ev], .tl .task[data-ev] .tn, .ups .ms[data-ev], .ups .blb[data-ev], .dta .chip[data-ev]";
+    const POP = ".strip [data-ev], .dstrip [data-ev], .dtg [data-ev], .tl .task[data-ev] .tn, .ups .ms[data-ev], .ups .blb[data-ev], .dta .chip[data-ev], .phv .prow[data-ev] .tn, .phv .pup[data-ev], .phv .pnt[data-ev]";
     if ((view === "day" || view === "pri") && (q(POP) || q(".quad .mq[data-ev] .tn")) && !q("button, [role=checkbox], input")) {
       const hit = q<HTMLElement>(POP) ?? q<HTMLElement>(".quad .mq[data-ev] .tn")!;
       const t = hit.dataset.ev ? hit : hit.closest<HTMLElement>("[data-ev]")!;

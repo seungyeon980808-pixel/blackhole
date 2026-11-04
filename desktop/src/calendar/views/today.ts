@@ -582,12 +582,12 @@ export function phoneToday(ctx: Ctx, o: TodayOpts, fd: (k: string) => string): s
   // Phone: 날짜 없음 sits at the end of the folded 「나중」 list.
   const ord = { ...ord0, later: [...ord0.later, ...ord0.undated] };
   const open = (key: string) => !!ctx.open?.has(key);
+  // 11-04 시안 18: 둥근 체크 · 제목 아래 기한과 단계 · 오른쪽은 Mac과 같은 남은 시간 칸.
   const trow = (t: Task) => {
-    const n = ord.num.get(t.id);
-    const urg = isUrgent(t, ctx.now, ctx.s);
-    const due = dueText(t, ctx.now, ctx.today, fd, off);
-    const [left, right] = t.dueTime && t.due <= k ? [t.dueTime, due.split(" · ")[1] ?? ""] : [t.noDue ? "—" : t.due === k ? "오늘" : `${parseDay(t.due).getMonth() + 1}/${parseDay(t.due).getDate()}`, t.noDue ? "날짜 없음" : ""];
-    return `<div class="prow" data-ev="${t.id}"><span class="tm ${urg ? "b" : ""}">${left}</span><span class="tn"><span class="ck" data-tdone="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="${esc(t.title)} 완료"></span><span class="no">${n ?? ""}</span>${t.star ? `<span class="star s${t.star}">★</span> ` : ""}${esc(t.title)}${t.wait ? ` <i class="x">기다림 · ${esc(t.wait)}</i>` : ""}${t.subs.length ? ` <i class="x">${t.subs.filter((x) => x.done).length}/${t.subs.length}</i>` : ""}</span><span class="x ${urg ? "b" : ""}">${right}</span></div>`;
+    const lv = urgency(t, ctx.now, ctx.s);
+    const when = t.noDue ? "날짜 없음" : `${t.due === ctx.today ? "오늘" : fd(t.due)}${t.dueTime ? ` ${t.dueTime}` : ""}까지`;
+    const sub = [when, t.subs.length ? `단계 ${t.subs.filter((x) => x.done).length}/${t.subs.length}` : "", t.wait ? `기다림 · ${esc(t.wait)}` : ""].filter(Boolean).join(" · ");
+    return `<div class="prow ptask" data-ev="${t.id}"><span class="ck" data-tdone="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="${esc(t.title)} 완료"></span><span class="tn"><b>${t.star ? `<span class="star s${t.star}">★</span> ` : ""}${esc(t.title)}</b><small>${sub}</small></span>${t.noDue ? "" : `<span class="rem R${lv}">${remainText(t, ctx.now, off)}</span>`}</div>`;
   };
   // Today's appointments and 루틴 in time order (routines tap to check).
   const hm = `${p2(ctx.now.getHours())}:${p2(ctx.now.getMinutes())}`;
@@ -602,21 +602,23 @@ export function phoneToday(ctx: Ctx, o: TodayOpts, fd: (k: string) => string): s
   const evs = [...seen.values()].map((x) => x.e);
   const times = (e: CalEvent) => seen.get(`${e.title}|${e.start ?? ""}|${e.end ?? ""}`)!.n;
   const rts = ctx.s.routines.filter((r) => routineOn(r, k));
+  // 세로 시간 줄: 학교·외부·개인 점, 지난 일은 옅게, 오늘이면 지금 시각 선.
   const items = [
-    ...evs.map((e) => ({ at: e.start ?? "", html: `<div class="prow ${isToday && (e.end ? e.end <= hm : !!e.start && e.start < hm) ? "past" : ""}" data-ev="${e.id}"><span class="tm">${e.start ?? "종일"}</span><span class="tn">${esc(e.title)}${times(e) > 1 ? ` <i class="x">×${times(e)}</i>` : ""}${e.provisional ? '<span class="ga">가</span>' : ""}</span><span class="x">${e.end && e.start ? `~${e.end}` : ""}</span></div>` })),
-    ...rts.map((r) => ({ at: r.at, html: `<div class="prow rt ${r.done.includes(k) ? "past" : ""}"><span class="tm">${r.at}</span><span class="tn"><button class="rtb" data-rt="${r.id}" role="checkbox" aria-checked="${r.done.includes(k)}">${esc(r.title)}${r.done.includes(k) ? " ✓" : ""}</button></span><span class="x">루틴</span></div>` }))
-  ].sort((a, b) => a.at.localeCompare(b.at));
+    ...evs.map((e) => ({ at: e.start ?? "", html: `<div class="prow pev ${isToday && (e.end ? e.end <= hm : !!e.start && e.start < hm) ? "past" : ""} ${e.provisional ? "prov" : ""}" data-ev="${e.id}"><span class="tm">${e.start ?? "종일"}</span><i class="pdot k-${e.area}"></i><span class="tn">${e.star ? `<span class="star s${e.star}">★</span> ` : ""}${esc(e.title)}${times(e) > 1 ? ` <i class="x">×${times(e)}</i>` : ""}${e.provisional ? '<span class="ga">가</span>' : ""}</span><span class="x">${e.end && e.start ? `~${e.end}` : ""}</span></div>` })),
+    ...rts.map((r) => ({ at: r.at, html: `<div class="prow pev rt ${r.done.includes(k) ? "past" : ""}"><span class="tm">${r.at}</span><i class="pdot k-rt"></i><span class="tn"><button class="rtb" data-rt="${r.id}" role="checkbox" aria-checked="${r.done.includes(k)}">${esc(r.title)}${r.done.includes(k) ? " ✓" : ""}</button></span><span class="x">루틴</span></div>` })),
+    ...(isToday ? [{ at: hm, html: `<div class="pnowline"><span>${hm}</span></div>` }] : [])
+].sort((a, b) => a.at.localeCompare(b.at));
   const ups = upcoming(ctx.s, k, fd).slice(0, 4);
-  const card = (icon: string, title: string, count: string, body: string) =>
-    `<section class="pcard"><div class="pch"><i>${icon}</i>${title}${count ? `<span class="c">${count}</span>` : ""}</div>${body}</section>`;
+  // 상자는 「지금」 하나, 나머지는 줄과 여백으로 (11-04 시안 18).
+  const sec = (title: string, count: string, body: string) => `<section class="psec"><div class="psh"><b>${title}</b>${count ? `<span>${count}</span>` : ""}</div>${body}</section>`;
   return `<div class="phv">
-    ${isToday ? `<section class="pcard pnow"><div class="pnx"><span class="clk">${p2(ctx.now.getHours())}:${p2(ctx.now.getMinutes())}</span><span class="l">${nx ? `다음 · ${untilText(ctx.now, nx.at)}` : "일주일 안에 정해진 것 없음"}</span></div>${nx ? `<div class="pnt" data-ev="${nx.id}"><b>${nx.label}</b> ${esc(nx.title)}</div>` : ""}</section>` : ""}
-    ${card("☑", "할 일", `${ord.today.length + ord.later.length} 남음`, `${ord.today.map(trow).join("") || '<div class="none">오늘 할 일 없음</div>'}
-      ${ord.later.length || ord.done.length ? `<button class="pmore" data-fold="phlater" aria-expanded="${open("phlater")}">나중 ${ord.later.length}${ord.done.length ? ` · 완료 ${ord.done.length}` : ""} ${open("phlater") ? "▴" : "▾"}</button>` : ""}
+    ${isToday ? `<section class="pnow"><span class="clk">${hm}</span><span class="l">${nx ? `다음 · ${untilText(ctx.now, nx.at)}` : "일주일 안에 정해진 것 없음"}</span>${nx ? `<b class="pnt" data-ev="${nx.id}">${nx.label} ${esc(nx.title)}</b>` : ""}</section>` : ""}
+    ${sec("할 일", `${ord.today.length + ord.later.length}개 남음`, `${ord.today.map(trow).join("") || '<div class="none">오늘 할 일 없음</div>'}
+      ${ord.later.length || ord.done.length ? `<button class="pmore" data-fold="phlater" aria-expanded="${open("phlater")}">나중 ${ord.later.length}${ord.done.length ? ` · 완료 ${ord.done.length}` : ""} ${open("phlater") ? "‹" : "›"}</button>` : ""}
       ${open("phlater") ? `<div class="plater">${ord.later.map(trow).join("")}</div>` : ""}`)}
-    ${card("▦", isToday ? "오늘 일정" : `${fd(k)} 일정`, String(evs.length), `${items.map((x) => x.html).join("") || '<div class="none">일정 없음</div>'}
-      <button class="pmore" data-fold="phtable" aria-expanded="${open("phtable")}">하루표로 보기 ${open("phtable") ? "▴" : "▾"}</button>`)}
+    ${sec(isToday ? "오늘 일정" : `${fd(k)} 일정`, String(evs.length), `<div class="ptl">${items.map((x) => x.html).join("") || '<div class="none">일정 없음</div>'}</div>
+      <button class="pmore" data-fold="phtable" aria-expanded="${open("phtable")}">하루표로 보기 ${open("phtable") ? "‹" : "›"}</button>`)}
     ${open("phtable") ? `<div class="tdv phtable">${dayTable(ctx, k, o, ord.num, fd)}</div>` : ""}
-    ${ups.length ? card("★", "다가오는 주요 일정", "", ups.map((u) => `<div class="prow" data-ev="${u.id}"><span class="tm">${esc(u.when.split(/[ (]/)[0])}</span><span class="tn"><span class="star s${u.star || 1}">★</span> ${esc(u.title)}</span><span class="dd ${u.days <= 7 ? "soon" : ""}">D-${u.days}</span></div>`).join("")) : ""}
+    ${ups.length ? sec("다가오는 주요 일정", "", `<div class="pups">${ups.map((u) => `<div class="pup ${ctx.s.events.find((e) => e.id === u.id)?.provisional ? "prov" : ""}" data-ev="${u.id}"><b>${u.star ? `<i class="s${u.star}">★</i>` : ""}D-${u.days}</b><span>${esc(u.short?.trim() || u.title)}</span></div>`).join("")}</div>`) : ""}
   </div>`;
 }

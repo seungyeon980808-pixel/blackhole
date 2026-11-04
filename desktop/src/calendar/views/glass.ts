@@ -183,7 +183,8 @@ export const glass: ThemeView = {
       </div>
     </div></header>
     <main class="content" id="bhMain"></main>
-    <footer class="composer" id="bhComp"></footer>`,
+    <footer class="composer" id="bhComp"></footer>
+    <nav class="ptabs" aria-label="보기">${[["day", "오늘", ICON.clock], ["month", "달력", ICON.cal], ["pri", "할 일", ICON.todo], ["memo", "기억", ICON.memo]].map(([v, t, i]) => `<button class="ptab" data-v="${v}" aria-label="${t}">${i}<span>${t}</span></button>`).join("")}</nav>`,
   head: (ctx) => {
     const c = ctx.cur;
     if (ctx.view === "month") return { title: `${c.getFullYear()}년 ${c.getMonth() + 1}월` };
