@@ -758,33 +758,104 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
    * 할 일 묶기 (11-02 시안 6): pick the 대표 이름 (one of them, or a new one); the others become its 하위 체크.
    * 기한 = the earliest, ★ = the highest, 걸리는 시간 = the sum, 작업 시간 go to the merged one. One ⌘Z.
    */
-  function openMerge(ids: string[]): void {
+  /**
+   * 하나로 묶기 창. From words (「…랑 … 묶어」, 11-04 시안 17) it says what it found and the boxes can be
+   * unticked; on the Mac the AI's short name comes in as the first 대표 이름 (one small call, never needed).
+   */
+  function openMerge(ids: string[], from?: { said: string; missing: string[] }): void {
     root.querySelector(".mergepop")?.remove();
-    const ts = ids.map((id) => findEntry(s, id)).filter((x): x is Task => x?.kind === "task" && !x.gone && !x.done);
-    if (ts.length < 2) return toast("묶을 할 일을 두 개 이상 골라 주세요");
-    root.insertAdjacentHTML("beforeend", `<div class="mergepop" role="dialog" aria-label="하나로 묶기" style="left:${Math.max(12, window.innerWidth / 2 - 170)}px;top:${Math.max(12, window.innerHeight / 2 - 190)}px">
+    const all = ids.map((id) => findEntry(s, id)).filter((x): x is Task => x?.kind === "task" && !x.gone && !x.done);
+    if (all.length < 2) return toast("묶을 할 일을 두 개 이상 골라 주세요");
+    let ts = all;
+    const fd = theme().fd;
+    const found = from
+      ? `<div class="lbl">묶을 할 일 ${all.length}개 — 「${escapeHtml(from.said.slice(0, 40))}」에서 찾음</div>${all.map((x) => `<label><input type="checkbox" data-mpick value="${x.id}" checked>${escapeHtml(x.title)}<span class="dd">${x.noDue ? "날짜 없음" : fd(x.due)}</span></label>`).join("")}${from.missing.length ? `<div class="miss">못 찾음: ${from.missing.map((m) => `「${escapeHtml(m)}」`).join(" ")}</div>` : ""}`
+      : "";
+    const ai = adapter.nameTasks ? `<label class="aiq"><input type="radio" name="mhead" value="ai" disabled><span class="an">이름 짓는 중…</span><span class="tag">AI 제안</span></label>` : "";
+    root.insertAdjacentHTML("beforeend", `<div class="mergepop" role="dialog" aria-label="하나로 묶기" style="left:${Math.max(12, window.innerWidth / 2 - 170)}px;top:${Math.max(12, window.innerHeight / 2 - 220)}px">
       <h4>하나로 묶기</h4>
+      ${found}
       <div class="lbl">대표 이름</div>
-      ${ts.map((x, i) => `<label><input type="radio" name="mhead" value="${x.id}" ${i === 0 ? "checked" : ""}>${escapeHtml(x.title)}</label>`).join("")}
+      ${ai}
+      ${all.map((x, i) => `<label class="hd"><input type="radio" name="mhead" value="${x.id}" ${i === 0 ? "checked" : ""}>${escapeHtml(x.title)}</label>`).join("")}
       <label><input type="radio" name="mhead" value=""><input type="text" data-mnew placeholder="새 이름 — 예: 방한용품 구매"></label>
       <div class="lbl">묶은 뒤</div><div class="pv"></div>
       <div class="ft"><button data-mcancel>취소</button><button class="pri" data-mok>묶기</button></div>
     </div>`);
     const pop = root.querySelector<HTMLElement>(".mergepop")!;
-    pop.dataset.ids = ts.map((x) => x.id).join(",");
+    pop.dataset.ids = all.map((x) => x.id).join(",");
+    let touched = false;
     const preview = () => {
       const head = pop.querySelector<HTMLInputElement>("input[name=mhead]:checked")?.value ?? "";
-      const name = head ? findEntry(s, head)!.title : pop.querySelector<HTMLInputElement>("[data-mnew]")!.value.trim() || "새 이름";
+      const name = head === "ai" ? pop.dataset.ai ?? "" : head ? findEntry(s, head)!.title : pop.querySelector<HTMLInputElement>("[data-mnew]")!.value.trim() || "새 이름";
       const subs = ts.flatMap((x) => (x.id === head ? x.subs.map((y) => y.title) : [x.title, ...x.subs.map((y) => y.title)]));
       const dated = ts.filter((x) => !x.noDue).sort((a, b) => (a.due + (a.dueTime ?? "99")).localeCompare(b.due + (b.dueTime ?? "99")))[0];
-      pop.querySelector(".pv")!.innerHTML = `<b>${escapeHtml(name)}</b> · ${dated ? `기한 ${theme().fd(dated.due)}${dated.dueTime ? " " + dated.dueTime : ""}` : "날짜 없음"} · 하위 ${subs.length}개<div class="sb">${subs.map((x) => `☐ ${escapeHtml(x)}`).join("<br>")}</div>`;
+      pop.querySelector(".pv")!.innerHTML = `<b>${escapeHtml(name)}</b> · ${dated ? `기한 ${fd(dated.due)}${dated.dueTime ? " " + dated.dueTime : ""}` : "날짜 없음"} · 하위 ${subs.length}개<div class="sb">${subs.map((x) => `☐ ${escapeHtml(x)}`).join("<br>")}</div>`;
     };
-    pop.addEventListener("change", preview);
+    pop.addEventListener("change", (e) => {
+      const t = e.target as HTMLInputElement;
+      if (t.matches("[data-mpick]")) {
+        // Unticked: out of this 묶기 (and out of the 대표 이름 list).
+        ts = all.filter((x) => pop.querySelector<HTMLInputElement>(`[data-mpick][value="${x.id}"]`)?.checked !== false);
+        pop.dataset.ids = ts.map((x) => x.id).join(",");
+        pop.querySelectorAll<HTMLInputElement>("label.hd input").forEach((r) => {
+          const on = ts.some((x) => x.id === r.value);
+          r.closest("label")!.hidden = !on;
+          if (!on && r.checked) pop.querySelector<HTMLInputElement>(`label.hd input[value="${ts[0]?.id}"]`)!.checked = true;
+        });
+      } else touched = true;
+      preview();
+    });
     pop.addEventListener("input", (e) => {
       if ((e.target as HTMLElement).matches("[data-mnew]")) pop.querySelector<HTMLInputElement>('input[name=mhead][value=""]')!.checked = true;
+      touched = true;
       preview();
     });
     preview();
+    if (adapter.nameTasks) {
+      const ids0 = pop.dataset.ids;
+      adapter.nameTasks(all.map((x) => x.title)).then((name) => {
+        const row = pop.querySelector<HTMLElement>("label.aiq");
+        if (!row || !pop.isConnected) return;
+        if (!name.trim() || all.some((x) => x.title === name.trim())) return row.remove();
+        pop.dataset.ai = name.trim().slice(0, 80);
+        row.querySelector(".an")!.textContent = pop.dataset.ai;
+        const r = row.querySelector<HTMLInputElement>("input")!;
+        r.disabled = false;
+        // The AI's name first, unless the user already chose (or the picks changed).
+        if (!touched && pop.dataset.ids === ids0) r.checked = true;
+        preview();
+      }).catch(() => pop.querySelector("label.aiq")?.remove());
+    }
+  }
+
+  /**
+   * 「대의원회 사전 안내랑 기안 올리기 하나로 묶어」 (11-04 시안 17): the to-dos named in the words open the
+   * 묶기 창 (never merged at once). Two found at least, else it is not a 묶기 sentence.
+   */
+  function mergeBySentence(v: string, src: string): boolean {
+    if (!/(묶어|묶자|묶기|합쳐|합치자|합치기)/.test(v)) return false;
+    const body = v.replace(/\s*(?:을|를)?\s*(?:다\s*)?(?:하나로|한\s*개로|한꺼번에)?\s*(?:묶어|묶자|묶기|합쳐|합치자|합치기)\s*(?:줘|주세요|줄래|라|요)?\s*[.!?~]*\s*$/, "").replace(/\s*(?:하나로|한\s*개로)\s*$/, "");
+    const parts = body.split(/\s*(?:,|，|\/|이랑\s|랑\s|하고\s|그리고\s|및\s)\s*/).map((x) => x.trim().replace(/(?:이랑|랑|하고|을|를|도)$/, "").trim()).filter((x) => x.length >= 2);
+    if (parts.length < 2) return false;
+    const norm = (x: string) => x.replace(/\s+/g, "");
+    const open = s.tasks.filter((t) => !t.gone && !t.done);
+    const picked: Task[] = [];
+    const missing: string[] = [];
+    for (const p of parts) {
+      const n = norm(p);
+      const left = open.filter((t) => !picked.includes(t));
+      const best = left.find((t) => norm(t.title) === n) ?? left.filter((t) => norm(t.title).includes(n)).sort((a, b) => a.title.length - b.title.length)[0] ?? left.filter((t) => n.includes(norm(t.title)) && norm(t.title).length >= 2).sort((a, b) => b.title.length - a.title.length)[0];
+      if (best) picked.push(best);
+      else missing.push(p);
+    }
+    if (picked.length < 2) return false;
+    const now = clock();
+    s.chat.push({ id: newId(s, "c"), at: stamp(now), who: "me", text: v, kind: "text", src }, { id: newId(s, "c"), at: stamp(now), who: "ai", text: `할 일 ${picked.length}개를 찾아 묶기 창을 열었어요${missing.length ? ` · 못 찾음 ${missing.length}` : ""}` });
+    void save();
+    render();
+    openMerge(picked.map((t) => t.id), { said: v, missing });
+    return true;
   }
 
   function mergeTasks(ids: string[], headId: string, newTitle: string): void {
@@ -1549,6 +1620,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     // (Checked synchronously first: the rule draft must appear before the first await.)
     if (!checked && mode !== "put" && (MOVE_RE.test(v) || RETIME_RE.test(v)) && (await moveBySentence(v, src))) return;
     if (!checked && mode !== "put" && addRoutineBySentence(v, src)) return;
+    if (!checked && mode !== "put" && mergeBySentence(v, src)) return;
     // 「일원역 이동이 왜 저렇게 시간으로 들어가」 right after a result: what went wrong, into 고칠 목록 (not a question).
     if (!checked && mode !== "put" && complaint(v, src)) return;
     // 「음...」 「ㅋㅋㅋ」: nothing to keep, said so in the chat (no 기억, no AI).
@@ -2916,6 +2988,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (q("[data-mcancel]")) return void mp.remove();
       if (q("[data-mok]")) {
         const head = mp.querySelector<HTMLInputElement>("input[name=mhead]:checked")?.value ?? "";
+        if (head === "ai") return mergeTasks(mp.dataset.ids!.split(","), "", mp.dataset.ai ?? "");
         return mergeTasks(mp.dataset.ids!.split(","), head, mp.querySelector<HTMLInputElement>("[data-mnew]")!.value);
       }
       return;

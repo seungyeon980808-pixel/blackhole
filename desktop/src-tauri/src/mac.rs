@@ -1388,6 +1388,16 @@ pub async fn answer_records(question: String, lines: Vec<String>) -> Result<serd
     tauri::async_runtime::spawn_blocking(move || crate::worker::ask::answer_lines(&question, &lines, &today())).await.map_err(|e| e.to_string())?
 }
 
+/// 할 일 묶기: a short name for the chosen titles (at most 12, secret-looking ones dropped).
+#[tauri::command]
+pub async fn name_tasks(titles: Vec<String>) -> Result<String, String> {
+    let titles: Vec<String> = titles.into_iter().filter(|l| matches!(crate::secret::guess(l), crate::secret::Guess::None)).take(12).map(|l| l.chars().take(120).collect()).collect();
+    if titles.len() < 2 {
+        return Ok(String::new());
+    }
+    tauri::async_runtime::spawn_blocking(move || crate::find::name_lines(&titles)).await.map_err(|e| e.to_string())?
+}
+
 #[derive(serde::Serialize)]
 pub struct TagReply {
     id: String,

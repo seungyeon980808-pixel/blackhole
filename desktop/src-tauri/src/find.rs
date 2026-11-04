@@ -126,6 +126,19 @@ pub fn ask_lines(question: &str, lines: &[String]) -> Result<(String, Vec<String
     Ok((v["answer"].as_str().unwrap_or("").to_string(), ids))
 }
 
+const NAME_SYSTEM: &str = "너는 교사의 할 일 목록을 정리하는 도우미다. 하나로 묶을 할 일 제목들을 보고, 그 일들을 아우르는 짧은 한국어 이름 하나를 짓는다. 20자 이내, 제목에 있는 말을 살려 쓰고, 날짜·따옴표·설명은 붙이지 않는다.";
+
+/// 할 일 묶기 이름 제안 (11-04): the titles only, one small Claude call (same budget and usage log).
+pub fn name_lines(titles: &[String]) -> Result<String, String> {
+    use crate::worker::runners::ChatModel;
+    let config = crate::worker::config::WorkerConfig::from_env().map_err(|e| e.message)?;
+    let chat = crate::worker::claude::ClaudeChat::new(&config.claude_model, "low");
+    let schema = json!({"type":"object","properties":{"name":{"type":"string"}},"required":["name"]});
+    let raw = chat.chat_json(vec![json!({"role":"system","content":NAME_SYSTEM}), json!({"role":"user","content":titles.join("\n")})], &schema).map_err(|e| e.message)?;
+    let v: Value = serde_json::from_str(&raw).map_err(|_| "AI 답을 읽지 못했습니다.".to_string())?;
+    Ok(v["name"].as_str().unwrap_or("").trim().trim_matches(|c| c == '"' || c == '「' || c == '」').chars().take(30).collect())
+}
+
 const TAG_SYSTEM: &str = "너는 교사의 짧은 기억 메모에 주제 태그를 다는 정리 도우미다. 메모마다 1~3개의 짧은 한국어 태그를 단다(띄어쓰기 없이, # 없이). 이미 쓰는 태그 목록에 맞는 주제가 있으면 반드시 그 태그를 그대로 쓰고, 새 태그는 꼭 필요할 때만 만든다. 학년·반(2-3, 5반)은 태그로 달지 않는다. 메모마다 [id]와 tags를 돌려준다.";
 
 /// 기억 일괄 태그: the 기억 the local rules left without a topic, in one small Claude call (same

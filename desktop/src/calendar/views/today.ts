@@ -430,7 +430,7 @@ export function upcomingBand(ctx: Ctx, k: string, fd: (k: string) => string, ran
   const pct = (d: number) => `${((Math.min(d, range) / range) * 100).toFixed(3)}%`;
   // Names above the line (★ + 짧은 이름 or the first 6 letters); D-day and date under it (11-02 사용자).
   // Each goes on the lowest row where it does not touch the one before it (3 rows above, 2 under).
-  type Placed = { u: Upcoming; lane: number; name: string; flip: boolean; under: number };
+  type Placed = { u: Upcoming; lane: number; name: string; flip: boolean; under: number; hide?: boolean };
   const free = (r: [number, number][], [a, b]: [number, number]) => r.every(([p, q]) => b + 4 <= p || a >= q + 4);
   const above: [number, number][][] = [[], [], []];
   const below: [number, number][][] = [[], []];
@@ -447,20 +447,42 @@ export function upcomingBand(ctx: Ctx, k: string, fd: (k: string) => string, ran
     let lane = above.findIndex((r) => free(r, span(w)));
     if (lane < 0) {
       // No row has room: the row with the most room, then fewer letters (3 at least).
-      const roomIn = (r: [number, number][]) => (flip ? x - Math.max(0, ...r.filter(([, q]) => q <= x).map(([, q]) => q + 6)) : Math.min(W, ...r.filter(([p]) => p >= x).map(([p]) => p - 6)) - x);
+      // A name already over this spot leaves no room in that row (11-04: they were counted as room, names piled up).
+      const roomIn = (r: [number, number][]) => (r.some(([p, q]) => p - 4 < x && x < q + 4) ? 0 : flip ? x - Math.max(0, ...r.filter(([, q]) => q <= x).map(([, q]) => q + 6)) : Math.min(W, ...r.filter(([p]) => p >= x).map(([p]) => p - 6)) - x);
       lane = [0, 1, 2].reduce((best, l) => (roomIn(above[l]) > roomIn(above[best]) ? l : best), 0);
       const room = roomIn(above[lane]);
       while (name.replace("…", "").length > 3 && textW(name) + star + 10 > room) name = `${name.replace("…", "").slice(0, -1)}…`;
+      // Still no room even with 3 letters: the name hides; it goes into a 「+n」 with its neighbours (11-04).
+      if (textW(name) + star + 10 > room) {
+        placed.push({ u, lane: 0, name, flip, under: -1, hide: true });
+        continue;
+      }
     }
     above[lane].push(span(textW(name) + star + 10));
     const uw = textW(`D-${u.days} ${md(u.date)}`) * 0.85 + 6;
     const us: [number, number] = [x - uw / 2, x + uw / 2];
-    let under = below.findIndex((r) => free(r, us));
-    if (under < 0) under = 1;
-    below[under].push(us);
+    // D-day under the line only where it fits (else on hover, as the hidden names).
+    const under = below.findIndex((r) => free(r, us));
+    if (under >= 0) below[under].push(us);
     placed.push({ u, lane, name, flip, under });
   }
-  const lanes = Math.max(1, ...placed.map((p) => p.lane + 1));
+  // Hidden names close together: one 「+n」 on the lowest row with room (its hover lists them).
+  const groups: Placed[][] = [];
+  for (const p of placed.filter((q) => q.hide)) {
+    const g = groups[groups.length - 1];
+    if (g && px(p.u.days) - px(g[0].u.days) < 40) g.push(p);
+    else groups.push([p]);
+  }
+  const plus = groups.map((g) => {
+    const w = textW(`+${g.length}`) + 12;
+    // Right after the name already there, on the row that frees up first (never on top of a name).
+    const at = (r: [number, number][]) => Math.max(px(g[0].u.days), ...r.filter(([p]) => p <= px(g[0].u.days) + w).map(([, q]) => q + 6));
+    const lane = [0, 1, 2].reduce((best, l) => (at(above[l]) < at(above[best]) ? l : best), 0);
+    const x = Math.min(at(above[lane]), W - w);
+    above[lane].push([x, x + w]);
+    return { g, x, lane };
+  });
+  const lanes = Math.max(1, ...placed.filter((p) => !p.hide).map((p) => p.lane + 1), ...plus.map((p) => p.lane + 1));
   const unders = Math.max(1, ...placed.map((p) => p.under + 1));
   const axY = lanes * LH + 8;
   // 「오늘」 on the line's start (under it are the D-days).
@@ -471,15 +493,21 @@ export function upcomingBand(ctx: Ctx, k: string, fd: (k: string) => string, ran
     const dt = addDays(t0, d);
     if (dt.getDate() === 1 && px(d) > 24 && px(d) < W - 24) h += `<span class="btk m" style="left:${pct(d)};top:${axY - 7}px">${dt.getMonth() + 1}월</span>`;
   }
-  for (const { u, lane, name, flip, under } of placed) {
-    h += u.endDays !== undefined && u.endDays > u.days
-      ? `<i class="bpr" style="left:${pct(u.days)};width:max(5px, ${(((Math.min(u.endDays, range) - u.days) / range) * 100).toFixed(3)}%);top:${axY}px"></i>`
-      : `<i class="bdot" style="left:${pct(u.days)};top:${axY}px"></i>`;
-    const top = (lanes - 1 - lane) * LH;
+  for (const { u, lane, name, flip, under, hide } of placed) {
     const tip = esc(`${u.title} · ${u.when} · D-${u.days}`);
+    h += u.endDays !== undefined && u.endDays > u.days
+      ? `<i class="bpr" data-ev="${u.id}" title="${tip}" style="left:${pct(u.days)};width:max(5px, ${(((Math.min(u.endDays, range) - u.days) / range) * 100).toFixed(3)}%);top:${axY}px"></i>`
+      : `<i class="bdot" data-ev="${u.id}" title="${tip}" style="left:${pct(u.days)};top:${axY}px"></i>`;
+    if (hide) continue;
+    const top = (lanes - 1 - lane) * LH;
     h += `<i class="bstem" style="left:${pct(u.days)};top:${top + LH}px;height:${axY - top - LH}px"></i>`;
     h += `<span class="blb ${flip ? "fl" : ""}" data-ev="${u.id}" title="${tip}" style="${flip ? `right:${(100 - (px(u.days) / W) * 100).toFixed(3)}%` : `left:${pct(u.days)}`};top:${top}px">${u.star ? `<span class="star s${u.star}">★</span>` : ""}<b>${esc(name)}</b></span>`;
-    h += `<span class="bdd ${u.days <= 7 ? "soon" : ""}" data-ev="${u.id}" title="${tip}" style="left:${pct(u.days)};top:${axY + 6 + under * 14}px"><b>D-${u.days}</b> ${md(u.date)}</span>`;
+    if (under >= 0) h += `<span class="bdd ${u.days <= 7 ? "soon" : ""}" data-ev="${u.id}" title="${tip}" style="left:${pct(u.days)};top:${axY + 6 + under * 14}px"><b>D-${u.days}</b> ${md(u.date)}</span>`;
+  }
+  for (const { g, x, lane } of plus) {
+    const top = (lanes - 1 - lane) * LH;
+    const tip = esc(g.map((p) => `${p.u.star ? "★ " : ""}${p.u.title} · D-${p.u.days} ${md(p.u.date)}`).join("\n"));
+    h += `<span class="blb bplus" data-ev="${g[0].u.id}" title="${tip}" style="left:${((x / W) * 100).toFixed(3)}%;top:${top}px"><b>+${g.length}</b></span>`;
   }
   return { html: `<div class="band" style="height:${axY + 8 + unders * 14 + 6}px">${h}</div>`, shown: items.length, later };
 

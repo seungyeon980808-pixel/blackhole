@@ -186,7 +186,9 @@ describe("다가오는 주요 일정 · 할 일 묶기 (11-02)", () => {
     for (let i = 0; i < 12; i++) s.events.push({ id: `x${i}`, kind: "event", title: `행사${i}`, date: `2027-01-${String(i + 10).padStart(2, "0")}`, start: null, end: null, star: 1, provisional: false, reminders: [], area: "school", source: "t", createdAt: "2026-11-01T08:00" } as never);
     const { rightStack, UPCOMING_MAX } = await import("../src/calendar/views/today");
     const html = rightStack({ s, today: "2026-11-02" } as never, "2026-11-02", (k: string) => k, { upRange: 120 });
-    expect((html.match(/class="blb/g) ?? []).length).toBe(UPCOMING_MAX);
+    // 11-04 시안 16: names that do not fit go into one 「+n」 — names + n = 10.
+    const plusN = Number(html.match(/class="blb bplus"[^>]*><b>\+(\d+)/)?.[1] ?? 0);
+    expect((html.match(/class="blb (?!bplus)/g) ?? []).length + plusN).toBe(UPCOMING_MAX);
     // 기본 60일: 그 안의 것만, 나머지는 「그 뒤 n개」. 이름은 6글자까지.
     const h60 = rightStack({ s, today: "2026-11-02" } as never, "2026-11-02", (k: string) => k);
     expect((h60.match(/class="blb/g) ?? []).length).toBe(3);

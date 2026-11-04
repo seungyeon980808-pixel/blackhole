@@ -43,8 +43,9 @@ export function memoryAdapter(opts: { persist?: boolean } = {}): BlackholeAdapte
     async scheduleAlarms(alarms) {
       timers.forEach((t) => window.clearTimeout(t));
       const now = Date.now();
+      // Already past (a minute's grace) never rings here: the app's clock can be set back (tests, 11-04).
       timers = alarms
-        .filter((a) => a.atMs - now < 2 ** 31 - 1)
+        .filter((a) => a.atMs > now - 60_000 && a.atMs - now < 2 ** 31 - 1)
         .map((a) => window.setTimeout(() => handler?.(a), Math.max(0, a.atMs - now)));
     },
     onAlarm(h) {

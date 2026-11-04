@@ -113,6 +113,7 @@ export function tauriAdapter(): BlackholeAdapter {
     setLook: (theme, mode) => invoke("set_window_look", { theme, mode }),
     askSources: () => invoke("ask_sources"),
     askAi: (question, lines) => invoke("ask_records", { question, lines }),
+    nameTasks: (titles) => invoke("name_tasks", { titles }),
     routeText: (text) => invoke("route_text", { text }),
     answerAi: (question, lines) => invoke("answer_records", { question, lines }),
     secretCopy: (name) => invoke("secret_copy", { name }),

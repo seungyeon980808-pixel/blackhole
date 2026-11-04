@@ -134,6 +134,8 @@ export interface BlackholeAdapter {
   askAi?(question: string, lines: string[]): Promise<{ answer: string; ids: string[] }>;
   /** 넣기·질문·설정 나누기 (Mac, one small AI call): the words cut into parts as said. */
   routeText?(text: string): Promise<{ parts: RoutePart[] }>;
+  /** 할 일 묶기: a short name for the chosen titles (Mac, one small AI call). */
+  nameTasks?(titles: string[]): Promise<string>;
   /** 질문 답하기 over the found `[id] …` lines: answer lines with their grounds, and whether they were enough. */
   answerAi?(question: string, lines: string[]): Promise<{ lines: import("./ask").AnswerLine[]; enough: boolean }>;
   /** Copy a secret's value (Touch ID first; the clipboard is cleared after 30 s). */

@@ -786,3 +786,15 @@ html.phone .bh .content { overflow-y: auto; }
 .bh.glass[data-mode="light"] .dpanel .dper { color-scheme: light; }
 .bh .dpanel details.dsrc summary { cursor: pointer; }
 .bh .dpanel .dsrc { font-size: 11.5px; color: var(--ink3, #888); }
+
+/* 주요 일정 띠: 자리가 없어 감춘 이름들은 「+n」 하나로 (마우스를 올리면 목록, 11-04). */
+.bh .tdv .ups .blb.bplus { border-left: 0; padding: 0 6px; border-radius: 8px; background: var(--x-chip, rgba(255,255,255,.12)); }
+.bh .tdv .ups .blb.bplus b { font-weight: 700; }
+
+/* 묶기 창 (11-04 시안 17): 말에서 찾은 할 일 체크, AI 이름 제안 줄. */
+.bh .mergepop .dd { margin-left: auto; font-size: 11px; color: var(--ink3); }
+.bh .mergepop .miss { font-size: 11.5px; color: var(--ink2); padding: 2px 6px; }
+.bh .mergepop label.aiq { background: var(--x-chip); }
+.bh .mergepop label.aiq .an { flex: 1; min-width: 0; }
+.bh .mergepop label.aiq .tag { font-size: 10.5px; color: var(--ink2); border: 1px solid var(--x-line); border-radius: 4px; padding: 0 5px; }
+.bh .mergepop label[hidden] { display: none; }
