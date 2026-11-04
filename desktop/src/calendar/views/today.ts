@@ -540,7 +540,7 @@ export function priorityView(ctx: Ctx, fd: (k: string) => string): string {
   const { today, later, undated } = orderedTasks(ctx.s, ctx.today, ctx.now);
   const open = [...today, ...later, ...undated];
   const q: [Bucket, string, string][] = [["now", "① 지금 할 것", "중요 · 급함"], ["imp", "② 계획할 것", "중요 · 여유"], ["urgent", "③ 빨리 처리할 것", "보통 · 급함"], ["rest", "④ 나중에", "보통 · 여유"]];
-  const item = (t: Task) => `<div class="mq" draggable="true" data-task="${t.id}" data-ev="${t.id}">${starBtn(t)}<span class="tn ${t.star === 2 ? "s2b" : ""}">${esc(t.title)}</span><span class="due ${isUrgent(t, ctx.now, ctx.s) ? "urg" : ""}">${dueText(t, ctx.now, ctx.today, fd, off)}</span></div>`;
+  const item = (t: Task) => `<div class="mq" draggable="true" data-task="${t.id}" data-ev="${t.id}">${starBtn(t)}<span class="tn ${t.star === 2 ? "s2b" : ""}">${esc(t.title)}</span><span class="due ${isUrgent(t, ctx.now, ctx.s) ? "urg" : ""}">${dueText(t, ctx.now, ctx.today, fd, off)}</span>${t.noDue ? "" : `<span class="rem prem R${urgency(t, ctx.now, ctx.s)}">${remainText(t, ctx.now, off)}</span>`}</div>`;
   const quad = ([k, n, d]: [Bucket, string, string]) => {
     const rows = open.filter((t) => bucketOf(t, ctx.now, ctx.s) === k);
     return `<div class="panel g quad" data-quad="${k}"><h4>${n}<span>${d} · ${rows.length}</span></h4>${rows.map(item).join("") || '<div class="none">없음</div>'}</div>`;
