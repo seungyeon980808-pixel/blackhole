@@ -119,7 +119,7 @@ describe("results as cards in the chat", () => {
     form.querySelector<HTMLInputElement>(".ed-t")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(ev.title).toBe("치과 정기검진");
     expect(ev.start).toBe("16:30");
-    expect(ev.end).toBe("17:30");
+    expect(ev.end).toBe("17:00"); // 11-11: 끝 없는 일정은 30분
     expect(ev.reminders).toEqual(["2026-10-28T16:27"]);
     expect(ev.touched).toBe(true);
     document.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyZ", key: "z", metaKey: true, bubbles: true }));

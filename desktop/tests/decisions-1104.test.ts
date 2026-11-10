@@ -99,3 +99,41 @@ describe("말로 묶기 + AI 이름 제안 (시안 17)", () => {
     expect(document.querySelector(".mergepop")).not.toBeNull();
   });
 });
+
+describe("11-11: 시작만 말한 일정은 30분", () => {
+  it("「0920 학생회 사진촬영」 — AI가 끝을 1시간 뒤로 붙여 와도 30분, 「9시~10시」·「3교시」는 말한 대로", async () => {
+    const { applyProposal } = await import("../src/calendar/store");
+    const s = emptyState();
+    const item = (title: string, timeText: string, a: string, b: string) => ({ kind: "SCHEDULE", area: "SCHOOL", title, details: "", startAt: `2026-11-11T${a}:00+09:00`, endAt: `2026-11-11T${b}:00+09:00`, reminderAt: "", reminders: [], subtasks: [], evidence: { sentence: title, dateText: "", timeText, endDateText: "", reminderText: "" }, confidence: 0.9, needsReview: false, reviewReasons: [] });
+    applyProposal(s, { sourceText: "x", needsReview: false, reviewReasons: [], items: [item("학생회 사진촬영", "0920", "09:20", "10:20"), item("회의", "9시~10시", "09:00", "10:00"), item("수업", "3교시", "10:40", "11:25")] } as never, "t", new Date("2026-11-10T20:00:00"));
+    expect(s.events.map((e) => [e.title, e.start, e.end])).toEqual([["학생회 사진촬영", "09:20", "09:50"], ["회의", "09:00", "10:00"], ["수업", "10:40", "11:25"]]);
+  });
+});
+
+describe("11-11: 날짜가 바뀌면 오늘로", () => {
+  it("어제를 보던 하루 화면은 날이 바뀌면 오늘로, 손으로 옮겨 간 다른 날은 그대로", async () => {
+    let now = new Date("2026-11-10T23:58:00");
+    document.body.innerHTML = '<div id="app" style="width:1300px;height:800px"></div>';
+    const root = document.querySelector<HTMLElement>("#app")!;
+    Object.defineProperty(root, "clientWidth", { configurable: true, get: () => 1300 });
+    app = await mountBlackhole(root, { ...memoryAdapter(), origin: "데스크톱", load: async () => emptyState() } as never, { now: () => now, seed: false });
+    app.setView("day", "2026-11-10");
+    now = new Date("2026-11-11T07:30:00");
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(root.querySelector("#bhTitle")!.textContent).toContain("11월 11일");
+    app.setView("day", "2026-11-20");
+    now = new Date("2026-11-12T07:30:00");
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(root.querySelector("#bhTitle")!.textContent).toContain("11월 20일");
+  });
+});
+
+describe("11-11: 「4,5,6,7교시 … 9 6 3 5반」", () => {
+  it("작업기가 교시를 살려 보내면 앱이 학교 교시표로 시각을 정함(4교시 11:35 … 7교시 15:10)", async () => {
+    const { applyProposal } = await import("../src/calendar/store");
+    const s = emptyState();
+    const it = (title: string, p: string) => ({ kind: "SCHEDULE", area: "SCHOOL", title, details: "", startAt: "2026-11-11T09:00:00+09:00", endAt: "2026-11-11T10:00:00+09:00", reminderAt: "", reminders: [], subtasks: [], evidence: { sentence: "오늘 4,5,6,7교시 수업 순서대로 9 6 3 5반임", dateText: "오늘", timeText: p, endDateText: "", reminderText: "" }, confidence: 0.9, needsReview: true, reviewReasons: ["날짜만 있어 오전 9시로 임시 지정"] });
+    applyProposal(s, { sourceText: "오늘 4,5,6,7교시 수업 순서대로 9 6 3 5반임", needsReview: false, reviewReasons: [], items: [it("9반 수업", "4교시"), it("6반 수업", "5교시"), it("3반 수업", "6교시"), it("5반 수업", "7교시")] } as never, "t", new Date("2026-11-11T08:49:00"), "k", true);
+    expect(s.events.map((e) => `${e.title} ${e.start}-${e.end}`)).toEqual(["9반 수업 11:35-12:20", "6반 수업 13:20-14:05", "3반 수업 14:15-15:00", "5반 수업 15:10-15:55"]);
+  });
+});

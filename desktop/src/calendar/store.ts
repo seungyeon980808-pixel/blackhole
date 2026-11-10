@@ -155,7 +155,7 @@ function applyChange(x: CalEvent | Task, item: ProposalItem): string | null {
     if (newDay) x.date = newDay;
     if (newTime) {
       x.start = newTime;
-      const end = item.endAt && item.evidence.timeText.match(/[~\-–]|부터/) ? nowHM(new Date(item.endAt)) : length !== null ? hmOf(mins(newTime) + length) : hmOf(mins(newTime) + 60);
+      const end = item.endAt && item.evidence.timeText.match(/[~\-–]|부터/) ? nowHM(new Date(item.endAt)) : length !== null ? hmOf(mins(newTime) + length) : hmOf(mins(newTime) + 30);
       x.end = end;
     }
     const shift = fromStamp(`${x.date}T${x.start ?? "00:00"}`).getTime() - oldAt;
@@ -206,6 +206,8 @@ const DEED_WORDS: string[][] = [
 const deedSaid = (word: string, said: string): boolean => said.includes(word) || DEED_WORDS.some((g) => g.some((w) => word === w || word.endsWith(w)) && g.some((w) => said.includes(w)));
 
 /** Words that make an item school work whatever the model said (「행정실 가서 카드 제출」 「2학년 9반 …」). */
+/** Words that give an appointment its end: a range, a lesson, a length (「~」 「부터」 「까지」 「교시」 「2시간 동안」). */
+const saysEnd = (t: string): boolean => /[~\-–]|부터|까지|교시|시간|동안|점심|조회|종일/.test(t);
 const OUTSIDE_WORDS = /출장|포럼|외부\s*(?:연수|강의|감독)|모의고사\s*감독|수능응시자|임용.{0,4}감독/;
 const SCHOOL_WORDS = /품의|초과근무|벌점|지각|교육청|장학사|체험학습|교직원|교과|보강|시간표|나이스|학급|종례|조회|(?<!수영|피아노|요가|미술|영어|태권도|발레|필라테스|골프|테니스)\s*수업|\d+\s*반(?![가-힣])|\d+\s*반(?:도|은|는|에|의|부터|까지)|\d\s*학년|\d\s*교시|행정실|교무실|교원|교사|기안|공문|결재|수행평가|생기부|세특|방과후|학생|학부모|담임|쿨메신저|협의회|협의록|출장|급식지도|진도|교학공|대의원회|학생회/;
 
@@ -456,12 +458,13 @@ export function applyProposal(s: CalendarState, p: Proposal, source: string, now
     }
     const start = new Date(item.startAt);
     let end: string | null = null;
-    if (timed && item.endAt) {
+    // An end only where one was said (「9시~10시」 「3교시」 「2시간 동안」); 「0920 사진촬영」 alone is the
+    // 기본 길이 (설정, 30분 — 11-11 사용자: 「너무 길게 잡힌다」), never past midnight.
+    if (timed && item.endAt && saysEnd(item.evidence?.timeText ?? "")) {
       const e = new Date(item.endAt);
       end = ymd(e) === ymd(start) ? nowHM(e) : "23:59";
     } else if (timed) {
-      // An hour, but never past midnight (「밤 11시 반」 ended 00:30, before it began).
-      const e = new Date(start.getTime() + 3600e3);
+      const e = new Date(start.getTime() + (s.settings.eventMinutes || 30) * 60e3);
       end = ymd(e) === ymd(start) ? nowHM(e) : "23:59";
     }
     const ev: CalEvent = {
@@ -577,7 +580,7 @@ export function draftFromText(s: CalendarState, said: string, source: string, no
     return period;
   }
   if (r.kind === "SCHEDULE" && r.date && r.time) {
-    const endM = r.end ? mins(r.end) : Math.min(mins(r.time) + 60, 23 * 60 + 59);
+    const endM = r.end ? mins(r.end) : Math.min(mins(r.time) + (s.settings.eventMinutes || 30), 23 * 60 + 59);
     const ev: CalEvent = {
       ...base, id: draftId("e"), kind: "event", date: r.date, start: r.time,
       end: `${String(Math.floor(endM / 60)).padStart(2, "0")}:${String(endM % 60).padStart(2, "0")}`,

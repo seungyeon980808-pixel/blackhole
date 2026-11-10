@@ -4482,8 +4482,32 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     renderGuide();
   }
 
+  /**
+   * 날짜가 바뀌면 오늘로 (11-11 사용자: 「알아서 날짜에 맞춰서 넘어갔으면」): the day, week or month that held
+   * yesterday's today moves to the new today (a day the user went to by hand elsewhere stays).
+   */
+  let lastToday = ymd(clock());
+  const followToday = () => {
+    const now = ymd(clock());
+    if (now === lastToday) return false;
+    const was = parseDay(lastToday);
+    const held = view === "day" || view === "pri" ? ymd(cur) === lastToday
+      : view === "week" ? Math.abs(addDays(cur, -mon0(cur)).getTime() - addDays(was, -mon0(was)).getTime()) < 864e5 / 2
+      : view === "month" ? cur.getMonth() === was.getMonth() && cur.getFullYear() === was.getFullYear() : true;
+    lastToday = now;
+    if (held) cur = parseDay(now);
+    return true;
+  };
+  // After sleep or a night with the window open: the first look at it also follows.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && followToday()) render();
+  });
   // Minute tick: move the now-line, keep alarms scheduled across midnight.
   timers.push(window.setInterval(() => {
+    if (followToday()) {
+      render();
+      syncAlarms();
+    }
     const n = clock();
     const m = n.getHours() * 60 + n.getMinutes();
     if (m !== lastNowMinute) {

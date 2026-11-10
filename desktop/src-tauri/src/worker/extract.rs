@@ -91,6 +91,34 @@ const HALLUCINATIONS: [&str; 7] = [
 ];
 const HALLUCINATIONS_ALONE: [&str; 3] = ["감사합니다", "안녕", "네"];
 
+/// 「4교시」 out of 「4,5,6,7교시」 or 「4~7교시」 (11-11: one item per lesson — the source names the
+/// lessons together, so a single one is still in it).
+fn period_listed(source: &str, time_text: &str) -> bool {
+    let want: Option<u32> = time_text.trim().strip_suffix("교시").and_then(|n| n.trim().parse().ok());
+    let Some(want) = want else { return false };
+    let chars: Vec<char> = source.chars().collect();
+    for i in 0..chars.len().saturating_sub(1) {
+        if chars[i] != '교' || chars[i + 1] != '시' {
+            continue;
+        }
+        // The run of digits, commas, spaces and ranges right before 「교시」.
+        let mut j = i;
+        while j > 0 && (chars[j - 1].is_ascii_digit() || matches!(chars[j - 1], ',' | '，' | '·' | '、' | '/' | ' ' | '~' | '-' | '–')) {
+            j -= 1;
+        }
+        let run: String = chars[j..i].iter().collect();
+        for part in run.split(|c| matches!(c, ',' | '，' | '·' | '、' | '/')) {
+            let ends: Vec<u32> = part.split(|c| matches!(c, '~' | '-' | '–')).filter_map(|x| x.trim().parse().ok()).collect();
+            match ends.as_slice() {
+                [n] if *n == want => return true,
+                [a, b] if (*a..=*b).contains(&want) => return true,
+                _ => {}
+            }
+        }
+    }
+    false
+}
+
 /// True when `text` is nothing but a known noise hallucination, or a copy of a prompt example.
 pub fn looks_invented(text: &str) -> bool {
     let squash = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).collect::<String>();
@@ -461,7 +489,7 @@ fn validate_item(value: &Value, index: usize, source_text: &str, single_item: bo
         reasons.push(format!("원문에 없는 날짜 표현을 버림: 「{date_text}」"));
         String::new()
     };
-    let mut time_text = if quoted_in(source_text, &time_text) {
+    let mut time_text = if quoted_in(source_text, &time_text) || period_listed(source_text, &time_text) {
         time_text
     } else {
         reasons.push(format!("원문에 없는 시간 표현을 버림: 「{time_text}」"));
@@ -823,6 +851,15 @@ pub fn validate_with(raw: &str, source_text: Option<&str>, reference: DateTime<F
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_lesson_out_of_a_listed_run_is_in_the_source() {
+        assert!(period_listed("오늘 4,5,6,7교시 수업 순서대로 9 6 3 5반임", "4교시"));
+        assert!(period_listed("오늘 4,5,6,7교시 수업", "7교시"));
+        assert!(period_listed("내일 2~4교시 시험감독", "3교시"));
+        assert!(!period_listed("오늘 4,5교시 수업", "6교시"));
+        assert!(!period_listed("오늘 4교시 수업", "오후 3시"));
+    }
 
     fn reference() -> DateTime<FixedOffset> {
         DateTime::parse_from_rfc3339("2026-10-21T09:00:00+09:00").unwrap()

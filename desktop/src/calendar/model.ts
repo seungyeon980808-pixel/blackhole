@@ -284,7 +284,7 @@ export const DEFAULT_SETTINGS: Settings = {
   commuteIn: "07:00-08:20",
   commuteOut: "16:40-18:00",
   periods: ["08:50-09:35", "09:45-10:30", "10:40-11:25", "11:35-12:20", "13:20-14:05", "14:15-15:00", "15:10-15:55"],
-  eventMinutes: 60,
+  eventMinutes: 30, // 11-11 사용자: 시작만 말한 일정은 30분
   // 일정 3분 전 (11-02 사용자 결정; 기한은 30분 전, 작업 시간은 시작할 때, 루틴은 알람 없음).
   remindMinutes: 3,
   brief: true,
