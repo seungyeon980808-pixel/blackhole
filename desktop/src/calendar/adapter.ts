@@ -136,6 +136,10 @@ export interface BlackholeAdapter {
   routeText?(text: string): Promise<{ parts: RoutePart[] }>;
   /** 할 일 묶기: a short name for the chosen titles (Mac, one small AI call). */
   nameTasks?(titles: string[]): Promise<string>;
+  /** Mac: open a link in the browser, a file or folder in its own app (11-11). */
+  openTarget?(target: string): Promise<void>;
+  /** Mac: choose a file or folder (Finder's chooser); null when cancelled. */
+  pickFile?(): Promise<string | null>;
   /** 질문 답하기 over the found `[id] …` lines: answer lines with their grounds, and whether they were enough. */
   answerAi?(question: string, lines: string[]): Promise<{ lines: import("./ask").AnswerLine[]; enough: boolean }>;
   /** Copy a secret's value (Touch ID first; the clipboard is cleared after 30 s). */

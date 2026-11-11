@@ -50,8 +50,8 @@ describe("order and numbers", () => {
     const list = [...root.querySelectorAll<HTMLElement>(".tl .task")].map((x) => `${x.dataset.num}:${x.dataset.task}`);
     expect(list).toEqual(["1:t1", "2:t2", "3:t3", "4:t4"]);
     const rem = (id: string) => root.querySelector<HTMLElement>(`.tl .task[data-ev="${id}"] .rem`)!;
-    expect([rem("t1").textContent, rem("t1").classList.contains("R3")]).toEqual(["10분 지남", true]);
-    expect(rem("t2").textContent).toBe("4시간 남음");
+    expect([rem("t1").textContent, rem("t1").classList.contains("R3")]).toEqual(["+10분", true]);
+    expect(rem("t2").textContent).toBe("4시간");
     expect(rem("t4").textContent).toBe("D-5");
     expect(root.querySelector('.dtg [data-ev="t2"]')).toBeNull();
   });

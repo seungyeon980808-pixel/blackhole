@@ -146,6 +146,8 @@ pub fn run() {
             mac::ask_sources,
             mac::ask_records,
             mac::name_tasks,
+            mac::open_target,
+            mac::pick_file,
             mac::route_text,
             mac::answer_records,
             mac::memo_tags,

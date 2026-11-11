@@ -13,6 +13,13 @@ export const NO_DUE_NOTE = "마감 날짜가 없어 오늘로 둠";
 /** The old worker's note for a proposed step it threw away (restored as an 「AI 제안」 step). */
 export const DROPPED_STEP = "원문에 없는 하위 할 일을 버림: ";
 
+export interface EntryLink {
+  /** https://… or an absolute Mac path (/Users/…). */
+  href: string;
+  /** Shown name; else the site's or the file's own name. */
+  name?: string;
+}
+
 interface Base {
   id: string;
   title: string;
@@ -29,6 +36,8 @@ interface Base {
   /** Seeded fake data (hidden when settings.showSamples is false). */
   sample?: boolean;
   details?: string;
+  /** 링크·파일 (11-11 시안 19): web links and Mac file or folder paths, opened as they are. Files are not copied. */
+  links?: EntryLink[];
   review?: string[];
   /** Rule-parser draft: put in at once, the local AI has not refined it yet. */
   draft?: boolean;
@@ -464,4 +473,25 @@ export function sharedFrom(s: CalendarState, now: string): SharedCalendar {
 export function isShared(v: unknown): v is SharedCalendar {
   const x = v as SharedCalendar;
   return !!x && x.kind === "blackhole-calendar" && x.schemaVersion === 1 && [x.events, x.tasks, x.periods, x.notes].every(Array.isArray);
+}
+
+/** A link's shown name: its own, else the file's name or the site (11-11 시안 19). */
+export function linkName(l: EntryLink): string {
+  if (l.name?.trim()) return l.name.trim();
+  if (/^https?:\/\//i.test(l.href)) {
+    try {
+      return new URL(l.href).hostname.replace(/^www\./, "");
+    } catch {
+      return l.href;
+    }
+  }
+  return l.href.replace(/\/+$/, "").split("/").pop() || l.href;
+}
+
+/** Something that can be a link: https://… or an absolute path (「~/」 too). */
+export function asLink(text: string): string | null {
+  const t = text.trim().replace(/^file:\/\//, "");
+  if (/^https?:\/\/\S+$/i.test(t)) return t;
+  if (/^(\/|~\/)\S/.test(t)) return t;
+  return null;
 }

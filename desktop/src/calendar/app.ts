@@ -8,7 +8,7 @@ import { looksSecret } from "./secret";
 import { answer as answerQuestion, AskIndex, checkLines, classify, docsOf, gather, keepInSpan, KIND_LABEL, lineOf, wantsAll, wantsRoute, whenOf, WINDOWS, type AskDoc, type AskHit, type AskSources } from "./ask";
 import { addDays, DOW_MON, fromStamp, hm, mins, mon0, nowHM, pad, parseDay, stamp, ymd } from "./dates";
 import { FcHost } from "./fc";
-import { normalizeState, sharedFrom, TEXT_SIZES, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type Period, type Task, type SharedCalendar, type SpokenSetting, type ThemeName, type UserAction } from "./model";
+import { asLink, linkName, normalizeState, sharedFrom, TEXT_SIZES, type CalEvent, type CalendarState, type Routine, type ChatKind, type ChatMessage, type Entry, type Memo, type Period, type Task, type SharedCalendar, type SpokenSetting, type ThemeName, type UserAction } from "./model";
 import { startRecording, type Recording } from "./recorder";
 import { isFiller, isSimpleCertain, memoDraft, needsAi, parseDraft, parseRule, singleTime, spokenDays, timeRange, timeWords } from "./rules";
 import { seedState } from "./samples";
@@ -280,6 +280,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       recording: !!recording,
       busy: busy > 0,
       open: openFolds,
+      canPick: !!adapter.pickFile,
       sel: mergeSel,
       fixSkip,
       editing,
@@ -957,6 +958,31 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   }
 
   /** A field in the panel lost focus or took Enter: saved if it changed. */
+  /** 링크·파일 붙이기 (11-11 시안 19): one ⌘Z; the same one twice stays once. */
+  function addLink(id: string, href: string, name?: string): void {
+    const x = findEntry(s, id);
+    if (!x || x.kind === "note" || (x.links ?? []).some((l) => l.href === href)) return;
+    editEntry(id, "링크·파일", (y) => void (y.links = [...(y.links ?? []), { href, ...(name ? { name } : {}) }]));
+    toast(`붙였어요: ${linkName({ href, name })}`, undefined, true);
+  }
+  /** Open one: the browser or the file's own app (Mac); the phone opens web links only. */
+  function openLink(href: string): void {
+    if (adapter.openTarget) return void adapter.openTarget(href).catch((e: unknown) => toast(e instanceof Error ? e.message : String(e)));
+    if (/^https?:/i.test(href)) return void window.open(href, "_blank", "noopener");
+    toast("Mac의 파일은 Mac에서 열 수 있어요");
+  }
+  /** The ring on a box or a row: one link opens at once, more give a small list. */
+  function openLinks(id: string, at: HTMLElement): void {
+    const x = findEntry(s, id);
+    const ls = x?.links ?? [];
+    root.querySelector(".lkmenu")?.remove();
+    if (!ls.length) return;
+    if (ls.length === 1) return openLink(ls[0].href);
+    const r = at.getBoundingClientRect();
+    const base = root.getBoundingClientRect();
+    root.insertAdjacentHTML("beforeend", `<div class="lkmenu" role="menu" style="left:${Math.max(8, Math.min(r.left - base.left, base.width - 250))}px;top:${r.bottom - base.top + 4}px">${ls.map((l, i) => `<button type="button" role="menuitem" data-lkopen="${id}|${i}">${/^https?:/i.test(l.href) ? ICON.link : ICON.file}<span>${escapeHtml(linkName(l))}</span></button>`).join("")}</div>`);
+  }
+
   function detailField(el: HTMLInputElement | HTMLTextAreaElement): void {
     const id = detailId;
     const x = id ? findEntry(s, id) : undefined;
@@ -981,6 +1007,13 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (f === "wait") {
       if (x.kind !== "task" || v === (x.wait ?? "")) return;
       return editEntry(id, "기다림", (y) => void (y.kind === "task" && (v ? (y.wait = v.slice(0, 80)) : delete y.wait)));
+    }
+    if (f === "link") {
+      if (!v) return;
+      const href = asLink(v);
+      if (!href) return toast("https:// 링크나 파일 경로(/Users/…)를 붙여 주세요 · 파일은 끌어 놓거나 「파일 고르기」");
+      el.value = "";
+      return addLink(id, href);
     }
     if (f === "details") {
       if (v === (x.details ?? "")) return;
@@ -1547,6 +1580,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       const at = clock();
       const applied = refineDrafts(s, key, proposal, src, at, own);
       if (opts.at) pinAt(applied.refs, opts.at);
+      // A link in the words goes on what they made (11-11 시안 19): the first appointment or to-do.
+      const urls = input.text?.match(/https?:\/\/[^\s<>"」』)]+/g) ?? [];
+      const target = applied.refs.map((r) => findEntry(s, r)).find((y) => y && (y.kind === "event" || y.kind === "task"));
+      if (target && urls.length) target.links = [...(target.links ?? []), ...urls.filter((u) => !(target.links ?? []).some((l) => l.href === u)).map((href) => ({ href }))];
       afterApplied(applied.refs, applied.missing, src, at, applied.updated, applied.suggested, applied.done, applied.changed);
       if (!opts.noMe && me.kind === "voice" && proposal.sourceText) s.chat[s.chat.length - 1].text = proposal.sourceText;
       const dup = dropDuplicates(applied.refs);
@@ -3214,6 +3251,27 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       barJustDragged = false;
       return;
     }
+    // 링크·파일 (11-11): the ring opens (one) or lists (more); a list item opens; elsewhere the list closes.
+    if (q("[data-links]")) return openLinks(q("[data-links]")!.dataset.links!, q("[data-links]")!);
+    if (q("[data-lkopen]")) {
+      const [id, i] = q("[data-lkopen]")!.dataset.lkopen!.split("|");
+      root.querySelector(".lkmenu")?.remove();
+      const l = findEntry(s, id)?.links?.[Number(i)];
+      return l ? openLink(l.href) : undefined;
+    }
+    root.querySelector(".lkmenu")?.remove();
+    if (q("#bhDetail [data-lopen]") && detailId) {
+      const l = findEntry(s, detailId)?.links?.[Number(q("[data-lopen]")!.dataset.lopen)];
+      return l ? openLink(l.href) : undefined;
+    }
+    if (q("#bhDetail [data-ldel]") && detailId) {
+      const i = Number(q("[data-ldel]")!.dataset.ldel);
+      return editEntry(detailId, "링크·파일 떼기", (y) => void (y.links = (y.links ?? []).filter((_, j) => j !== i)));
+    }
+    if (q("#bhDetail [data-lpick]") && detailId && adapter.pickFile) {
+      const id = detailId;
+      return void adapter.pickFile().then((p) => (p ? addLink(id, p) : undefined)).catch((e: unknown) => toast(e instanceof Error ? e.message : String(e)));
+    }
     // 상세 편집 panel: its own buttons; a click elsewhere (not on another entry) closes it.
     if (detailId && !q("#bhDetail, #bhCtx, #bhToast, [data-ev], .fc-event")) {
       setDetail(null);
@@ -4077,7 +4135,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       return;
     }
     const grid = t.closest<HTMLElement>(".dtg");
-    if (!grid || t.closest("[data-rt], .rem, .newev, .wck")) return;
+    if (!grid || t.closest("[data-rt], .rem, .newev, .wck, .lk")) return;
     const day = grid.dataset.dtg!;
     const m = gridAt(grid, e.clientX, e.clientY);
     if (m === null) return;
@@ -4325,7 +4383,12 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     syncAlarms();
     render();
   });
-  adapter.onFileDrop?.((paths) => paths.forEach((p) => void (adapter.putPath ? adapter.putPath(p, "끌어 놓기") : submitPath(p))));
+  // A file dropped while an entry's 상세 창 is open goes on that entry as a link (11-11 시안 19); else into the inbox.
+  adapter.onFileDrop?.((paths) => {
+    const x = detailId ? findEntry(s, detailId) : undefined;
+    if (x && x.kind !== "note") return paths.forEach((p) => addLink(x.id, p));
+    paths.forEach((p) => void (adapter.putPath ? adapter.putPath(p, "끌어 놓기") : submitPath(p)));
+  });
   adapter.onPut?.((p) => void handlePut(p));
   adapter.onAlarmAnswer?.((a, action) => void answerNative(a, action));
   // A picture pasted into the input (⌘V) goes in like a dropped file.

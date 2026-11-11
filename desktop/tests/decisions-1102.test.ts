@@ -120,12 +120,13 @@ describe("급함 = 걸리는 시간 대비 남은 근무 시간 (11-02, 2배)", 
     expect(urgency(task("수행평가 채점", "2026-11-02", "16:00"), MON, planned)).toBe(0);
   });
 
-  it("남은 시간 한 칸: D-n · n시간 남음 · n일 지남", async () => {
+  it("남은 시간 한 칸: D-n · n시간 · D+n (11-11 시안 19 B)", async () => {
     const { remainText } = await import("../src/calendar/views/today");
     expect(remainText(task("a", "2026-11-03", null), MON)).toBe("D-1");
-    expect(remainText(task("a", "2026-11-02", "15:15"), MON)).toBe("5시간 남음");
-    expect(remainText(task("a", "2026-11-02", "10:40"), MON)).toBe("40분 남음");
-    expect(remainText(task("a", "2026-10-29", "15:10"), MON)).toBe("3일 지남");
+    expect(remainText(task("a", "2026-11-02", "15:15"), MON)).toBe("5시간");
+    expect(remainText(task("a", "2026-11-02", "10:40"), MON)).toBe("40분");
+    expect(remainText(task("a", "2026-10-29", "15:10"), MON)).toBe("D+4"); // 10/29 → 11/2: 날짜로 4일 지남
+    expect(remainText(task("a", "2026-11-02", "09:50"), MON)).toBe("+10분");
   });
 
   it("남은 시간 칸을 누르면 기한 다시 정하기 · ⌘Z", async () => {

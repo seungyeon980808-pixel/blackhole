@@ -7,7 +7,7 @@
 import { addDays, DOW, mins, parseDay, ymd } from "../dates";
 import type { CalEvent, CalendarState, Entry, Routine, Task } from "../model";
 import { dueOn, eventsOn, liveEvents, livePeriods, liveTasks } from "../store";
-import { duplicates, esc, type Ctx } from "./common";
+import { duplicates, esc, ICON, type Ctx } from "./common";
 
 const STAR = ["☆", "★", "★"];
 
@@ -93,10 +93,12 @@ export function remainText(t: Task, now: Date, offWork?: string): string {
   if (t.noDue) return "";
   const due = dueAt(t, offWork);
   const m = Math.round((due.getTime() - now.getTime()) / 60000);
-  if (m < 0) return -m >= 1440 ? `${Math.floor(-m / 1440)}일 지남` : -m >= 60 ? `${Math.floor(-m / 60)}시간 지남` : `${-m}분 지남`;
+  // 11-11 시안 19 B: 「D+3」 (지난 날) · 「D-5」 · 오늘은 「5시간」 「40분」, 오늘 안에 지난 것 「+40분」 — 좁은 한 칸.
   const days = Math.round((parseDay(t.due).getTime() - parseDay(ymd(now)).getTime()) / 864e5);
+  if (days < 0) return `D+${-days}`;
   if (days > 0) return `D-${days}`;
-  return m >= 60 ? `${Math.floor(m / 60)}시간 남음` : `${m}분 남음`;
+  if (m < 0) return -m >= 60 ? `+${Math.floor(-m / 60)}시간` : `+${-m}분`;
+  return m >= 60 ? `${Math.floor(m / 60)}시간` : `${m}분`;
 }
 
 /** 「늦어도 11/3(화) 08:20 시작」: walking back the work time still needed from the deadline. */
@@ -307,7 +309,7 @@ export function dayTable(ctx: Ctx, k: string, o: TodayOpts, num: Map<string, num
     const wck = task ? `<span class="ck wck ${wdone ? "on" : ""}" ${sub ? `data-sub="${task.id}:${e.workSub}"` : `data-tdone="${task.id}"`} role="checkbox" aria-checked="${wdone}" tabindex="0" title="${wdone ? "안 한 것으로" : "했음"}"></span>` : "";
     const cls = `ev ${e.workFor ? "work" : `k-${e.area}`} ${wdone ? "dn" : ""} ${e.provisional ? "prov" : ""} ${nowM >= 0 && b <= nowM ? "past" : ""} ${e.end ? "" : "noend"}`;
     items.push({ a, b, html: (lane, lanes) => piece(a, b, cls, () => `data-ev="${e.id}" data-evbox="${e.id}" tabindex="0" aria-label="${esc(e.title)} 열기" title="${esc(`${e.start}${e.end ? "–" + e.end : ""} ${e.title}`)}"`, (p) =>
-      `${p.first ? `${wck}${n ? `<span class="no">${n}</span>` : ""}${e.periodSaid && !e.title.includes(e.periodSaid) ? `<span class="pd">${e.periodSaid}</span>` : ""}<span class="t">${esc(e.title)}</span>${e.provisional ? '<span class="ga">가</span>' : ""}${!e.end ? '<span class="r">끝 미정</span>' : ""}${rem}` : ""}${p.last ? '<i class="grip" title="끌어 늘이기"></i>' : ""}`, lane, lanes) });
+      `${p.first ? `${wck}${e.links?.length || task?.links?.length ? `<button type="button" class="lk" data-links="${e.links?.length ? e.id : task!.id}" title="링크·파일 열기" aria-label="링크·파일 열기">${ICON.link}</button>` : ""}${n ? `<span class="no">${n}</span>` : ""}${e.periodSaid && !e.title.includes(e.periodSaid) ? `<span class="pd">${e.periodSaid}</span>` : ""}<span class="t">${esc(e.title)}</span>${e.provisional ? '<span class="ga">가</span>' : ""}${!e.end ? '<span class="r">끝 미정</span>' : ""}${rem}` : ""}${p.last ? '<i class="grip" title="끌어 늘이기"></i>' : ""}`, lane, lanes) });
   }
   // 고정 칸 share the rows too: an appointment at lunch takes half the row, no words on top of each other.
   for (const [name, span] of fixed) {
@@ -379,7 +381,7 @@ export function taskList(ctx: Ctx, k: string, o: TodayOpts, fd: (k: string) => s
     return `<div class="task ${ctx.sel?.has(t.id) ? "sel" : ""}" data-ev="${t.id}" data-task="${t.id}" data-num="${n}" tabindex="0" aria-label="${esc(t.title)} 열기" title="⌘+클릭으로 여러 개 고르기 · 다른 할 일 위에 끌어 놓으면 묶기">
       <span class="no" data-num="${n}">${n}</span><span class="ck" data-tdone="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="${esc(t.title)} 완료"></span>${starBtn(t)}
       <span class="tn ${t.star === 2 ? "s2b" : ""}">${esc(t.title)}${t.draft ? '<span class="dr">초안</span>' : ""}${t.wait ? `<span class="wait" title="먼저 있어야 할 일">기다림 · ${esc(t.wait)}</span>` : ""}${t.subs.length ? `<button class="pg" data-subs="${t.id}" aria-expanded="${open}">${sd}/${t.subs.length} ${open ? "▾" : "▸"}</button>` : `<button class="pg add" data-subs="${t.id}" title="단계 추가">+</button>`}</span>
-      <span class="wk">${work ? `<span title="작업 시간 ${esc(`${fd(work.date)} ${work.start}–${work.end ?? ""}`)}">⏱ ${work.date === ctx.today ? "" : fd(work.date) + " "}${work.start}</span>` : ""}</span><button class="rem R${lv} ${t.noDue ? "none" : ""}" data-rem="${t.id}" title="${esc(tip)}">${t.noDue ? "+ 기한" : remainText(t, ctx.now, off)}</button></div>${stepRows(t, n, open)}`;
+      <span class="wk">${work ? `<span title="작업 시간 ${esc(`${fd(work.date)} ${work.start}–${work.end ?? ""}`)}">⏱ ${work.date === ctx.today ? "" : fd(work.date) + " "}${work.start}</span>` : ""}${t.links?.length ? `<button type="button" class="lk" data-links="${t.id}" title="링크·파일 열기" aria-label="링크·파일 열기">${ICON.link}</button>` : ""}</span><button class="rem R${lv} ${t.noDue ? "none" : ""}" data-rem="${t.id}" title="${esc(tip)}">${t.noDue ? "+ 기한" : remainText(t, ctx.now, off)}</button></div>${stepRows(t, n, open)}`;
   };
   const chip = (key: TodayOpts["filter"], name: string, c: number) => `<button class="${o.filter === key ? "on" : ""}" data-tf="${key}">${name}<b>${c}</b></button>`;
   const t1 = today.filter(pass);

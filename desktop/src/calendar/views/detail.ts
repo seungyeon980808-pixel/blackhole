@@ -3,7 +3,7 @@
  * Hover = preview only (tipHTML). A click opens this panel where the chat panel sits (the
  * calendar and lists stay uncovered); every field saves when it changes, one ⌘Z each.
  */
-import type { Entry } from "../model";
+import { linkName, type Entry } from "../model";
 import { findEntry } from "../store";
 import { tagsOf } from "../tags";
 import { aiOffer, esc, ICON, type Ctx } from "./common";
@@ -114,6 +114,11 @@ export function detailHTML(ctx: Ctx, id: string, fd: (k: string) => string, mont
   if (x.kind === "task") tidy.push(field("기다림", `<input data-df="wait" value="${esc(x.wait ?? "")}" placeholder="먼저 있어야 할 일 · 비우면 없음" autocomplete="off" spellcheck="false">`));
   if (x.kind === "task") {
     tidy.push(`<div class="df col"><span class="dl2">하위 단계 ${x.subs.length ? `${x.subs.filter((t) => t.done).length}/${x.subs.length}` : ""}</span><div class="dsubs">${x.subs.map((t, i) => `<div class="dsub ${t.done ? "done" : ""}"><span class="bx" data-sub="${x.id}:${i}" role="checkbox" aria-checked="${t.done}" tabindex="0">${t.done ? "✓" : ""}</span><span class="st">${esc(t.title)}${t.ai ? '<span class="aisug">AI 제안</span>' : ""}</span>${i ? `<button type="button" data-dsubup="${i}" title="위로" aria-label="위로">↑</button>` : ""}<button type="button" data-dsubdel="${i}" title="지우기" aria-label="하위 단계 지우기">×</button></div>`).join("")}<input class="subadd on" data-subadd="${x.id}" placeholder="+ 하위 단계" aria-label="하위 단계 추가">${x.subs.some((t) => t.ai) ? '<button type="button" class="mini" data-dsubai>제안 단계 모두 지우기</button>' : ""}</div></div>`);
+  }
+  // 링크·파일 (11-11 시안 19): 누르면 열림, × 떼기, 붙여넣기·끌어 놓기·「파일 고르기」.
+  if (x.kind !== "note") {
+    const ls = x.links ?? [];
+    tidy.push(`<div class="df dlinks"><span class="dl2">링크·파일</span><div class="dlk">${ls.map((l, i) => `<span class="dchip dlc"><button type="button" class="dlo" data-lopen="${i}" title="${esc(l.href)} · 누르면 열림">${/^https?:/i.test(l.href) ? ICON.link : ICON.file}<span>${esc(linkName(l))}</span></button><button type="button" data-ldel="${i}" title="떼기" aria-label="떼기">×</button></span>`).join("")}<span class="dladd"><input data-df="link" placeholder="링크 붙여넣기 · 파일을 끌어 놓기" autocomplete="off" spellcheck="false" aria-label="링크·파일 붙이기">${ctx.canPick ? '<button type="button" class="mini" data-lpick>파일 고르기</button>' : ""}</span></div></div>`);
   }
   tidy.push(field("메모", `<textarea data-df="details" rows="3" placeholder="자세한 내용" spellcheck="false">${esc(x.details ?? "")}</textarea>`));
   rows.push(`<div class="dsec"><h4>정리</h4>${tidy.join("")}</div>`);

@@ -137,3 +137,31 @@ describe("11-11: 「4,5,6,7교시 … 9 6 3 5반」", () => {
     expect(s.events.map((e) => `${e.title} ${e.start}-${e.end}`)).toEqual(["9반 수업 11:35-12:20", "6반 수업 13:20-14:05", "3반 수업 14:15-15:00", "5반 수업 15:10-15:55"]);
   });
 });
+
+describe("11-11 시안 19: 링크·파일", () => {
+  it("상세 창에 링크를 붙이면 할 일 줄에 고리, 하나면 바로 열고, 둘이면 목록, ×로 떼고 ⌘Z", async () => {
+    const opened: string[] = [];
+    const root = await mount({ openTarget: async (t: string) => void opened.push(t) });
+    app!.setView("day", "2026-11-04");
+    root.querySelector<HTMLElement>('.tl .task[data-ev="t1"] .tn')!.click();
+    const input = () => root.querySelector<HTMLInputElement>('#bhDetail [data-df="link"]')!;
+    input().value = "https://neis.go.kr/x";
+    input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await tick();
+    const t1 = () => app!.state.tasks.find((t) => t.id === "t1")!;
+    expect(t1().links).toEqual([{ href: "https://neis.go.kr/x" }]);
+    expect(root.querySelector("#bhDetail .dlo")!.textContent).toBe("neis.go.kr");
+    root.querySelector<HTMLElement>('.tl .task[data-ev="t1"] .lk')!.click();
+    expect(opened).toEqual(["https://neis.go.kr/x"]);
+    input().value = "/Users/me/2학년 채점표.xlsx";
+    input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await tick();
+    root.querySelector<HTMLElement>('.tl .task[data-ev="t1"] .lk')!.click();
+    const items = [...root.querySelectorAll(".lkmenu button")].map((b) => b.textContent);
+    expect(items).toEqual(["neis.go.kr", "2학년 채점표.xlsx"]);
+    root.querySelector<HTMLElement>('.lkmenu [data-lkopen="t1|1"]')!.click();
+    expect(opened.at(-1)).toBe("/Users/me/2학년 채점표.xlsx");
+    root.querySelector<HTMLElement>('#bhDetail [data-ldel="0"]')!.click();
+    expect(t1().links!.map((l) => l.href)).toEqual(["/Users/me/2학년 채점표.xlsx"]);
+  });
+});

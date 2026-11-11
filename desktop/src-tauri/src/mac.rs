@@ -1388,6 +1388,38 @@ pub async fn answer_records(question: String, lines: Vec<String>) -> Result<serd
     tauri::async_runtime::spawn_blocking(move || crate::worker::ask::answer_lines(&question, &lines, &today())).await.map_err(|e| e.to_string())?
 }
 
+/// 링크·파일 열기 (11-11): https links in the browser, existing files and folders in their own app.
+/// Nothing else (no other schemes, no missing paths).
+#[tauri::command]
+pub fn open_target(target: String) -> Result<(), String> {
+    let t = target.trim();
+    let home = std::env::var("HOME").unwrap_or_default();
+    let path = if let Some(rest) = t.strip_prefix("~/") { format!("{home}/{rest}") } else { t.to_string() };
+    let web = t.starts_with("https://") || t.starts_with("http://");
+    if !web {
+        if !path.starts_with('/') {
+            return Err("열 수 있는 것은 https 링크나 Mac의 파일·폴더뿐이에요.".into());
+        }
+        if !std::path::Path::new(&path).exists() {
+            return Err("파일을 찾을 수 없어요 · 옮겼다면 다시 골라 주세요.".into());
+        }
+    }
+    let status = std::process::Command::new("/usr/bin/open").arg(if web { t } else { &path }).status().map_err(|e| e.to_string())?;
+    if status.success() { Ok(()) } else { Err("열지 못했어요.".into()) }
+}
+
+/// 「파일 고르기」: Finder's chooser (a file, or a folder with ⌘ if needed later); None when cancelled.
+#[tauri::command]
+pub async fn pick_file() -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let out = std::process::Command::new("/usr/bin/osascript").args(["-e", "POSIX path of (choose file with prompt \"일정에 붙일 파일\")"]).output().map_err(|e| e.to_string())?;
+        let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        Ok(if out.status.success() && !p.is_empty() { Some(p) } else { None })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// 할 일 묶기: a short name for the chosen titles (at most 12, secret-looking ones dropped).
 #[tauri::command]
 pub async fn name_tasks(titles: Vec<String>) -> Result<String, String> {

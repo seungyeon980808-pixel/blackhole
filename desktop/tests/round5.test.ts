@@ -83,7 +83,7 @@ describe("the day (A-2, A-5, B-10, B-11)", () => {
     expect(root.querySelector(".tl .ph")!.textContent).toContain("완료 1");
     expect([...root.querySelectorAll(".tl > .task .tn")].map((x) => x.textContent)).toEqual(["보고서1/2 ▸"]); // the title and its x/y steps
     expect(root.querySelector(".tl details.fold summary")!.textContent).toBe("완료 1");
-    expect(root.querySelector('.task[data-ev="t1"] .rem')!.textContent).toBe("8시간 남음"); // the time left; the deadline itself on hover
+    expect(root.querySelector('.task[data-ev="t1"] .rem')!.textContent).toBe("8시간"); // the time left; the deadline itself on hover
     expect(root.querySelector<HTMLElement>('.task[data-ev="t1"] .rem')!.title).toContain("17:00까지");
   });
 
