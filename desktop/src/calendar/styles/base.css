@@ -827,3 +827,12 @@ html.phone .bh .ptask .rem, html.phone .bh[data-view="pri"] .quad .mq .prem { wi
 .bh .tdv .dtg .sg .lk { order: 8; }
 .bh .tdv .dtg .sg .rem { order: 9; }
 .bh .tdv .dtg .sg .t { order: 2; }
+
+/* 파일을 끌어 놓을 줄·칸 (11-11): 놓으면 그 항목에 링크로 붙음 */
+.bh .droplink { outline: 2px dashed rgba(255,255,255,.85); outline-offset: -2px; background-color: rgba(255,255,255,.14) !important; }
+.bh[data-mode="light"] .droplink, .bh.doc .droplink { outline-color: var(--ink); }
+.bh .ctxm .cm-lk { display: flex; align-items: center; gap: 7px; }
+.bh .ctxm .cm-lk svg { width: 14px; height: 14px; flex: none; }
+.bh .ctxm .cm-lk span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bh .ctxm .cm-sep { height: 1px; background: var(--x-hair); margin: 5px 0; }
+.bh .ctxm .cm-lk span { flex: 1; margin-left: 0; color: var(--ink); text-align: left; font-size: 13px; opacity: 1; }

@@ -1408,16 +1408,24 @@ pub fn open_target(target: String) -> Result<(), String> {
     if status.success() { Ok(()) } else { Err("열지 못했어요.".into()) }
 }
 
-/// 「파일 고르기」: Finder's chooser (a file, or a folder with ⌘ if needed later); None when cancelled.
+/// 「파일 고르기」 「폴더 고르기」: Finder's chooser; None when cancelled.
 #[tauri::command]
-pub async fn pick_file() -> Result<Option<String>, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let out = std::process::Command::new("/usr/bin/osascript").args(["-e", "POSIX path of (choose file with prompt \"일정에 붙일 파일\")"]).output().map_err(|e| e.to_string())?;
+pub async fn pick_file(folder: Option<bool>) -> Result<Option<String>, String> {
+    let script = if folder.unwrap_or(false) { "POSIX path of (choose folder with prompt \"일정에 붙일 폴더\")" } else { "POSIX path of (choose file with prompt \"일정에 붙일 파일\")" };
+    tauri::async_runtime::spawn_blocking(move || {
+        let out = std::process::Command::new("/usr/bin/osascript").args(["-e", script]).output().map_err(|e| e.to_string())?;
         let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
         Ok(if out.status.success() && !p.is_empty() { Some(p) } else { None })
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// 「복사한 링크 붙이기」: the clipboard's text (first 2,000 characters).
+#[tauri::command]
+pub fn clipboard_text() -> Result<String, String> {
+    let out = std::process::Command::new("/usr/bin/pbpaste").output().map_err(|e| e.to_string())?;
+    Ok(String::from_utf8_lossy(&out.stdout).chars().take(2000).collect())
 }
 
 /// 할 일 묶기: a short name for the chosen titles (at most 12, secret-looking ones dropped).

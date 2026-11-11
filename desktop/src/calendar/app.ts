@@ -17,7 +17,7 @@ import {
   liveEvents,
 } from "./store";
 import { EFFORTS, effortOf, hourPieces, phoneToday, priorityView, todayView, type TodayOpts } from "./views/today";
-import { checksBar, dictationFixes, duplicates, ICON, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
+import { checksBar, dictationFixes, duplicates, ICON, linkIcon, memoList, memoRows, resultCard, tipHTML, type Ctx, type ThemeView, type ViewName } from "./views/common";
 import { detailHTML } from "./views/detail";
 import { cleanTag, isClassTag, liveNotes, ruleTags, tagsOf, untaggedLines } from "./tags";
 import { doc, printSheet } from "./views/doc";
@@ -980,7 +980,7 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     if (ls.length === 1) return openLink(ls[0].href);
     const r = at.getBoundingClientRect();
     const base = root.getBoundingClientRect();
-    root.insertAdjacentHTML("beforeend", `<div class="lkmenu" role="menu" style="left:${Math.max(8, Math.min(r.left - base.left, base.width - 250))}px;top:${r.bottom - base.top + 4}px">${ls.map((l, i) => `<button type="button" role="menuitem" data-lkopen="${id}|${i}">${/^https?:/i.test(l.href) ? ICON.link : ICON.file}<span>${escapeHtml(linkName(l))}</span></button>`).join("")}</div>`);
+    root.insertAdjacentHTML("beforeend", `<div class="lkmenu" role="menu" style="left:${Math.max(8, Math.min(r.left - base.left, base.width - 250))}px;top:${r.bottom - base.top + 4}px">${ls.map((l, i) => `<button type="button" role="menuitem" data-lkopen="${id}|${i}">${linkIcon(l.href)}<span>${escapeHtml(linkName(l))}</span></button>`).join("")}</div>`);
   }
 
   function detailField(el: HTMLInputElement | HTMLTextAreaElement): void {
@@ -2480,7 +2480,10 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     const m = ctxMenu.month;
     const first = new Date(m.getFullYear(), m.getMonth(), 1);
     const cells = Array.from({ length: 42 }, (_, i) => addDays(first, i - mon0(first)));
-    el.innerHTML = `<div class="cm-h">「${escapeHtml(e.title)}」 날짜 옮기기</div>${pick("tomorrow", "내일")}${pick("weekday", "다음 평일")}${pick("nextweek", "다음 주 같은 요일")}
+    // 링크·파일 (11-11): open what is on it, or put a file, a folder or the copied link on it — no 상세 창.
+    const lk = e.kind === "event" || e.kind === "task" ? e.links ?? [] : null;
+    const links = lk === null ? "" : `<div class="cm-h">링크·파일</div>${lk.map((l, i) => `<button data-lkopen="${e.id}|${i}" class="cm-lk">${linkIcon(l.href)}<span>${escapeHtml(linkName(l))}</span></button>`).join("")}${adapter.pickFile ? '<button data-cmlink="file">파일 붙이기…</button><button data-cmlink="folder">폴더 붙이기…</button>' : ""}<button data-cmlink="paste">복사한 링크 붙이기</button><div class="cm-sep"></div>`;
+    el.innerHTML = `${links}<div class="cm-h">「${escapeHtml(e.title)}」 날짜 옮기기</div>${pick("tomorrow", "내일")}${pick("weekday", "다음 평일")}${pick("nextweek", "다음 주 같은 요일")}
       <div class="cm-cal"><div class="cm-mh"><button data-mvm="-1" aria-label="이전 달">‹</button><b>${m.getFullYear()}. ${m.getMonth() + 1}.</b><button data-mvm="1" aria-label="다음 달">›</button></div><div class="cm-g">${DOW_MON.split("").map((d) => `<i>${d}</i>`).join("")}${cells.map((d) => `<button data-mv="${ymd(d)}" class="${d.getMonth() === m.getMonth() ? "" : "out"} ${ymd(d) === ymd(clock()) ? "td" : ""}">${d.getDate()}</button>`).join("")}</div></div>`;
     el.hidden = false;
     if (x || y) {
@@ -3183,6 +3186,28 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
       if (openFolds.has(key)) openFolds.delete(key);
       else openFolds.add(key);
       return render();
+    }
+    if (q("#bhCtx [data-lkopen]")) {
+      const [id, i] = q("[data-lkopen]")!.dataset.lkopen!.split("|");
+      ctxMenu = null;
+      renderCtx();
+      const l = findEntry(s, id)?.links?.[Number(i)];
+      return l ? openLink(l.href) : undefined;
+    }
+    if (q("#bhCtx [data-cmlink]") && ctxMenu) {
+      const id = ctxMenu.id;
+      const how = q("[data-cmlink]")!.dataset.cmlink!;
+      ctxMenu = null;
+      renderCtx();
+      if (how === "paste") {
+        const read = adapter.clipboardText ? adapter.clipboardText() : navigator.clipboard?.readText?.() ?? Promise.resolve("");
+        return void read.then((t) => {
+          const href = asLink(t);
+          if (href) addLink(id, href);
+          else toast("복사한 것이 링크나 파일 경로가 아니에요 · https://… 나 /Users/… 를 복사해 주세요");
+        }).catch(() => toast("복사한 내용을 읽지 못했어요"));
+      }
+      return void adapter.pickFile?.(how === "folder").then((p) => (p ? addLink(id, p) : undefined)).catch((err: unknown) => toast(err instanceof Error ? err.message : String(err)));
     }
     if (q("#bhCtx")) {
       const mv = q("[data-mv]");
@@ -4312,7 +4337,8 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
   root.addEventListener("contextmenu", (e) => {
     const t = (e.target as HTMLElement).closest<HTMLElement>("[data-ev]");
     if (!t || t.closest("#bhSettings")) return;
-    const x = findEntry(s, t.dataset.ev!);
+    const x0 = findEntry(s, t.dataset.ev!);
+    const x = x0?.kind === "event" && x0.workFor ? findEntry(s, x0.workFor) ?? x0 : x0;
     if (!x || (x.kind !== "event" && x.kind !== "task" && x.kind !== "period")) return;
     e.preventDefault();
     picked = x.id;
@@ -4383,10 +4409,29 @@ export async function mountBlackhole(root: HTMLElement, adapter: BlackholeAdapte
     syncAlarms();
     render();
   });
-  // A file dropped while an entry's 상세 창 is open goes on that entry as a link (11-11 시안 19); else into the inbox.
-  adapter.onFileDrop?.((paths) => {
-    const x = detailId ? findEntry(s, detailId) : undefined;
-    if (x && x.kind !== "note") return paths.forEach((p) => addLink(x.id, p));
+  /**
+   * A file or folder dropped on a to-do row or a box on the day table (or on the open 상세 창) goes on that entry
+   * as a link (11-11 사용자: 「상세 창 말고 바로」); anywhere else into the inbox as before.
+   */
+  const linkTargetAt = (at?: { x: number; y: number }): string | null => {
+    if (!at) return null;
+    const el = (document.elementFromPoint(at.x, at.y) as HTMLElement | null);
+    if (el?.closest("#bhDetail") && detailId) return detailId;
+    const row = el?.closest<HTMLElement>(".tl .task[data-task], .dtg [data-evbox], .phv .prow[data-ev], .quad .mq[data-task], .fc [data-ev]");
+    const id = row?.dataset.task ?? row?.dataset.evbox ?? row?.dataset.ev;
+    const x = id ? findEntry(s, id) : undefined;
+    if (!x || (x.kind !== "event" && x.kind !== "task")) return null;
+    return x.kind === "event" && x.workFor ? x.workFor : x.id;
+  };
+  adapter.onFileOver?.((at) => {
+    root.querySelectorAll(".droplink").forEach((r) => r.classList.remove("droplink"));
+    const id = at ? linkTargetAt(at) : null;
+    if (id) root.querySelectorAll(`.tl .task[data-task="${id}"], .dtg [data-evbox="${id}"], .dtg [data-ev="${id}"], .quad .mq[data-task="${id}"], .phv .prow[data-ev="${id}"]`).forEach((r) => r.classList.add("droplink"));
+  });
+  adapter.onFileDrop?.((paths, at) => {
+    root.querySelectorAll(".droplink").forEach((r) => r.classList.remove("droplink"));
+    const id = linkTargetAt(at) ?? (detailId && findEntry(s, detailId)?.kind !== "note" ? detailId : null);
+    if (id) return paths.forEach((p) => addLink(id, p));
     paths.forEach((p) => void (adapter.putPath ? adapter.putPath(p, "끌어 놓기") : submitPath(p)));
   });
   adapter.onPut?.((p) => void handlePut(p));

@@ -87,7 +87,10 @@ export interface BlackholeAdapter {
   /** Start/stop the ringing sound and bring the window forward. Returns true when the adapter rings itself. */
   ring(on: boolean): Promise<boolean>;
   print(): Promise<void>;
-  onFileDrop?(handler: (paths: string[]) => void): void;
+  /** Files dropped on the window, with where (page pixels) when the platform says (11-11: on a row = a link). */
+  onFileDrop?(handler: (paths: string[], at?: { x: number; y: number }) => void): void;
+  /** Files dragged over the window (null = left or dropped): to light up the row they would go on. */
+  onFileOver?(handler: (at: { x: number; y: number } | null) => void): void;
   /** Window glass (desktop shows through) for the current theme, where the platform has it. */
   setLook?(theme: string, mode: string): Promise<void>;
 
@@ -139,7 +142,9 @@ export interface BlackholeAdapter {
   /** Mac: open a link in the browser, a file or folder in its own app (11-11). */
   openTarget?(target: string): Promise<void>;
   /** Mac: choose a file or folder (Finder's chooser); null when cancelled. */
-  pickFile?(): Promise<string | null>;
+  pickFile?(folder?: boolean): Promise<string | null>;
+  /** Mac: the clipboard's text (「복사한 링크 붙이기」). */
+  clipboardText?(): Promise<string>;
   /** 질문 답하기 over the found `[id] …` lines: answer lines with their grounds, and whether they were enough. */
   answerAi?(question: string, lines: string[]): Promise<{ lines: import("./ask").AnswerLine[]; enough: boolean }>;
   /** Copy a secret's value (Touch ID first; the clipboard is cleared after 30 s). */

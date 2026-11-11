@@ -148,6 +148,7 @@ pub fn run() {
             mac::name_tasks,
             mac::open_target,
             mac::pick_file,
+            mac::clipboard_text,
             mac::route_text,
             mac::answer_records,
             mac::memo_tags,

@@ -98,6 +98,7 @@ export const ICON = {
   clock: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
   memo: svg('<path d="M6.5 3.5h8l3.5 3.5v13.5H6.5z"/><path d="M9.5 11.5h5M9.5 15h5"/>'),
   link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 6.5h6l2 2h9v10h-17z"/></svg>',
   file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3.5h8l3.5 3.5v13.5H6.5z"/><path d="M14.5 3.5V7H18"/></svg>',
   cal: svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>'),
   todo: svg('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12l2.5 2.5L15.5 9"/>'),
@@ -467,3 +468,6 @@ export function tipHTML(ctx: Ctx, id: string, fd: (k: string) => string): string
   const subs = x.kind === "task" && x.subs.length ? `<div class="tsub">${x.subs.map((t) => `<div>${t.done ? "☑" : "☐"} ${esc(t.title)}</div>`).join("")}</div>` : "";
   return `<b>${esc(x.title)}</b><div>${esc([KIND_WORD[x.kind], ...lines].join(" · "))}</div>${rem ? `<div>${esc(rem)}</div>` : ""}${subs}${x.details ? `<div class="tdet">${esc(x.details)}</div>` : ""}${x.review?.length ? `<div class="warn">※ ${esc(x.review.join(" · "))}</div>` : ""}<div class="tsrc">${esc(x.source)} · ${esc(x.createdAt.slice(5, 10).replace("-", "/"))} ${esc(x.createdAt.slice(11, 16))}</div>`;
 }
+
+/** The icon for a link: the web, a folder (no extension at the end) or a file (11-11). */
+export const linkIcon = (href: string): string => (/^https?:/i.test(href) ? ICON.link : /\.[a-z0-9]{1,6}$/i.test(href.replace(/\/+$/, "")) ? ICON.file : ICON.folder);

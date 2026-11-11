@@ -6,7 +6,7 @@
 import { linkName, type Entry } from "../model";
 import { findEntry } from "../store";
 import { tagsOf } from "../tags";
-import { aiOffer, esc, ICON, type Ctx } from "./common";
+import { aiOffer, esc, ICON, linkIcon, type Ctx } from "./common";
 
 const KIND = { event: "일정", task: "할 일", period: "기간", note: "기억" } as const;
 
@@ -118,7 +118,7 @@ export function detailHTML(ctx: Ctx, id: string, fd: (k: string) => string, mont
   // 링크·파일 (11-11 시안 19): 누르면 열림, × 떼기, 붙여넣기·끌어 놓기·「파일 고르기」.
   if (x.kind !== "note") {
     const ls = x.links ?? [];
-    tidy.push(`<div class="df dlinks"><span class="dl2">링크·파일</span><div class="dlk">${ls.map((l, i) => `<span class="dchip dlc"><button type="button" class="dlo" data-lopen="${i}" title="${esc(l.href)} · 누르면 열림">${/^https?:/i.test(l.href) ? ICON.link : ICON.file}<span>${esc(linkName(l))}</span></button><button type="button" data-ldel="${i}" title="떼기" aria-label="떼기">×</button></span>`).join("")}<span class="dladd"><input data-df="link" placeholder="링크 붙여넣기 · 파일을 끌어 놓기" autocomplete="off" spellcheck="false" aria-label="링크·파일 붙이기">${ctx.canPick ? '<button type="button" class="mini" data-lpick>파일 고르기</button>' : ""}</span></div></div>`);
+    tidy.push(`<div class="df dlinks"><span class="dl2">링크·파일</span><div class="dlk">${ls.map((l, i) => `<span class="dchip dlc"><button type="button" class="dlo" data-lopen="${i}" title="${esc(l.href)} · 누르면 열림">${linkIcon(l.href)}<span>${esc(linkName(l))}</span></button><button type="button" data-ldel="${i}" title="떼기" aria-label="떼기">×</button></span>`).join("")}<span class="dladd"><input data-df="link" placeholder="링크 붙여넣기 · 파일을 끌어 놓기" autocomplete="off" spellcheck="false" aria-label="링크·파일 붙이기">${ctx.canPick ? '<button type="button" class="mini" data-lpick>파일 고르기</button>' : ""}</span></div></div>`);
   }
   tidy.push(field("메모", `<textarea data-df="details" rows="3" placeholder="자세한 내용" spellcheck="false">${esc(x.details ?? "")}</textarea>`));
   rows.push(`<div class="dsec"><h4>정리</h4>${tidy.join("")}</div>`);

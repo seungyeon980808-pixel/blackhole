@@ -165,3 +165,38 @@ describe("11-11 시안 19: 링크·파일", () => {
     expect(t1().links!.map((l) => l.href)).toEqual(["/Users/me/2학년 채점표.xlsx"]);
   });
 });
+
+describe("11-11: 상세 창 없이 링크·파일", () => {
+  it("할 일 줄에 파일을 끌어 놓으면 그 할 일에 붙음(빈 곳이면 인박스), 오른쪽 클릭 메뉴에서 열기·폴더·복사한 링크", async () => {
+    let drop: ((p: string[], at?: { x: number; y: number }) => void) | null = null;
+    const put: string[] = [];
+    const opened: string[] = [];
+    const root = await mount({ onFileDrop: (h: typeof drop) => void (drop = h), putPath: async (p: string) => void put.push(p), openTarget: async (t: string) => void opened.push(t), pickFile: async (folder?: boolean) => (folder ? "/Users/me/대의원회" : null), clipboardText: async () => "https://docs.google.com/x" });
+    app!.setView("day", "2026-11-04");
+    const row = root.querySelector<HTMLElement>('.tl .task[data-task="t3"] .tn')!;
+    const was = document.elementFromPoint;
+    document.elementFromPoint = (x: number) => (x === 10 ? row : document.body) as Element;
+    drop!(["/Users/me/회의록.hwp"], { x: 10, y: 10 });
+    drop!(["/Users/me/공지.pdf"], { x: 99, y: 10 });
+    document.elementFromPoint = was;
+    await tick();
+    const t3 = () => app!.state.tasks.find((t) => t.id === "t3")!;
+    expect(t3().links).toEqual([{ href: "/Users/me/회의록.hwp" }]);
+    expect(put).toEqual(["/Users/me/공지.pdf"]);
+    // 오른쪽 클릭: 링크 열기 · 폴더 붙이기 · 복사한 링크 붙이기
+    const menu = () => root.querySelector<HTMLElement>("#bhCtx")!;
+    const right = () => root.querySelector<HTMLElement>('.tl .task[data-task="t3"]')!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 50, clientY: 50 }));
+    right();
+    expect([...menu().querySelectorAll(".cm-lk")].map((b) => b.textContent)).toEqual(["회의록.hwp"]);
+    menu().querySelector<HTMLElement>(".cm-lk")!.click();
+    expect(opened).toEqual(["/Users/me/회의록.hwp"]);
+    right();
+    menu().querySelector<HTMLElement>('[data-cmlink="folder"]')!.click();
+    await tick();
+    right();
+    menu().querySelector<HTMLElement>('[data-cmlink="paste"]')!.click();
+    await tick();
+    await tick();
+    expect(t3().links!.map((l) => l.href)).toEqual(["/Users/me/회의록.hwp", "/Users/me/대의원회", "https://docs.google.com/x"]);
+  });
+});

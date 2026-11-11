@@ -115,7 +115,8 @@ export function tauriAdapter(): BlackholeAdapter {
     askAi: (question, lines) => invoke("ask_records", { question, lines }),
     nameTasks: (titles) => invoke("name_tasks", { titles }),
     openTarget: (target) => invoke("open_target", { target }),
-    pickFile: () => invoke("pick_file"),
+    pickFile: (folder) => invoke("pick_file", { folder: !!folder }),
+    clipboardText: () => invoke("clipboard_text"),
     routeText: (text) => invoke("route_text", { text }),
     answerAi: (question, lines) => invoke("answer_records", { question, lines }),
     secretCopy: (name) => invoke("secret_copy", { name }),
@@ -131,9 +132,15 @@ export function tauriAdapter(): BlackholeAdapter {
     publishShared: (shared) => invoke<string>("share_calendar", { shared }),
     phoneActions: () => invoke<UserAction[]>("phone_actions"),
     onFileDrop(handler) {
-      // This window only (the quick window handles its own drops).
+      // This window only (the quick window handles its own drops). The place is in physical pixels.
       void getCurrentWebviewWindow().onDragDropEvent((e) => {
-        if (e.payload.type === "drop") handler(e.payload.paths ?? []);
+        if (e.payload.type === "drop") handler(e.payload.paths ?? [], e.payload.position ? { x: e.payload.position.x / devicePixelRatio, y: e.payload.position.y / devicePixelRatio } : undefined);
+      });
+    },
+    onFileOver(handler) {
+      void getCurrentWebviewWindow().onDragDropEvent((e) => {
+        if (e.payload.type === "over" || e.payload.type === "enter") handler(e.payload.position ? { x: e.payload.position.x / devicePixelRatio, y: e.payload.position.y / devicePixelRatio } : null);
+        else handler(null);
       });
     }
   };
